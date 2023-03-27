@@ -1,0 +1,8 @@
+-r base.txt
+coverage
+pytest
+tox
+mock
+ruff
+black
+typing-extensions
