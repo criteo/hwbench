@@ -19,5 +19,5 @@ class StressNG(Bench):
             capture_output=True,
         )
         # TODO: better parsing than this
-        score = float(out.stderr.splitlines()[-1].split()[8])
+        score = float(out.stdout.splitlines()[-1].split()[7])
         return {"stress-ng bogo ops/s": score}

@@ -4,14 +4,14 @@ import argparse
 import json
 import time
 
-import bench.stressng
-import environment.software as env_soft
-import environment.hardware as env_hw
-import tuning.setup
+from .bench import stressng
+from .environment import software as env_soft
+from .environment import hardware as env_hw
+from .tuning import setup as tuning_setup
 
 
 def main():
-    benchmarks = {"qsort": bench.stressng.StressNG()}
+    benchmarks = {"qsort": stressng.StressNG()}
     parser = argparse.ArgumentParser(
         prog="hwbench",
         description="Criteo Hardware Benchmarking tool",
@@ -27,7 +27,7 @@ def main():
     parser.add_argument("output", help="Name of output file", nargs="?", default=None)
     args = parser.parse_args()
 
-    tuning.setup.Tuning().apply()
+    tuning_setup.Tuning().apply()
     env = env_soft.Environment().dump()
     hw = env_hw.Hardware().dump()
     results = {}
@@ -47,7 +47,7 @@ def main():
         time.strftime("%Y%m%d%H%M%S"),
     )
     with open(output_file, "w") as f:
-        json.dump(out, f)
+        f.write(json.dumps(out))
 
 
 if __name__ == "__main__":

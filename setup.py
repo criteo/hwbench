@@ -27,7 +27,7 @@ setuptools.setup(
     data_files=[(".", ["requirements/base.txt"])],
     entry_points={
         "console_scripts": [
-            "command-name = package.module:main_func_name",
+            "hwbench =  hwbench.hwbench:main",
         ],
     },
     packages=setuptools.find_packages(),
