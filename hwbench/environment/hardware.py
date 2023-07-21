@@ -10,7 +10,7 @@ class Hardware:
         """Extract DMI & BMC information from the host."""
         try:
             return pathlib.Path(root_path + entry).read_text().replace("\n", "")
-        except FileNotFoundError as error:
+        except Exception as error:
             logging.error(f"Could not get dmi information {error}")
             return ""
 
