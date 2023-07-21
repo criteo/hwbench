@@ -1,0 +1,8 @@
+# ignore misc build/test files
+.env-lint
+*.pyc
+.ruff-cache
+hwbench-out-*.json
+hwbench.egg-info
+.coverage
+junit-python*.xml
