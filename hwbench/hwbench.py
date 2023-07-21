@@ -3,6 +3,9 @@
 import argparse
 import json
 import time
+import os
+import logging
+import sys
 
 from .bench import stressng
 from .environment import software as env_soft
@@ -10,7 +13,16 @@ from .environment import hardware as env_hw
 from .tuning import setup as tuning_setup
 
 
+def is_root():
+    # euid != uid. please keep it this way (set-uid)
+    return os.geteuid() == 0
+
+
 def main():
+    if not is_root():
+        logging.error("hwbench is not running as effective uid 0.")
+        sys.exit(1)
+
     benchmarks = {"qsort": stressng.StressNG()}
     parser = argparse.ArgumentParser(
         prog="hwbench",
@@ -51,4 +63,5 @@ def main():
 
 
 if __name__ == "__main__":
+    # don't add anything here setup.py points at main()
     main()
