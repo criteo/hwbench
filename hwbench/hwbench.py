@@ -2,10 +2,11 @@
 
 import argparse
 import json
-import time
-import os
 import logging
+import os
+import pathlib
 import sys
+import time
 
 from .bench import stressng
 from .environment import software as env_soft
@@ -23,7 +24,9 @@ def main():
         logging.error("hwbench is not running as effective uid 0.")
         sys.exit(1)
 
-    benchmarks = {"qsort": stressng.StressNG()}
+    out_dir = pathlib.Path(f"hwbench-out-{time.strftime('%Y%m%d%H%M%S')}")
+    out_dir.mkdir()
+    benchmarks = {"qsort": stressng.StressNG(out_dir)}
     parser = argparse.ArgumentParser(
         prog="hwbench",
         description="Criteo Hardware Benchmarking tool",

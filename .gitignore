@@ -2,7 +2,7 @@
 .env-lint
 *.pyc
 .ruff-cache
-hwbench-out-*.json
+hwbench-out-*
 hwbench.egg-info
 .coverage
 junit-python*.xml

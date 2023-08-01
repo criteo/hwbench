@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
+import abc
 
-class Bench:
+
+class Bench(abc.ABC):
     def run(self):
         pass
