@@ -4,6 +4,9 @@ import logging
 
 
 class Hardware:
+    def __init__(self, out_dir):
+        self.out_dir = out_dir
+
     # from conformity
     @staticmethod
     def get_dmi_from_sysfs(entry, root_path="/sys/devices/virtual/dmi/id/"):

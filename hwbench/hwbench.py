@@ -42,9 +42,9 @@ def main():
     parser.add_argument("output", help="Name of output file", nargs="?", default=None)
     args = parser.parse_args()
 
-    tuning_setup.Tuning().apply()
-    env = env_soft.Environment().dump()
-    hw = env_hw.Hardware().dump()
+    tuning_setup.Tuning(out_dir).apply()
+    env = env_soft.Environment(out_dir).dump()
+    hw = env_hw.Hardware(out_dir).dump()
     results = {}
     for b in args.bench:
         results[b] = benchmarks[b].run()
