@@ -1,4 +1,5 @@
 import pathlib
+import json
 
 import bench.stressng as stressng
 
@@ -8,17 +9,20 @@ class TestParse(object):
         for classname, prefix in [
             (stressng.StressNG, "stressng"),
         ]:
-            print(pathlib.Path(".").absolute())
             test_dir = pathlib.Path(f"./tests/parsing/{prefix}")
-            test_target = classname("")
             for d in test_dir.iterdir():
+                print(f"parsing test {d.name}")
+                test_target = classname("")
                 if not d.is_dir():
                     continue
-                ver_stdout = open(d / "version-stdout").read()
-                ver_stderr = open(d / "version-stderr").read()
+                ver_stdout = (d / "version-stdout").read_text()
+                ver_stderr = (d / "version-stderr").read_text()
 
-                test_target.parse_version(ver_stdout, ver_stderr)
+                version = test_target.parse_version(ver_stdout, ver_stderr)
+                assert version == (d / "version").read_text().strip()
 
-                out_stdout = open(d / "stdout").read()
-                out_stderr = open(d / "stderr").read()
-                test_target.parse_version(out_stdout, out_stderr)
+                stdout = (d / "stdout").read_text()
+                stderr = (d / "stderr").read_text()
+
+                output = test_target.parse_cmd(stdout, stderr)
+                assert output == json.loads((d / "output").read_text())
