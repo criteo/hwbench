@@ -1,5 +1,6 @@
 import os
 import json
+import pathlib
 
 
 class Environment:
@@ -9,6 +10,7 @@ class Environment:
         (self.out_dir / "kernel-info.json").write_text(
             json.dumps(self.kernel_version())
         )
+        (self.out_dir / "cmdline").write_bytes(self.kernel_cmdline())
 
     @staticmethod
     def kernel_version():
@@ -21,7 +23,12 @@ class Environment:
             "sysname": uname.sysname,
         }
 
+    @staticmethod
+    def kernel_cmdline():
+        return pathlib.Path("/proc/cmdline").read_bytes()
+
     def dump(self):
         return {
             "kernel": self.kernel_version(),
+            "kernel_cmdline": self.kernel_cmdline().decode("utf-8"),
         }
