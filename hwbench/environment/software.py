@@ -12,6 +12,8 @@ class Environment:
             "version": uname.version,
             "release": uname.release,
             "machine": uname.machine,
+            "nodename": uname.nodename,
+            "sysname": uname.sysname,
         }
 
     def dump(self):
