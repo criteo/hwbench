@@ -6,3 +6,4 @@ mock
 ruff
 black
 typing-extensions
+wheel
