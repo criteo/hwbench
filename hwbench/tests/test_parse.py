@@ -15,14 +15,14 @@ class TestParse(object):
                 test_target = classname("")
                 if not d.is_dir():
                     continue
-                ver_stdout = (d / "version-stdout").read_text()
-                ver_stderr = (d / "version-stderr").read_text()
+                ver_stdout = (d / "version-stdout").read_bytes()
+                ver_stderr = (d / "version-stderr").read_bytes()
 
                 version = test_target.parse_version(ver_stdout, ver_stderr)
-                assert version == (d / "version").read_text().strip()
+                assert version == (d / "version").read_bytes().strip()
 
-                stdout = (d / "stdout").read_text()
-                stderr = (d / "stderr").read_text()
+                stdout = (d / "stdout").read_bytes()
+                stderr = (d / "stderr").read_bytes()
 
                 output = test_target.parse_cmd(stdout, stderr)
-                assert output == json.loads((d / "output").read_text())
+                assert output == json.loads((d / "output").read_bytes())

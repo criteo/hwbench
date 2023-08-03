@@ -37,7 +37,7 @@ class StressNG(External):
 
     def version_major(self):
         if self.version:
-            return int(self.version.split(".")[1])
+            return int(self.version.split(b".")[1])
         return 0
 
     def parse_cmd(self, stdout, stderr):
