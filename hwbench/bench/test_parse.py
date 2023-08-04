@@ -1,7 +1,7 @@
 import pathlib
 import json
 
-import bench.stressng as stressng
+from . import stressng
 
 
 class TestParse(object):
