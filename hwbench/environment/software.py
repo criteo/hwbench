@@ -35,5 +35,5 @@ class Environment:
         return {
             "kernel": self.kernel_version(),
             "kernel_cmdline": self.kernel_cmdline().decode("utf-8"),
-            "rpms": self.rpms.run().decode("utf-8"),
+            "rpms": self.rpms.run(),
         }

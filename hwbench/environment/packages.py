@@ -7,7 +7,7 @@ class RpmList(External):
 
     # TODO: better parsing of package, version, architecture
     def parse_cmd(self, stdout, _stderr):
-        return stdout
+        return sorted(iter(stdout.decode("utf-8").splitlines()))
 
     def run_cmd_version(self):
         return ["rpm", "--version"]
