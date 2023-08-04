@@ -2,6 +2,8 @@ import os
 import json
 import pathlib
 
+from .packages import RpmList
+
 
 class Environment:
     def __init__(self, out_dir):
@@ -11,6 +13,8 @@ class Environment:
             json.dumps(self.kernel_version())
         )
         (self.out_dir / "cmdline").write_bytes(self.kernel_cmdline())
+
+        self.rpms = RpmList(out_dir)
 
     @staticmethod
     def kernel_version():
@@ -31,4 +35,5 @@ class Environment:
         return {
             "kernel": self.kernel_version(),
             "kernel_cmdline": self.kernel_cmdline().decode("utf-8"),
+            "rpms": self.rpms.run().decode("utf-8"),
         }
