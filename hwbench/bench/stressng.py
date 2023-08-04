@@ -1,12 +1,14 @@
 import os
 
-from .external import External
+from ..utils.external import External
+from .bench import Bench
 
 
-class StressNG(External):
+class StressNG(External, Bench):
     # TODO: class settings (timeout, type of test, number of jobs, etc.)
     def __init__(self, out_dir):
-        super().__init__(out_dir)
+        External.__init__(self, out_dir)
+        Bench.__init__(self)
 
     @property
     def name(self):

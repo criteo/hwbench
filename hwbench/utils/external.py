@@ -1,10 +1,8 @@
 import subprocess
-from abc import abstractmethod
-
-from .bench import Bench
+from abc import abstractmethod, ABC
 
 
-class External(Bench):
+class External(ABC):
     # TODO: class settings (timeout, type of test, number of jobs, etc.)
     def __init__(self, out_dir):
         self.out_dir = out_dir
