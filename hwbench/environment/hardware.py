@@ -26,7 +26,7 @@ class Hardware:
 
     def dump(self) -> dict[str, Optional[str]]:
         tarfilename = self.out_dir.joinpath(self.ARCH_DMI)
-        create_tar_from_directory(tarfilename.as_posix(), self.SYS_DMI)
+        create_tar_from_directory(self.SYS_DMI, tarfilename.as_posix())
 
         return {
             # TODO: more, or even dmidecode parsing

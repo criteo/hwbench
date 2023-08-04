@@ -1,5 +1,7 @@
-import tarfile
+import io
 import os
+import pathlib
+import tarfile
 from typing import Optional
 
 
@@ -10,7 +12,15 @@ def create_tar_from_directory(dir: str, tarfilename: str) -> None:
     tarfd = tarfile.open(tarfilename, "x")
     for rootpath, dirnames, filenames in os.walk(dir):
         for filename in filenames:
-            tarfd.add(os.path.join(rootpath, filename))
+            file = pathlib.Path(rootpath) / filename
+            try:
+                content = file.read_bytes()
+            except IOError:  # ignore files that might not work at the kernel level
+                print(f"{file} is unreadable")
+                continue
+            tf = tarfile.TarInfo(str(file))
+            tf.size = len(content)
+            tarfd.addfile(tf, io.BytesIO(content))
     tarfd.close()
     return None
 
