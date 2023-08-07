@@ -16,13 +16,13 @@ class Environment:
         (self.out_dir / "cmdline").write_bytes(self.kernel_cmdline())
 
         self.rpms = RpmList(out_dir)
+        self.rpms.run()
         self.proc_sys_info()
 
     def dump(self):
         return {
             "kernel": self.kernel_version(),
             "kernel_cmdline": self.kernel_cmdline().decode("utf-8"),
-            "rpms": self.rpms.run(),
         }
 
     @staticmethod
