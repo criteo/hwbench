@@ -1,3 +1,4 @@
+import errno
 import io
 import os
 import pathlib
@@ -15,8 +16,9 @@ def create_tar_from_directory(dir: str, tarfilename: str) -> None:
             file = pathlib.Path(rootpath) / filename
             try:
                 content = file.read_bytes()
-            except IOError:  # ignore files that might not work at the kernel level
-                print(f"{file} is unreadable")
+            except OSError as e:  # ignore files that might not work at the kernel level
+                if e.errno not in [errno.EIO, errno.EINVAL, errno.EACCES]:
+                    print(f"{file} is unreadable {e}")
                 continue
             tf = tarfile.TarInfo(str(file))
             tf.size = len(content)
