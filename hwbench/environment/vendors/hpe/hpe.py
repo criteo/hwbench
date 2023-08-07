@@ -1,6 +1,6 @@
 from ..vendor import Vendor
 from ...dmi import DmiSys
-from .ilorest import Ilorest
+from .ilorest import Ilorest, IlorestServerclone
 
 
 class Hpe(Vendor):
@@ -10,3 +10,6 @@ class Hpe(Vendor):
 
     def save_bios_config(self):
         Ilorest(self.out_dir).run()
+
+    def save_bmc_config(self):
+        IlorestServerclone(self.out_dir).run()

@@ -13,3 +13,7 @@ class Vendor(ABC):
     @abstractmethod
     def save_bios_config(self):
         pass
+
+    @abstractmethod
+    def save_bmc_config(self):
+        pass
