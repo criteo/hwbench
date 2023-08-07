@@ -32,6 +32,7 @@ class External(ABC):
         ver = subprocess.run(
             self.run_cmd_version(),
             capture_output=True,
+            cwd=self.out_dir,
         )
         open(f"{self.out_dir}/{self.name}-version-stdout", "wb").write(ver.stdout)
         open(f"{self.out_dir}/{self.name}-version-stderr", "wb").write(ver.stderr)
