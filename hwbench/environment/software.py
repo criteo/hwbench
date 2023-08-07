@@ -16,6 +16,13 @@ class Environment:
 
         self.rpms = RpmList(out_dir)
 
+    def dump(self):
+        return {
+            "kernel": self.kernel_version(),
+            "kernel_cmdline": self.kernel_cmdline().decode("utf-8"),
+            "rpms": self.rpms.run(),
+        }
+
     @staticmethod
     def kernel_version():
         uname = os.uname()
@@ -30,10 +37,3 @@ class Environment:
     @staticmethod
     def kernel_cmdline():
         return pathlib.Path("/proc/cmdline").read_bytes()
-
-    def dump(self):
-        return {
-            "kernel": self.kernel_version(),
-            "kernel_cmdline": self.kernel_cmdline().decode("utf-8"),
-            "rpms": self.rpms.run(),
-        }
