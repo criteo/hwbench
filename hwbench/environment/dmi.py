@@ -3,7 +3,7 @@ import os
 import pathlib
 from typing import Optional
 
-from ..archive.archive import create_tar_from_directory, extract_file_from_tar
+from ..utils.archive import create_tar_from_directory, extract_file_from_tar
 from ..utils.external import External
 
 

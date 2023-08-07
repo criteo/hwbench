@@ -3,7 +3,7 @@ import json
 import pathlib
 
 from .packages import RpmList
-from ..archive.archive import create_tar_from_directory
+from ..utils.archive import create_tar_from_directory
 
 
 class Environment:
