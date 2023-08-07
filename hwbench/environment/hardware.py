@@ -2,7 +2,7 @@ import os
 import pathlib
 from typing import Optional
 
-from hwbench.archive.archive import create_tar_from_directory, extract_file_from_tar
+from ..archive.archive import create_tar_from_directory, extract_file_from_tar
 
 
 class Hardware:
