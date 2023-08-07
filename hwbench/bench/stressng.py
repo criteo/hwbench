@@ -30,7 +30,7 @@ class StressNG(External, Bench):
             "--metrics-brief",
         ]
         if self.version_major() >= 16:
-            args.append("--quiet")
+            args.insert(1, "--quiet")
         return args
 
     def parse_version(self, stdout, _stderr):
