@@ -24,7 +24,7 @@ class Hardware:
     ) -> Optional[bytes]:
         return extract_file_from_tar(tarfile.as_posix(), os.path.join(root_path, file))
 
-    def dump(self) -> dict[str, Optional[str]]:
+    def dump(self) -> dict[str, Optional[str | int] | dict]:
         tarfilename = self.out_dir.joinpath(self.ARCH_DMI)
         create_tar_from_directory(self.SYS_DMI, tarfilename.as_posix())
 
