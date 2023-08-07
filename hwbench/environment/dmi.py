@@ -4,6 +4,7 @@ import pathlib
 from typing import Optional
 
 from ..archive.archive import create_tar_from_directory, extract_file_from_tar
+from ..utils.external import External
 
 
 class DmiSys:
@@ -32,7 +33,6 @@ class DmiSys:
 
     def dump(self) -> dict[str, Optional[str | int] | dict]:
         return {
-            # TODO: more, or even dmidecode parsing
             "vendor": self.info("sys_vendor"),
             "product": self.info("product_name"),
             "serial": self.info("product_serial"),
@@ -42,3 +42,23 @@ class DmiSys:
             },
             "sysconf_threads": os.sysconf("SC_NPROCESSORS_ONLN"),
         }
+
+
+class DmidecodeRaw(External):
+    def run_cmd(self):
+        """Raw dmi information to be passed to dmidecode --from-dump"""
+        return ["dmidecode", "--dump-bin", self.out_dir.joinpath("dmidecode.bin")]
+
+    def parse_cmd(self, _stdout, _stderr):
+        return None
+
+    def run_cmd_version(self):
+        return ["dmidecode", "--version"]
+
+    def parse_version(self, stdout, _stderr):
+        """Not much to parse since the full output is the version with dmidecode"""
+        return stdout.strip()
+
+    @property
+    def name(self):
+        return "dmidecode-bin"
