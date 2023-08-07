@@ -12,8 +12,8 @@ class DmiSys:
 
     def __init__(self, out_dir: pathlib.Path):
         self.out_dir = out_dir
-        tarfilename = self.out_dir.joinpath(self.ARCH_DMI)
-        create_tar_from_directory(self.SYS_DMI, tarfilename.as_posix())
+        self.tarfilename = self.out_dir.joinpath(self.ARCH_DMI)
+        create_tar_from_directory(self.SYS_DMI, self.tarfilename.as_posix())
 
     @staticmethod
     def bytes_to_dmi_info(payload: Optional[bytes]) -> Optional[str]:
@@ -27,27 +27,18 @@ class DmiSys:
     ) -> Optional[bytes]:
         return extract_file_from_tar(tarfile.as_posix(), os.path.join(root_path, file))
 
-    def dump(self) -> dict[str, Optional[str | int] | dict]:
-        tarfilename = self.out_dir.joinpath(self.ARCH_DMI)
+    def info(self, name: str) -> Optional[str]:
+        return self.bytes_to_dmi_info(self.extract_dmi_payload(self.tarfilename, name))
 
+    def dump(self) -> dict[str, Optional[str | int] | dict]:
         return {
             # TODO: more, or even dmidecode parsing
-            "vendor": self.bytes_to_dmi_info(
-                self.extract_dmi_payload(tarfilename, "sys_vendor")
-            ),
-            "product": self.bytes_to_dmi_info(
-                self.extract_dmi_payload(tarfilename, "product_name")
-            ),
-            "serial": self.bytes_to_dmi_info(
-                self.extract_dmi_payload(tarfilename, "product_serial")
-            ),
+            "vendor": self.info("sys_vendor"),
+            "product": self.info("product_name"),
+            "serial": self.info("product_serial"),
             "bios": {
-                "version": self.bytes_to_dmi_info(
-                    self.extract_dmi_payload(tarfilename, "bios_version")
-                ),
-                "release": self.bytes_to_dmi_info(
-                    self.extract_dmi_payload(tarfilename, "bios_release")
-                ),
+                "version": self.info("bios_version"),
+                "release": self.info("bios_release"),
             },
             "sysconf_threads": os.sysconf("SC_NPROCESSORS_ONLN"),
         }
