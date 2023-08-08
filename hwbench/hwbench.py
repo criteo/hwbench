@@ -26,6 +26,8 @@ def main():
 
     out_dir = pathlib.Path(f"hwbench-out-{time.strftime('%Y%m%d%H%M%S')}")
     out_dir.mkdir()
+    tuning_out_dir = out_dir / "tuning"
+    tuning_out_dir.mkdir()
     benchmarks = {"qsort": stressng.StressNG(out_dir)}
     parser = argparse.ArgumentParser(
         prog="hwbench",
@@ -42,7 +44,7 @@ def main():
     parser.add_argument("output", help="Name of output file", nargs="?", default=None)
     args = parser.parse_args()
 
-    tuning_setup.Tuning(out_dir).apply()
+    tuning_setup.Tuning(tuning_out_dir).apply()
     env = env_soft.Environment(out_dir).dump()
     hw = env_hw.Hardware(out_dir).dump()
     results = {}
