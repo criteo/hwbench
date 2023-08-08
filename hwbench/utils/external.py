@@ -28,14 +28,18 @@ class External(ABC):
     def parse_version(self, stdout, stderr):
         return {}
 
+    def _write_output(self, name, content):
+        if len(content) > 0:
+            self.out_dir.joinpath(f"{self.name}-{name}").write_bytes(content)
+
     def run(self):
         ver = subprocess.run(
             self.run_cmd_version(),
             capture_output=True,
             cwd=self.out_dir,
         )
-        open(f"{self.out_dir}/{self.name}-version-stdout", "wb").write(ver.stdout)
-        open(f"{self.out_dir}/{self.name}-version-stderr", "wb").write(ver.stderr)
+        self._write_output("version-stdout", ver.stdout)
+        self._write_output("version-stderr", ver.stderr)
         self.parse_version(ver.stdout, ver.stderr)
 
         out = subprocess.run(
@@ -44,7 +48,7 @@ class External(ABC):
         )
         # save outputs
 
-        open(f"{self.out_dir}/{self.name}-stdout", "wb").write(out.stdout)
-        open(f"{self.out_dir}/{self.name}-stderr", "wb").write(out.stderr)
+        self._write_output("stdout", out.stdout)
+        self._write_output("stderr", out.stderr)
 
         return self.parse_cmd(out.stdout, out.stderr)
