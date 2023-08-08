@@ -1,3 +1,4 @@
+from .drop_caches import SysctlDropCaches
 from .sync import Sync
 
 
@@ -7,3 +8,4 @@ class Tuning:
 
     def apply(self):
         Sync(self.out_dir).run()
+        SysctlDropCaches(self.out_dir).run()
