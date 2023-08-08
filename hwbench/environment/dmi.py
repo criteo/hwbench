@@ -45,20 +45,20 @@ class DmiSys:
 
 
 class DmidecodeRaw(External):
-    def run_cmd(self):
+    def run_cmd(self) -> list[str]:
         """Raw dmi information to be passed to dmidecode --from-dump"""
-        return ["dmidecode", "--dump-bin", self.out_dir.joinpath("dmidecode.bin")]
+        return ["dmidecode", "--dump-bin", str(self.out_dir.joinpath("dmidecode.bin"))]
 
-    def parse_cmd(self, _stdout, _stderr):
+    def parse_cmd(self, _stdout: bytes, _stderr: bytes):
         return None
 
-    def run_cmd_version(self):
+    def run_cmd_version(self) -> list[str]:
         return ["dmidecode", "--version"]
 
-    def parse_version(self, stdout, _stderr):
+    def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
         """Not much to parse since the full output is the version with dmidecode"""
         return stdout.strip()
 
     @property
-    def name(self):
+    def name(self) -> str:
         return "dmidecode-bin"
