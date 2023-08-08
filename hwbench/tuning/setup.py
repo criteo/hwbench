@@ -1,6 +1,7 @@
 from .drop_caches import SysctlDropCaches
 from .power_profile import PerformancePowerProfile
 from .sync import Sync
+from .turbo_boost import IntelTurboBoost, TurboBoost
 
 
 class Tuning:
@@ -11,3 +12,5 @@ class Tuning:
         Sync(self.out_dir).run()
         SysctlDropCaches(self.out_dir).run()
         PerformancePowerProfile(self.out_dir).run()
+        IntelTurboBoost(self.out_dir).run()
+        TurboBoost(self.out_dir).run()
