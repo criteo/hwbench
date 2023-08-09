@@ -1,5 +1,6 @@
 from .drop_caches import SysctlDropCaches
 from .power_profile import PerformancePowerProfile
+from .scheduler import MQDeadlineIOScheduler
 from .sync import Sync
 from .turbo_boost import IntelTurboBoost, TurboBoost
 
@@ -14,3 +15,4 @@ class Tuning:
         PerformancePowerProfile(self.out_dir).run()
         IntelTurboBoost(self.out_dir).run()
         TurboBoost(self.out_dir).run()
+        MQDeadlineIOScheduler(self.out_dir).run()
