@@ -22,5 +22,8 @@ $(LINT_ENV):
 check: $(LINT_ENV)
 	env PYTHON=python3 ./$(LINT_ENV)/bin/tox
 
+bundle: $(LINT_ENV)
+	env PYTHON=python3 ./$(LINT_ENV)/bin/tox -e bundle
+
 format: $(LINT_ENV)
 	./$(LINT_ENV)/bin/black $(SOURCES)

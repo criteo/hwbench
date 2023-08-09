@@ -144,6 +144,10 @@ pathspec==0.11.2 \
     --hash=sha256:1d6ed233af05e679efb96b1851550ea95bbb64b7c490b0f5aa52996c11e92a20 \
     --hash=sha256:e0d8d0ac2f12da61956eb2306b69f9469b42f4deb0f3cb6ed47b9cce9996ced3
     # via black
+pex==2.1.142 \
+    --hash=sha256:b970ebe30134a930fb10a76e31912c83047f8cf3c3dd0e0ce3cce48f11a2a071 \
+    --hash=sha256:fb658910e2feaed765f5d6665ea91a451ba3ed3cc3667f77b72657c4f5916813
+    # via -r requirements/test.in
 platformdirs==3.10.0 \
     --hash=sha256:b45696dab2d7cc691a3226759c0d3b00c47c8b6e293d96f6436f733303f77f6d \
     --hash=sha256:d7c24979f292f916dc9cbf8648319032f551ea8c49a4c9bf2fb556a02070ec1d
