@@ -1,8 +1,8 @@
 from .drop_caches import SysctlDropCaches
 from .power_profile import PerformancePowerProfile
 from .scheduler import MQDeadlineIOScheduler
-from .sync import Sync
 from .turbo_boost import IntelTurboBoost, TurboBoost
+from ..utils.external import External_Simple
 
 
 class Tuning:
@@ -10,7 +10,7 @@ class Tuning:
         self.out_dir = out_dir
 
     def apply(self):
-        Sync(self.out_dir).run()
+        External_Simple(self.out_dir, ["sync"])
         SysctlDropCaches(self.out_dir).run()
         PerformancePowerProfile(self.out_dir).run()
         IntelTurboBoost(self.out_dir).run()
