@@ -4,6 +4,7 @@ import pathlib
 
 from .packages import RpmList
 from ..utils.archive import create_tar_from_directory
+from ..utils.external import External_Simple
 
 
 class Environment:
@@ -18,6 +19,7 @@ class Environment:
         self.rpms = RpmList(out_dir)
         self.rpms.run()
         self.proc_sys_info()
+        self.kernel_logs()
 
     def dump(self):
         return {
@@ -48,4 +50,11 @@ class Environment:
         create_tar_from_directory(
             "/sys/devices/system/cpu",
             self.out_dir.joinpath("sys-system-cpu.tar"),
+        )
+
+    def kernel_logs(self):
+        External_Simple(
+            self.out_dir,
+            ["journalctl", "--boot", "-k", "-o", "json", "--no-pager"],
+            "kernel-logs",
         )
