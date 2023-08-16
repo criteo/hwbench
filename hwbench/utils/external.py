@@ -1,3 +1,4 @@
+import os
 import pathlib
 import subprocess
 from abc import abstractmethod, ABC
@@ -36,11 +37,14 @@ class External(ABC):
 
     def run(self):
         """Returns the output of parse_cmd (a json-able type)"""
+        english_env = os.environ.copy()
+        english_env["LC_ALL"] = "C"
         if self.run_cmd_version():
             ver = subprocess.run(
                 self.run_cmd_version(),
                 capture_output=True,
                 cwd=self.out_dir,
+                env=english_env,
             )
             self._write_output("version-stdout", ver.stdout)
             self._write_output("version-stderr", ver.stderr)
@@ -49,6 +53,7 @@ class External(ABC):
         out = subprocess.run(
             self.run_cmd(),
             capture_output=True,
+            env=english_env,
         )
         # save outputs
 
