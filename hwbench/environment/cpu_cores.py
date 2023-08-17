@@ -43,8 +43,6 @@ class CPU_CORES(External):
     def get_socket(self, number) -> dict[int, list[int]]:
         if not self.sockets.get(number):
             self.sockets[number] = {}
-        print(self.sockets.get(number))
-        print()
         return self.sockets.get(number)
 
     def get_cores(self, socket, number) -> list[int]:
