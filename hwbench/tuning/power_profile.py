@@ -15,7 +15,7 @@ class PerformancePowerProfile:
             .split()
         )
         self.skip_tuning |= (
-            len(available_governors) == 1 & available_governors[0] == "menu"
+            len(available_governors) == 1 and available_governors[0] == "menu"
         )
 
     def run(self) -> None:
