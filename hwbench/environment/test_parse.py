@@ -3,6 +3,7 @@ import json
 
 from . import cpu_cores
 from . import cpu_info
+from . import numa
 
 
 class TestParseCPU(object):
@@ -183,3 +184,28 @@ class TestParseCPU(object):
         assert test_target.get_peer_siblings(0) == [0, 64]
         assert test_target.get_peer_sibling(0) == 64
         assert test_target.get_peer_sibling(64) == 0
+
+    def test_parsing_numa_1_domain(self):
+        d = pathlib.Path("./tests/parsing/numa/1domain")
+        print(f"parsing test {d.name}")
+        test_target = numa.NUMA("")
+
+        stdout = (d / "stdout").read_bytes()
+        stderr = (d / "stderr").read_bytes()
+
+        test_target.parse_cmd(stdout, stderr)
+        assert test_target.count() == 1
+        assert len(test_target.get_cores(0)) == 128
+
+    def test_parsing_numa_4_domains(self):
+        d = pathlib.Path("./tests/parsing/numa/4domains")
+        print(f"parsing test {d.name}")
+        test_target = numa.NUMA("")
+
+        stdout = (d / "stdout").read_bytes()
+        stderr = (d / "stderr").read_bytes()
+
+        test_target.parse_cmd(stdout, stderr)
+        assert test_target.count() == 4
+        for domain in range(0, test_target.count()):
+            assert len(test_target.get_cores(domain)) == 16
