@@ -39,3 +39,16 @@ def extract_file_from_tar(tarfilename: str, filename: str) -> Optional[bytes]:
     except KeyError:
         tarfd.close()
         return None
+
+
+def copy_file(filename: str, destination_dir: str) -> None:
+    """copy a file to a specific destination"""
+    source = pathlib.Path(filename)
+    destination = pathlib.Path(destination_dir) / source.name
+    try:
+        content = source.read_bytes()
+        destination.write_bytes(content)
+        # TODO may need to detect write_size != source.stat().st_size
+    except OSError as e:
+        print(f"copy_file( {destination_dir} , {filename} )  got: {e}")
+    return None

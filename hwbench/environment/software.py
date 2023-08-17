@@ -3,7 +3,7 @@ import json
 import pathlib
 
 from .packages import RpmList
-from ..utils.archive import create_tar_from_directory
+from ..utils.archive import copy_file, create_tar_from_directory
 from ..utils.external import External_Simple
 
 
@@ -15,6 +15,8 @@ class Environment:
             json.dumps(self.kernel_version())
         )
         (self.out_dir / "cmdline").write_bytes(self.kernel_cmdline())
+
+        copy_file("/proc/config.gz", self.out_dir)
 
         self.rpms = RpmList(out_dir)
         self.rpms.run()
