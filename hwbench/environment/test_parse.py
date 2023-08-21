@@ -209,3 +209,16 @@ class TestParseCPU(object):
         assert test_target.count() == 4
         for domain in range(0, test_target.count()):
             assert len(test_target.get_cores(domain)) == 16
+
+    def test_parsing_numa_8_domains_with_llc(self):
+        d = pathlib.Path("./tests/parsing/numa/8domainsllc")
+        print(f"parsing test {d.name}")
+        test_target = numa.NUMA("")
+
+        stdout = (d / "stdout").read_bytes()
+        stderr = (d / "stderr").read_bytes()
+
+        test_target.parse_cmd(stdout, stderr)
+        assert test_target.count() == 8
+        for domain in range(0, test_target.count()):
+            assert len(test_target.get_cores(domain)) == 16
