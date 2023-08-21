@@ -73,3 +73,18 @@ class StressNGQsort(StressNG):
             "--qsort",
             str(self.workers),
         ]
+
+
+class StressNGCpu(StressNG):
+    def __init__(self, out_dir: pathlib.Path, timeout: int, workers: int, method: str):
+        super().__init__(out_dir, timeout, workers)
+        self.method = method
+        self.stressor_name = "cpu-" + method
+
+    def run_cmd(self) -> list[str]:
+        return super().run_cmd() + [
+            "--cpu",
+            str(self.workers),
+            "--cpu-method",
+            self.method,
+        ]
