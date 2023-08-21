@@ -88,3 +88,34 @@ class StressNGCpu(StressNG):
             "--cpu-method",
             self.method,
         ]
+
+
+class StressNGMethods(StressNG):
+    def __init__(self, out_dir: pathlib.Path, timeout: int, workers: int):
+        super().__init__(out_dir, timeout, workers)
+        self.stressor_name = "cpu-method-list"
+
+    def run_cmd(self) -> list[str]:
+        return [
+            "stress-ng",
+            "--cpu-method",
+            "list",
+        ]
+
+    def parse_cmd(self, stdout: bytes, stderr: bytes) -> list[str]:
+        out = (stdout or stderr).split(b":", 1)
+        methods = out[1].decode("utf-8").split()
+        methods.remove("all")
+        return methods
+
+
+def stress_ng_cpu_all(
+    out_dir: pathlib.Path, timeout: int, workers: int
+) -> dict[str, Bench]:
+    methods = StressNGMethods(out_dir, timeout, workers).run()
+    return dict(
+        map(
+            lambda m: (f"sng-{m}", StressNGCpu(out_dir, timeout, workers, m)),
+            methods,
+        )
+    )

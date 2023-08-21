@@ -53,10 +53,12 @@ def create_output_directory() -> tuple[pathlib.Path, pathlib.Path]:
 def build_benchmarks(out_dir: pathlib.Path) -> Benchmarks:
     nproc = os.sysconf("SC_NPROCESSORS_ONLN")
     run_secs = 2
-    return {
+    cpu_benches = stressng.stress_ng_cpu_all(out_dir, run_secs, nproc)
+    other_benches = {
         "qsort": stressng.StressNGQsort(out_dir, run_secs, nproc),
-        "int8": stressng.StressNGCpu(out_dir, run_secs, nproc, "int8"),
     }
+    cpu_benches.update(other_benches)
+    return cpu_benches
 
 
 def parse_options(benchmark_names: list[str]):
