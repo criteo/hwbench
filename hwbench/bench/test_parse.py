@@ -7,7 +7,7 @@ from . import stressng
 class TestParse(object):
     def test_parsing(self):
         for classname, prefix in [
-            (stressng.StressNG, "stressng"),
+            (stressng.StressNGQsort, "stressng"),
         ]:
             test_dir = pathlib.Path(f"./tests/parsing/{prefix}")
             for d in test_dir.iterdir():

@@ -1,3 +1,4 @@
+import abc
 import os
 import pathlib
 
@@ -6,14 +7,16 @@ from .bench import Bench
 
 
 class StressNG(External, Bench):
-    # TODO: class settings (timeout, type of test, number of jobs, etc.)
+    # TODO: class settings (timeout, number of jobs, etc.)
+    @abc.abstractmethod
     def __init__(self, out_dir: pathlib.Path):
         External.__init__(self, out_dir)
         Bench.__init__(self)
+        self.stressor_name = "undefined"
 
     @property
     def name(self) -> str:
-        return "stress-ng"
+        return "stress-ng-" + self.stressor_name
 
     def run_cmd_version(self) -> list[str]:
         return [
@@ -24,8 +27,6 @@ class StressNG(External, Bench):
     def run_cmd(self) -> list[str]:
         args = [
             "stress-ng",
-            "--qsort",
-            "%d" % os.sysconf("SC_NPROCESSORS_ONLN"),
             "--timeout",
             "2",
             "--metrics-brief",
@@ -55,4 +56,16 @@ class StressNG(External, Bench):
 
         # TODO: better parsing than this
         score = float(inp.splitlines()[line].split()[bogo_idx])
-        return {"stress-ng bogo ops/s": score}
+        return {f"{self.name} bogo ops/s": score}
+
+
+class StressNGQsort(StressNG):
+    def __init__(self, out_dir: pathlib.Path):
+        super().__init__(out_dir)
+        self.stressor_name = "qsort"
+
+    def run_cmd(self) -> list[str]:
+        return super().run_cmd() + [
+            "--qsort",
+            "%d" % os.sysconf("SC_NPROCESSORS_ONLN"),
+        ]

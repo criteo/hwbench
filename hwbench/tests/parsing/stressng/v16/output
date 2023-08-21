@@ -1,4 +1,4 @@
 {
-	"stress-ng bogo ops/s": 103.13
+	"stress-ng-qsort bogo ops/s": 103.13
 }
 
