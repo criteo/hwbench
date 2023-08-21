@@ -45,6 +45,7 @@ class External(ABC):
                 capture_output=True,
                 cwd=self.out_dir,
                 env=english_env,
+                stdin=subprocess.DEVNULL,
             )
             self._write_output("version-stdout", ver.stdout)
             self._write_output("version-stderr", ver.stderr)
@@ -54,6 +55,7 @@ class External(ABC):
             self.run_cmd(),
             capture_output=True,
             env=english_env,
+            stdin=subprocess.DEVNULL,
         )
         # save outputs
 
