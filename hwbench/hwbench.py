@@ -58,7 +58,7 @@ def main():
         "bench": results,
     }
     if not output_file:
-        print(out)
+        print(json.dumps(out, indent=4))
     output_file = "hwbench-out-%s-%s.json" % (
         ",".join(args.bench),
         time.strftime("%Y%m%d%H%M%S"),
