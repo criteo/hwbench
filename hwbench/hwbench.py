@@ -7,16 +7,14 @@ import os
 import pathlib
 import sys
 import time
+from typing import Optional
 
-from .bench import stressng
+from .bench import stressng, bench
 from .environment import software as env_soft
 from .environment import hardware as env_hw
 from .tuning import setup as tuning_setup
 
-
-def is_root():
-    # euid != uid. please keep it this way (set-uid)
-    return os.geteuid() == 0
+Benchmarks = dict[str, bench.Bench]
 
 
 def main():
@@ -24,11 +22,40 @@ def main():
         logging.error("hwbench is not running as effective uid 0.")
         sys.exit(1)
 
+    out_dir, tuning_out_dir = create_output_directory()
+    benchmarks = build_benchmarks(out_dir)
+    args = parse_options(list(benchmarks.keys()))
+
+    tuning_setup.Tuning(tuning_out_dir).apply()
+    env = env_soft.Environment(out_dir).dump()
+    hw = env_hw.Hardware(out_dir).dump()
+
+    results = run_benchmarks(benchmarks, args.bench)
+
+    out = format_output(env, hw, results)
+
+    write_output(out, args.bench, args.output)
+
+
+def is_root():
+    # euid != uid. please keep it this way (set-uid)
+    return os.geteuid() == 0
+
+
+def create_output_directory() -> tuple[pathlib.Path, pathlib.Path]:
     out_dir = pathlib.Path(f"hwbench-out-{time.strftime('%Y%m%d%H%M%S')}")
     out_dir.mkdir()
     tuning_out_dir = out_dir / "tuning"
     tuning_out_dir.mkdir()
-    benchmarks = {"qsort": stressng.StressNG(out_dir)}
+
+    return out_dir, tuning_out_dir
+
+
+def build_benchmarks(out_dir: pathlib.Path) -> Benchmarks:
+    return {"qsort": stressng.StressNG(out_dir)}
+
+
+def parse_options(benchmark_names: list[str]):
     parser = argparse.ArgumentParser(
         prog="hwbench",
         description="Criteo Hardware Benchmarking tool",
@@ -38,29 +65,34 @@ def main():
         "--bench",
         help="Specify which benchmark(s) to run",
         nargs="*",
-        choices=list(benchmarks.keys()),
-        default=list(benchmarks.keys())[0:1],
+        choices=benchmark_names,
+        default=benchmark_names[0:1],
     )
     parser.add_argument("output", help="Name of output file", nargs="?", default=None)
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    tuning_setup.Tuning(tuning_out_dir).apply()
-    env = env_soft.Environment(out_dir).dump()
-    hw = env_hw.Hardware(out_dir).dump()
+
+def run_benchmarks(benchmarks: Benchmarks, benchs: list[str]):
     results = {}
-    for b in args.bench:
+    for b in benchs:
         results[b] = benchmarks[b].run()
 
-    output_file = args.output
-    out = {
+    return results
+
+
+def format_output(env, hw, results) -> dict[str, object]:
+    return {
         "environment": env,
         "hardware": hw,
         "bench": results,
     }
+
+
+def write_output(out, benchs: list[str], output_file: Optional[str]):
     if not output_file:
         print(json.dumps(out, indent=4))
     output_file = "hwbench-out-%s-%s.json" % (
-        ",".join(args.bench),
+        ",".join(benchs),
         time.strftime("%Y%m%d%H%M%S"),
     )
     with open(output_file, "w") as f:
