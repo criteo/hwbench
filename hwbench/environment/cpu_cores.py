@@ -16,7 +16,7 @@ class CPU_CORES(External):
                 continue
             if line.startswith("#"):
                 continue
-            socket, core, cpu = line.strip().split(",", 3)
+            socket, core, cpu = line.strip().split(",", 2)
             self.get_cores(int(socket), int(core)).append(int(cpu))
 
         return self.sockets

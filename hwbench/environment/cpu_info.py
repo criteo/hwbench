@@ -14,7 +14,7 @@ class CPU_INFO(External):
         for line in stdout.decode("utf-8").splitlines():
             if not line:
                 continue
-            item, value = line.split(":", 2)
+            item, value = line.split(":", 1)
             if item == "Flags":
                 flags = []
                 for flag in value.split():
