@@ -1,5 +1,6 @@
 import pathlib
 
+from .amd.amd import Amd
 from .hpe.hpe import Hpe
 
 from .vendor import Vendor
@@ -9,6 +10,7 @@ from ..dmi import DmiSys
 
 VENDOR_LIST = [
     Hpe,
+    Amd,
 ]
 
 

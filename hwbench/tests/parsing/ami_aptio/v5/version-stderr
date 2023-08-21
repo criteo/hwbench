@@ -1,0 +1,219 @@
+
+------------------------------------------------------------------------------
+|                   AMISCE Utility. Ver 5.05.05.0006.2301                    |
+|               Copyright (c) 2023 AMI. All rights reserved.                 |
+------------------------------------------------------------------------------
+
+Usage :Default Usage:
+    SCELNX_64 /o /s <NVRAM Script File> [/h <HII dump file>] [/sd <Duplicate 
+	Script File>] [/b] [/v] [/q] [/lang [Lang Code]] [/sp] [/g] [/a] [/d] 
+	[/ndef] [/ce] [/hb] [/log] [/loglvl: <value>] [/logfile: <filename>]
+    SCELNX_64 /i /s <NVRAM Script File> [/ds] [/dm] [/b] [/lang [Lang Code]]
+	[/r] [/d] [/ni] [/cpwd | /cpwds | /cpwde <Current Admin Password> 
+	| /cpwdf |/cpwdef | /cpwdsf <File having Current Admin Password>] 
+	[/shutdown] [/reboot] [/hb] [/log] [/loglvl: <value>] 
+	[/logfile: <filename>] [/opwd <Current Ofbd Password>]
+
+To Export PLDM Tables:
+    SCELNX_64 /o /p <PLDM File Name> [/sp] [/g] [/b] [/ndef] [/hb][/log]
+	[/loglvl: <value>] [/logfile: <filename>]
+
+To Import PLDM Tables:
+    SCELNX_64 /i /p <PLDM File Name> [/b] [/hb] [/ni] [/shutdown] [/reboot] 
+	[/cpwd | /cpwds | /cpwde <Current Admin Password> | /cpwdf |/cpwdef | 
+	/cpwdsf <File having Current Admin Password>] [/log] [/loglvl: <value>] 
+	[/logfile: <filename>] [/opwd <Current Ofbd Password>]  
+<Press Q to quit, any other key to continue.> 
+
+Single Question Update Usage:
+    SCELNX_64 /i [/lang <Lang Code>] /ms <question map string> /qv <question 
+	value> [/dm] [/ds] [/cpwd | /cpwds | /cpwde <Current Admin Password> |
+	/cpwdf |/cpwdef | /cpwdsf <Current Admin Password FileName]
+	[/bt <device type>] [/q] [/d] [/hb] [/ni] [/shutdown] [/reboot] [/log] 
+	[/loglvl: <value>] [/logfile: <filename>] [/opwd <current Ofbd password>]
+
+Note: Values of type numeric will be taken as hex always (0x prefix optional).
+
+Single Question Export Usage:
+    SCELNX_64 /o [/lang <Lang Code>] /ms <question map string> [/ov] [/q] [/d] 
+	[/hb] [/ds] [/dm] [/log] [/loglvl: <value>] [/logfile: <filename>]
+
+To set new user and new admin password for Setup:
+    SCELNX_64 /cpwd <current admin password> /apwd <new admin Password> 
+	[/hb] [/log] [/loglvl: <value>] [/logfile: <filename>]
+    SCELNX_64 /cpwdf <file having current admin password> /apwdf <file
+	having new admin Password> [/hb] [/log] [/loglvl: <value>] 
+	[/logfile: <filename>]
+    SCELNX_64 /cpwd <current admin password> /upwd <new user Password>
+	[/hb] [/log] [/loglvl: <value>] [/logfile: <filename>]
+    SCELNX_64 /cpwdf <file having current admin password> /upwdf <file
+	having new user Password> [/hb] [/log] [/loglvl: <value>] 
+	[/logfile: <filename>]
+<Press Q to quit, any other key to continue.> 
+    SCELNX_64 /cpwd <current admin password> /apwd <new admin Password> 
+	/upwd <new user password> [/hb] [/log] [/loglvl: <value>]
+	[/logfile: <filename>]
+    SCELNX_64 /cpwdf <file having current admin password> /apwdf <file 
+	having new admin Password> /upwdf <file having new user password> 
+	[/hb] [/log] [/loglvl: <value>] [/logfile: <filename>]
+
+To set new user and new admin password of type Scan Code for Setup:
+    SCELNX_64 /cpwds <current admin password> /apwds <new admin Password>
+	[/hb] [/log] [/loglvl: <value>] [/logfile: <filename>]
+    SCELNX_64 /cpwdsf <file having current admin password> /apwdsf <file
+	having new admin Password> [/hb] [/log] [/loglvl: <value>] 
+	[/logfile: <filename>]
+    SCELNX_64 /cpwds <current admin password> /upwds <new user Password> 
+	[/hb] [/log] [/loglvl: <value>] [/logfile: <filename>]
+    SCELNX_64 /cpwdsf <file having current admin password> /upwdsf <file 
+	having new user Password> [/hb] [/log] [/loglvl: <value>] 
+	[/logfile: <filename>]
+    SCELNX_64 /cpwds <current admin password> /apwds <new admin Password> 
+	/upwds <new user password> [/hb] [/log] [/loglvl: <value>] 
+	[/logfile: <filename>]
+    SCELNX_64 /cpwdsf <file having current admin password> /apwdsf <file 
+	having new admin Password>  /upwdsf <file having new user password> 
+	[/hb] [/log] [/loglvl: <value>] [/logfile: <filename>]
+
+To set new user and new admin password of type EFI Key for Setup:
+    SCELNX_64 /cpwde <current admin password> /apwde <new admin Password> 
+	[/hb] [/log] [/loglvl: <value>] [/logfile: <filename>]
+<Press Q to quit, any other key to continue.> 
+    SCELNX_64 /cpwdef <file having current admin password> /apwdef <file 
+	having new admin Password> [/hb] [/log] [/loglvl: <value>] 
+	[/logfile: <filename>]
+    SCELNX_64 /cpwde <current admin password> /upwde <new user Password>
+	 [/hb] [/log] [/loglvl: <value>] [/logfile: <filename>]
+    SCELNX_64 /cpwdef <file having current admin password> /upwdef <file 
+	having new user Password> [/hb] [/log] [/loglvl: <value>] 
+	[/logfile: <filename>]
+    SCELNX_64 /cpwde <current admin password> /apwde <new admin Password> 
+	/upwde <new user password> [/hb] [/log] [/loglvl: <value>] 
+	[/logfile: <filename>]
+    SCELNX_64 /cpwdef <file having current admin password> /apwdef <file 
+	having new admin Password>  /upwdef <file having new user password> 
+	[/hb] [/log] [/loglvl: <value>] [/logfile: <filename>]
+
+Raw Mode Usage:
+    SCELNX_64 /o [/c] /l <listing file> /n <NVRAM Raw File> /h <HII dump file> 
+	[/d] [/hb][/log] [/loglvl: <value>] [/logfile: <filename>]
+    SCELNX_64 /i /l <listing file> /n <NVRAM Raw File> [/f] [/d] [/hb] [/ni]
+	[/cpwd | /cpwds | /cpwde <Current Admin Password> | /cpwdf |/cpwdef | 
+	/cpwdsf <File having Current Admin Password>] [/shutdown] [/reboot] [/log] 
+	[/loglvl: <value>] [/logfile: <filename>] [/opwd <current Ofbd password>]
+<Press Q to quit, any other key to continue.> 
+
+Single Variable Update Usage:
+    SCELNX_64 /i /varname <variable name> /varguid <variable GUID> 
+	/varvalue <variable data> [/d] [/cpwd | /cpwds | /cpwde <Current 
+	Admin Password> | /cpwdf |/cpwdef | /cpwdsf <File having Current 
+	Admin Password>] [/hb] [/q] [/ni] [/shutdown] [/reboot] [/log] 
+	[/loglvl: <value>] [/logfile: <filename>] [/opwd <current Ofbd password>]
+    SCELNX_64 /i /varname <variable name> /varguid <variable GUID> 
+	/varfile <variable data file> [/d]  [/cpwd | /cpwds | /cpwde <Current 
+	Admin Password> | /cpwdf |/cpwdef | /cpwdsf <File having Current 
+	Admin Password>] [/hb] [/q] [/ni] [/shutdown] [/reboot] [/log] 
+	[/loglvl: <value>] [/logfile: <filename>] [/opwd <current Ofbd password>]
+
+Script Compare Usage:
+    SCELNX_64 /cs <scriptfile_A.txt> /cs <scriptfile_B.txt> /o <scriptfile_Difference.txt> 
+	[/q] [/hb] [/log] [/loglvl: <value>] [/logfile: <filename>]
+    (OR)
+    SCELNX_64 /cs <scriptfile_A.txt> /o <scriptfile_Difference.txt> 
+	[/q] [/hb] [/log] [/loglvl: <value>] [/logfile: <filename>]
+    where,
+       /o          - Indicates Dump NVRAM data for Variables found in Listing 
+			File
+       /i          - Indicates Import modified Variable data found in Listing 
+			File to the NVRAM 
+       /c          - Optional, Creates Variable Listing File containing 
+			information about all the variables found in NVRAM
+       /l          - Indicates Variable Listing File
+<Press Q to quit, any other key to continue.> 
+       /n          - Indicates NVRAM Script File
+       /h          - Indicates HII data file
+       /s          - Indicates advanced script file
+       /f          - Imports the NVRAM script file even when the CRC checksum 
+			of the target BIOS & the script file differs
+       /v          - Indicates verbose mode
+       /q          - Indicates Quiet mode
+       /ds         - Indicates BIOS Standard Default Value
+       /dm         - Indicates BIOS Manufacturing Default Value
+       /b          - Enables export/import of boot order controls
+       /r          - Indicates restriction of migration mode
+       /lang       - Enables mapping language mode
+       /sp         - Enables Expression Evaluation for Suppressif Opcode
+       /g          - Enables Expression Evaluation for Grayoutif Opcode
+       /a          - Enables Setup Question having Empty or Blank names to be 
+			exported
+       /cpwd       - To validate the admin password and unlock the protected 
+			variables update
+       /apwd       - To set new admin password
+       /upwd       - To set new user Password 
+<Press Q to quit, any other key to continue.> 
+       /cpwdf      - To validate the admin password mentioned in file and 
+			unlock the protected variables update
+       /apwdf      - To set new admin password mentioned in file
+       /upwdf      - To set new user Password mentioned in file
+       /cpwdsf     - To validate the admin password of type Scan Code  
+			mentioned in file and unlock the protected variables update
+       /apwdsf     - To set new admin password of type Scan Code mentioned 
+			 in file
+       /upwdsf     - To set new user Password of type Scan Code mentioned 
+			in file
+       /cpwdef     - To validate the admin password of type EFI Key mentioned 
+			in file and unlock the protected variables update
+       /apwdef     - To set new admin password of type EFI Key mentioned 
+			in file
+       /upwdef     - To set new user Password of type EFI Key mentioned 
+			in file
+       /cpwds      - To validate the admin password of type Scan Code and 
+			unlock the protected variables update
+       /apwds      - To set new admin password of type Scan Code
+       /upwds      - To set new user Password of type Scan Code
+       /cpwde      - To validate the admin password of type EFI Key and 
+			unlock the protected variables update
+<Press Q to quit, any other key to continue.> 
+       /apwde      - To set new admin password of type EFI Key
+       /upwde      - To set new user Password of type EFI Key
+       /ms         - Indicates Map String of the Setup Question
+       /qv         - Indicates Question Value to be set for the Setup Question
+       /bt         - Indicates the device type for legacy boot device
+       /p          - Indicates PLDM File
+       /ce         - Comment out suppress and gray out controls in script file
+       /hb         - Hides tool information banner
+	   /sd - Export duplicate questions in new file 
+       /d          - Skip checking for AptioV BIOS and behave normally
+       /ndef       - Export only those Questions whose Value is different 
+			from the Default
+       /ni         - To create Utility Indication variable to indicate  
+			variable modification by AMISCE
+       /shutdown   - Shutdown after programming.
+       /reboot     - Reboot after programming.
+       /varname    - Name of the NVRAM variable to update/create
+<Press Q to quit, any other key to continue.> 
+       /varguid    - GUID of the NVRAM variable to update/create
+       /varvalue   - Data of the NVRAM variable
+       /varfile    - File containg Data of the NVRAM variable
+       /ov         - Print Question Value in console
+       /log        - Directs debugInfo to screen
+       /loglvl:    - Enables specific output(Allowed Levels 1,2,4 and 8)
+               1   - Enables LV_ALWS output
+               2   - Enables LV_KERN output
+               4   - Enables LV_LIBR output
+               8   - Enables LV_MODL output
+       /logfile:   - Directs debugInfo to specific file
+       /opwd       - To Validate the Ofbd password
+       /cs         - Switch used to specify the script file for comparison
+
+Driver Options:
+    SCELNX_64 /MAKEDRV
+       /MAKEDRV    - Make AMISCELNX driver with user defined environment
+	 	Example: /MAKEDRV KERNEL=/lib/modules/$(uname -r)/build
+
+    SCELNX_64 /GENDRV OUTPUT=./driver
+       /GENDRV     - Generate AMISCELNX driver source files to specific 
+			directory.    [Option 1]: Specific kernel source 'KERNEL=XXXX'
+	    same as the /MAKEDRV
+	    [Option 2]: Specific output directory 'OUTPUT=XXXX'
+	    Example: /GENDRV KERNEL=/usr/src OUTPUT=./driver

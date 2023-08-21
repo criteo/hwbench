@@ -1,0 +1,2242 @@
+// Script File Name : bios-config
+// Created on 08/21/23 at 12:21:23    
+// AMISCE Utility. Ver 5.05.05.0006
+// Copyright (c) 2023 AMI. All rights reserved.
+HIICrc32= A4FA062B
+
+Setup Question	= Reset NVRAM
+Map String	= RECV000
+Help String	= Set this option to reset NVRAM to default values
+Token	=01	// Do NOT change this line
+Offset	=03
+Width	=01
+BIOS Default=1
+Value	=1	// Enabled = 1, Disabled = 0
+
+Setup Question	= Boot Block Update
+Map String	= RECV001
+Help String	= Set this option to update boot block area of the firmware
+Token	=02	// Do NOT change this line
+Offset	=04
+Width	=01
+BIOS Default=1
+Value	=1	// Enabled = 1, Disabled = 0
+
+Setup Question	= Smbios Event Log
+Map String	= GPNV000
+Help String	= Change this to enable or disable all features of Smbios Event Logging during boot.
+Token	=02	// Do NOT change this line
+Offset	=4B
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= Erase Event Log
+Map String	= GPNV001
+Help String	= Choose options for erasing Smbios Event Log.  Erasing is done prior to any logging activation during reset.
+Token	=03	// Do NOT change this line
+Offset	=4D
+Width	=01
+BIOS Default=[00]No
+Options	=*[00]No	// Move "*" to the desired Option
+         [01]Yes, Next reset
+         [02]Yes, Every reset
+
+Setup Question	= When Log is Full
+Map String	= GPNV002
+Help String	= Choose options for reactions to a full Smbios Event Log.
+Token	=04	// Do NOT change this line
+Offset	=4C
+Width	=01
+BIOS Default=[00]Do Nothing
+Options	=*[00]Do Nothing	// Move "*" to the desired Option
+         [01]Erase Immediately
+
+Setup Question	= Log System Boot Event
+Map String	= GPNV005
+Help String	= Choose option to enable/disable logging of System boot event
+Token	=05	// Do NOT change this line
+Offset	=4E
+Width	=01
+BIOS Default=[01]Enabled
+Options	=*[01]Enabled	// Move "*" to the desired Option
+         [00]Disabled
+
+Setup Question	= MECI
+Map String	= GPNV006
+Help String	= Mutiple Event Count Increment:  The number of occurrences of a duplicate event that must pass before the multiple-event counter of log entry is updated.The value ranges from 1 to 255.
+Token	=06	// Do NOT change this line
+Offset	=51
+Width	=01
+BIOS Default=<1>
+Value	=<1>
+
+Setup Question	= METW
+Map String	= GPNV007
+Help String	= Mutiple Event Time Window:  The number of minutes which must pass between duplicate log entries which utilize a multiple-event counter. The value ranges from 0 to 99 minutes.
+Token	=07	// Do NOT change this line
+Offset	=50
+Width	=01
+BIOS Default=<60>
+Value	=<60>
+
+Setup Question	= Log EFI Status Code
+Map String	= GPNV003
+Help String	= Enable or disable the logging of EFI Status Codes as OEM reserved type E0 (if not already converted to legacy).
+Token	=08	// Do NOT change this line
+Offset	=4F
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= Convert EFI Status Codes to Standard Smbios Type
+Map String	= GPNV004
+Help String	= Enable or disable the converting of EFI Status Codes to Standard Smbios Types (Not all may be translated).
+Token	=09	// Do NOT change this line
+Offset	=52
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	= BMC Support
+Map String	= IPMI600
+Help String	= Enable/Disable interfaces to communicate with BMC
+Token	=01	// Do NOT change this line
+Offset	=00
+Width	=01
+BIOS Default=[01]Enabled
+Options	=*[01]Enabled	// Move "*" to the desired Option
+         [00]Disabled
+
+Setup Question	= IPMI Interface Type
+Map String	= IPMI609
+Help String	= Type of Interface to communicate BMC from HOST
+Token	=02	// Do NOT change this line
+Offset	=16
+Width	=01
+BIOS Default=[01]Kcs Interface
+Options	=*[01]Kcs Interface	// Move "*" to the desired Option
+         [03]Bt Interface
+         [05]Ipmb Interface
+
+Setup Question	= Wait For BMC
+Map String	= IPMI601
+Help String	= Wait For BMC response for specified time out. In PILOTII, BMC starts at the same time when BIOS starts during AC power ON. It takes around 30 seconds to initialize Host to BMC interfaces.
+Token	=03	// Do NOT change this line
+Offset	=01
+Width	=01
+BIOS Default=[00]Disabled
+Options	=[01]Enabled	// Move "*" to the desired Option
+         *[00]Disabled
+
+Setup Question	= Serial Mux
+Map String	= IPMI400
+Help String	= Press <Enter> to enable or disable Serial Mux configuration.
+Token	=04	// Do NOT change this line
+Offset	=1F
+Width	=01
+BIOS Default=[00]Disabled
+Options	=[01]Enabled	// Move "*" to the desired Option
+         *[00]Disabled
+
+Setup Question	= SEL Components
+Map String	= IPMI000
+Help String	= Change this to enable or disable event logging for error/progress codes during boot.
+Token	=05	// Do NOT change this line
+Offset	=17
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= Erase SEL
+Map String	= IPMI001
+Help String	= Choose options for erasing SEL.
+Token	=06	// Do NOT change this line
+Offset	=18
+Width	=01
+BIOS Default=[00]No
+Options	=*[00]No	// Move "*" to the desired Option
+         [01]Yes, On next reset
+         [02]Yes, On every reset
+
+Setup Question	= When SEL is Full
+Map String	= IPMI002
+Help String	= Choose options for reactions to a full SEL.
+Token	=07	// Do NOT change this line
+Offset	=19
+Width	=01
+BIOS Default=[00]Do Nothing
+Options	=*[00]Do Nothing	// Move "*" to the desired Option
+         [01]Erase Immediately
+         [02]Delete Oldest Record
+
+Setup Question	= Log EFI Status Codes
+Map String	= IPMI003
+Help String	= Disable the logging of EFI Status Codes or log only error code or only progress code or both.
+Token	=08	// Do NOT change this line
+Offset	=1A
+Width	=01
+BIOS Default=[02]Error code
+Options	=[00]Disabled	// Move "*" to the desired Option
+         [01]Both
+         *[02]Error code
+         [03]Progress code
+
+Setup Question	= Erase Log
+Map String	= IPMI200
+Help String	= Erase Log Options
+Token	=09	// Do NOT change this line
+Offset	=1D
+Width	=01
+BIOS Default=[01]Yes, On every reset
+Options	=*[01]Yes, On every reset	// Move "*" to the desired Option
+         [00]No
+
+Setup Question	= When log is full
+Map String	= IPMI201
+Help String	= Select the action to be taken when log is full
+Token	=0A	// Do NOT change this line
+Offset	=1E
+Width	=01
+BIOS Default=[01]Clear Log
+Options	=*[01]Clear Log	// Move "*" to the desired Option
+         [00]Do not log any more
+
+Setup Question	= 
+Map String	= IPMI610
+Help String	= 
+Token	=272D	// Do NOT change this line
+Offset	=20
+Width	=01
+BIOS Default=<60>
+Value	=<60>
+
+Setup Question	= Configuration Address source
+Map String	= IPMI500
+Help String	= Select to configure LAN channel parameters statically or dynamically(by BIOS or BMC). Unspecified option will not modify any BMC network parameters during BIOS phase
+Token	=0B	// Do NOT change this line
+Offset	=21
+Width	=01
+BIOS Default=[00]Unspecified
+Options	=*[00]Unspecified	// Move "*" to the desired Option
+         [01]Static
+         [02]DynamicBmcDhcp
+         [04]DynamicBmcNonDhcp
+
+Setup Question	= Station IP address
+Map String	= IPMI501
+Help String	= Enter station IP address
+Token	=2721	// Do NOT change this line
+Offset	=22
+Width	=1E
+Value	="..."
+
+Setup Question	= Subnet mask
+Map String	= IPMI502
+Help String	= Enter subnet mask
+Token	=2722	// Do NOT change this line
+Offset	=40
+Width	=1E
+Value	="..."
+
+Setup Question	= Router IP address
+Map String	= IPMI503
+Help String	= Enter router IP address
+Token	=2723	// Do NOT change this line
+Offset	=5E
+Width	=1E
+Value	="0.0.0.0"
+
+Setup Question	= Router MAC address
+Map String	= IPMI504
+Help String	= Enter router MAC address
+Token	=2724	// Do NOT change this line
+Offset	=7C
+Width	=22
+Value	="00-00-00-00-00-00"
+
+Setup Question	= Configuration Address source
+Map String	= IPMI505
+Help String	= Select to configure LAN channel parameters statically or dynamically(by BIOS or BMC). Unspecified option will not modify any BMC network parameters during BIOS phase
+Token	=0C	// Do NOT change this line
+Offset	=9E
+Width	=01
+BIOS Default=[00]Unspecified
+Options	=*[00]Unspecified	// Move "*" to the desired Option
+         [01]Static
+         [02]DynamicBmcDhcp
+         [04]DynamicBmcNonDhcp
+
+Setup Question	= Station IP address
+Map String	= IPMI506
+Help String	= Enter station IP address
+Token	=2725	// Do NOT change this line
+Offset	=9F
+Width	=1E
+Value	="..."
+
+Setup Question	= Subnet mask
+Map String	= IPMI507
+Help String	= Enter subnet mask
+Token	=2726	// Do NOT change this line
+Offset	=BD
+Width	=1E
+Value	="..."
+
+Setup Question	= Router IP address
+Map String	= IPMI508
+Help String	= Enter router IP address
+Token	=2727	// Do NOT change this line
+Offset	=DB
+Width	=1E
+Value	="0.0.0.0"
+
+Setup Question	= Router MAC address
+Map String	= IPMI509
+Help String	= Enter router MAC address
+Token	=2728	// Do NOT change this line
+Offset	=F9
+Width	=22
+Value	="00-00-00-00-00-00"
+
+Setup Question	= IPv6 Support
+Map String	= IPMI510
+Help String	= Enable or Disable LAN1 IPv6 Support
+Token	=2719	// Do NOT change this line
+Offset	=11B
+Width	=01
+BIOS Default=[01]Enabled
+Options	=*[01]Enabled	// Move "*" to the desired Option
+         [00]Disabled
+
+Setup Question	= Configuration Address source
+Map String	= IPMI511
+Help String	= Select to configure LAN channel parameters statically or dynamically(by BIOS or BMC). Unspecified option will not modify any BMC network parameters during BIOS phase
+Token	=0D	// Do NOT change this line
+Offset	=11D
+Width	=01
+BIOS Default=[00]Unspecified
+Options	=*[00]Unspecified	// Move "*" to the desired Option
+         [01]Static
+         [02]DynamicBmcDhcp
+
+Setup Question	= Station IPv6 address
+Map String	= IPMI512
+Help String	= Enter station IPv6 address
+Token	=271F	// Do NOT change this line
+Offset	=1C0
+Width	=4E
+Value	=":::::::"
+
+Setup Question	= Prefix Length
+Map String	= IPMI513
+Help String	= Change the prefix length
+Token	=0E	// Do NOT change this line
+Offset	=11C
+Width	=01
+BIOS Default=<0>
+Value	=<0>
+
+Setup Question	= Configuration Router Lan1 Address source
+Map String	= IPMI522
+Help String	= Select to configure LAN channel parameters statically or dynamically(by BIOS or BMC). Unspecified option will not modify any BMC network parameters during BIOS phase
+Token	=0F	// Do NOT change this line
+Offset	=11E
+Width	=01
+BIOS Default=[00]Unspecified
+Options	=*[00]Unspecified	// Move "*" to the desired Option
+         [01]Static
+         [02]DynamicBmcDhcp
+
+Setup Question	= IPv6 Router1 IP Address
+Map String	= IPMI514
+Help String	= Change the IPv6 Router1 IP Address
+Token	=271B	// Do NOT change this line
+Offset	=120
+Width	=4E
+Value	=":::::::"
+
+Setup Question	= IPv6 Router1 Prefix Length Lan1
+Map String	= IPMI520
+Help String	= Change the IPv6 Router Prefix Length
+Token	=10	// Do NOT change this line
+Offset	=11F
+Width	=01
+BIOS Default=<0>
+Value	=<0>
+
+Setup Question	= IPv6 Router1 Prefix Value Lan1
+Map String	= IPMI521
+Help String	= Change the IPv6 Router Prefix  Value
+Token	=271D	// Do NOT change this line
+Offset	=170
+Width	=4E
+Value	=":::::::"
+
+Setup Question	= IPv6 Support
+Map String	= IPMI515
+Help String	= Enable or Disable LAN2 IPv6 Support
+Token	=271A	// Do NOT change this line
+Offset	=210
+Width	=01
+BIOS Default=[01]Enabled
+Options	=*[01]Enabled	// Move "*" to the desired Option
+         [00]Disabled
+
+Setup Question	= Configuration Address source
+Map String	= IPMI516
+Help String	= Select to configure LAN channel parameters statically or dynamically(by BIOS or BMC). Unspecified option will not modify any BMC network parameters during BIOS phase
+Token	=11	// Do NOT change this line
+Offset	=212
+Width	=01
+BIOS Default=[00]Unspecified
+Options	=*[00]Unspecified	// Move "*" to the desired Option
+         [01]Static
+         [02]DynamicBmcDhcp
+
+Setup Question	= Station IPv6 address
+Map String	= IPMI517
+Help String	= Enter station IPv6 address
+Token	=2720	// Do NOT change this line
+Offset	=265
+Width	=4E
+Value	=":::::::"
+
+Setup Question	= Prefix Length
+Map String	= IPMI518
+Help String	= Change the prefix length
+Token	=12	// Do NOT change this line
+Offset	=211
+Width	=01
+BIOS Default=<0>
+Value	=<0>
+
+Setup Question	= Configuration Router Lan2 Address source
+Map String	= IPMI525
+Help String	= Select to configure LAN channel parameters statically or dynamically(by BIOS or BMC). Unspecified option will not modify any BMC network parameters during BIOS phase
+Token	=13	// Do NOT change this line
+Offset	=213
+Width	=01
+BIOS Default=[00]Unspecified
+Options	=*[00]Unspecified	// Move "*" to the desired Option
+         [01]Static
+         [02]DynamicBmcDhcp
+
+Setup Question	= IPv6 Router1 IP Address
+Map String	= IPMI519
+Help String	= Change the IPv6 Router1 IP Address
+Token	=271C	// Do NOT change this line
+Offset	=215
+Width	=4E
+Value	=":::::::"
+
+Setup Question	= IPv6 Router1 Prefix Length Lan2
+Map String	= IPMI523
+Help String	= Change the IPv6 Router Prefix Length
+Token	=14	// Do NOT change this line
+Offset	=214
+Width	=01
+BIOS Default=<0>
+Value	=<0>
+
+Setup Question	= IPv6 Router1 Prefix Value Lan2
+Map String	= IPMI524
+Help String	= Change the IPv6 Router Prefix  Value
+Token	=271E	// Do NOT change this line
+Offset	=2B5
+Width	=4E
+Value	=":::::::"
+
+Setup Question	= VLAN Support
+Map String	= IPMI553
+Help String	= Enable VLAN Support to specify the 802.1q VLAN ID
+Token	=2729	// Do NOT change this line
+Offset	=305
+Width	=01
+BIOS Default=[02]Unspecified
+Options	=[01]Enabled	// Move "*" to the desired Option
+         [00]Disabled
+         *[02]Unspecified
+
+Setup Question	= VLAN ID
+Map String	= IPMI555
+Help String	= VLAN ID Range is from 1-4094. VLAN ID 0 & 4095 are reserved VLAN ID's.
+Token	=15	// Do NOT change this line
+Offset	=307
+Width	=02
+BIOS Default=<0>
+Value	=<0>
+
+Setup Question	= VLAN Priority
+Map String	= IPMI557
+Help String	= Value ranges from 0 to 7. 7 is the highest priority for VLAN.
+Token	=16	// Do NOT change this line
+Offset	=306
+Width	=01
+BIOS Default=<0>
+Value	=<0>
+
+Setup Question	= VLAN Support
+Map String	= IPMI554
+Help String	= Enable VLAN Support to specify the 802.1q VLAN ID
+Token	=272A	// Do NOT change this line
+Offset	=309
+Width	=01
+BIOS Default=[02]Unspecified
+Options	=[01]Enabled	// Move "*" to the desired Option
+         [00]Disabled
+         *[02]Unspecified
+
+Setup Question	= VLAN ID
+Map String	= IPMI556
+Help String	= VLAN ID Range is from 1-4094. VLAN ID 0 & 4095 are reserved VLAN ID's.
+Token	=17	// Do NOT change this line
+Offset	=30B
+Width	=02
+BIOS Default=<0>
+Value	=<0>
+
+Setup Question	= VLAN Priority
+Map String	= IPMI558
+Help String	= Value ranges from 0 to 7. 7 is the highest priority for VLAN.
+Token	=18	// Do NOT change this line
+Offset	=30A
+Width	=01
+BIOS Default=<0>
+Value	=<0>
+
+Setup Question	= User Name
+Map String	= IPMI800
+Help String	= Enter BMC User Name
+Token	=2731	// Do NOT change this line
+Offset	=30E
+Width	=20
+Value	=""
+
+Setup Question	= User Access
+Map String	= IPMI802
+Help String	= Enable/Disable the BMC User's Access.
+Token	=2733	// Do NOT change this line
+Offset	=3CA
+Width	=01
+BIOS Default=[00]Disable
+Options	=[01]Enable	// Move "*" to the desired Option
+         *[00]Disable
+
+Setup Question	= Channel No
+Map String	= IPMI803
+Help String	= Enter BMC Channel Number
+Token	=2734	// Do NOT change this line
+Offset	=3C8
+Width	=01
+BIOS Default=<0>
+Value	=<0>
+
+Setup Question	= User Privilege Limit
+Map String	= IPMI804
+Help String	= Enter BMC User Privilege Limit for Selected Channel
+Token	=2735	// Do NOT change this line
+Offset	=3C9
+Width	=01
+BIOS Default=[0F]No Access
+Options	=*[0F]No Access	// Move "*" to the desired Option
+
+Setup Question	= User Name
+Map String	= IPMI805
+Help String	= Enter BMC User Name
+Token	=2736	// Do NOT change this line
+Offset	=35A
+Width	=20
+Value	=""
+
+Setup Question	= User Name
+Map String	= IPMI807
+Help String	= Enter BMC User Name
+Token	=2738	// Do NOT change this line
+Offset	=37C
+Width	=20
+Value	=""
+
+Setup Question	= User Access
+Map String	= IPMI810
+Help String	= Enable/Disable the BMC User's Access.
+Token	=273D	// Do NOT change this line
+Offset	=3CF
+Width	=01
+BIOS Default=[00]Disable
+Options	=[01]Enable	// Move "*" to the desired Option
+         *[00]Disable
+
+Setup Question	= Channel No
+Map String	= IPMI811
+Help String	= Enter BMC Channel Number
+Token	=273A	// Do NOT change this line
+Offset	=3D0
+Width	=01
+BIOS Default=<0>
+Value	=<0>
+
+Setup Question	= User Privilege Limit
+Map String	= IPMI812
+Help String	= Enter BMC User Privilege Limit for Selected Channel
+Token	=273B	// Do NOT change this line
+Offset	=3D1
+Width	=01
+BIOS Default=[0F]No Access
+Options	=*[0F]No Access	// Move "*" to the desired Option
+
+Setup Question	= System Language
+Map String	= SETUP000
+Help String	= Choose the system default language
+Token	=07	// Do NOT change this line
+Offset	=00
+Width	=02
+Options	=*[00]en-US
+
+Setup Question	=   Security Device Support
+Map String	= TCG003
+Help String	= Enables or Disables BIOS support for security device. O.S. will not show Security Device. TCG EFI protocol and INT1A interface will not be available.
+Token	=1D	// Do NOT change this line
+Offset	=06
+Width	=01
+BIOS Default=[00]Disable
+Options	=[00]Disable	// Move "*" to the desired Option
+         *[01]Enable
+
+Setup Question	=   Disable Block Sid
+Map String	= TCG023
+Help String	=   Override to allow SID authentication in TCG Storage device
+Token	=1E	// Do NOT change this line
+Offset	=21
+Width	=01
+BIOS Default=[00]Disabled
+Options	=[01]Enabled	// Move "*" to the desired Option
+         *[00]Disabled
+
+// Setup Question	=   Security Device Support
+// Map String	= TCG003
+// Help String	= Enables or Disables BIOS support for security device. O.S. will not show Security Device. TCG EFI protocol and INT1A interface will not be available.
+// Token	=1F	// Do NOT change this line
+// Offset	=06
+// Width	=01
+// BIOS Default=[00]Disable
+// Options	=[00]Disable	// Move "*" to the desired Option
+//         *[01]Enable
+
+Setup Question	=   TPM State
+Map String	= TCG001
+Help String	= Enable/Disable Security Device. NOTE: Your Computer will reboot during restart in order to change State of the Device.
+Token	=20	// Do NOT change this line
+Offset	=01
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= Pending operation
+Map String	= TCG006
+Help String	= Schedule an Operation for the Security Device. NOTE: Your Computer will reboot during restart in order to change State of Security Device.
+Token	=21	// Do NOT change this line
+Offset	=02
+Width	=01
+BIOS Default=[00]None
+Options	=*[00]None	// Move "*" to the desired Option
+         [05]TPM Clear
+
+// Setup Question	=   Security Device Support
+// Map String	= TCG004
+// Help String	= Enables or Disables BIOS support for security device. O.S. will not show Security Device. TCG EFI protocol and INT1A interface will not be available.
+// Token	=22	// Do NOT change this line
+// Offset	=06
+// Width	=01
+// BIOS Default=[00]Disable
+// Options	=[00]Disable	// Move "*" to the desired Option
+//         *[01]Enable
+
+// Setup Question	=   TCM State
+// Map String	= TCG002
+// Help String	= Enable/Disable Security Device. NOTE: Your Computer will reboot during restart in order to change State of the Device.
+// Token	=23	// Do NOT change this line
+// Offset	=01
+// Width	=01
+// BIOS Default=[01]Enabled
+// Options	=[00]Disabled	// Move "*" to the desired Option
+//         *[01]Enabled
+
+// Setup Question	= Pending operation
+// Map String	= TCG006
+// Help String	= Schedule an Operation for the Security Device. NOTE: Your Computer will reboot during restart in order to change State of Security Device.
+// Token	=24	// Do NOT change this line
+// Offset	=02
+// Width	=01
+// BIOS Default=[00]None
+// Options	=*[00]None	// Move "*" to the desired Option
+//         [05]TPM Clear
+
+Setup Question	=   Device Select
+Map String	= TCG016
+Help String	= TPM 1.2 will restrict support to TPM 1.2 devices, TPM 2.0 will restrict support to TPM 2.0 devices, Auto will support both with the default set to TPM 2.0 devices if not found, TPM 1.2 devices will be enumerated 
+Token	=25	// Do NOT change this line
+Offset	=13
+Width	=01
+BIOS Default=[02]Auto
+Options	=[00]TPM 1.2	// Move "*" to the desired Option
+         [01]TPM 2.0
+         *[02]Auto
+
+// Setup Question	=   Security Device Support
+// Map String	= TCG003
+// Help String	= Enables or Disables BIOS support for security device. O.S. will not show Security Device. TCG EFI protocol and INT1A interface will not be available.
+// Token	=26	// Do NOT change this line
+// Offset	=06
+// Width	=01
+// BIOS Default=[00]Disable
+// Options	=[00]Disable	// Move "*" to the desired Option
+//         *[01]Enable
+
+Setup Question	=   SHA-1 PCR Bank
+Map String	= TCG017
+Help String	= Enable or Disable SHA-1 PCR Bank
+Token	=27	// Do NOT change this line
+Offset	=1A
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	=   SHA256 PCR Bank
+Map String	= TCG018
+Help String	= Enable or Disable SHA256 PCR Bank
+Token	=28	// Do NOT change this line
+Offset	=1B
+Width	=01
+BIOS Default=[02]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[02]Enabled
+
+Setup Question	=   SHA384 PCR Bank
+Map String	= TCG019
+Help String	= Enable or Disable SHA384 PCR Bank
+Token	=29	// Do NOT change this line
+Offset	=1C
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [04]Enabled
+
+Setup Question	=   SHA512 PCR Bank
+Map String	= TCG020
+Help String	= Enable or Disable SHA512 PCR Bank
+Token	=2A	// Do NOT change this line
+Offset	=1D
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [08]Enabled
+
+Setup Question	=   SM3_256 PCR Bank
+Map String	= TCG021
+Help String	= Enable or Disable SM3_256 PCR Bank
+Token	=2B	// Do NOT change this line
+Offset	=1E
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+// Setup Question	=   Pending operation
+// Map String	= TCG007
+// Help String	= Schedule an Operation for the Security Device. NOTE: Your Computer will reboot during restart in order to change State of Security Device.
+// Token	=2C	// Do NOT change this line
+// Offset	=02
+// Width	=01
+// BIOS Default=[00]None
+// Options	=*[00]None	// Move "*" to the desired Option
+//         [01]TPM Clear
+
+Setup Question	=   Platform Hierarchy
+Map String	= TCG011
+Help String	= Enable or Disable Platform Hierarchy
+Token	=2D	// Do NOT change this line
+Offset	=0F
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	=   Storage Hierarchy
+Map String	= TCG012
+Help String	= Enable or Disable Storage Hierarchy
+Token	=2E	// Do NOT change this line
+Offset	=10
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	=   Endorsement Hierarchy
+Map String	= TCG013
+Help String	= Enable or Disable Endorsement Hierarchy
+Token	=2F	// Do NOT change this line
+Offset	=11
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	=   TPM 2.0 UEFI Spec Version
+Map String	= TCG010
+Help String	= Select the TCG2 Spec Version Support,TCG_1_2: the Compatible mode for Win8/Win10,TCG_2: Support new TCG2 protocol and event format for Win10 or later
+Token	=30	// Do NOT change this line
+Offset	=0E
+Width	=01
+BIOS Default=[02]TCG_2
+Options	=[01]TCG_1_2	// Move "*" to the desired Option
+         *[02]TCG_2
+
+Setup Question	=   Physical Presence Spec Version
+Map String	= TCG022
+Help String	=   Select to Tell O.S. to support PPI Spec Version 1.2 or 1.3. Note some HCK tests might not support 1.3.
+Token	=31	// Do NOT change this line
+Offset	=20
+Width	=01
+BIOS Default=[01]1.3
+Options	=[00]1.2	// Move "*" to the desired Option
+         *[01]1.3
+
+Setup Question	=   TPM 2.0 InterfaceType
+Map String	= TCG014
+Help String	=   Select the Communication Interface to TPM 20 Device.
+Token	=32	// Do NOT change this line
+Offset	=12
+Width	=01
+BIOS Default=[00]CRB
+Options	=*[00]CRB	// Move "*" to the desired Option
+         [01]TIS
+
+// Setup Question	=   Device Select
+// Map String	= TCG016
+// Help String	= TPM 1.2 will restrict support to TPM 1.2 devices, TPM 2.0 will restrict support to TPM 2.0 devices, Auto will support both with the default set to TPM 2.0 devices if not found, TPM 1.2 devices will be enumerated 
+// Token	=34	// Do NOT change this line
+// Offset	=13
+// Width	=01
+// BIOS Default=[02]Auto
+// Options	=[00]TPM 1.2	// Move "*" to the desired Option
+//         [01]TPM 2.0
+//         *[02]Auto
+
+// Setup Question	=   Disable Block Sid
+// Map String	= TCG023
+// Help String	=   Override to allow SID authentication in TCG Storage device
+// Token	=35	// Do NOT change this line
+// Offset	=21
+// Width	=01
+// BIOS Default=[00]Disabled
+// Options	=[01]Enabled	// Move "*" to the desired Option
+//         *[00]Disabled
+
+Setup Question	= Enable ACPI Auto Configuration
+Map String	= ACPI004
+Help String	= Enables or Disables BIOS ACPI Auto Configuration.
+Token	=36	// Do NOT change this line
+Offset	=23
+Width	=01
+BIOS Default=0
+Value	=0	// Enabled = 1, Disabled = 0
+
+Setup Question	= Lock Legacy Resources
+Map String	= ACPI003
+Help String	= Enables or Disables Lock of Legacy Resources
+Token	=37	// Do NOT change this line
+Offset	=26
+Width	=01
+BIOS Default=0
+Value	=0	// Enabled = 1, Disabled = 0
+
+Setup Question	= Platform Console Out Serial Port
+Map String	= DBGUART002
+Help String	= SOC UART0 : Enabled serial port through SOC UART0SOC UART1 : Enabled serial port through SOC UART1eSPI UART : Enabled serial port through eSPIAuto : Keep default behavior
+Token	=2726	// Do NOT change this line
+Offset	=48
+Width	=01
+BIOS Default=[FF]Auto
+Options	=[01]SOC UART0	// Move "*" to the desired Option
+         [02]SOC UART1
+         [03]eSPI UART
+         *[FF]Auto
+
+Setup Question	= Console Redirection
+Map String	= TER001
+Help String	= Console Redirection Enable or Disable.
+Token	=3C	// Do NOT change this line
+Offset	=5D
+Width	=01
+BIOS Default=1
+Value	=1	// Enabled = 1, Disabled = 0
+
+Setup Question	= Console Redirection
+Map String	= TER002
+Help String	= Console Redirection Enable or Disable.
+Token	=3E	// Do NOT change this line
+Offset	=5E
+Width	=01
+BIOS Default=1
+Value	=1	// Enabled = 1, Disabled = 0
+
+Setup Question	= Console Redirection EMS
+Map String	= TER010
+Help String	= Console Redirection Enable or Disable.
+Token	=41	// Do NOT change this line
+Offset	=6B
+Width	=01
+BIOS Default=1
+Value	=1	// Enabled = 1, Disabled = 0
+
+Setup Question	= Out-of-Band Mgmt Port
+Map String	= TER06B
+Help String	= Microsoft Windows Emergency Management Services (EMS) allows for remote management of a Windows Server OS through a serial port.
+Token	=43	// Do NOT change this line
+Offset	=6C
+Width	=01
+BIOS Default=[00]COM0(Pci Bus0,Dev0,Func0,Port0)
+Options	=*[00]COM0(Pci Bus0,Dev0,Func0,Port0)	// Move "*" to the desired Option
+         [01]COM1(Pci Bus0,Dev0,Func0,Port1)
+
+Setup Question	= Terminal Type EMS
+Map String	= TER011
+Help String	= VT-UTF8 is the preferred terminal type for out-of-band management. The next best choice is VT100+ and then VT100. See above, in Console Redirection Settings page, for more Help with Terminal Type/Emulation.
+Token	=44	// Do NOT change this line
+Offset	=6D
+Width	=01
+BIOS Default=[02]VT-UTF8
+Options	=[00]VT100	// Move "*" to the desired Option
+         [01]VT100Plus
+         *[02]VT-UTF8
+         [03]ANSI
+
+Setup Question	= Bits per second EMS
+Map String	= TER0020
+Help String	= Selects serial port transmission speed. The speed must be matched on the other side. Long or noisy lines may require lower speeds.
+Token	=45	// Do NOT change this line
+Offset	=6E
+Width	=01
+BIOS Default=[07]115200
+Options	=[03]9600	// Move "*" to the desired Option
+         [04]19200
+         [06]57600
+         *[07]115200
+
+Setup Question	= Flow Control EMS
+Map String	= TER05C
+Help String	= Flow control can prevent data loss from buffer overflow. When sending data, if the receiving buffers are full, a 'stop' signal can be sent to stop the data flow. Once the buffers are empty, a 'start' signal can be sent to re-start the flow. Hardware flow control uses two wires to send start/stop signals.
+Token	=46	// Do NOT change this line
+Offset	=6F
+Width	=01
+BIOS Default=[00]None
+Options	=*[00]None	// Move "*" to the desired Option
+         [01]Hardware RTS/CTS
+         [02]Software Xon/Xoff
+
+Setup Question	= Redirection COM Port
+Map String	= TER0A8
+Help String	= Select a COM port to display redirection of Legacy OS and Legacy OPROM Messages
+Token	=47	// Do NOT change this line
+Offset	=73
+Width	=01
+BIOS Default=[00]COM0(Pci Bus0,Dev0,Func0,Port0)
+Options	=*[00]COM0(Pci Bus0,Dev0,Func0,Port0)	// Move "*" to the desired Option
+         [01]COM1(Pci Bus0,Dev0,Func0,Port1)
+
+Setup Question	= Resolution
+Map String	= TER07A
+Help String	= On Legacy OS, the Number of Rows and Columns supported redirection
+Token	=48	// Do NOT change this line
+Offset	=67
+Width	=01
+BIOS Default=[00]80x24
+Options	=*[00]80x24	// Move "*" to the desired Option
+         [01]80x25
+
+Setup Question	= Redirect After POST
+Map String	= TER0A7
+Help String	= When Bootloader is selected, then Legacy Console Redirection is disabled before booting to legacy OS. When Always Enable is selected, then Legacy Console Redirection is enabled for legacy OS. Default setting for this option is set to Always Enable.
+Token	=49	// Do NOT change this line
+Offset	=6A
+Width	=01
+BIOS Default=[00]Always Enable
+Options	=*[00]Always Enable	// Move "*" to the desired Option
+         [01]BootLoader
+
+Setup Question	= Terminal Type
+Map String	= TER012
+Help String	= Emulation: ANSI: Extended ASCII char set. VT100: ASCII char set. VT100Plus: Extends VT100 to support color, function keys, etc. VT-UTF8: Uses UTF8 encoding to map Unicode chars onto 1 or more bytes.
+Token	=4A	// Do NOT change this line
+Offset	=5F
+Width	=01
+BIOS Default=[03]ANSI
+Options	=[00]VT100	// Move "*" to the desired Option
+         [01]VT100Plus
+         [02]VT-UTF8
+         *[03]ANSI
+
+Setup Question	= Bits per second
+Map String	= TER0021
+Help String	= Selects serial port transmission speed. The speed must be matched on the other side. Long or noisy lines may require lower speeds.
+Token	=4B	// Do NOT change this line
+Offset	=53
+Width	=01
+BIOS Default=[07]115200
+Options	=[03]9600	// Move "*" to the desired Option
+         [04]19200
+         [05]38400
+         [06]57600
+         *[07]115200
+
+Setup Question	= Data Bits
+Map String	= TER030
+Help String	= Data Bits
+Token	=4C	// Do NOT change this line
+Offset	=55
+Width	=01
+BIOS Default=[08]8
+Options	=[07]7	// Move "*" to the desired Option
+         *[08]8
+
+Setup Question	= Parity
+Map String	= TER03F
+Help String	= A parity bit can be sent with the data bits to detect some transmission errors. Even: parity bit is 0 if the num of 1's in the data bits is even. Odd: parity bit is 0 if num of 1's in the data bits is odd.  Mark: parity bit is always 1. Space: Parity bit is always 0. Mark and Space Parity do not allow for error detection. They can be used as an additional data bit.
+Token	=4D	// Do NOT change this line
+Offset	=57
+Width	=01
+BIOS Default=[01]None
+Options	=*[01]None	// Move "*" to the desired Option
+         [02]Even
+         [03]Odd
+         [04]Mark
+         [05]Space
+
+Setup Question	= Stop Bits
+Map String	= TER04E
+Help String	= Stop bits indicate the end of a serial data packet. (A start bit indicates the beginning). The standard setting is 1 stop bit. Communication with slow devices may require more than 1 stop bit.
+Token	=4E	// Do NOT change this line
+Offset	=59
+Width	=01
+BIOS Default=[01]1
+Options	=*[01]1	// Move "*" to the desired Option
+         [03]2
+
+Setup Question	= Flow Control
+Map String	= TER05D
+Help String	= Flow control can prevent data loss from buffer overflow. When sending data, if the receiving buffers are full, a 'stop' signal can be sent to stop the data flow. Once the buffers are empty, a 'start' signal can be sent to re-start the flow. Hardware flow control uses two wires to send start/stop signals.
+Token	=4F	// Do NOT change this line
+Offset	=5B
+Width	=01
+BIOS Default=[00]None
+Options	=*[00]None	// Move "*" to the desired Option
+         [01]Hardware RTS/CTS
+
+Setup Question	= VT-UTF8 Combo Key Support
+Map String	= TER07B
+Help String	= Enable VT-UTF8 Combination Key Support for ANSI/VT100 terminals
+Token	=50	// Do NOT change this line
+Offset	=61
+Width	=01
+BIOS Default=1
+Value	=1	// Enabled = 1, Disabled = 0
+
+Setup Question	= Recorder Mode
+Map String	= TER089
+Help String	= With this mode enabled only text will be sent. This is to capture Terminal data.
+Token	=51	// Do NOT change this line
+Offset	=63
+Width	=01
+BIOS Default=0
+Value	=0	// Enabled = 1, Disabled = 0
+
+Setup Question	= Resolution 100x31
+Map String	= TER06c
+Help String	= Enables or disables extended terminal resolution
+Token	=52	// Do NOT change this line
+Offset	=65
+Width	=01
+BIOS Default=0
+Value	=0	// Enabled = 1, Disabled = 0
+
+Setup Question	= Putty KeyPad
+Map String	= TER098
+Help String	= Select FunctionKey and KeyPad on Putty.
+Token	=53	// Do NOT change this line
+Offset	=68
+Width	=01
+BIOS Default=[01]VT100
+Options	=*[01]VT100	// Move "*" to the desired Option
+         [02]LINUX
+         [04]XTERMR6
+         [08]SCO
+         [10]ESCN
+         [20]VT400
+
+Setup Question	= Terminal Type
+Map String	= TER013
+Help String	= Emulation: ANSI: Extended ASCII char set. VT100: ASCII char set. VT100Plus: Extends VT100 to support color, function keys, etc. VT-UTF8: Uses UTF8 encoding to map Unicode chars onto 1 or more bytes.
+Token	=54	// Do NOT change this line
+Offset	=60
+Width	=01
+BIOS Default=[03]ANSI
+Options	=[00]VT100	// Move "*" to the desired Option
+         [01]VT100Plus
+         [02]VT-UTF8
+         *[03]ANSI
+
+Setup Question	= Bits per second
+Map String	= TER0022
+Help String	= Selects serial port transmission speed. The speed must be matched on the other side. Long or noisy lines may require lower speeds.
+Token	=55	// Do NOT change this line
+Offset	=54
+Width	=01
+BIOS Default=[07]115200
+Options	=[03]9600	// Move "*" to the desired Option
+         [04]19200
+         [05]38400
+         [06]57600
+         *[07]115200
+
+Setup Question	= Data Bits
+Map String	= TER031
+Help String	= Data Bits
+Token	=56	// Do NOT change this line
+Offset	=56
+Width	=01
+BIOS Default=[08]8
+Options	=[07]7	// Move "*" to the desired Option
+         *[08]8
+
+Setup Question	= Parity
+Map String	= TER040
+Help String	= A parity bit can be sent with the data bits to detect some transmission errors. Even: parity bit is 0 if the num of 1's in the data bits is even. Odd: parity bit is 0 if num of 1's in the data bits is odd.  Mark: parity bit is always 1. Space: Parity bit is always 0. Mark and Space Parity do not allow for error detection. They can be used as an additional data bit.
+Token	=57	// Do NOT change this line
+Offset	=58
+Width	=01
+BIOS Default=[01]None
+Options	=*[01]None	// Move "*" to the desired Option
+         [02]Even
+         [03]Odd
+         [04]Mark
+         [05]Space
+
+Setup Question	= Stop Bits
+Map String	= TER04F
+Help String	= Stop bits indicate the end of a serial data packet. (A start bit indicates the beginning). The standard setting is 1 stop bit. Communication with slow devices may require more than 1 stop bit.
+Token	=58	// Do NOT change this line
+Offset	=5A
+Width	=01
+BIOS Default=[01]1
+Options	=*[01]1	// Move "*" to the desired Option
+         [03]2
+
+Setup Question	= Flow Control
+Map String	= TER05E
+Help String	= Flow control can prevent data loss from buffer overflow. When sending data, if the receiving buffers are full, a 'stop' signal can be sent to stop the data flow. Once the buffers are empty, a 'start' signal can be sent to re-start the flow. Hardware flow control uses two wires to send start/stop signals.
+Token	=59	// Do NOT change this line
+Offset	=5C
+Width	=01
+BIOS Default=[00]None
+Options	=*[00]None	// Move "*" to the desired Option
+         [01]Hardware RTS/CTS
+
+Setup Question	= VT-UTF8 Combo Key Support
+Map String	= TER07C
+Help String	= Enable VT-UTF8 Combination Key Support for ANSI/VT100 terminals
+Token	=5A	// Do NOT change this line
+Offset	=62
+Width	=01
+BIOS Default=1
+Value	=1	// Enabled = 1, Disabled = 0
+
+Setup Question	= Recorder Mode
+Map String	= TER08A
+Help String	= With this mode enabled only text will be sent. This is to capture Terminal data.
+Token	=5B	// Do NOT change this line
+Offset	=64
+Width	=01
+BIOS Default=0
+Value	=0	// Enabled = 1, Disabled = 0
+
+Setup Question	= Resolution 100x31
+Map String	= TER06D
+Help String	= Enables or disables extended terminal resolution
+Token	=5C	// Do NOT change this line
+Offset	=66
+Width	=01
+BIOS Default=0
+Value	=0	// Enabled = 1, Disabled = 0
+
+Setup Question	= Putty KeyPad
+Map String	= TER099
+Help String	= Select FunctionKey and KeyPad on Putty.
+Token	=5D	// Do NOT change this line
+Offset	=69
+Width	=01
+BIOS Default=[01]VT100
+Options	=*[01]VT100	// Move "*" to the desired Option
+         [02]LINUX
+         [04]XTERMR6
+         [08]SCO
+         [10]ESCN
+         [20]VT400
+
+Setup Question	= SVM Mode
+Map String	= CPU005
+Help String	= Enable/disable CPU Virtualization
+Token	=5E	// Do NOT change this line
+Offset	=78
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= Debug Port Table
+Map String	= DBG002
+Help String	= Debug Port Table
+Token	=61	// Do NOT change this line
+Offset	=84
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	= Debug Port Table 2
+Map String	= DBG003
+Help String	= Debug Port Table 2
+Token	=62	// Do NOT change this line
+Offset	=85
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	= USB Support
+Map String	= USB000
+Help String	= USB Support Parameters
+Token	=63	// Do NOT change this line
+Offset	=00
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= Legacy USB Support
+Map String	= USB002
+Help String	= Enables Legacy USB support. AUTO option disables legacy support if no USB devices are connected. DISABLE option will keep USB devices available only for EFI applications.
+Token	=64	// Do NOT change this line
+Offset	=01
+Width	=01
+BIOS Default=[00]Enabled
+Options	=*[00]Enabled	// Move "*" to the desired Option
+         [01]Disabled
+         [02]Auto
+
+Setup Question	= USB 2.0 Controller Mode
+Map String	= USB00E
+Help String	= Configures the USB 2.0 controller in HiSpeed (480Mbps) or FullSpeed (12Mbps).
+Token	=65	// Do NOT change this line
+Offset	=2E
+Width	=01
+BIOS Default=[01]HiSpeed
+Options	=*[01]HiSpeed	// Move "*" to the desired Option
+         [00]FullSpeed
+
+Setup Question	= XHCI Legacy Support
+Map String	= USB001
+Help String	= Enable/Disable XHCI Controller Legacy support.
+Token	=66	// Do NOT change this line
+Offset	=2A
+Width	=01
+BIOS Default=[01]Enabled
+Options	=*[01]Enabled	// Move "*" to the desired Option
+         [00]Disabled
+
+Setup Question	= XHCI Hand-off
+Map String	= USB003
+Help String	= This is a workaround for OSes without XHCI hand-off support. The XHCI ownership change should be claimed by XHCI driver.
+Token	=67	// Do NOT change this line
+Offset	=2B
+Width	=01
+BIOS Default=[01]Enabled
+Options	=*[01]Enabled	// Move "*" to the desired Option
+         [00]Disabled
+
+Setup Question	= EHCI Hand-off
+Map String	= USB004
+Help String	= This is a workaround for OSes without EHCI hand-off support. The EHCI ownership change should be claimed by EHCI driver.
+Token	=68	// Do NOT change this line
+Offset	=02
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	= USB Mass Storage Driver Support
+Map String	= USB00F
+Help String	= Enable/Disable USB Mass Storage Driver Support.
+Token	=69	// Do NOT change this line
+Offset	=2F
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= Port 60/64 Emulation
+Map String	= USB00D
+Help String	= Enables I/O port 60h/64h emulation support. This should be enabled for the complete USB keyboard legacy support for non-USB aware OSes.
+Token	=6A	// Do NOT change this line
+Offset	=07
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= USB transfer time-out
+Map String	= USB00A
+Help String	= The time-out value for Control, Bulk, and Interrupt transfers.
+Token	=6B	// Do NOT change this line
+Offset	=09
+Width	=01
+BIOS Default=[14]20 sec
+Options	=[01]1 sec	// Move "*" to the desired Option
+         [05]5 sec
+         [0A]10 sec
+         *[14]20 sec
+
+Setup Question	= Device reset time-out
+Map String	= USB009
+Help String	= USB mass storage device Start Unit command time-out.
+Token	=6C	// Do NOT change this line
+Offset	=08
+Width	=01
+BIOS Default=[01]20 sec
+Options	=[00]10 sec	// Move "*" to the desired Option
+         *[01]20 sec
+         [02]30 sec
+         [03]40 sec
+
+Setup Question	= Device power-up delay
+Map String	= USB00B
+Help String	= Maximum time the device will take before it properly reports itself to the Host Controller. 'Auto' uses default value: for a Root port it is 100 ms, for a Hub port the delay is taken from Hub descriptor.
+Token	=6D	// Do NOT change this line
+Offset	=2C
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Manual
+
+Setup Question	= Device power-up delay in seconds
+Map String	= USB00C
+Help String	= Delay range is 1..40 seconds, in one second increments
+Token	=6E	// Do NOT change this line
+Offset	=2D
+Width	=01
+BIOS Default=<5>
+Value	=<5>
+
+Setup Question	= N/A
+Map String	= USB011
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=6F	// Do NOT change this line
+Offset	=0A
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB012
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=70	// Do NOT change this line
+Offset	=0B
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB013
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=71	// Do NOT change this line
+Offset	=0C
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB014
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=72	// Do NOT change this line
+Offset	=0D
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB015
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=73	// Do NOT change this line
+Offset	=0E
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB016
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=74	// Do NOT change this line
+Offset	=0F
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB017
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=75	// Do NOT change this line
+Offset	=10
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB018
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=76	// Do NOT change this line
+Offset	=11
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB019
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=77	// Do NOT change this line
+Offset	=12
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB01A
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=78	// Do NOT change this line
+Offset	=13
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB01B
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=79	// Do NOT change this line
+Offset	=14
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB01C
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=7A	// Do NOT change this line
+Offset	=15
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB01D
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=7B	// Do NOT change this line
+Offset	=16
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB01E
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=7C	// Do NOT change this line
+Offset	=17
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB01F
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=7D	// Do NOT change this line
+Offset	=18
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB020
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=7E	// Do NOT change this line
+Offset	=19
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB021
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=7F	// Do NOT change this line
+Offset	=1A
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB022
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=80	// Do NOT change this line
+Offset	=1B
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB023
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=81	// Do NOT change this line
+Offset	=1C
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB024
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=82	// Do NOT change this line
+Offset	=1D
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB025
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=83	// Do NOT change this line
+Offset	=1E
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB026
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=84	// Do NOT change this line
+Offset	=1F
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB027
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=85	// Do NOT change this line
+Offset	=20
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB028
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=86	// Do NOT change this line
+Offset	=21
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB029
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=87	// Do NOT change this line
+Offset	=22
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB02A
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=88	// Do NOT change this line
+Offset	=23
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB02B
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=89	// Do NOT change this line
+Offset	=24
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB02C
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=8A	// Do NOT change this line
+Offset	=25
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB02D
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=8B	// Do NOT change this line
+Offset	=26
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB02E
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=8C	// Do NOT change this line
+Offset	=27
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB02F
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=8D	// Do NOT change this line
+Offset	=28
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= N/A
+Map String	= USB030
+Help String	= Mass storage device emulation type. 'AUTO' enumerates devices according to their media format. Optical drives are emulated as 'CDROM', drives with no media will be emulated according to a drive type.
+Token	=8E	// Do NOT change this line
+Offset	=29
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]Floppy
+         [02]Forced FDD
+         [03]Hard Disk
+         [04]CD-ROM
+
+Setup Question	= Network Stack
+Map String	= NWSK000
+Help String	= Enable/Disable UEFI Network Stack
+Token	=8F	// Do NOT change this line
+Offset	=00
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= IPv4 PXE Support
+Map String	= NWSK001
+Help String	= Enable/Disable IPv4 PXE boot support. If disabled, IPv4 PXE boot support will not be available.
+Token	=90	// Do NOT change this line
+Offset	=01
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= IPv4 HTTP Support
+Map String	= NWSK006
+Help String	= Enable/Disable IPv4 HTTP boot support. If disabled, IPv4 HTTP boot support will not be available.
+Token	=91	// Do NOT change this line
+Offset	=06
+Width	=01
+BIOS Default=[00]Disabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= IPv6 PXE Support
+Map String	= NWSK002
+Help String	= Enable/Disable IPv6 PXE boot support. If disabled, IPv6 PXE boot support will not be available.
+Token	=92	// Do NOT change this line
+Offset	=02
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	= IPv6 HTTP Support
+Map String	= NWSK007
+Help String	= Enable/Disable IPv6 HTTP boot support. If disabled, IPv6 HTTP boot support will not be available.
+Token	=93	// Do NOT change this line
+Offset	=07
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	= PXE boot wait time
+Map String	= NWSK004
+Help String	= Wait time in seconds to press ESC key to abort the PXE boot. Use either +/- or numeric keys to set the value.
+Token	=94	// Do NOT change this line
+Offset	=04
+Width	=01
+BIOS Default=<0>
+Value	=<0>
+
+Setup Question	= Media detect count
+Map String	= NWSK005
+Help String	= Number of times the presence of media will be checked. Use either +/- or numeric keys to set the value.
+Token	=95	// Do NOT change this line
+Offset	=05
+Width	=01
+BIOS Default=<1>
+Value	=<1>
+
+Setup Question	= CSM Support
+Map String	= CSM005
+Help String	= Enable/Disable CSM Support.
+Token	=274B	// Do NOT change this line
+Offset	=86
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	= GateA20 Active
+Map String	= CSM002
+Help String	= UPON REQUEST - GA20 can be disabled using BIOS services. ALWAYS - do not allow disabling GA20; this option is useful when any RT code is executed above 1MB.
+Token	=96	// Do NOT change this line
+Offset	=8B
+Width	=01
+BIOS Default=[00]Upon Request
+Options	=*[00]Upon Request	// Move "*" to the desired Option
+         [01]Always
+
+Setup Question	= Option ROM Messages
+Map String	= CSM000
+Help String	= Set display mode for Option ROM
+Token	=97	// Do NOT change this line
+Offset	=87
+Width	=01
+BIOS Default=[01]Force BIOS
+Options	=*[01]Force BIOS	// Move "*" to the desired Option
+         [00]Keep Current
+
+Setup Question	= INT19 Trap Response
+Map String	= CSM001
+Help String	= BIOS reaction on INT19 trapping by Option ROM: IMMEDIATE - execute the trap right away; POSTPONED - execute the trap during legacy boot.
+Token	=98	// Do NOT change this line
+Offset	=88
+Width	=01
+BIOS Default=[01]Immediate
+Options	=*[01]Immediate	// Move "*" to the desired Option
+         [00]Postponed
+
+Setup Question	= HDD Connection Order
+Map String	= CSM011
+Help String	= Some OS require HDD handles to be adjusted, i.e. OS is installed on drive 80h.
+Token	=99	// Do NOT change this line
+Offset	=8A
+Width	=01
+BIOS Default=[00]Adjust
+Options	=*[00]Adjust	// Move "*" to the desired Option
+         [01]Keep
+
+Setup Question	= Boot option filter
+Map String	= CSM006
+Help String	= This option controls Legacy/UEFI ROMs priority
+Token	=9A	// Do NOT change this line
+Offset	=8C
+Width	=01
+BIOS Default=[00]UEFI and Legacy
+Options	=*[00]UEFI and Legacy	// Move "*" to the desired Option
+         [01]Legacy only
+         [02]UEFI only
+
+Setup Question	= Network
+Map String	= CSM007
+Help String	= Controls the execution of UEFI and Legacy Network OpROM
+Token	=9B	// Do NOT change this line
+Offset	=8D
+Width	=01
+BIOS Default=[01]UEFI
+Options	=[00]Do not launch	// Move "*" to the desired Option
+         *[01]UEFI
+         [02]Legacy
+
+Setup Question	= Storage
+Map String	= CSM008
+Help String	= Controls the execution of UEFI and Legacy Storage OpROM
+Token	=9C	// Do NOT change this line
+Offset	=8E
+Width	=01
+BIOS Default=[01]UEFI
+Options	=[00]Do not launch	// Move "*" to the desired Option
+         *[01]UEFI
+         [02]Legacy
+
+Setup Question	= Video
+Map String	= CSM009
+Help String	= Controls the execution of UEFI and Legacy Video OpROM
+Token	=9D	// Do NOT change this line
+Offset	=8F
+Width	=01
+BIOS Default=[01]UEFI
+Options	=[00]Do not launch	// Move "*" to the desired Option
+         *[01]UEFI
+         [02]Legacy
+
+Setup Question	= Other PCI devices
+Map String	= CSM010
+Help String	= Determines OpROM execution policy for devices other than Network, Storage, or Video
+Token	=9E	// Do NOT change this line
+Offset	=90
+Width	=01
+BIOS Default=[01]UEFI
+Options	=[00]Do not launch	// Move "*" to the desired Option
+         *[01]UEFI
+         [02]Legacy
+
+Setup Question	= PCIe Link Training Type
+Map String	= CRB015
+Help String	= PCIe Link training in 1 or 2 steps.
+Token	=A1	// Do NOT change this line
+Offset	=3E
+Width	=01
+BIOS Default=[00]1 Step
+Options	=*[00]1 Step	// Move "*" to the desired Option
+         [01]2 Step
+
+Setup Question	= Aggressive Link PM Capability
+Map String	= SB01M
+Help String	= Indicates Whether Host Bus Adapter (HBA) Can Support Auto-Generating Link Requests To The Partial Or Slumber States When There Are No Commands To Process
+Token	=AB	// Do NOT change this line
+Offset	=2A
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= Port Multiplier Capability
+Map String	= SB01N
+Help String	= Indicates Whether Host Bus Adapter (HBA) Can Support A Port Multiplier
+Token	=AC	// Do NOT change this line
+Offset	=2B
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= SATA Ports Auto Clock Control
+Map String	= SB01U
+Help String	= EnableDisable SATA Ports Auto Clock Control
+Token	=AD	// Do NOT change this line
+Offset	=2C
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= SATA Partial State Capability
+Map String	= SB01O
+Help String	= Indicates Whether SATA Host Bus Adapter (HBA) Can Support Transitions To The Partial State
+Token	=AE	// Do NOT change this line
+Offset	=2D
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= SATA FIS Based Switching
+Map String	= SB01S
+Help String	= Indicates Whether SATA Host Bus Adapter (HBA) Can Support Port Multiplier FIS-Based Switching
+Token	=AF	// Do NOT change this line
+Offset	=2E
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= SATA Command Completion Coalescing Support
+Map String	= SB01Q
+Help String	= Indicates Whether SATA Host Bus Adapter (HBA) Can Support Command Completion Coalescing
+Token	=B0	// Do NOT change this line
+Offset	=2F
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	= SATA Slumber State Capability
+Map String	= SB01P
+Help String	= Indicates Whether SATA Host Bus Adapter (HBA) Can Support Transitions To The Slumber State
+Token	=B1	// Do NOT change this line
+Offset	=30
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= SATA Target Support 8 Devices
+Map String	= SB02Z
+Help String	= Indicates Whether SATA Target Support 8 Devices Function
+Token	=B2	// Do NOT change this line
+Offset	=31
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	= Generic Mode
+Map String	= SB030
+Help String	= Sata Disable Generic Mode
+Token	=B3	// Do NOT change this line
+Offset	=32
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	= SATA AHCI Enclosure
+Map String	= SB031
+Help String	= SATA AHCI Enclosure Management
+Token	=B4	// Do NOT change this line
+Offset	=33
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	= SATA SGPIO 0
+Map String	= SB032
+Help String	= Enable/Disable SATA Serial General Purpose Input/Output (SGPIO) 0
+Token	=B5	// Do NOT change this line
+Offset	=34
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	= TimerTick Tracking
+Map String	= SB03F
+Help String	= 
+Token	=B6	// Do NOT change this line
+Offset	=35
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	= Clock Interrupt Tag
+Map String	= SB03G
+Help String	= 
+Token	=B7	// Do NOT change this line
+Offset	=36
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	= SB Clock Spread Spectrum
+Map String	= SB01K
+Help String	= Enable/Disable CG1_PLL Spread Spectrum
+Token	=B8	// Do NOT change this line
+Offset	=37
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= HPET In SB
+Map String	= SB01B
+Help String	= HPET Function Switch
+Token	=B9	// Do NOT change this line
+Offset	=38
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= MsiDis in HPET
+Map String	= SB051
+Help String	= Expose MSI capability in HPET Capbility register
+Token	=BA	// Do NOT change this line
+Offset	=39
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= Memory Clock
+Map String	= NB001
+Help String	= This Option Allows User to select different Memory Clock. Default value is 800Mhz.
+Token	=273C	// Do NOT change this line
+Offset	=81
+Width	=01
+BIOS Default=[00]Auto
+Options	=*[00]Auto	// Move "*" to the desired Option
+         [01]1333MHz
+         [02]1600MHz
+         [03]1866MHz
+         [04]2133MHz
+         [05]2400MHz
+
+Setup Question	= Secure Boot
+Map String	= SECB001
+Help String	= Secure Boot feature is Active if Secure Boot is Enabled,Platform Key(PK) is enrolled and the System is in User mode.The mode change requires platform reset
+Token	=28BE	// Do NOT change this line
+Offset	=00
+Width	=01
+BIOS Default=[01]Enabled
+Options	=[00]Disabled	// Move "*" to the desired Option
+         *[01]Enabled
+
+Setup Question	= Secure Boot Mode
+Map String	= SECB002
+Help String	= Secure Boot mode options:Standard or Custom.In Custom mode, Secure Boot Policy variables can be configured by a physically present user without full authentication
+Token	=28BF	// Do NOT change this line
+Offset	=01
+Width	=01
+BIOS Default=[00]Standard
+Options	=*[00]Standard	// Move "*" to the desired Option
+         [01]Custom
+
+Setup Question	= Factory Key Provision
+Map String	= SECB008
+Help String	= Install factory default Secure Boot keys after the platform reset and while the System is in Setup mode
+Token	=28C7	// Do NOT change this line
+Offset	=02
+Width	=01
+BIOS Default=[00]Disabled
+Options	=*[00]Disabled	// Move "*" to the desired Option
+         [01]Enabled
+
+Setup Question	= Active db Certificates
+Map String	= SECB009
+Help String	= Select 'db' certificates use policy.All-all db certificates are used.Block UEFI CA-block all 3rd party efi extensions signed by 'Microsoft UEFI CA'.Microsoft only - only MSFT signed extensions will be authorized to run.None-none of external efi images will execute.
+Token	=28D2	// Do NOT change this line
+Offset	=03
+Width	=01
+BIOS Default=[00]All
+Options	=*[00]All	// Move "*" to the desired Option
+         [01]All, block'UEFI CA'
+         [02]MSFT,block'UEFI CA'
+         [03]MSFT  and 'UEFI CA'
+         [04]None
+
+Setup Question	= Setup Prompt Timeout
+Map String	= SETUP003
+Help String	= Number of seconds to wait for setup activation key. 65535(0xFFFF) means indefinite waiting.
+Token	=BF	// Do NOT change this line
+Offset	=00
+Width	=02
+BIOS Default=<0>
+Value	=<0>
+
+Setup Question	= Bootup NumLock State
+Map String	= SETUP004
+Help String	= Select the keyboard NumLock state
+Token	=C0	// Do NOT change this line
+Offset	=00
+Width	=01
+BIOS Default=[01]On
+Options	=*[01]On	// Move "*" to the desired Option
+         [00]Off
+
+Setup Question	= Quiet Boot
+Map String	= SETUP005
+Help String	= Enables or disables Quiet Boot option
+Token	=C1	// Do NOT change this line
+Offset	=50
+Width	=01
+BIOS Default=1
+Value	=1	// Enabled = 1, Disabled = 0
+
+Setup Question	= Above 4G Decoding
+Map String	= PCID001
+Help String	= Globally Enables or Disables 64bit capable Devices to be Decoded in Above 4G Address Space (Only if System Supports 64 bit PCI Decoding).
+Token	=7006	// Do NOT change this line
+Offset	=03
+Width	=01
+BIOS Default=1
+Value	=1	// Enabled = 1, Disabled = 0
+
+Setup Question	= SR-IOV Support
+Map String	= PCID002
+Help String	= If system has SR-IOV capable PCIe Devices, this option Enables or Disables Single Root IO Virtualization Support.
+Token	=7007	// Do NOT change this line
+Offset	=05
+Width	=01
+BIOS Default=0
+Value	=0	// Enabled = 1, Disabled = 0
+
+Setup Question	= BME DMA Mitigation
+Map String	= PCID003
+Help String	= Re-enable Bus Master Attribute disabled during Pci enumeration for PCI Bridges after SMM Locked 
+Token	=702A	// Do NOT change this line
+Offset	=06
+Width	=01
+BIOS Default=0
+Value	=0	// Enabled = 1, Disabled = 0
+
+Setup Question	= Hot-Plug Support
+Map String	= PCID004
+Help String	= Globally Enables or Disables Hot-Plug support for the entire System. If System has Hot-Plug capable Slots and this option set to Enabled, it provides a Setup screen for selecting PCI resource padding for Hot-Plug.
+Token	=7008	// Do NOT change this line
+Offset	=02
+Width	=01
+BIOS Default=1
+Value	=1	// Enabled = 1, Disabled = 0
+
+Setup Question	= Restore PCIE Registers
+Map String	= PCID006
+Help String	= On non-PCI Express aware OS's (Pre Windows Vista) some devices may not be correctly reinitialized after S3. Enabling this restors PCI Express device configurations on S3 resume. Warning: Enabling this may cause issues with other hardware after S3 resume.
+Token	=700D	// Do NOT change this line
+Offset	=01
+Width	=01
+BIOS Default=0
+Value	=0	// Enabled = 1, Disabled = 0
+
+Setup Question	= Don't Reset VC-TC Mapping
+Map String	= PCID005
+Help String	= If system has Virtual Channels, Software can reset Traffic Class mapping through the Virtual Channels to it's default state. Setting this option to Enabled will not modify VC Resources.
+Token	=7029	// Do NOT change this line
+Offset	=07
+Width	=01
+BIOS Default=0
+Value	=0	// Enabled = 1, Disabled = 0

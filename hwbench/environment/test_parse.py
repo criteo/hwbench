@@ -4,9 +4,19 @@ import json
 from . import cpu_cores
 from . import cpu_info
 from . import numa
+from .vendors.amd import amd
 
 
 class TestParseCPU(object):
+    def test_ami_aptio(self):
+        d = pathlib.Path("./tests/parsing/ami_aptio/v5")
+        print(f"parsing test {d.name}")
+        test_target = amd.Ami_Aptio("")
+        ver_stdout = (d / "version-stdout").read_bytes()
+        ver_stderr = (d / "version-stderr").read_bytes()
+        version = test_target.parse_version(ver_stdout, ver_stderr)
+        assert version == (d / "version").read_bytes().strip()
+
     def test_parsing_cpuinfo(self):
         d = pathlib.Path("./tests/parsing/cpu_info/v2321")
         print(f"parsing test {d.name}")
