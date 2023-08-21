@@ -12,7 +12,7 @@ class TestParse(object):
             test_dir = pathlib.Path(f"./tests/parsing/{prefix}")
             for d in test_dir.iterdir():
                 print(f"parsing test {d.name}")
-                test_target = classname("")
+                test_target = classname(pathlib.Path(""), 0, 0)
                 if not d.is_dir():
                     continue
                 ver_stdout = (d / "version-stdout").read_bytes()
@@ -25,4 +25,7 @@ class TestParse(object):
                 stderr = (d / "stderr").read_bytes()
 
                 output = test_target.parse_cmd(stdout, stderr)
+                # these are unused in parsing
+                del output["timeout"]
+                del output["workers"]
                 assert output == json.loads((d / "output").read_bytes())

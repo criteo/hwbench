@@ -1,5 +1,4 @@
 import abc
-import os
 import pathlib
 
 from ..utils.external import External
@@ -7,12 +6,13 @@ from .bench import Bench
 
 
 class StressNG(External, Bench):
-    # TODO: class settings (timeout, number of jobs, etc.)
     @abc.abstractmethod
-    def __init__(self, out_dir: pathlib.Path):
+    def __init__(self, out_dir: pathlib.Path, timeout: int, workers: int):
         External.__init__(self, out_dir)
         Bench.__init__(self)
         self.stressor_name = "undefined"
+        self.timeout = timeout
+        self.workers = workers
 
     @property
     def name(self) -> str:
@@ -28,7 +28,7 @@ class StressNG(External, Bench):
         args = [
             "stress-ng",
             "--timeout",
-            "2",
+            str(self.timeout),
             "--metrics-brief",
         ]
         if self.version_major() >= 16:
@@ -56,16 +56,20 @@ class StressNG(External, Bench):
 
         # TODO: better parsing than this
         score = float(inp.splitlines()[line].split()[bogo_idx])
-        return {f"{self.name} bogo ops/s": score}
+        return {
+            f"{self.name} bogo ops/s": score,
+            "timeout": self.timeout,
+            "workers": self.workers,
+        }
 
 
 class StressNGQsort(StressNG):
-    def __init__(self, out_dir: pathlib.Path):
-        super().__init__(out_dir)
+    def __init__(self, out_dir: pathlib.Path, timeout: int, workers: int):
+        super().__init__(out_dir, timeout, workers)
         self.stressor_name = "qsort"
 
     def run_cmd(self) -> list[str]:
         return super().run_cmd() + [
             "--qsort",
-            "%d" % os.sysconf("SC_NPROCESSORS_ONLN"),
+            str(self.workers),
         ]

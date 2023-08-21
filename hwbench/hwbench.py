@@ -51,7 +51,9 @@ def create_output_directory() -> tuple[pathlib.Path, pathlib.Path]:
 
 
 def build_benchmarks(out_dir: pathlib.Path) -> Benchmarks:
-    return {"qsort": stressng.StressNGQsort(out_dir)}
+    return {
+        "qsort": stressng.StressNGQsort(out_dir, 2, os.sysconf("SC_NPROCESSORS_ONLN"))
+    }
 
 
 def parse_options(benchmark_names: list[str]):
