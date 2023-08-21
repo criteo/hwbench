@@ -7,7 +7,6 @@ import os
 import pathlib
 import sys
 import time
-from typing import Optional
 
 from .bench import stressng, bench
 from .environment import software as env_soft
@@ -34,7 +33,7 @@ def main():
 
     out = format_output(env, hw, results)
 
-    write_output(out, args.bench, args.output)
+    write_output(out_dir, out)
 
 
 def is_root():
@@ -68,7 +67,6 @@ def parse_options(benchmark_names: list[str]):
         choices=benchmark_names,
         default=benchmark_names[0:1],
     )
-    parser.add_argument("output", help="Name of output file", nargs="?", default=None)
     return parser.parse_args()
 
 
@@ -88,15 +86,9 @@ def format_output(env, hw, results) -> dict[str, object]:
     }
 
 
-def write_output(out, benchs: list[str], output_file: Optional[str]):
-    if not output_file:
-        print(json.dumps(out, indent=4))
-    output_file = "hwbench-out-%s-%s.json" % (
-        ",".join(benchs),
-        time.strftime("%Y%m%d%H%M%S"),
-    )
-    with open(output_file, "w") as f:
-        f.write(json.dumps(out))
+def write_output(out_dir: pathlib.Path, out):
+    print(json.dumps(out, indent=4))
+    (out_dir / "results.json").write_text(json.dumps(out))
 
 
 if __name__ == "__main__":
