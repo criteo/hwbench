@@ -1,0 +1,84 @@
+runtime:
+   role : defines the number of seconds a test runs
+   value: integer: x
+   unit : seconds
+
+monitor:
+   role : defines what environement metrics should be monitored during jobs
+   value: thermal, power, fans
+   unit : text
+   note : components/platforms in hwbench will have to implement them so its stay generic in the config file
+
+engine:
+    role : name of the benchmark engine in hwbench
+    value: any of the supported engine coded in hwbench
+    unit : text
+
+engine_module:
+    role : a testing mode from the benchmark
+    value: depends of the benchmark tool but also hwbench implementation
+    unit : text
+    note : if not defined, equals engine name
+
+engine_module_parameter:
+    role : input parameter of the engine_module
+    value: any input accepted by the engine_module
+    unit : text
+    note : if not defined, equals engine_module name
+
+hosting_cpu_cores:
+    role : list the logical cpu cores eligible during the test
+    value: integer: x
+           range: x-y
+           list: x,y,z
+    unit : integer
+    note : if omitted, all cores are selected
+           special keywords :
+                quadran_<x>: selects the <x>th cpu quandrant of the CPU (AMD)
+                numa_<x>   : selects the <x>th NUMA node of the system
+                all        : all cores are selected (default)
+                list       : items in hosting_cpu_cores list are considered separately
+
+
+hosting_cpu_cores_scaling:
+    role : defines how the hosting_cpu_cores is consumed
+    value: plus_<x> : <x> cores are added to the pinning
+           iterate  : for each value of hosting_cpu_cores, a new sub job is executed
+                      if hosting_cpu_cores has lower cpu count than stressor_range, the list is looped
+           none     : all hosting_cpu_cores cores are available for each job
+    unit : text
+    note : if hosting_cpu_cores is an integer, hosting_cpu_cores_scaling is not considered
+
+stressor_range:
+    role : list the number of stressor threads to use during this test
+    value: integer: x
+           range: x-y
+           list: x,y,z
+    unit : integer
+    note : if omitted, stressor_range = hosting_cpu_cores
+           special keywords :
+                all        : all hosting_cpu_cores are selected (default)
+
+stressor_range_scaling:
+    role : defines how the stressor_range is consumed
+    value: plus_<x>: x stressor is added at each run
+           pow2    : stressors are doubled at each runtime
+           max     : all stressors are runs at the same time, not scaling is performed (default)
+    unit : text
+    note : if stressor_range is an integer, stressor_range_scaling is not considered
+           if omitted, no scaling is performed
+           special keywords:
+                list: items in stressor_range list are considered separately
+
+thermal_start:
+    role : defines when the jobs are authorized to start
+    value: list: <item>:<temp_in_celsius>, <item2>:<temp_in_celsius>
+    unit : text
+    note : if not listed, jobs can starts immediately
+
+fans_start:
+    role : defines when the jobs are authorized to start
+    value: list: <item>:<fan_speed>, <item2>:<fan_speed>
+    unit : text
+    note : if not listed, jobs can starts immediately
+           fan_speed can be expressed in % or rpm

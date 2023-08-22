@@ -6,13 +6,12 @@ import os
 import pathlib
 import time
 
-from .bench import stressng, bench
+from .bench import benchmarks
+from .config import config
 from .environment import software as env_soft
 from .environment import hardware as env_hw
 from .utils import helpers as h
 from .tuning import setup as tuning_setup
-
-Benchmarks = dict[str, bench.Bench]
 
 
 def main():
@@ -20,14 +19,15 @@ def main():
         h.fatal("hwbench is not running as effective uid 0.")
 
     out_dir, tuning_out_dir = create_output_directory()
-    benchmarks = build_benchmarks(out_dir)
-    args = parse_options(list(benchmarks.keys()))
+    args = parse_options()
 
     tuning_setup.Tuning(tuning_out_dir).apply()
     env = env_soft.Environment(out_dir).dump()
     hw = env_hw.Hardware(out_dir).dump()
 
-    results = run_benchmarks(benchmarks, args.bench)
+    benches = benchmarks.Benchmarks(out_dir, config.Config(args.config))
+    benches.parse_config()
+    results = benches.run()
 
     out = format_output(env, hw, results)
 
@@ -48,41 +48,15 @@ def create_output_directory() -> tuple[pathlib.Path, pathlib.Path]:
     return out_dir, tuning_out_dir
 
 
-def build_benchmarks(out_dir: pathlib.Path) -> Benchmarks:
-    nproc = os.sysconf("SC_NPROCESSORS_ONLN")
-    # stressng --stream only works with at least 5s
-    run_secs = 10
-    cpu_benches = stressng.stress_ng_cpu_all(out_dir, run_secs, nproc)
-    other_benches = {
-        "qsort": stressng.StressNGQsort(out_dir, run_secs, nproc),
-        "stream": stressng.StressNGStream(out_dir, run_secs, nproc),
-    }
-    cpu_benches.update(other_benches)
-    return cpu_benches
-
-
-def parse_options(benchmark_names: list[str]):
+def parse_options():
     parser = argparse.ArgumentParser(
         prog="hwbench",
         description="Criteo Hardware Benchmarking tool",
     )
     parser.add_argument(
-        "-b",
-        "--bench",
-        help="Specify which benchmark(s) to run",
-        nargs="*",
-        choices=benchmark_names,
-        default=benchmark_names[0:1],
+        "-c", "--config", help="Specify the config file to load", required=True
     )
     return parser.parse_args()
-
-
-def run_benchmarks(benchmarks: Benchmarks, benchs: list[str]):
-    results = {}
-    for b in benchs:
-        results[b] = benchmarks[b].run()
-
-    return results
 
 
 def format_output(env, hw, results) -> dict[str, object]:
