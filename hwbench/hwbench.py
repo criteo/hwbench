@@ -2,15 +2,14 @@
 
 import argparse
 import json
-import logging
 import os
 import pathlib
-import sys
 import time
 
 from .bench import stressng, bench
 from .environment import software as env_soft
 from .environment import hardware as env_hw
+from .utils import helpers as h
 from .tuning import setup as tuning_setup
 
 Benchmarks = dict[str, bench.Bench]
@@ -18,8 +17,7 @@ Benchmarks = dict[str, bench.Bench]
 
 def main():
     if not is_root():
-        logging.error("hwbench is not running as effective uid 0.")
-        sys.exit(1)
+        h.fatal("hwbench is not running as effective uid 0.")
 
     out_dir, tuning_out_dir = create_output_directory()
     benchmarks = build_benchmarks(out_dir)
