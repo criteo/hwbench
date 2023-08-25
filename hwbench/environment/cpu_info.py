@@ -39,7 +39,7 @@ class CPU_INFO(External):
         super().__init__(out_dir)
         self.cpu_specs = {}
 
-    def get_specs(self) -> dict[str, str]:
+    def get_specs(self) -> dict[str, str | list[str]]:
         return self.cpu_specs
 
     def get_arch(self) -> str:

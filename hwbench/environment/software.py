@@ -16,7 +16,7 @@ class Environment:
         )
         (self.out_dir / "cmdline").write_bytes(self.kernel_cmdline())
 
-        copy_file("/proc/config.gz", self.out_dir)
+        copy_file("/proc/config.gz", str(self.out_dir))
 
         self.rpms = RpmList(out_dir)
         self.rpms.run()
