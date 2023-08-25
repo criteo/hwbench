@@ -2,6 +2,7 @@ import pathlib
 from typing import Any
 
 from .engine import EngineModuleBase
+from ..environment.hardware import BaseHardware
 from ..utils import helpers as h
 
 
@@ -16,6 +17,7 @@ class BenchmarkParameters:
         pinned_cpu: str,
         runtime: int,
         engine_module_parameter: str,
+        hw: BaseHardware,
     ):
         self.out_dir = out_dir
         self.job_name = job_name
@@ -24,6 +26,7 @@ class BenchmarkParameters:
         self.engine_module_parameter = engine_module_parameter
         self.runtime = runtime
         self.result_format = {}
+        self.hw = hw
 
     def get_pinned_cpu(self) -> str:
         return self.pinned_cpu
@@ -47,6 +50,9 @@ class BenchmarkParameters:
     def get_result_format(self) -> dict[str, str]:
         """Get the default result content to be padded with performance results."""
         return self.result_format
+
+    def get_hw(self) -> BaseHardware:
+        return self.hw
 
 
 class Benchmark:

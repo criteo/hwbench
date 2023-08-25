@@ -2,13 +2,14 @@ import os
 import json
 import pathlib
 
+from .base import BaseEnvironment
 from .packages import RpmList
 from ..utils.archive import copy_file, create_tar_from_directory
 from ..utils.external import External_Simple
 
 
-class Environment:
-    def __init__(self, out_dir):
+class Environment(BaseEnvironment):
+    def __init__(self, out_dir: pathlib.Path):
         self.out_dir = out_dir
 
         (self.out_dir / "kernel-info.json").write_text(

@@ -80,3 +80,6 @@ class CPU:
             "physical_cores": self.get_physical_cores_count(),
             "numa_domains": self.get_numa_domains_count(),
         }
+
+    def get_flags(self) -> list[str]:
+        return self.cpu_info.get_flags()

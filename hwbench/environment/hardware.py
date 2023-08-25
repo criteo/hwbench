@@ -1,7 +1,9 @@
 from __future__ import annotations
 import pathlib
+from abc import abstractmethod
 from typing import Optional
 
+from .base import BaseEnvironment
 from .vendors.detect import first_matching_vendor
 from .cpu import CPU
 from .dmi import DmiSys, DmidecodeRaw
@@ -9,7 +11,15 @@ from .lspci import Lspci, LspciBin
 from ..utils.external import External_Simple
 
 
-class Hardware:
+# This is the interface of Hardware
+# its only use is to be able to mock the environment for testing
+class BaseHardware(BaseEnvironment):
+    @abstractmethod
+    def cpu_flags(self) -> list[str]:
+        return []
+
+
+class Hardware(BaseHardware):
     def __init__(self, out_dir: pathlib.Path):
         self.out_dir = out_dir
         self.dmi = DmiSys(out_dir)
@@ -28,3 +38,6 @@ class Hardware:
             "dmi": self.dmi.dump(),
             "cpu": self.cpu.dump(),
         }
+
+    def cpu_flags(self) -> list[str]:
+        return self.cpu.get_flags()

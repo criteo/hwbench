@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from ..bench.benchmarks import BenchmarkParameters
+from ..environment.mock import mock_hardware
 from .stressng import Engine as StressNG
 from .stressng import (
     StressNGQsort,
@@ -60,7 +61,9 @@ class TestParse(unittest.TestCase):
                 with self.subTest(f"prefix {prefix} dir {d}"):
                     # Mock elements
                     path = pathlib.Path("")
-                    params = BenchmarkParameters(path, prefix, 0, "", 5, "")
+                    params = BenchmarkParameters(
+                        path, prefix, 0, "", 5, "", mock_hardware([])
+                    )
                     module = engine_module(engine, prefix)
 
                     # Class to test parse_cmd

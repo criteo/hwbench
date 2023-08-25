@@ -22,14 +22,14 @@ def main():
     args = parse_options()
 
     tuning_setup.Tuning(tuning_out_dir).apply()
-    env = env_soft.Environment(out_dir).dump()
-    hw = env_hw.Hardware(out_dir).dump()
+    env = env_soft.Environment(out_dir)
+    hw = env_hw.Hardware(out_dir)
 
-    benches = benchmarks.Benchmarks(out_dir, config.Config(args.config))
+    benches = benchmarks.Benchmarks(out_dir, config.Config(args.config), hw)
     benches.parse_config()
     results = benches.run()
 
-    out = format_output(env, hw, results)
+    out = format_output(env.dump(), hw.dump(), results)
 
     write_output(out_dir, out)
 

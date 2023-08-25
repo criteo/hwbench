@@ -65,3 +65,6 @@ class CPU_INFO(External):
 
     def get_vendor(self) -> str:
         return self.get_specs().get("Vendor ID")
+
+    def get_flags(self) -> list[str]:
+        return self.get_specs().get("Flags") or []

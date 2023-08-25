@@ -1,14 +1,16 @@
 from ..utils import helpers as h
 from .benchmark import Benchmark, BenchmarkParameters
+from ..environment.hardware import BaseHardware
 
 
 class Benchmarks:
     """A class to list and execute benchmarks to run."""
 
-    def __init__(self, out_dir, config):
+    def __init__(self, out_dir, config, hardware: BaseHardware):
         self.config = config
         self.out_dir = out_dir
         self.benchs = []
+        self.hardware = hardware
 
     def parse_config(self):
         """Parse the configuration file to create a list of benchmarks to run."""
@@ -81,6 +83,7 @@ class Benchmarks:
                                     pinned_cpu,
                                     runtime,
                                     emp,
+                                    self.hardware,
                                 )
                                 benchmark = Benchmark(
                                     self.count_benchmarks(), engine_module, parameters
