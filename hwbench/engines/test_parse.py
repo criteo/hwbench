@@ -11,6 +11,9 @@ from .stressng import (
     StressNGStream,
     EngineModuleQsort,
     EngineModuleStream,
+    EngineModuleVNNI,
+    StressNGVNNIMethods,
+    StressNGVNNI,
 )
 
 
@@ -84,3 +87,94 @@ class TestParse(unittest.TestCase):
 
             output = test_target.get_module_parameters()
             assert output == json.loads((d / "output").read_bytes())
+
+    def test_check_support(self):
+        Intel_6140 = (
+            "fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 "
+            "clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp "
+            "lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology "
+            "nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl smx est "
+            "tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe "
+            "popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm "
+            "3dnowprefetch cpuid_fault epb cat_l3 cdp_l3 invpcid_single pti intel_ppin "
+            "ssbd mba ibrs ibpb stibp fsgsbase tsc_adjust bmi1 hle avx2 smep bmi2 erms "
+            "invpcid rtm cqm mpx rdt_a avx512f avx512dq rdseed adx smap clflushopt "
+            "clwb intel_pt avx512cd avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves "
+            "cqm_llc cqm_occup_llc cqm_mbm_total cqm_mbm_local dtherm ida arat pln pts "
+            "hwp hwp_act_window hwp_pkg_req pku ospke md_clear flush_l1d "
+            "arch_capabilities"
+        ).split()
+        AMD_9534 = (
+            "fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 "
+            "clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm "
+            "constant_tsc rep_good amd_lbr_v2 nopl nonstop_tsc cpuid extd_apicid "
+            "aperfmperf rapl pni pclmulqdq monitor ssse3 fma cx16 pcid sse4_1 sse4_2 "
+            "x2apic movbe popcnt aes xsave avx f16c rdrand lahf_lm cmp_legacy svm "
+            "extapic cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw ibs skinit "
+            "wdt tce topoext perfctr_core perfctr_nb bpext perfctr_llc mwaitx cpb "
+            "cat_l3 cdp_l3 invpcid_single hw_pstate ssbd mba perfmon_v2 ibrs ibpb "
+            "stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid cqm rdt_a avx512f "
+            "avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni "
+            "avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves cqm_llc cqm_occup_llc "
+            "cqm_mbm_total cqm_mbm_local avx512_bf16 clzero irperf xsaveerptr rdpru "
+            "wbnoinvd amd_ppin cppc arat npt lbrv svm_lock nrip_save tsc_scale "
+            "vmcb_clean flushbyasid decodeassists pausefilter pfthreshold avic "
+            "v_vmsave_vmload vgif x2avic v_spec_ctrl avx512vbmi umip pku ospke "
+            "avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg "
+            "avx512_vpopcntdq rdpid overflow_recov succor smca fsrm flush_l1d sev "
+            "sev_es"
+        ).split()
+        AMD_7502 = (
+            "fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 "
+            "clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm "
+            "constant_tsc rep_good nopl nonstop_tsc cpuid extd_apicid aperfmperf rapl "
+            "pni pclmulqdq monitor ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave "
+            "avx f16c rdrand lahf_lm cmp_legacy svm extapic cr8_legacy abm sse4a "
+            "misalignsse 3dnowprefetch osvw ibs skinit wdt tce topoext perfctr_core "
+            "perfctr_nb bpext perfctr_llc mwaitx cpb cat_l3 cdp_l3 hw_pstate ssbd mba "
+            "ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 cqm rdt_a rdseed adx "
+            "smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 cqm_llc cqm_occup_llc "
+            "cqm_mbm_total cqm_mbm_local clzero irperf xsaveerptr rdpru wbnoinvd "
+            "amd_ppin arat npt lbrv svm_lock nrip_save tsc_scale vmcb_clean flushbyasid"
+            " decodeassists pausefilter pfthreshold avic v_vmsave_vmload vgif "
+            "v_spec_ctrl umip rdpid overflow_recov succor smca sev sev_es"
+        ).split()
+
+        def test_params(flags, method):
+            hw = mock_hardware(flags)
+            return StressNGVNNIMethods().cpu_check(method, hw)
+
+        def test_instance(flags, method):
+            params = BenchmarkParameters(
+                pathlib.Path(""),
+                "test-" + method,
+                0,
+                "",
+                5,
+                method,
+                mock_hardware(flags),
+            )
+
+            # Instantiate test, it should not fail
+            StressNGVNNI(EngineModuleVNNI(mock_engine(), "vnni"), params)
+
+        assert test_params(Intel_6140, "noavx-vpaddb") is True
+        assert test_params(Intel_6140, "avx-vpdpbusd512") is False
+        assert test_params(Intel_6140, "avx-vpaddb128") is False
+
+        assert test_params(AMD_9534, "noavx-vpaddb") is True
+        assert test_params(AMD_9534, "avx-vpdpbusd512") is True
+        assert test_params(AMD_9534, "avx-vpaddb128") is False
+
+        assert test_params(AMD_7502, "noavx-vpaddb") is True
+        assert test_params(AMD_7502, "avx-vpdpbusd512") is False
+        assert test_params(AMD_7502, "avx-vpaddb128") is False
+
+        with self.assertRaises(LookupError):
+            test_instance(AMD_9534, "inexistant")
+
+        with self.assertRaises(NotImplementedError):
+            test_instance(AMD_7502, "avx-vpaddb256")
+
+        with self.assertRaises(NotImplementedError):
+            test_instance(Intel_6140, "avx-vpdpwssd512")
