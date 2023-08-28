@@ -50,10 +50,12 @@ def create_output_directory() -> tuple[pathlib.Path, pathlib.Path]:
 
 def build_benchmarks(out_dir: pathlib.Path) -> Benchmarks:
     nproc = os.sysconf("SC_NPROCESSORS_ONLN")
-    run_secs = 2
+    # stressng --stream only works with at least 5s
+    run_secs = 10
     cpu_benches = stressng.stress_ng_cpu_all(out_dir, run_secs, nproc)
     other_benches = {
         "qsort": stressng.StressNGQsort(out_dir, run_secs, nproc),
+        "stream": stressng.StressNGStream(out_dir, run_secs, nproc),
     }
     cpu_benches.update(other_benches)
     return cpu_benches
