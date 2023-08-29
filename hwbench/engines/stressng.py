@@ -33,17 +33,6 @@ class EngineModuleCpu(EngineModuleBase):
             self.add_module_parameter(method)
 
     def run(self, p: BenchmarkParameters):
-        print(
-            "[{}] {}/{}/{}: {:3d} stressor on CPU {:3d} for {}s".format(
-                p.get_name(),
-                self.get_engine().get_name(),
-                self.get_name(),
-                p.get_engine_module_parameter(),
-                p.get_engine_instances_count(),
-                p.get_pinned_cpu(),
-                p.get_runtime(),
-            )
-        )
         return StressNGCPU(self, p).run()
 
 
@@ -76,7 +65,7 @@ class Engine(EngineBase):
         return {}
 
 
-class StressNGCPU(External):
+class StressNG(External):
     """The StressNG CPU stressor."""
 
     def __init__(
@@ -94,10 +83,6 @@ class StressNGCPU(External):
             "--timeout",
             self.parameters.get_runtime(),
             "--metrics-brief",
-            "--cpu",
-            str(self.parameters.get_engine_instances_count()),
-            "--cpu-method",
-            self.parameters.get_engine_module_parameter(),
         ]
         if self.version_major() >= 16:
             args.insert(1, "--quiet")
@@ -137,3 +122,31 @@ class StressNGCPU(External):
 
         # Add the score to the global output
         return self.parameters.get_result_format() | {"bogo ops/s": score}
+
+    def run(self):
+        p = self.parameters
+        print(
+            "[{}] {}/{}/{}: {:3d} stressor on CPU {:3d} for {}s".format(
+                p.get_name(),
+                self.engine_module.get_engine().get_name(),
+                self.engine_module.get_name(),
+                p.get_engine_module_parameter(),
+                p.get_engine_instances_count(),
+                p.get_pinned_cpu(),
+                p.get_runtime(),
+            )
+        )
+        return super().run()
+
+
+class StressNGCPU(StressNG):
+    """The StressNG CPU stressor."""
+
+    def run_cmd(self) -> list[str]:
+        # Let's build the command line to run the tool
+        return super().run_cmd() + [
+            "--cpu",
+            str(self.parameters.get_engine_instances_count()),
+            "--cpu-method",
+            self.parameters.get_engine_module_parameter(),
+        ]
