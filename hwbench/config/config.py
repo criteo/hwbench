@@ -92,7 +92,7 @@ class Config:
             )
         except KeyError:
             engine_module_parameter = self.get_engine_module(section_name)
-        return engine_module_parameter
+        return self.parse_range(engine_module_parameter)
 
     def get_stressor_range(self, section_name) -> str:
         """Return the stressor range of a section."""

@@ -23,6 +23,7 @@ engine_module:
 engine_module_parameter:
     role : input parameter of the engine_module
     value: any input accepted by the engine_module
+           list: x,y,z
     unit : text
     note : if not defined, equals engine_module name
 
