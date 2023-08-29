@@ -4,6 +4,10 @@
 #
 #    pip-compile --allow-unsafe --generate-hashes --no-emit-index-url --no-emit-trusted-host --output-file=requirements/test.txt requirements/test.in
 #
+attrs==23.1.0 \
+    --hash=sha256:1f28b4522cdc2fb4256ac1a020c78acf9cba2c6b461ccd2c126f3aa8e8335d04 \
+    --hash=sha256:6279836d581513a26f1bf235f9acd333bc9115683f14f7e8fae46c98fc50e015
+    # via pytest-subtests
 black==23.7.0 \
     --hash=sha256:01ede61aac8c154b55f35301fac3e730baf0c9cf8120f65a9cd61a81cfb4a0c3 \
     --hash=sha256:022a582720b0d9480ed82576c920a8c1dde97cc38ff11d8d8859b3bd6ca9eedb \
@@ -168,6 +172,12 @@ pyproject-api==1.5.3 \
 pytest==7.4.0 \
     --hash=sha256:78bf16451a2eb8c7a2ea98e32dc119fd2aa758f1d5d66dbf0a59d69a3969df32 \
     --hash=sha256:b4bf8c45bd59934ed84001ad51e11b4ee40d40a1229d2c79f9c592b0a3f6bd8a
+    # via
+    #   -r requirements/test.in
+    #   pytest-subtests
+pytest-subtests==0.11.0 \
+    --hash=sha256:453389984952eec85ab0ce0c4f026337153df79587048271c7fd0f49119c07e4 \
+    --hash=sha256:51865c88457545f51fb72011942f0a3c6901ee9e24cbfb6d1b9dc1348bafbe37
     # via -r requirements/test.in
 ruff==0.0.281 \
     --hash=sha256:0162b149a94f6007768820bcdf4ccb7e90a21655aac829ace49f4682d0565fdb \

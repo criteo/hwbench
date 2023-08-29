@@ -1,6 +1,7 @@
 -r base.txt
 coverage
 pytest
+pytest-subtests
 tox
 mock
 ruff
