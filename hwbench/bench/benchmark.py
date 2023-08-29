@@ -1,4 +1,6 @@
 import pathlib
+from typing import Any
+
 from .engine import EngineModuleBase
 
 
@@ -68,7 +70,7 @@ class Benchmark:
     def get_job_number(self) -> int:
         return self.job_number
 
-    def format_results(self) -> dict[str, str]:
+    def format_results(self) -> dict[str, Any]:
         """Format the default result content to be padded with performance results."""
         return {
             "engine": self.get_enginemodule().get_engine().get_name(),
