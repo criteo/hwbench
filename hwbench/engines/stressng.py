@@ -94,7 +94,7 @@ class StressNG(External):
         args = [
             self.engine_module.get_engine().get_binary(),
             "--timeout",
-            self.parameters.get_runtime(),
+            str(self.parameters.get_runtime()),
             "--metrics-brief",
         ]
         if self.version_major() >= 16:

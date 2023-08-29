@@ -55,9 +55,9 @@ class Config:
         """Return one directive of a section."""
         return self.get_section(section_name)[directive]
 
-    def get_runtime(self, section_name) -> str:
+    def get_runtime(self, section_name) -> int:
         """Return the runtime value of a section."""
-        return self.get_directive(section_name, "runtime")
+        return int(self.get_directive(section_name, "runtime"))
 
     def get_monitor(self, section_name) -> str:
         """Return the monitor value of a section."""
