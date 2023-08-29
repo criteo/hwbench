@@ -56,6 +56,7 @@ class Engine(EngineBase):
         super().__init__("stressng", "stress-ng")
         self.add_module(EngineModuleCpu(self, "cpu"))
         self.add_module(EngineModuleQsort(self, "qsort"))
+        self.version = None
 
     def run_cmd_version(self) -> list[str]:
         return [
