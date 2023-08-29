@@ -7,7 +7,9 @@ from ..bench.benchmarks import BenchmarkParameters
 from .stressng import Engine as StressNG
 from .stressng import (
     StressNGQsort,
+    StressNGStream,
     EngineModuleQsort,
+    EngineModuleStream,
 )
 
 
@@ -48,6 +50,7 @@ class TestParse(unittest.TestCase):
             engine = StressNG()
         for classname, engine_module, prefix in [
             (StressNGQsort, EngineModuleQsort, "stressng"),
+            (StressNGStream, EngineModuleStream, "stressng-stream"),
         ]:
             test_dir = pathlib.Path(f"./tests/parsing/{prefix}")
             for d in test_dir.iterdir():
@@ -57,7 +60,7 @@ class TestParse(unittest.TestCase):
                 with self.subTest(f"prefix {prefix} dir {d}"):
                     # Mock elements
                     path = pathlib.Path("")
-                    params = BenchmarkParameters(path, prefix, 0, "", 0, "")
+                    params = BenchmarkParameters(path, prefix, 0, "", 5, "")
                     module = engine_module(engine, prefix)
 
                     # Class to test parse_cmd

@@ -1,10 +1,11 @@
 import pathlib
+import unittest
 from unittest.mock import patch
 from . import benchmarks
 from ..config import config
 
 
-class TestParse(object):
+class TestParse(unittest.TestCase):
     def test_parsing(self):
         # We need to patch list_module_parameters() function
         # to avoid considering the local stress-ng binary
@@ -62,3 +63,19 @@ class TestParse(object):
 
         # Checking if the last job is sleep
         assert_job(-1, "sleep", "sleep")
+
+    def test_stream_short(self):
+        with patch(
+            "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
+        ) as p:
+            p.return_value = (
+                pathlib.Path("./tests/parsing/stressngmethods/v16/stdout")
+                .read_bytes()
+                .split(b":", 1)
+            )
+            config_file = config.Config("./config/stream.ini")
+            assert config_file.get_config().getint("global", "runtime") == 5
+            config_file.get_config().set("global", "runtime", "2")
+            benches = benchmarks.Benchmarks(".", config_file)
+            with self.assertRaises(SystemExit):
+                benches.parse_config()
