@@ -4,6 +4,7 @@ import subprocess
 from ..bench.benchmarks import BenchmarkParameters
 from ..bench.engine import EngineBase, EngineModuleBase
 from ..utils.external import External
+from ..utils import helpers as h
 
 
 class EngineModuleQsort(EngineModuleBase):
@@ -131,7 +132,11 @@ class StressNG(External):
             line = 2
 
         # TODO: better parsing than this
-        score = float(inp.splitlines()[line].split()[bogo_idx])
+        score = 0
+        try:
+            score = float(inp.splitlines()[line].split()[bogo_idx])
+        except IndexError:
+            h.fatal(f"At line {line}, could not get element #{bogo_idx} of: '{inp}'")
 
         # Add the score to the global output
         return self.parameters.get_result_format() | {"bogo ops/s": score}
