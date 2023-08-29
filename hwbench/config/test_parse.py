@@ -15,6 +15,7 @@ class TestParseConfig(unittest.TestCase):
             "check_1_core_int8_perf",
             "check_all_cores_int8_perf",
             "int8_8cores_16stressors",
+            "sleep",
         ]
 
     def test_keywords(self):

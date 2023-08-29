@@ -19,7 +19,7 @@ class TestParse(object):
             benches = benchmarks.Benchmarks(".", config.Config("config/sample.ini"))
             benches.parse_config()
 
-        assert benches.count_benchmarks() == 193
+        assert benches.count_benchmarks() == 194
 
         # Checking if each jobs as the right number of subjobs
         assert (
@@ -40,3 +40,6 @@ class TestParse(object):
                 benches.get_benchmarks()[job].get_parameters().get_name()
                 == "int8_8cores_16stressors"
             )
+
+        # Checking if the last job is sleep
+        assert benches.get_benchmarks()[193].get_parameters().get_name() == "sleep"
