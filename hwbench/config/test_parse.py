@@ -13,6 +13,7 @@ class TestParseConfig(unittest.TestCase):
         sections = self.config_file.get_sections()
         assert sections == [
             "check_1_core_int8_perf",
+            "check_1_core_qsort_perf",
             "check_all_cores_int8_perf",
             "int8_8cores_16stressors",
             "sleep",

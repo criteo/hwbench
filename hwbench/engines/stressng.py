@@ -6,6 +6,18 @@ from ..bench.engine import EngineBase, EngineModuleBase
 from ..utils.external import External
 
 
+class EngineModuleQsort(EngineModuleBase):
+    """This class implements the Qsort EngineModuleBase for StressNG"""
+
+    def __init__(self, engine: EngineBase, engine_module_name: str):
+        super().__init__(engine, engine_module_name)
+        self.engine_module_name = engine_module_name
+        self.add_module_parameter("qsort")
+
+    def run(self, p: BenchmarkParameters):
+        return StressNGQsort(self, p).run()
+
+
 class EngineModuleCpu(EngineModuleBase):
     """This class implements the EngineModuleBase for StressNG"""
 
@@ -42,6 +54,7 @@ class Engine(EngineBase):
     def __init__(self):
         super().__init__("stressng", "stress-ng")
         self.add_module(EngineModuleCpu(self, "cpu"))
+        self.add_module(EngineModuleQsort(self, "qsort"))
 
     def run_cmd_version(self) -> list[str]:
         return [
@@ -149,4 +162,15 @@ class StressNGCPU(StressNG):
             str(self.parameters.get_engine_instances_count()),
             "--cpu-method",
             self.parameters.get_engine_module_parameter(),
+        ]
+
+
+class StressNGQsort(StressNG):
+    """The StressNG Qsort CPU stressor."""
+
+    def run_cmd(self) -> list[str]:
+        # Let's build the command line to run the tool
+        return super().run_cmd() + [
+            "--qsort",
+            str(self.parameters.get_engine_instances_count()),
         ]
