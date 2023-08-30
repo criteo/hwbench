@@ -12,6 +12,7 @@ from .environment import software as env_soft
 from .environment import hardware as env_hw
 from .utils import helpers as h
 from .tuning import setup as tuning_setup
+from .utils.hwlogging import init_logging
 
 
 def main():
@@ -20,6 +21,9 @@ def main():
 
     out_dir, tuning_out_dir = create_output_directory()
     args = parse_options()
+
+    # configure logging
+    init_logging(tuning_out_dir / "hwbench-tuning.log")
 
     tuning_setup.Tuning(tuning_out_dir).apply()
     env = env_soft.Environment(out_dir)
