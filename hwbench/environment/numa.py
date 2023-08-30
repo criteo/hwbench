@@ -26,7 +26,7 @@ class NUMA(External):
         return []
 
     def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
-        return {}
+        return b""
 
     @property
     def name(self) -> str:
@@ -40,4 +40,4 @@ class NUMA(External):
         return len(self.numa_domains)
 
     def get_cores(self, numa_domain) -> list[int]:
-        return self.numa_domains.get(numa_domain)
+        return self.numa_domains.get(numa_domain, [])
