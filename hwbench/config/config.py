@@ -31,7 +31,7 @@ class Config:
         """Return all sections of a config file."""
         return self.config.sections()
 
-    def get_section(self, section_name) -> list[str]:
+    def get_section(self, section_name) -> configparser.SectionProxy:
         """Return one section of a config file"""
         return self.config[section_name]
 
@@ -83,7 +83,7 @@ class Config:
             engine_module = self.get_engine(section_name)
         return engine_module
 
-    def get_engine_module_parameter(self, section_name) -> str:
+    def get_engine_module_parameter(self, section_name) -> list[str]:
         """Return the engine module parameter name of a section."""
         # If no engine_module_parameter is defined, considering the engine_module name
         try:
@@ -94,7 +94,7 @@ class Config:
             engine_module_parameter = self.get_engine_module(section_name)
         return self.parse_range(engine_module_parameter)
 
-    def get_stressor_range(self, section_name) -> str:
+    def get_stressor_range(self, section_name) -> list[str]:
         """Return the stressor range of a section."""
         return self.parse_range(self.get_directive(section_name, "stressor_range"))
 
@@ -102,7 +102,7 @@ class Config:
         """Return the stressor range scaling of a section."""
         return self.get_directive(section_name, "stressor_range_scaling")
 
-    def get_hosting_cpu_cores(self, section_name) -> str:
+    def get_hosting_cpu_cores(self, section_name) -> list[str]:
         """Return the hosting cpu cores of a section."""
         return self.parse_range(self.get_directive(section_name, "hosting_cpu_cores"))
 

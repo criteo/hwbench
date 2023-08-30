@@ -129,7 +129,7 @@ class Engine(EngineBase):
 
 
 class StressNG(External):
-    """The StressNG CPU stressor."""
+    """The StressNG base class for stressors."""
 
     def __init__(
         self, engine_module: EngineModuleBase, parameters: BenchmarkParameters

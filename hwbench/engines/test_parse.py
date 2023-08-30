@@ -84,6 +84,7 @@ class TestParse(unittest.TestCase):
 
             print(f"parsing methods test {d.name}")
             test_target = mock_engine().get_module("cpu")
+            assert test_target
 
             output = test_target.get_module_parameters()
             assert output == json.loads((d / "output").read_bytes())
