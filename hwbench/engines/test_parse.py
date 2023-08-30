@@ -14,21 +14,23 @@ from .stressng import (
 )
 
 
+def mock_engine():
+    # We need to patch list_module_parameters() function
+    # to avoid considering the local stress-ng binary
+    with patch("hwbench.engines.stressng.EngineModuleCpu.list_module_parameters") as p:
+        p.return_value = (
+            pathlib.Path("./tests/parsing/stressngmethods/v16/stdout")
+            .read_bytes()
+            .split(b":", 1)
+        )
+        return StressNG()
+
+
 class TestParse(unittest.TestCase):
     def test_engine_parsing_version(self):
         test_dir = pathlib.Path("./tests/parsing/stressng")
         for d in test_dir.iterdir():
-            # We need to patch list_module_parameters() function
-            # to avoid considering the local stress-ng binary
-            with patch(
-                "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
-            ) as p:
-                p.return_value = (
-                    pathlib.Path("./tests/parsing/stressngmethods/v16/stdout")
-                    .read_bytes()
-                    .split(b":", 1)
-                )
-                test_target = StressNG()
+            test_target = mock_engine()
             if not d.is_dir():
                 continue
             ver_stdout = (d / "version-stdout").read_bytes()
@@ -37,18 +39,7 @@ class TestParse(unittest.TestCase):
             assert version == (d / "version").read_bytes().strip()
 
     def test_module_parsing_output(self):
-        engine = None
-        # We need to patch list_module_parameters() function
-        # to avoid considering the local stress-ng binary
-        with patch(
-            "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
-        ) as p:
-            p.return_value = (
-                pathlib.Path("./tests/parsing/stressngmethods/v16/stdout")
-                .read_bytes()
-                .split(b":", 1)
-            )
-            engine = StressNG()
+        engine = mock_engine()
         for classname, engine_module, prefix in [
             (StressNGQsort, EngineModuleQsort, "stressng"),
             (StressNGStream, EngineModuleStream, "stressng-stream"),
@@ -89,17 +80,7 @@ class TestParse(unittest.TestCase):
                 continue
 
             print(f"parsing methods test {d.name}")
-            # We need to patch list_module_parameters() function
-            # to avoid considering the local stress-ng binary
-            with patch(
-                "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
-            ) as p:
-                p.return_value = p.return_value = (
-                    pathlib.Path("./tests/parsing/stressngmethods/v16/stdout")
-                    .read_bytes()
-                    .split(b":", 1)
-                )
-                test_target = StressNG().get_module("cpu")
+            test_target = mock_engine().get_module("cpu")
 
             output = test_target.get_module_parameters()
             assert output == json.loads((d / "output").read_bytes())
