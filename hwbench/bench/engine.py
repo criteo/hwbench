@@ -1,4 +1,5 @@
 from ..utils.external import External
+from .parameters import BenchmarkParameters
 
 
 class EngineModuleBase:
@@ -21,8 +22,7 @@ class EngineModuleBase:
     def get_module_parameters(self):
         return self.module_parameters
 
-    # params type unspecified to prevent import loop if we import BenchParameters
-    def validate_module_parameters(self, params) -> str:
+    def validate_module_parameters(self, params: BenchmarkParameters) -> str:
         return ""
 
 
