@@ -1,5 +1,6 @@
 from ..utils import helpers as h
-from .benchmark import Benchmark, BenchmarkParameters
+from .benchmark import Benchmark
+from .parameters import BenchmarkParameters
 from ..environment.hardware import BaseHardware
 
 

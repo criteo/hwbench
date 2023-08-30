@@ -1,4 +1,4 @@
-from ..bench.benchmarks import BenchmarkParameters
+from ..bench.parameters import BenchmarkParameters
 from ..bench.engine import EngineBase, EngineModuleBase
 from ..utils.external import External
 

@@ -7,7 +7,7 @@ from typing import NamedTuple, Callable
 from typing import Optional, Any
 
 from ..environment.hardware import BaseHardware
-from ..bench.benchmarks import BenchmarkParameters
+from ..bench.parameters import BenchmarkParameters
 from ..bench.engine import EngineBase, EngineModuleBase
 from ..utils.external import External
 from ..utils import helpers as h

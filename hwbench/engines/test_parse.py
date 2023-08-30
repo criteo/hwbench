@@ -3,7 +3,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from ..bench.benchmarks import BenchmarkParameters
+from ..bench.parameters import BenchmarkParameters
 from ..environment.mock import mock_hardware
 from .stressng import Engine as StressNG
 from .stressng import (
