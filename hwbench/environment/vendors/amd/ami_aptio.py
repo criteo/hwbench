@@ -10,7 +10,7 @@ class Ami_Aptio(External):
             "/o",
             "/lang",
             "/s",
-            self.out_dir.joinpath("bios-config"),
+            str(self.out_dir.joinpath("bios-config")),
         ]
 
     def parse_cmd(self, stdout: bytes, _stderr: bytes):
