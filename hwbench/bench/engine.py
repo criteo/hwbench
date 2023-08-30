@@ -21,6 +21,10 @@ class EngineModuleBase:
     def get_module_parameters(self):
         return self.module_parameters
 
+    # params type unspecified to prevent import loop if we import BenchParameters
+    def validate_module_parameters(self, params) -> str:
+        return ""
+
 
 class EngineBase(External):
     def __init__(self, name: str, binary: str, modules: dict[EngineModuleBase] = {}):

@@ -2,6 +2,7 @@ import pathlib
 from typing import Any
 
 from .engine import EngineModuleBase
+from ..utils import helpers as h
 
 
 class BenchmarkParameters:
@@ -60,6 +61,12 @@ class Benchmark:
         self.job_number = job_number
         self.enginemodule = enginemodule
         self.parameters = parameters
+        invalid = self.validate_parameters()
+        if invalid:
+            h.fatal(
+                f"Unsupported parameter for {enginemodule.get_engine().get_name()}/"
+                f"{enginemodule.get_name()}: {invalid}"
+            )
 
     def get_enginemodule(self) -> EngineModuleBase:
         return self.enginemodule
@@ -80,6 +87,13 @@ class Benchmark:
             "cpu_pin": self.parameters.get_pinned_cpu(),
             "workers": self.parameters.get_engine_instances_count(),
         }
+
+    def validate_parameters(self) -> str:
+        """Verify that the benchmark parameters are correct at instanciation time.
+        Returns empty string if OK, or an error message"""
+        e = self.get_enginemodule()
+        p = self.get_parameters()
+        return e.validate_module_parameters(p)
 
     def run(self):
         e = self.get_enginemodule()
