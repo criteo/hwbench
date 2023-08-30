@@ -1,4 +1,3 @@
-from __future__ import annotations
 import pathlib
 
 from ..utils.external import External
@@ -16,12 +15,9 @@ class CPU_INFO(External):
                 continue
             item, value = line.split(":", 1)
             if item == "Flags":
-                flags = []
                 for flag in value.split():
-                    flags.append(flag)
-                    self.cpu_specs[item.strip()] = flags
-            else:
-                self.cpu_specs[item.strip()] = value.strip()
+                    self.flags.append(flag)
+            self.cpu_specs[item.strip()] = value.strip()
         return self.cpu_specs
 
     def run_cmd_version(self) -> list[str]:
@@ -37,16 +33,23 @@ class CPU_INFO(External):
 
     def __init__(self, out_dir: pathlib.Path):
         super().__init__(out_dir)
-        self.cpu_specs = {}
+        self.cpu_specs: dict[str, str] = {}
+        self.flags: list[str] = []
 
-    def get_specs(self) -> dict[str, str | list[str]]:
+    def get_specs(self) -> dict[str, str]:
         return self.cpu_specs
 
+    def _mandatory_spec(self, name) -> str:
+        m = self.get_specs().get(name)
+        if not m:
+            raise ValueError(f"Missing cpu spec {name}")
+        return m
+
     def get_arch(self) -> str:
-        return self.get_specs().get("Architecture")
+        return self._mandatory_spec("Architecture")
 
     def get_family(self) -> int:
-        return int(self.get_specs().get("CPU family"))
+        return int(self._mandatory_spec("CPU family"))
 
     def get_max_freq(self) -> float:
         max_freq = self.get_specs().get("CPU max MHz")
@@ -55,16 +58,16 @@ class CPU_INFO(External):
         return float(max_freq)
 
     def get_model(self) -> int:
-        return int(self.get_specs().get("Model"))
+        return int(self._mandatory_spec("Model"))
 
     def get_model_name(self) -> str:
-        return self.get_specs().get("Model name")
+        return self._mandatory_spec("Model name")
 
     def get_stepping(self) -> int:
-        return int(self.get_specs().get("Stepping"))
+        return int(self._mandatory_spec("Stepping"))
 
     def get_vendor(self) -> str:
-        return self.get_specs().get("Vendor ID")
+        return self._mandatory_spec("Vendor ID")
 
     def get_flags(self) -> list[str]:
-        return self.get_specs().get("Flags") or []
+        return self.flags
