@@ -1,8 +1,12 @@
+import abc
+import pathlib
+from typing import Optional
+
 from ..utils.external import External
 from .parameters import BenchmarkParameters
 
 
-class EngineModuleBase:
+class EngineModuleBase(abc.ABC):
     def __init__(self, engine, name: str):
         self.name = name
         self.engine = engine
@@ -25,10 +29,16 @@ class EngineModuleBase:
     def validate_module_parameters(self, params: BenchmarkParameters) -> str:
         return ""
 
+    @abc.abstractmethod
+    def run(self, params: BenchmarkParameters):
+        pass
+
 
 class EngineBase(External):
-    def __init__(self, name: str, binary: str, modules: dict[EngineModuleBase] = {}):
-        External.__init__(self, "")
+    def __init__(
+        self, name: str, binary: str, modules: dict[str, EngineModuleBase] = {}
+    ):
+        External.__init__(self, pathlib.Path(""))
         self.engine_name = name
         self.binary = binary
         self.modules = modules
@@ -39,25 +49,17 @@ class EngineBase(External):
     def get_name(self) -> str:
         return self.engine_name
 
-    def run_cmd_version(self) -> list[str]:
-        return NotImplementedError
-
-    def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
-        return NotImplementedError
-
-    def run_cmd(self) -> list[str]:
-        return NotImplementedError
-
-    def parse_cmd(self, stdout: bytes, stderr: bytes):
-        return NotImplementedError
+    @property
+    def name(self) -> str:
+        return self.get_name()
 
     def add_module(self, engine_module: EngineModuleBase):
         self.modules[engine_module.get_name()] = engine_module
 
-    def get_modules(self) -> dict[EngineModuleBase]:
+    def get_modules(self) -> dict[str, EngineModuleBase]:
         return self.modules
 
-    def get_module(self, module_name) -> EngineModuleBase:
+    def get_module(self, module_name: str) -> Optional[EngineModuleBase]:
         return self.modules.get(module_name)
 
     def module_exists(self, module_name) -> bool:

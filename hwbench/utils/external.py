@@ -18,8 +18,9 @@ class External(ABC):
         return []
 
     @property
+    @abstractmethod
     def name(self) -> str:
-        return NotImplementedError
+        pass
 
     @abstractmethod
     def parse_cmd(self, stdout: bytes, stderr: bytes):
