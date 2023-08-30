@@ -1,4 +1,5 @@
-from __future__ import annotations
+from typing import Optional
+
 from .cpu_info import CPU_INFO
 from .cpu_cores import CPU_CORES
 from .numa import NUMA
@@ -45,11 +46,11 @@ class CPU:
         """Return the number of logical cpu core we detected."""
         return self.cpu_cores.get_logical_cores_count()
 
-    def get_peer_siblings(self, logical_cpu) -> int:
+    def get_peer_siblings(self, logical_cpu) -> list[int]:
         """Return the list of logical cores running on the same physical core."""
         return self.cpu_cores.get_peer_siblings(logical_cpu)
 
-    def get_peer_sibling(self, logical_cpu) -> int:
+    def get_peer_sibling(self, logical_cpu) -> Optional[int]:
         """Return sibling of a logical core."""
         return self.cpu_cores.get_peer_sibling(logical_cpu)
 

@@ -1,5 +1,5 @@
-from __future__ import annotations
 import pathlib
+from typing import Optional
 
 from ..utils.external import External
 
@@ -43,12 +43,12 @@ class CPU_CORES(External):
     def get_socket(self, number) -> dict[int, list[int]]:
         if not self.sockets.get(number):
             self.sockets[number] = {}
-        return self.sockets.get(number)
+        return self.sockets[number]
 
     def get_cores(self, socket, number) -> list[int]:
         if not self.get_socket(socket).get(number):
             self.sockets[socket][number] = []
-        return self.get_socket(socket).get(number)
+        return self.get_socket(socket)[number]
 
     def get_physical_cores(self) -> list[int]:
         """Return the list of physical cores."""
@@ -73,16 +73,16 @@ class CPU_CORES(External):
         """Return the number of logical cpu core we detected."""
         return len(self.get_physical_cores()) + len(self.get_hyperthread_cores())
 
-    def get_peer_siblings(self, logical_cpu) -> int:
+    def get_peer_siblings(self, logical_cpu) -> list[int]:
         """Return the list of logical cores running on the same physical core."""
         # Let's find the associated core/ht of a given logical_cpu
         for socket in self.sockets:
             for core in self.get_socket(socket):
                 if logical_cpu in self.get_cores(socket, core):
                     return self.get_cores(socket, core)
-        return None
+        return []
 
-    def get_peer_sibling(self, logical_cpu) -> int:
+    def get_peer_sibling(self, logical_cpu) -> Optional[int]:
         """Return sibling of a logical core."""
         # Let's find the associated core/ht of a given logical_cpu
         for core in self.get_peer_siblings(logical_cpu):
