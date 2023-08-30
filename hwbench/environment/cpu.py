@@ -17,28 +17,25 @@ class CPU:
         self.numa.run()
 
     def get_arch(self) -> str:
-        return self.cpu_info.get_specs().get("Architecture")
+        return self.cpu_info.get_arch()
 
     def get_family(self) -> int:
-        return int(self.cpu_info.get_specs().get("CPU family"))
+        return self.cpu_info.get_family()
 
     def get_max_freq(self) -> float:
-        max_freq = self.cpu_info.get_specs().get("CPU max MHz")
-        if not max_freq:
-            max_freq = 0
-        return float(max_freq)
+        return self.cpu_info.get_max_freq()
 
     def get_model(self) -> int:
-        return int(self.cpu_info.get_specs().get("Model"))
+        return self.cpu_info.get_model()
 
     def get_model_name(self) -> str:
-        return self.cpu_info.get_specs().get("Model name")
+        return self.cpu_info.get_model_name()
 
     def get_stepping(self) -> int:
-        return int(self.cpu_info.get_specs().get("Stepping"))
+        return self.cpu_info.get_stepping()
 
     def get_vendor(self) -> str:
-        return self.cpu_info.get_specs().get("Vendor ID")
+        return self.cpu_info.get_vendor()
 
     def get_physical_cores_count(self) -> int:
         """Return the number of physical cpu core we detected."""
