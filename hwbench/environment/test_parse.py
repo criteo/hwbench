@@ -6,12 +6,14 @@ from . import cpu_info
 from . import numa
 from .vendors.amd import amd
 
+path = pathlib.Path("")
+
 
 class TestParseCPU(object):
     def test_ami_aptio(self):
         d = pathlib.Path("./tests/parsing/ami_aptio/v5")
         print(f"parsing test {d.name}")
-        test_target = amd.Ami_Aptio("")
+        test_target = amd.Ami_Aptio(path)
         ver_stdout = (d / "version-stdout").read_bytes()
         ver_stderr = (d / "version-stderr").read_bytes()
         version = test_target.parse_version(ver_stdout, ver_stderr)
@@ -20,7 +22,7 @@ class TestParseCPU(object):
     def test_parsing_cpuinfo(self):
         d = pathlib.Path("./tests/parsing/cpu_info/v2321")
         print(f"parsing test {d.name}")
-        test_target = cpu_info.CPU_INFO("")
+        test_target = cpu_info.CPU_INFO(path)
 
         ver_stdout = (d / "version-stdout").read_bytes()
         ver_stderr = (d / "version-stderr").read_bytes()
@@ -45,7 +47,7 @@ class TestParseCPU(object):
     def test_parsing_cpu_cores(self):
         d = pathlib.Path("./tests/parsing/cpu_cores/v2321")
         print(f"parsing test {d.name}")
-        test_target = cpu_cores.CPU_CORES("")
+        test_target = cpu_cores.CPU_CORES(path)
 
         ver_stdout = (d / "version-stdout").read_bytes()
         ver_stderr = (d / "version-stderr").read_bytes()
@@ -198,7 +200,7 @@ class TestParseCPU(object):
     def test_parsing_numa_1_domain(self):
         d = pathlib.Path("./tests/parsing/numa/1domain")
         print(f"parsing test {d.name}")
-        test_target = numa.NUMA("")
+        test_target = numa.NUMA(path)
 
         stdout = (d / "stdout").read_bytes()
         stderr = (d / "stderr").read_bytes()
@@ -210,7 +212,7 @@ class TestParseCPU(object):
     def test_parsing_numa_4_domains(self):
         d = pathlib.Path("./tests/parsing/numa/4domains")
         print(f"parsing test {d.name}")
-        test_target = numa.NUMA("")
+        test_target = numa.NUMA(path)
 
         stdout = (d / "stdout").read_bytes()
         stderr = (d / "stderr").read_bytes()
@@ -223,7 +225,7 @@ class TestParseCPU(object):
     def test_parsing_numa_8_domains_with_llc(self):
         d = pathlib.Path("./tests/parsing/numa/8domainsllc")
         print(f"parsing test {d.name}")
-        test_target = numa.NUMA("")
+        test_target = numa.NUMA(path)
 
         stdout = (d / "stdout").read_bytes()
         stderr = (d / "stderr").read_bytes()
