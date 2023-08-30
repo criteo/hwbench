@@ -6,7 +6,7 @@ import tarfile
 from typing import Optional
 
 
-def create_tar_from_directory(dir: str, tarfilename: str) -> None:
+def create_tar_from_directory(dir: str, tarfilename: pathlib.Path) -> None:
     """create a tar archive from a directory and its subdirectories without
     following the symlinks."""
     # may raise tarfile.ReadError if tarfilename is not a tar file
@@ -33,7 +33,11 @@ def extract_file_from_tar(tarfilename: str, filename: str) -> Optional[bytes]:
     # may raise tarfile.ReadError if tarfilename is not a tar file
     tarfd = tarfile.open(tarfilename, "r")
     try:
-        ret = tarfd.extractfile(filename).read(-1)
+        file = tarfd.extractfile(filename)
+        if not file:
+            tarfd.close()
+            return None
+        ret = file.read(-1)
         tarfd.close()
         return ret
     except KeyError:

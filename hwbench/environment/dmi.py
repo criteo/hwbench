@@ -14,7 +14,9 @@ class DmiSys:
     def __init__(self, out_dir: pathlib.Path):
         self.out_dir = out_dir
         self.tarfilename = self.out_dir.joinpath(self.ARCH_DMI)
-        create_tar_from_directory(self.SYS_DMI, self.tarfilename.as_posix())
+        create_tar_from_directory(
+            self.SYS_DMI, pathlib.Path(self.tarfilename.as_posix())
+        )
 
     @staticmethod
     def bytes_to_dmi_info(payload: Optional[bytes]) -> Optional[str]:
