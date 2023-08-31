@@ -74,7 +74,7 @@ class Sleep(External):
         # Let's build the command line to run the tool
         args = [
             self.engine_module.get_engine().get_binary(),
-            self.parameters.get_runtime(),
+            str(self.parameters.get_runtime()),
         ]
 
         # Let's pin the CPU if needed
