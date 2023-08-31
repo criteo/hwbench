@@ -7,6 +7,7 @@ def validate_runtime(config, section_name, value) -> str:
 
 def validate_monitor(config, section_name, value) -> str:
     """Validate the monitor syntax."""
+    assert value in ["all", "none"]
     return ""
 
 

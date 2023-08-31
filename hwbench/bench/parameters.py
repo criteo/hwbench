@@ -15,6 +15,7 @@ class BenchmarkParameters:
         runtime: int,
         engine_module_parameter: str,
         hw: BaseHardware,
+        monitoring: str,
     ):
         self.out_dir = out_dir
         self.job_name = job_name
@@ -24,6 +25,7 @@ class BenchmarkParameters:
         self.runtime = runtime
         self.result_format = {}
         self.hw = hw
+        self.monitoring = monitoring
 
     def get_pinned_cpu(self) -> str:
         return self.pinned_cpu
@@ -39,6 +41,9 @@ class BenchmarkParameters:
 
     def get_runtime(self) -> int:
         return self.runtime
+
+    def get_monitoring(self) -> str:
+        return self.monitoring
 
     def set_result_format(self, format):
         """Set the default result content to be padded with performance results."""

@@ -49,6 +49,7 @@ class TestParseConfig(unittest.TestCase):
             config_file.validate_section("unknown_engine")
             config_file.validate_section("unknown_engine_module")
             config_file.validate_section("unknown_engine_module_parameter")
+            config_file.validate_section("unknown_monitoring")
         # We must have triggered a SystemExit !
         self.assertEqual(cm.exception.code, 1)
 

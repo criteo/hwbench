@@ -50,10 +50,10 @@ class External(ABC):
             self._write_output("version-stdout", ver.stdout)
             self._write_output("version-stderr", ver.stderr)
             self.parse_version(ver.stdout, ver.stderr)
-
         out = subprocess.run(
             self.run_cmd(),
             capture_output=True,
+            cwd=self.out_dir,
             env=english_env,
             stdin=subprocess.DEVNULL,
         )

@@ -52,6 +52,7 @@ class Benchmarks:
             hosting_cpu_cores = hosting_cpu_cores_raw.copy()
             hosting_cpu_cores_scaling = self.config.get_hosting_cpu_cores_scaling(job)
             runtime = self.config.get_runtime(job)
+            monitoring = self.config.get_monitor(job)
 
             # Let's set the default values
             # If a single hosting_cpu_cores is set, the default scaling is interate
@@ -85,6 +86,7 @@ class Benchmarks:
                                     runtime,
                                     emp,
                                     self.hardware,
+                                    monitoring,
                                 )
                                 benchmark = Benchmark(
                                     self.count_benchmarks(), engine_module, parameters

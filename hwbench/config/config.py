@@ -16,7 +16,7 @@ class Config:
         # Ensure default options from the configuration file
         default_parameters = {
             "runtime": 60,
-            "monitor": "",
+            "monitor": "none",
             "stressor_range": "1",
             "stressor_range_scaling": "plus_1",
             "hosting_cpu_cores": "1",

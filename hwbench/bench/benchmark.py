@@ -1,8 +1,11 @@
+import json
+import subprocess
 from typing import Any
 
 from .parameters import BenchmarkParameters
 from .engine import EngineModuleBase
 from ..utils import helpers as h
+from ..utils.external import External
 
 
 class Benchmark:
@@ -58,3 +61,54 @@ class Benchmark:
         p.set_result_format(self.format_results())
         # Exectue the engine module
         return e.run(p)
+
+
+class ExternalBench(External):
+    def __init__(self, parameters: BenchmarkParameters):
+        super().__init__(parameters.out_dir)
+        self.monitoring = False
+        if parameters.get_monitoring() == "all":
+            self.monitoring = True
+        self.runtime = parameters.get_runtime()
+
+    def run(self):
+        if self.monitoring:
+            # Start the monitoring in background
+            # It runs the same amount of time as the benchmark
+            report_power = subprocess.Popen(
+                [
+                    "python3",
+                    "-m",
+                    "report_power.report_power",
+                    "--name",
+                    "monitoring",
+                    "--simple",
+                    "--limit",
+                    f"{self.runtime}",
+                    "--interval",
+                    "10",
+                ],
+                cwd="/root",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+        # Run the benchmark
+        run = super().run()
+
+        if self.monitoring:
+            # Collect output and extract metrics
+            (
+                stdout,
+                stderr,
+            ) = report_power.communicate()  # pyright: ignore [reportUnboundVariable]
+            if stderr:
+                h.fatal(f"External_Bench: report_power failed : {stderr}")
+            try:
+                run["monitoring"] = json.loads(stdout.decode())["monitoring"]["metrics"]
+            except json.JSONDecodeError:
+                h.fatal(
+                    f"External_Bench: invalid report_power output : {stdout.decode()}"
+                )
+
+        return run

@@ -5,9 +5,14 @@ runtime:
 
 monitor:
    role : defines what environement metrics should be monitored during jobs
-   value: thermal, power, fans
+   value: thermal, power, fans, all, none
    unit : text
-   note : components/platforms in hwbench will have to implement them so its stay generic in the config file
+   note : The monitoring is done by external tool report_power
+          none: the default value, no monitoring is done
+          all: collect report_power's complete output
+          thermal: not implemented
+          power: not implemented
+          fans: not implemented
 
 engine:
     role : name of the benchmark engine in hwbench
