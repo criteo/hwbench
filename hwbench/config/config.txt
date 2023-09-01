@@ -37,6 +37,7 @@ hosting_cpu_cores:
     value: integer: x
            range: x-y
            list: x,y,z
+           groups: <any of the above> <any of the above>
     unit : integer
     note : if omitted, all cores are selected
            special keywords :

@@ -66,13 +66,7 @@ class Sleep(ExternalBench):
             str(self.parameters.get_runtime()),
         ]
 
-        # Let's pin the CPU if needed
-        if self.parameters.get_pinned_cpu():
-            args.insert(0, f"{self.parameters.get_pinned_cpu()}")
-            args.insert(0, "-c")
-            args.insert(0, "taskset")
-
-        return args
+        return self.get_taskset(args)
 
     def parse_cmd(self, stdout: bytes, stderr: bytes):
         # Add the score to the global output

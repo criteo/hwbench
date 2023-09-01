@@ -17,6 +17,7 @@ class TestParseConfig(unittest.TestCase):
             "check_1_core_qsort_perf",
             "check_all_cores_int8_perf",
             "int8_8cores_16stressors",
+            "check_physical_core_int8_perf",
             "sleep",
         ]
 
@@ -60,3 +61,5 @@ class TestParseConfig(unittest.TestCase):
         assert self.config_file.parse_range("1-5") == [1, 2, 3, 4, 5]
         assert self.config_file.parse_range("1-2,5-6") == [1, 2, 5, 6]
         assert self.config_file.parse_range("int8,float") == ["int8", "float"]
+        assert self.config_file.parse_range("1-3 4-5") == [[1, 2, 3], [4, 5]]
+        assert self.config_file.parse_range("1,32 2,33") == [[1, 32], [2, 33]]

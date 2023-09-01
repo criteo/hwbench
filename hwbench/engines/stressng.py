@@ -150,12 +150,7 @@ class StressNG(ExternalBench):
         if self.version_major() >= 16:
             args.insert(1, "--quiet")
 
-        # Let's pin the CPU if needed
-        if self.parameters.get_pinned_cpu():
-            args.insert(0, f"{self.parameters.get_pinned_cpu()}")
-            args.insert(0, "-c")
-            args.insert(0, "taskset")
-        return args
+        return self.get_taskset(args)
 
     @property
     def name(self) -> str:

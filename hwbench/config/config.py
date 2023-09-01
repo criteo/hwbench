@@ -142,19 +142,28 @@ class Config:
         """A function to parse the range syntax from a configuration directive."""
         result = []
         # FIXME: implement 'all'
+        # [group1];[group2]...
+        groups_count = len(input.split(" "))
 
-        # syntax: <x>,<y>
-        for item in input.split(","):
-            # syntax: <x>-<y>
-            if "-" in item:
-                ranges = item.split("-")
-                if len(ranges) == 2:
-                    if ranges[0].isnumeric() and ranges[1].isnumeric():
-                        for cpu_number in range(int(ranges[0]), int(ranges[1]) + 1):
-                            result.append(cpu_number)
+        for group in input.split(" "):
+            # syntax: <x>,<y>
+            current_group = []
+            # Let's remove the [] if any
+            for item in group.split(","):
+                # syntax: <x>-<y>
+                if "-" in item:
+                    ranges = item.split("-")
+                    if len(ranges) == 2:
+                        if ranges[0].isnumeric() and ranges[1].isnumeric():
+                            for cpu_number in range(int(ranges[0]), int(ranges[1]) + 1):
+                                current_group.append(cpu_number)
+                else:
+                    # syntax: <x>
+                    if item.isnumeric():
+                        item = int(item)
+                    current_group.append(item)
+            if groups_count > 1:
+                result.append(current_group)
             else:
-                # syntax: <x>
-                if item.isnumeric():
-                    item = int(item)
-                result.append(item)
+                result = current_group
         return result

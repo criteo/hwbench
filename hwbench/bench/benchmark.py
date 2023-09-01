@@ -75,6 +75,20 @@ class ExternalBench(External):
         self.parameters = parameters
         self.engine_module = engine_module
 
+    def get_taskset(self, args):
+        # Let's pin the CPU if needed
+        if self.parameters.get_pinned_cpu():
+            if isinstance(self.parameters.get_pinned_cpu(), list):
+                cpu_list = ",".join(
+                    [str(cpu) for cpu in self.parameters.get_pinned_cpu()]
+                )
+                args.insert(0, f"{cpu_list}")
+            else:
+                args.insert(0, f"{self.parameters.get_pinned_cpu()}")
+            args.insert(0, "-c")
+            args.insert(0, "taskset")
+        return args
+
     def run(self):
         if self.monitoring:
             # Start the monitoring in background
@@ -99,7 +113,12 @@ class ExternalBench(External):
         p = self.parameters
         cpu_location = ""
         if p.get_pinned_cpu():
-            cpu_location = " on CPU {:3d}".format(p.get_pinned_cpu())
+            if isinstance(p.get_pinned_cpu(), str):
+                cpu_location = " on CPU {:3d}".format(p.get_pinned_cpu())
+            elif isinstance(p.get_pinned_cpu(), list):
+                cpu_location = " on CPU {}".format(str(p.get_pinned_cpu()))
+            else:
+                h.fatal("Unsupported get_pinned_cpu() format")
 
         print(
             "[{}] {}/{}/{}: {:3d} stressor{} for {}s".format(
