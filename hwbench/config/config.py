@@ -132,7 +132,7 @@ class Config:
                 self, section_name, self.get_section(section_name)[directive]
             )
             if message:
-                h.fatal(f"Job {section_name}: keyword {directive} : message")
+                h.fatal(f"Job {section_name}: keyword {directive} : {message}")
 
     def get_config(self) -> configparser.RawConfigParser:
         """Return the configuration object."""
