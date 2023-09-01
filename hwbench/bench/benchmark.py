@@ -64,12 +64,16 @@ class Benchmark:
 
 
 class ExternalBench(External):
-    def __init__(self, parameters: BenchmarkParameters):
+    def __init__(
+        self, engine_module: EngineModuleBase, parameters: BenchmarkParameters
+    ):
         super().__init__(parameters.out_dir)
         self.monitoring = False
         if parameters.get_monitoring() == "all":
             self.monitoring = True
         self.runtime = parameters.get_runtime()
+        self.parameters = parameters
+        self.engine_module = engine_module
 
     def run(self):
         if self.monitoring:
@@ -84,7 +88,7 @@ class ExternalBench(External):
                     "monitoring",
                     "--simple",
                     "--limit",
-                    f"{self.runtime}",
+                    f"{self.parameters.get_runtime()}",
                     "--interval",
                     "10",
                 ],
@@ -92,6 +96,22 @@ class ExternalBench(External):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
+        p = self.parameters
+        cpu_location = ""
+        if p.get_pinned_cpu():
+            cpu_location = " on CPU {:3d}".format(p.get_pinned_cpu())
+
+        print(
+            "[{}] {}/{}/{}: {:3d} stressor{} for {}s".format(
+                p.get_name(),
+                self.engine_module.get_engine().get_name(),
+                self.engine_module.get_name(),
+                p.get_engine_module_parameter(),
+                p.get_engine_instances_count(),
+                cpu_location,
+                p.get_runtime(),
+            )
+        )
 
         # Run the benchmark
         run = super().run()

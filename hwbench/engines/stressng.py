@@ -134,7 +134,7 @@ class StressNG(ExternalBench):
     def __init__(
         self, engine_module: EngineModuleBase, parameters: BenchmarkParameters
     ):
-        ExternalBench.__init__(self, parameters)
+        ExternalBench.__init__(self, engine_module, parameters)
         self.stressor_name = parameters.get_engine_module_parameter()
         self.engine_module = engine_module
         self.parameters = parameters
@@ -189,21 +189,6 @@ class StressNG(ExternalBench):
 
         # Add the score to the global output
         return self.parameters.get_result_format() | {"bogo ops/s": score}
-
-    def run(self):
-        p = self.parameters
-        print(
-            "[{}] {}/{}/{}: {:3d} stressor on CPU {:3d} for {}s".format(
-                p.get_name(),
-                self.engine_module.get_engine().get_name(),
-                self.engine_module.get_name(),
-                p.get_engine_module_parameter(),
-                p.get_engine_instances_count(),
-                p.get_pinned_cpu(),
-                p.get_runtime(),
-            )
-        )
-        return super().run()
 
 
 class StressNGCPU(StressNG):

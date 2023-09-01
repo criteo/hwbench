@@ -19,7 +19,7 @@ class Config:
             "monitor": "none",
             "stressor_range": "1",
             "stressor_range_scaling": "plus_1",
-            "hosting_cpu_cores": "1",
+            "hosting_cpu_cores": "none",
             "hosting_cpu_cores_scaling": "iterate",
         }
         self.config = configparser.RawConfigParser(
@@ -53,7 +53,7 @@ class Config:
 
     def get_directive(self, section_name, directive) -> str:
         """Return one directive of a section."""
-        return self.get_section(section_name)[directive]
+        return self.get_section(section_name)[directive].lower()
 
     def get_runtime(self, section_name) -> int:
         """Return the runtime value of a section."""

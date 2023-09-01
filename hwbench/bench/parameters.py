@@ -28,6 +28,8 @@ class BenchmarkParameters:
         self.monitoring = monitoring
 
     def get_pinned_cpu(self) -> str:
+        if self.pinned_cpu == "none":
+            return ""
         return self.pinned_cpu
 
     def get_name(self) -> str:
