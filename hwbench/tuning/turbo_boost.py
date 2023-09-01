@@ -31,7 +31,7 @@ class IntelTurboBoost:
                 "allow the driver to set P-states",
                 extra={
                     "type": "sysfs",
-                    "file": file,
+                    "file": str(file),
                     "value": value,
                 },
             )

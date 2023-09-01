@@ -14,6 +14,6 @@ class SysctlDropCaches:
         value = 3
         tunninglog().info(
             "free slab objects and pagecache",
-            extra={"value": value, "file": file, "type": "procfs"},
+            extra={"value": value, "file": str(file), "type": "procfs"},
         )
         (file).write_text(f"{value}\n")

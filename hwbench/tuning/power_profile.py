@@ -37,7 +37,7 @@ class PerformancePowerProfile:
                         f"write {value} in {governor}",
                         extra={
                             "type": "sysfs",
-                            "file": governor,
+                            "file": str(governor),
                             "value": value,
                         },
                     )

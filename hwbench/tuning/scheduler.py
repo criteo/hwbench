@@ -21,7 +21,7 @@ class IOScheduler:
                     f"write {self.scheduler} in {file}",
                     extra={
                         "type": "sysfs",
-                        "file": file,
+                        "file": str(file),
                         "value": self.scheduler,
                     },
                 )
