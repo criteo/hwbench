@@ -113,12 +113,16 @@ class ExternalBench(External):
         p = self.parameters
         cpu_location = ""
         if p.get_pinned_cpu():
-            if isinstance(p.get_pinned_cpu(), str):
+            if isinstance(p.get_pinned_cpu(), (int, str)):
                 cpu_location = " on CPU {:3d}".format(p.get_pinned_cpu())
             elif isinstance(p.get_pinned_cpu(), list):
                 cpu_location = " on CPU {}".format(str(p.get_pinned_cpu()))
             else:
-                h.fatal("Unsupported get_pinned_cpu() format")
+                h.fatal(
+                    "Unsupported get_pinned_cpu() format :{}".format(
+                        type(p.get_pinned_cpu())
+                    )
+                )
 
         print(
             "[{}] {}/{}/{}: {:3d} stressor{} for {}s".format(
