@@ -105,11 +105,29 @@ class Benchmarks:
     def count_benchmarks(self) -> int:
         return len(self.benchs)
 
+    def count_jobs(self) -> int:
+        """Return the number of jobs defined in the configuration file."""
+        return len(self.config.get_sections())
+
     def get_benchmarks(self) -> list[Benchmark]:
         return self.benchs
 
+    def runtime(self) -> int:
+        """Return the overall runtime to run all jobs."""
+        return sum(
+            [
+                benchmark.get_parameters().get_runtime()
+                for benchmark in self.get_benchmarks()
+            ]
+        )
+
     def run(self):
         results = {}
+        print(
+            f"hwbench: {self.count_jobs()} jobs, \
+{self.count_benchmarks()} benchmarks, \
+ETA {self.runtime()} seconds"
+        )
         # Run every benchmark of the list
         for benchmark in self.get_benchmarks():
             # Save each benchmark result

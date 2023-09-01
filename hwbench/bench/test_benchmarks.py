@@ -49,6 +49,8 @@ class TestParse(unittest.TestCase):
             assert bench_emp(index) == engine_module_parameter
 
         assert benches.count_benchmarks() == 197
+        assert benches.count_jobs() == 6
+        assert benches.runtime() == 206
 
         # Checking if each jobs as the right number of subjobs
         assert_job(0, "check_1_core_int8_perf", "cpu", "int8")
