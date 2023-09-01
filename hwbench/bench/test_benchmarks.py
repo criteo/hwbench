@@ -19,7 +19,7 @@ class TestParse(unittest.TestCase):
                 .split(b":", 1)
             )
             benches = benchmarks.Benchmarks(
-                ".", config.Config("config/sample.ini"), MockHardware()
+                ".", config.Config("config/sample.ini"), MockHardware(cores=64)
             )
             benches.parse_config()
 

@@ -13,7 +13,22 @@ from ..bench.benchmark import ExternalBench
 from ..utils import helpers as h
 
 
-class EngineModuleQsort(EngineModuleBase):
+class EngineModulePinnable(EngineModuleBase):
+    def validate_module_parameters(self, params: BenchmarkParameters):
+        pinned = params.get_pinned_cpu()
+        if pinned == "":
+            return ""
+        if not isinstance(pinned, list):
+            pinned = [pinned]
+        for cpu in pinned:
+            if params.get_hw().logical_core_count() <= int(cpu):
+                return (
+                    f"Cannot pin on core #{cpu} we only have "
+                    f"{params.get_hw().logical_core_count()} cores"
+                )
+
+
+class EngineModuleQsort(EngineModulePinnable):
     """This class implements the Qsort EngineModuleBase for StressNG"""
 
     def __init__(self, engine: EngineBase, engine_module_name: str):
@@ -25,7 +40,7 @@ class EngineModuleQsort(EngineModuleBase):
         return StressNGQsort(self, p).run()
 
 
-class EngineModuleStream(EngineModuleBase):
+class EngineModuleStream(EngineModulePinnable):
     """This class implements the Stream EngineModuleBase for StressNG"""
 
     def __init__(self, engine: EngineBase, engine_module_name: str):
@@ -37,11 +52,13 @@ class EngineModuleStream(EngineModuleBase):
         return StressNGStream(self, p).run()
 
     def validate_module_parameters(self, params: BenchmarkParameters):
+        msg = super().validate_module_parameters(params)
         if params.get_runtime() < 5:
-            return "StressNGStream needs at least a 5s of run time"
+            return "{msg}; StressNGStream needs at least a 5s of run time"
+        return msg
 
 
-class EngineModuleVNNI(EngineModuleBase):
+class EngineModuleVNNI(EngineModulePinnable):
     """This class implements the VNNI EngineModuleBase for StressNG"""
 
     def __init__(self, engine: EngineBase, engine_module_name: str):
@@ -56,7 +73,7 @@ class EngineModuleVNNI(EngineModuleBase):
         return StressNGVNNI(self, p).run()
 
 
-class EngineModuleCpu(EngineModuleBase):
+class EngineModuleCpu(EngineModulePinnable):
     """This class implements the EngineModuleBase for StressNG"""
 
     def __init__(self, engine: EngineBase, engine_module_name: str):

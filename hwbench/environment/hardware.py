@@ -18,6 +18,10 @@ class BaseHardware(BaseEnvironment):
     def cpu_flags(self) -> list[str]:
         return []
 
+    @abstractmethod
+    def logical_core_count(self) -> int:
+        return 0
+
 
 class Hardware(BaseHardware):
     def __init__(self, out_dir: pathlib.Path):
@@ -41,3 +45,6 @@ class Hardware(BaseHardware):
 
     def cpu_flags(self) -> list[str]:
         return self.cpu.get_flags()
+
+    def logical_core_count(self) -> int:
+        return self.cpu.get_logical_cores_count()
