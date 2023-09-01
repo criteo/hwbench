@@ -59,14 +59,14 @@ class TestParse(unittest.TestCase):
         assert_job(3, "check_1_core_qsort_perf", "qsort")
 
         # Checking if the first 64 jobs are check_all_cores_int8_perf
-        for job in range(4, 67):
+        for job in range(4, 68):
             assert_job(job, "check_all_cores_int8_perf", "cpu", "int8")
 
         # Checking if remaining jobs are int8_8cores_16stressors
         for job in range(68, 196):
             assert_job(job, "int8_8cores_16stressors", "cpu", "int8")
 
-        for job in range(197, 199):
+        for job in range(196, 199):
             assert_job(job, "check_physical_core_int8_perf", "cpu", "int8")
             # Ensure the auto syntax updated the number of engine instances
             if job == 198:
