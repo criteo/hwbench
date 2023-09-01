@@ -142,7 +142,7 @@ class Config:
         """A function to parse the range syntax from a configuration directive."""
         result = []
         # FIXME: implement 'all'
-        # [group1];[group2]...
+        # group1 group2...
         groups_count = len(input.split(" "))
 
         for group in input.split(" "):
