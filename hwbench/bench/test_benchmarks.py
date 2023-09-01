@@ -23,9 +23,13 @@ class TestParse(unittest.TestCase):
             )
             benches.parse_config()
 
+        def get_bench_parameters(index):
+            """Return the benchmark parameters."""
+            return benches.get_benchmarks()[index].get_parameters()
+
         def bench_name(index) -> str:
             """Return the benchmark name"""
-            return benches.get_benchmarks()[index].get_parameters().get_name()
+            return get_bench_parameters(index).get_name()
 
         def bench_em(index) -> str:
             """Return the benchmark engine module name"""
@@ -33,11 +37,7 @@ class TestParse(unittest.TestCase):
 
         def bench_emp(index) -> str:
             """Return the benchmark engine module parameter"""
-            return (
-                benches.get_benchmarks()[index]
-                .get_parameters()
-                .get_engine_module_parameter()
-            )
+            return get_bench_parameters(index).get_engine_module_parameter()
 
         def assert_job(index, name, engine_module, engine_module_parameter=None):
             """Assert if a benchmark does not match the config file description."""
@@ -48,9 +48,9 @@ class TestParse(unittest.TestCase):
             assert bench_em(index) == engine_module
             assert bench_emp(index) == engine_module_parameter
 
-        assert benches.count_benchmarks() == 199
+        assert benches.count_benchmarks() == 200
         assert benches.count_jobs() == 7
-        assert benches.runtime() == 208
+        assert benches.runtime() == 209
 
         # Checking if each jobs as the right number of subjobs
         assert_job(0, "check_1_core_int8_perf", "cpu", "int8")
@@ -66,8 +66,14 @@ class TestParse(unittest.TestCase):
         for job in range(68, 196):
             assert_job(job, "int8_8cores_16stressors", "cpu", "int8")
 
-        for job in range(197, 198):
+        for job in range(197, 199):
             assert_job(job, "check_physical_core_int8_perf", "cpu", "int8")
+            # Ensure the auto syntax updated the number of engine instances
+            if job == 198:
+                instances = 4
+            else:
+                instances = 2
+            assert get_bench_parameters(job).get_engine_instances_count() == instances
 
         # Checking if the last job is sleep
         assert_job(-1, "sleep", "sleep")

@@ -65,7 +65,8 @@ stressor_range:
     unit : integer
     note : if omitted, stressor_range = hosting_cpu_cores
            special keywords :
-                all        : all hosting_cpu_cores are selected (default)
+                all        : all hosting_cpu_cores are selected (not implemented)
+                auto       : equals the number of cores selected by hosting_cpu_cores
 
 stressor_range_scaling:
     role : defines how the stressor_range is consumed

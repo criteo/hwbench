@@ -78,6 +78,12 @@ class Benchmarks:
                         for emp in engine_module_parameter:
                             # For each stressor, add a benchmark object to the list
                             for stressor_count in self.config.get_stressor_range(job):
+                                if stressor_count == "auto":
+                                    if pinned_cpu == "none":
+                                        h.fatal("stressor_range=auto but no pinned cpu")
+                                    else:
+                                        stressor_count = len(pinned_cpu)
+
                                 parameters = BenchmarkParameters(
                                     self.out_dir,
                                     job,
