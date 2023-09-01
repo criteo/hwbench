@@ -55,7 +55,7 @@ class Benchmarks:
             monitoring = self.config.get_monitor(job)
 
             # Let's set the default values
-            # If a single hosting_cpu_cores is set, the default scaling is interate
+            # If a single hosting_cpu_cores is set, the default scaling is iterate
             if len(hosting_cpu_cores) == 1:
                 hosting_cpu_cores_scaling = "iterate"
 
@@ -68,42 +68,84 @@ class Benchmarks:
 
             # Let's create benchmark jobs
             # Detect hosting cpu cores scaling mode
-            if hosting_cpu_cores_scaling == "iterate":
+            if hosting_cpu_cores_scaling.startswith("plus_"):
+                steps = int(hosting_cpu_cores_scaling.replace("plus_", ""))
+                # It's mandatory to have hosting_cpu_cores to be
+                # a strict modulo of the requested steps
+                # That would lead to an unbalanced benchmark configuration
+                if len(hosting_cpu_cores) % steps != 0:
+                    h.fatal(
+                        "hosting_cpu_cores is not module hosting_cpu_cores_scaling !"
+                    )
+                pinned_cpu = []
+                while len(hosting_cpu_cores):
+                    for step in range(steps):
+                        for cpu in hosting_cpu_cores.pop():
+                            pinned_cpu.append(cpu)
+                    self.__schedule_benchmark(
+                        job,
+                        stressor_range_scaling,
+                        pinned_cpu.copy(),
+                        runtime,
+                        monitoring,
+                        engine_module_parameter,
+                        engine_module,
+                    )
+            elif hosting_cpu_cores_scaling == "iterate":
                 for iteration in range(len(hosting_cpu_cores)):
                     # Pick the last CPU of the list
                     pinned_cpu = hosting_cpu_cores.pop()
-
-                    # Detecting stressor range scaling mode
-                    if stressor_range_scaling == "plus_1":
-                        for emp in engine_module_parameter:
-                            # For each stressor, add a benchmark object to the list
-                            for stressor_count in self.config.get_stressor_range(job):
-                                if stressor_count == "auto":
-                                    if pinned_cpu == "none":
-                                        h.fatal("stressor_range=auto but no pinned cpu")
-                                    else:
-                                        stressor_count = len(pinned_cpu)
-
-                                parameters = BenchmarkParameters(
-                                    self.out_dir,
-                                    job,
-                                    stressor_count,
-                                    pinned_cpu,
-                                    runtime,
-                                    emp,
-                                    self.hardware,
-                                    monitoring,
-                                )
-                                benchmark = Benchmark(
-                                    self.count_benchmarks(), engine_module, parameters
-                                )
-                                self.add_benchmark(benchmark)
-                    else:
-                        srs = stressor_range_scaling
-                        h.fatal(f"Unsupported stressor_range_scaling : {srs}")
+                    self.__schedule_benchmark(
+                        job,
+                        stressor_range_scaling,
+                        pinned_cpu,
+                        runtime,
+                        monitoring,
+                        engine_module_parameter,
+                        engine_module,
+                    )
             else:
                 hccs = hosting_cpu_cores_scaling
                 h.fatal(f"Unsupported hosting_cpu_cores_scaling : {hccs}")
+
+    def __schedule_benchmark(
+        self,
+        job,
+        stressor_range_scaling,
+        pinned_cpu,
+        runtime,
+        monitoring,
+        engine_module_parameter,
+        engine_module,
+    ):
+        # Detecting stressor range scaling mode
+        if stressor_range_scaling == "plus_1":
+            for emp in engine_module_parameter:
+                # For each stressor, add a benchmark object to the list
+                for stressor_count in self.config.get_stressor_range(job):
+                    if stressor_count == "auto":
+                        if pinned_cpu == "none":
+                            h.fatal("stressor_range=auto but no pinned cpu")
+                        else:
+                            stressor_count = len(pinned_cpu)
+
+                    parameters = BenchmarkParameters(
+                        self.out_dir,
+                        job,
+                        stressor_count,
+                        pinned_cpu,
+                        runtime,
+                        emp,
+                        self.hardware,
+                        monitoring,
+                    )
+                    benchmark = Benchmark(
+                        self.count_benchmarks(), engine_module, parameters
+                    )
+                    self.add_benchmark(benchmark)
+        else:
+            srs = stressor_range_scaling
+            h.fatal(f"Unsupported stressor_range_scaling : {srs}")
 
     def add_benchmark(self, benchmark: Benchmark):
         self.benchs.append(benchmark)

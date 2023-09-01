@@ -48,9 +48,9 @@ class TestParse(unittest.TestCase):
             assert bench_em(index) == engine_module
             assert bench_emp(index) == engine_module_parameter
 
-        assert benches.count_benchmarks() == 200
-        assert benches.count_jobs() == 7
-        assert benches.runtime() == 209
+        assert benches.count_benchmarks() == 204
+        assert benches.count_jobs() == 8
+        assert benches.runtime() == 213
 
         # Checking if each jobs as the right number of subjobs
         assert_job(0, "check_1_core_int8_perf", "cpu", "int8")
@@ -74,6 +74,13 @@ class TestParse(unittest.TestCase):
             else:
                 instances = 2
             assert get_bench_parameters(job).get_engine_instances_count() == instances
+
+        group_count = 0
+        for job in range(199, 203):
+            group_count += 2
+            assert_job(job, "check_physical_core_scale_plus_1_int8_perf", "cpu", "int8")
+            assert get_bench_parameters(job).get_engine_instances_count() == group_count
+            assert len(get_bench_parameters(job).get_pinned_cpu()) == group_count
 
         # Checking if the last job is sleep
         assert_job(-1, "sleep", "sleep")

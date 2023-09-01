@@ -18,6 +18,7 @@ class TestParseConfig(unittest.TestCase):
             "check_all_cores_int8_perf",
             "int8_8cores_16stressors",
             "check_physical_core_int8_perf",
+            "check_physical_core_scale_plus_1_int8_perf",
             "sleep",
         ]
 
