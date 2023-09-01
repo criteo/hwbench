@@ -1,10 +1,13 @@
 import json
 import logging
+import pathlib
 
 from time import gmtime, strftime
 
+DATEFMT = "%Y/%m/%dT%H:%M:%SZ"
 
-def init_logging(tuning_logfile: str) -> None:
+
+def init_logging(tuning_logfile: pathlib.Path) -> None:
     logger = logging.getLogger("tuning")
 
     logger.setLevel(logging.DEBUG)
@@ -14,7 +17,7 @@ def init_logging(tuning_logfile: str) -> None:
     )
     out.setLevel(logging.DEBUG)
 
-    fmt = CustomJsonFormatter(datefmt="%Y/%m/%dT%H:%M:%SZ")
+    fmt = CustomJsonFormatter(datefmt=DATEFMT)
     out.setFormatter(fmt)
 
     logger.addHandler(out)
@@ -47,5 +50,5 @@ class CustomJsonFormatter(logging.Formatter):
         output = {
             k: v for k, v in record.__dict__.items() if k not in self.dropped_keys
         }
-        output["timestamp"] = strftime(self.datefmt, gmtime(record.created))
+        output["timestamp"] = strftime(DATEFMT, gmtime(record.created))
         return json.dumps(output)
