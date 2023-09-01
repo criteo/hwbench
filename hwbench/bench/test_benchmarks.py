@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch
 from . import benchmarks
 from ..config import config
-from ..environment.mock import mock_hardware
+from ..environment.mock import MockHardware
 
 
 class TestParse(unittest.TestCase):
@@ -19,7 +19,7 @@ class TestParse(unittest.TestCase):
                 .split(b":", 1)
             )
             benches = benchmarks.Benchmarks(
-                ".", config.Config("config/sample.ini"), mock_hardware([])
+                ".", config.Config("config/sample.ini"), MockHardware()
             )
             benches.parse_config()
 
@@ -90,6 +90,6 @@ class TestParse(unittest.TestCase):
             config_file = config.Config("./config/stream.ini")
             assert config_file.get_config().getint("global", "runtime") == 5
             config_file.get_config().set("global", "runtime", "2")
-            benches = benchmarks.Benchmarks(".", config_file, mock_hardware([]))
+            benches = benchmarks.Benchmarks(".", config_file, MockHardware())
             with self.assertRaises(SystemExit):
                 benches.parse_config()

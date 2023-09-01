@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from ..bench.parameters import BenchmarkParameters
-from ..environment.mock import mock_hardware
+from ..environment.mock import MockHardware
 from .stressng import Engine as StressNG
 from .stressng import (
     StressNGQsort,
@@ -56,7 +56,7 @@ class TestParse(unittest.TestCase):
                     # Mock elements
                     path = pathlib.Path("")
                     params = BenchmarkParameters(
-                        path, prefix, 0, "", 5, "", mock_hardware([]), "none"
+                        path, prefix, 0, "", 5, "", MockHardware(), "none"
                     )
                     module = engine_module(engine, prefix)
 
@@ -142,7 +142,7 @@ class TestParse(unittest.TestCase):
         ).split()
 
         def test_params(flags, method):
-            hw = mock_hardware(flags)
+            hw = MockHardware(flags)
             return StressNGVNNIMethods().cpu_check(method, hw)
 
         def test_instance(flags, method):
@@ -153,7 +153,7 @@ class TestParse(unittest.TestCase):
                 "",
                 5,
                 method,
-                mock_hardware(flags),
+                MockHardware(flags),
                 "none",
             )
 
