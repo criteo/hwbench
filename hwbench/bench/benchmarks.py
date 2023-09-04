@@ -40,7 +40,9 @@ class Benchmarks:
             engine_module_parameter = self.config.get_engine_module_parameter(job)
 
             for emp in engine_module_parameter:
-                if emp not in engine_module.get_module_parameters():
+                if emp not in engine_module.get_module_parameters(
+                    special_keywords=True
+                ):
                     h.fatal(
                         f'Unknown "{emp}" engine_module_parameter for "{engine_name}"'
                     )
@@ -128,21 +130,37 @@ class Benchmarks:
                             h.fatal("stressor_range=auto but no pinned cpu")
                         else:
                             stressor_count = len(pinned_cpu)
-
-                    parameters = BenchmarkParameters(
-                        self.out_dir,
-                        job,
-                        stressor_count,
-                        pinned_cpu,
-                        runtime,
-                        emp,
-                        self.hardware,
-                        monitoring,
-                    )
-                    benchmark = Benchmark(
-                        self.count_benchmarks(), engine_module, parameters
-                    )
-                    self.add_benchmark(benchmark)
+                    if emp == "all":
+                        for individual_emp in engine_module.get_module_parameters():
+                            parameters = BenchmarkParameters(
+                                self.out_dir,
+                                job,
+                                stressor_count,
+                                pinned_cpu,
+                                runtime,
+                                individual_emp,
+                                self.hardware,
+                                monitoring,
+                            )
+                            benchmark = Benchmark(
+                                self.count_benchmarks(), engine_module, parameters
+                            )
+                            self.add_benchmark(benchmark)
+                    else:
+                        parameters = BenchmarkParameters(
+                            self.out_dir,
+                            job,
+                            stressor_count,
+                            pinned_cpu,
+                            runtime,
+                            emp,
+                            self.hardware,
+                            monitoring,
+                        )
+                        benchmark = Benchmark(
+                            self.count_benchmarks(), engine_module, parameters
+                        )
+                        self.add_benchmark(benchmark)
         else:
             srs = stressor_range_scaling
             h.fatal(f"Unsupported stressor_range_scaling : {srs}")

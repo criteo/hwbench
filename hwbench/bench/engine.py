@@ -23,7 +23,9 @@ class EngineModuleBase(abc.ABC):
         if name not in self.get_module_parameters():
             self.module_parameters.append(name)
 
-    def get_module_parameters(self):
+    def get_module_parameters(self, special_keywords=False):
+        if special_keywords:
+            return ["all"] + self.module_parameters
         return self.module_parameters
 
     def validate_module_parameters(self, params: BenchmarkParameters) -> str:
