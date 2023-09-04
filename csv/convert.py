@@ -18,6 +18,7 @@ def main():
 
     create_csv_benchmarks_cpu(output_file(file_path, "bench"), data)
     create_csv_power(output_file(file_path, "power"), data)
+    create_csv_memory(output_file(file_path, "memory"), data)
 
 
 def output_file(input_file: pathlib.Path, category: str) -> pathlib.Path:
@@ -39,6 +40,9 @@ def create_csv_benchmarks_cpu(out_file: pathlib.Path, data):
 
         for result in results:
             map(warn_new_key(csv_keys), result.items())
+            # skip any missing 'bogo ops/s'
+            if "bogo ops/s" not in result:
+                continue
             values = [str(result[key]) for key in csv_keys]
             print(",".join(values), file=out)
 
@@ -64,6 +68,71 @@ def create_csv_power(out_file: pathlib.Path, data):
                             f"{job_name},{job_number},{category},{typ},{unit},{event}",
                             file=out,
                         )
+
+
+def create_csv_memory(out_file: pathlib.Path, data):
+    with open(out_file, "w") as out:
+        print(f"Writing memory results to {out_file}")
+        print("job_name,job_number,test,type,workers,speed", file=out)
+        results = sorted(data["bench"].values(), key=result_key)
+        # first stress-ng STREAM-like benchmark
+        print_streams(out, results)
+        # then stress-ng memrate benchmark
+        print_memrates(out, results)
+
+
+def print_streams(out, results):
+    for result in results:
+        engine_module = result.get("engine_module")
+        if engine_module != "stream":
+            continue
+        job_name = result.get("job_name", "")
+        job_number = result.get("job_number", "")
+        workers = result.get("workers")
+        total = result.get("sum_total")
+        print(
+            f"{job_name},{job_number},{engine_module},total,{workers},{total}", file=out
+        )
+
+
+def print_memrates(out, results):
+    result_list = []
+    for result in results:
+        engine_module = result.get("engine_module")
+        if engine_module != "memrate":
+            continue
+        job_name = result.get("job_name", "")
+        job_number = result.get("job_number", "")
+        workers = result.get("workers")
+        for key in result.keys():
+            if isinstance(result[key], dict) and "sum_speed" in result[key]:
+                result_list.append(
+                    {
+                        "job_name": job_name,
+                        "job_number": job_number,
+                        "engine_module": engine_module,
+                        "workers": workers,
+                        "key": key,
+                        "sum_speed": result[key]["sum_speed"],
+                    }
+                )
+
+    def memrate_key(r):
+        # custom sort order for memrate results using string concatenation
+        return (
+            r.get("job_name", "")
+            + r.get("engine_module", "")
+            + r.get("key", "")
+            + f'{r.get("workers", ""):05}'
+            + f'{r.get("job_number", ""):06}'
+        )
+
+    results_sorted = sorted(result_list, key=memrate_key)
+    for r in results_sorted:
+        print(
+            f"{r['job_name']},{r['job_number']},{r['engine_module']},{r['key']},{r['workers']},{r['sum_speed']}",
+            file=out,
+        )
 
 
 def result_key(r):
