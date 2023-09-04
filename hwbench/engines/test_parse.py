@@ -8,8 +8,10 @@ from ..environment.mock import MockHardware
 from .stressng import Engine as StressNG
 from .stressng import (
     StressNGQsort,
+    StressNGMemrate,
     StressNGStream,
     EngineModuleQsort,
+    EngineModuleMemrate,
     EngineModuleStream,
     EngineModuleVNNI,
     StressNGVNNIMethods,
@@ -43,9 +45,10 @@ class TestParse(unittest.TestCase):
 
     def test_module_parsing_output(self):
         engine = mock_engine()
-        for classname, engine_module, prefix in [
-            (StressNGQsort, EngineModuleQsort, "stressng"),
-            (StressNGStream, EngineModuleStream, "stressng-stream"),
+        for classname, engine_module, prefix, instances in [
+            (StressNGQsort, EngineModuleQsort, "stressng", 0),
+            (StressNGStream, EngineModuleStream, "stressng-stream", 0),
+            (StressNGMemrate, EngineModuleMemrate, "stressng-memrate", 128),
         ]:
             test_dir = pathlib.Path(f"./tests/parsing/{prefix}")
             for d in test_dir.iterdir():
@@ -56,7 +59,7 @@ class TestParse(unittest.TestCase):
                     # Mock elements
                     path = pathlib.Path("")
                     params = BenchmarkParameters(
-                        path, prefix, 0, "", 5, "", MockHardware(), "none"
+                        path, prefix, instances, "", 5, "", MockHardware(), "none"
                     )
                     module = engine_module(engine, prefix)
 

@@ -43,6 +43,21 @@ class EngineModuleQsort(EngineModulePinnable):
         return StressNGQsort(self, p).run()
 
 
+class EngineModuleMemrate(EngineModulePinnable):
+    """This class implements the Memrate EngineModuleBase for StressNG"""
+
+    def __init__(self, engine: EngineBase, engine_module_name: str):
+        super().__init__(engine, engine_module_name)
+        self.engine_module_name = engine_module_name
+        self.add_module_parameter("memrate")
+
+    def run_cmd(self, p: BenchmarkParameters):
+        return StressNGMemrate(self, p).run_cmd()
+
+    def run(self, p: BenchmarkParameters):
+        return StressNGMemrate(self, p).run()
+
+
 class EngineModuleStream(EngineModulePinnable):
     """This class implements the Stream EngineModuleBase for StressNG"""
 
@@ -123,6 +138,7 @@ class Engine(EngineBase):
         self.add_module(EngineModuleCpu(self, "cpu"))
         self.add_module(EngineModuleQsort(self, "qsort"))
         self.add_module(EngineModuleStream(self, "stream"))
+        self.add_module(EngineModuleMemrate(self, "memrate"))
         self.version = None
 
     def run_cmd_version(self) -> list[str]:
@@ -450,3 +466,43 @@ class StressNGVNNI(StressNG):
         return engine.version_major() > 16 or (
             engine.version_major() == 16 and engine.version_minor() >= 4
         )
+
+
+class StressNGMemrate(StressNG):
+    """The StressNG Memrate memory stressor."""
+
+    def run_cmd(self) -> list[str]:
+        # TODO: handle get_pinned_cpu ; it does not necessarily make sense for this
+        # benchmark, but it could be revisited once we support pinning on multiple CPUs.
+        if self.engine_module.get_engine().get_version() != "0.16.04":
+            raise NotImplementedError(
+                "StressNGStream needs stress-ng version 0.16.04 ; "
+                "later version have different --metrics vs --metrics-brief options; "
+                "earlier version format memory bandwidth differently"
+            )
+        return super().run_cmd() + [
+            "--memrate",
+            str(self.parameters.get_engine_instances_count()),
+        ]
+
+    def parse_cmd(self, stdout: bytes, stderr: bytes) -> dict[str, Any]:
+        summary_parse = re.compile(
+            r"memrate .* (?P<speed>[0-9\.]+) (?P<test>[a-z0-9]+) MB per sec .*$"
+        )
+        out = (stdout or stderr).splitlines()
+
+        summary = [str(line) for line in out if summary_parse.search(str(line))]
+
+        ret = {}
+
+        for line in summary:
+            matches = summary_parse.search(line)
+            if matches is not None:
+                r = matches.groupdict()
+                test = r["test"]
+                ret[test] = {
+                    "avg_speed": float(r["speed"]),
+                    "sum_speed": float(r["speed"])
+                    * self.parameters.get_engine_instances_count(),
+                }
+        return ret | self.parameters.get_result_format()
