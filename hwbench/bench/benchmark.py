@@ -124,12 +124,16 @@ class ExternalBench(External):
                     )
                 )
 
+        monitoring = ""
+        if self.parameters.get_monitoring():
+            monitoring = "(M)"
         print(
-            "[{}] {}/{}/{}: {:3d} stressor{} for {}s".format(
+            "[{}] {}/{}/{}{}: {:3d} stressor{} for {}s".format(
                 p.get_name(),
                 self.engine_module.get_engine().get_name(),
                 self.engine_module.get_name(),
                 p.get_engine_module_parameter(),
+                monitoring,
                 p.get_engine_instances_count(),
                 cpu_location,
                 p.get_runtime(),
