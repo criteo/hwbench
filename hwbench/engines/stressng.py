@@ -294,9 +294,14 @@ class StressNGStream(StressNG):
                 "write": [0] * detail_size,
                 "Mflop/s": [0] * detail_size,
             },
-            "read": 0,
-            "write": 0,
-            "Mflop/s": 0,
+            "avg_read": 0,
+            "avg_write": 0,
+            "avg_Mflop/s": 0,
+            "avg_total": 0,
+            "sum_read": 0,
+            "sum_write": 0,
+            "sum_Mflop/s": 0,
+            "sum_total": 0,
         }
 
         for line in detail:
@@ -307,6 +312,9 @@ class StressNGStream(StressNG):
                 ret["detail"]["read"][instance] = float(r["read"])
                 ret["detail"]["write"][instance] = float(r["write"])
                 ret["detail"]["Mflop/s"][instance] = float(r["flop"])
+                ret["sum_read"] += float(r["read"])
+                ret["sum_write"] += float(r["write"])
+                ret["sum_Mflop/s"] += float(r["flop"])
 
         for line in summary:
             matches = summary_parse.search(line)
@@ -314,9 +322,13 @@ class StressNGStream(StressNG):
                 r = matches.groupdict()
                 source = r["source"]
                 if source == "read" or source == "write":
-                    ret[source] = float(r["rate"])
+                    ret[f"avg_{source}"] = float(r["rate"])
                 elif source == "compute":
-                    ret["Mflop/s"] = float(r["rate"])
+                    ret["avg_Mflop/s"] = float(r["rate"])
+
+        # Let's build the grand total of read + write
+        ret["sum_total"] = ret["sum_read"] + ret["sum_write"]
+        ret["avg_total"] = ret["avg_read"] + ret["avg_write"]
 
         return ret | self.parameters.get_result_format()
 
