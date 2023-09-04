@@ -15,6 +15,9 @@ class EngineModuleSleep(EngineModuleBase):
         # if needed add module parameters to your module
         self.add_module_parameter("sleep")
 
+    def run_cmd(self, p: BenchmarkParameters):
+        return Sleep(self, p).run_cmd()
+
     def run(self, p: BenchmarkParameters):
         return Sleep(self, p).run()
 

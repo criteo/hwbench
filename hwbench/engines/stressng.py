@@ -36,6 +36,9 @@ class EngineModuleQsort(EngineModulePinnable):
         self.engine_module_name = engine_module_name
         self.add_module_parameter("qsort")
 
+    def run_cmd(self, p: BenchmarkParameters):
+        return StressNGQsort(self, p).run_cmd()
+
     def run(self, p: BenchmarkParameters):
         return StressNGQsort(self, p).run()
 
@@ -47,6 +50,9 @@ class EngineModuleStream(EngineModulePinnable):
         super().__init__(engine, engine_module_name)
         self.engine_module_name = engine_module_name
         self.add_module_parameter("stream")
+
+    def run_cmd(self, p: BenchmarkParameters):
+        return StressNGStream(self, p).run_cmd()
 
     def run(self, p: BenchmarkParameters):
         return StressNGStream(self, p).run()
@@ -68,6 +74,9 @@ class EngineModuleVNNI(EngineModulePinnable):
         self.methods = StressNGVNNIMethods()
         for method in self.methods.enumerate():
             self.add_module_parameter(method)
+
+    def run_cmd(self, p: BenchmarkParameters):
+        return StressNGVNNI(self, p).run_cmd()
 
     def run(self, p: BenchmarkParameters):
         return StressNGVNNI(self, p).run()
@@ -98,6 +107,9 @@ class EngineModuleCpu(EngineModulePinnable):
         methods.remove("all")
         for method in methods:
             self.add_module_parameter(method)
+
+    def run_cmd(self, p: BenchmarkParameters):
+        return StressNGCPU(self, p).run_cmd()
 
     def run(self, p: BenchmarkParameters):
         return StressNGCPU(self, p).run()

@@ -203,3 +203,27 @@ ETA {self.runtime()} seconds"
                 )
             ] = benchmark.run()
         return results
+
+    def dump(self):
+        with open(self.out_dir / "expanded_job_file.conf", "w") as f:
+            for bench in self.benchs:
+                engine = bench.get_enginemodule().get_engine()
+                em = bench.get_enginemodule()
+                param = bench.get_parameters()
+                print(f"[{param.get_name()}_{bench.get_job_number()}]", file=f)
+                print(f"runtime={param.get_runtime()}", file=f)
+                print(f"monitoring={param.get_monitoring()}", file=f)
+                print(f"engine={engine.get_binary()}", file=f)
+                print(f"engine_module={em.get_name()}", file=f)
+                print(f"engine_binary={engine.get_name()}", file=f)
+                print(f"engine_binary_parameters={em.run_cmd(param)}", file=f)
+                print(
+                    f"engine_module_parameter={param.get_engine_module_parameter()}",
+                    file=f,
+                )
+                if param.get_pinned_cpu():
+                    print(f"pinned_cpu={param.get_pinned_cpu()}", file=f)
+                print(
+                    f"stressor_instances={param.get_engine_instances_count()}", file=f
+                )
+                print("", file=f)

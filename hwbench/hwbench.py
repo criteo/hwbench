@@ -32,6 +32,7 @@ def main():
     benches = benchmarks.Benchmarks(out_dir, config.Config(args.config), hw)
     benches.parse_config()
     results = benches.run()
+    benches.dump()
 
     out = format_output(env.dump(), hw.dump(), results)
 
