@@ -13,32 +13,39 @@ def main():
     )
     parser.add_argument("filename", help="input JSON file to convert to CSV")
     args = parser.parse_args()
-    data = json.load(open(args.filename, "r"))
+    file_path = pathlib.Path(args.filename)
+    data = json.loads(file_path.read_bytes())
 
-    print_csv_benchmarks_cpu(data)
+    create_csv_benchmarks_cpu(output_file(file_path, "bench"), data)
+    create_csv_power(output_file(file_path, "power"), data)
 
-    create_csv_power(pathlib.Path(args.filename).stem + "-monitoring.csv", data)
+
+def output_file(input_file: pathlib.Path, category: str) -> pathlib.Path:
+    return input_file.parent / (f"{input_file.stem}.{category}.csv")
 
 
-def print_csv_benchmarks_cpu(data):
+def create_csv_benchmarks_cpu(out_file: pathlib.Path, data):
     def ok_key(item):
         filtered = {"detail", "cpu_pin", "monitoring"}
         return item not in filtered
 
-    # use first result to print CSV header
-    csv_keys = list(filter(ok_key, iter(data["bench"].values()).__next__().keys()))
-    print(",".join(csv_keys))
+    with open(out_file, "w") as out:
+        print(f"Writing cpu benchmark results to {out_file}")
+        # use first result to print CSV header
+        csv_keys = list(filter(ok_key, iter(data["bench"].values()).__next__().keys()))
+        print(",".join(csv_keys), file=out)
 
-    results = sorted(data["bench"].values(), key=result_key)
+        results = sorted(data["bench"].values(), key=result_key)
 
-    for result in results:
-        map(warn_new_key(csv_keys), result.items())
-        values = [str(result[key]) for key in csv_keys]
-        print(",".join(values))
+        for result in results:
+            map(warn_new_key(csv_keys), result.items())
+            values = [str(result[key]) for key in csv_keys]
+            print(",".join(values), file=out)
 
 
-def create_csv_power(out_file_name: str, data):
-    with open(out_file_name, "w") as out:
+def create_csv_power(out_file: pathlib.Path, data):
+    with open(out_file, "w") as out:
+        print(f"Writing power results to {out_file}")
         print("job_name,job_number,category,type,unit,event", file=out)
         results = sorted(data["bench"].values(), key=result_key)
         for result in results:
