@@ -1,3 +1,4 @@
+from datetime import timedelta
 from ..utils import helpers as h
 from .benchmark import Benchmark
 from .parameters import BenchmarkParameters
@@ -189,10 +190,12 @@ class Benchmarks:
 
     def run(self):
         results = {}
+        time = str(timedelta(seconds=self.runtime())).split(":")
+        duration = f"{time[0]}h {time[1]}m {time[2]}s"
         print(
             f"hwbench: {self.count_jobs()} jobs, \
 {self.count_benchmarks()} benchmarks, \
-ETA {self.runtime()} seconds"
+ETA {duration}"
         )
         # Run every benchmark of the list
         for benchmark in self.get_benchmarks():
