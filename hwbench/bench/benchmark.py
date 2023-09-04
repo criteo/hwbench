@@ -45,6 +45,8 @@ class Benchmark:
             "timeout": self.parameters.get_runtime(),
             "cpu_pin": self.parameters.get_pinned_cpu(),
             "workers": self.parameters.get_engine_instances_count(),
+            "job_number": self.get_job_number(),
+            "job_name": self.parameters.get_name(),
         }
 
     def validate_parameters(self) -> str:
