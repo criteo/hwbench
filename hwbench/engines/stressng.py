@@ -367,45 +367,45 @@ class StressNGVNNIMethods:
         # be able to check for compatibility.
         self.methods = {
             # tests generic methods
-            "noavx-vpaddb": M(lambda _: True, ["--vnni-method", "vpaddb"]),
-            "noavx-vpdpbusd": M(lambda _: True, ["--vnni-method", "vpdpbusd"]),
-            "noavx-vpdpwssd": M(lambda _: True, ["--vnni-method", "vpdpwssd"]),
+            "noavx_vpaddb": M(lambda _: True, ["--vnni-method", "vpaddb"]),
+            "noavx_vpdpbusd": M(lambda _: True, ["--vnni-method", "vpdpbusd"]),
+            "noavx_vpdpwssd": M(lambda _: True, ["--vnni-method", "vpdpwssd"]),
             # avx512 bw, relatively common
-            "avx-vpaddb512": M(
+            "avx_vpaddb512": M(
                 check_support("avx512bw"),
                 ["--vnni-method", "vpaddb512", "--vnni-intrinsic"],
             ),
             # avx512 vnni, Xeon 3rd gen+ and Zen4 +
-            "avx-vpdpbusd512": M(
+            "avx_vpdpbusd512": M(
                 check_support("avx512_vnni"),
                 ["--vnni-method", "vpdpbusd512", "--vnni-intrinsic"],
             ),
-            "avx-vpdpwssd512": M(
+            "avx_vpdpwssd512": M(
                 check_support("avx512_vnni"),
                 ["--vnni-method", "vpdpwssd512", "--vnni-intrinsic"],
             ),
             # avx vnni, Xeon 4th gen+)
-            "avx-vpaddb128": M(
+            "avx_vpaddb128": M(
                 check_support("avx_vnni"),
                 ["--vnni-method", "vpaddb128", "--vnni-intrinsic"],
             ),
-            "avx-vpaddb256": M(
+            "avx_vpaddb256": M(
                 check_support("avx_vnni"),
                 ["--vnni-method", "vpaddb256", "--vnni-intrinsic"],
             ),
-            "avx-vpdpbusd128": M(
+            "avx_vpdpbusd128": M(
                 check_support("avx_vnni"),
                 ["--vnni-method", "vpdpbusd128", "--vnni-intrinsic"],
             ),
-            "avx-vpdpbusd256": M(
+            "avx_vpdpbusd256": M(
                 check_support("avx_vnni"),
                 ["--vnni-method", "vpdpbusd256", "--vnni-intrinsic"],
             ),
-            "avx-vpdpwssd128": M(
+            "avx_vpdpwssd128": M(
                 check_support("avx_vnni"),
                 ["--vnni-method", "vpdpwssd128", "--vnni-intrinsic"],
             ),
-            "avx-vpdpwssd256": M(
+            "avx_vpdpwssd256": M(
                 check_support("avx_vnni"),
                 ["--vnni-method", "vpdpwssd256", "--vnni-intrinsic"],
             ),
