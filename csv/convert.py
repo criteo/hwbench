@@ -2,7 +2,6 @@
 
 import argparse
 import json
-import sys
 import pathlib
 
 
@@ -26,20 +25,22 @@ def output_file(input_file: pathlib.Path, category: str) -> pathlib.Path:
 
 
 def create_csv_benchmarks_cpu(out_file: pathlib.Path, data):
-    def ok_key(item):
-        filtered = {"detail", "cpu_pin", "monitoring"}
-        return item not in filtered
-
     with open(out_file, "w") as out:
         print(f"Writing cpu benchmark results to {out_file}")
-        # use first result to print CSV header
-        csv_keys = list(filter(ok_key, iter(data["bench"].values()).__next__().keys()))
+        csv_keys = [
+            "job_name",
+            "job_number",
+            "engine",
+            "engine_module",
+            "engine_module_parameter",
+            "workers",
+            "bogo ops/s",
+        ]
         print(",".join(csv_keys), file=out)
 
         results = sorted(data["bench"].values(), key=result_key)
 
         for result in results:
-            map(warn_new_key(csv_keys), result.items())
             # skip any missing 'bogo ops/s'
             if "bogo ops/s" not in result:
                 continue
@@ -144,12 +145,6 @@ def result_key(r):
         + r.get("job_name", "")
         + f'{r.get("workers", ""):05}'
         + f'{r.get("job_number", "")}'
-    )
-
-
-def warn_new_key(csv_keys):
-    return lambda item: item[0] not in csv_keys and print(
-        f"Unknown key {item[0]}", file=sys.stderr
     )
 
 
