@@ -85,7 +85,6 @@ class EngineModuleVNNI(EngineModulePinnable):
     def __init__(self, engine: EngineBase, engine_module_name: str):
         super().__init__(engine, engine_module_name)
         self.engine_module_name = engine_module_name
-        self.add_module_parameter("vnni")
         self.methods = StressNGVNNIMethods()
         for method in self.methods.enumerate():
             self.add_module_parameter(method)
@@ -139,6 +138,7 @@ class Engine(EngineBase):
         self.add_module(EngineModuleQsort(self, "qsort"))
         self.add_module(EngineModuleStream(self, "stream"))
         self.add_module(EngineModuleMemrate(self, "memrate"))
+        self.add_module(EngineModuleVNNI(self, "vnni"))
         self.version = None
 
     def run_cmd_version(self) -> list[str]:
