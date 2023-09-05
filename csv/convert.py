@@ -45,18 +45,7 @@ def create_csv_benchmarks_cpu(out_file: pathlib.Path, data):
             if "bogo ops/s" not in result:
                 continue
             values = [str(result[key]) for key in csv_keys]
-            mean_power = 0
-            result_package_mean = (
-                result.get("monitoring", {}).get("package", {}).get("mean", {})
-            )
-            if (
-                result_package_mean.get("unit") == "Watts"
-                and len(result_package_mean.get("events", [])) > 0
-            ):
-                mean_power = sum(result_package_mean["events"]) / len(
-                    result_package_mean["events"]
-                )
-            values.append(str(mean_power))
+            values.append(str(mean_power_package(result)))
             print(",".join(values), file=out)
 
 
@@ -86,7 +75,7 @@ def create_csv_power(out_file: pathlib.Path, data):
 def create_csv_memory(out_file: pathlib.Path, data):
     with open(out_file, "w") as out:
         print(f"Writing memory results to {out_file}")
-        print("job_name,job_number,test,type,workers,speed", file=out)
+        print("job_name,job_number,test,type,workers,speed,power", file=out)
         results = sorted(data["bench"].values(), key=result_key)
         # first stress-ng STREAM-like benchmark
         print_streams(out, results)
@@ -103,8 +92,10 @@ def print_streams(out, results):
         job_number = result.get("job_number", "")
         workers = result.get("workers")
         total = result.get("sum_total")
+        mean_power = mean_power_package(result)
         print(
-            f"{job_name},{job_number},{engine_module},total,{workers},{total}", file=out
+            f"{job_name},{job_number},{engine_module},total,{workers},{total},{mean_power}",
+            file=out,
         )
 
 
@@ -127,6 +118,7 @@ def print_memrates(out, results):
                         "workers": workers,
                         "key": key,
                         "sum_speed": result[key]["sum_speed"],
+                        "power": mean_power_package(result),
                     }
                 )
 
@@ -143,7 +135,7 @@ def print_memrates(out, results):
     results_sorted = sorted(result_list, key=memrate_key)
     for r in results_sorted:
         print(
-            f"{r['job_name']},{r['job_number']},{r['engine_module']},{r['key']},{r['workers']},{r['sum_speed']}",
+            f"{r['job_name']},{r['job_number']},{r['engine_module']},{r['key']},{r['workers']},{r['sum_speed']},{r['power']}",
             file=out,
         )
 
@@ -158,6 +150,21 @@ def result_key(r):
         + f'{r.get("workers", ""):05}'
         + f'{r.get("job_number", "")}'
     )
+
+
+def mean_power_package(result) -> float:
+    mean_power = 0
+    result_package_mean = (
+        result.get("monitoring", {}).get("package", {}).get("mean", {})
+    )
+    if (
+        result_package_mean.get("unit") == "Watts"
+        and len(result_package_mean.get("events", [])) > 0
+    ):
+        mean_power = sum(result_package_mean["events"]) / len(
+            result_package_mean["events"]
+        )
+    return mean_power
 
 
 if __name__ == "__main__":
