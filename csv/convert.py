@@ -36,7 +36,7 @@ def create_csv_benchmarks_cpu(out_file: pathlib.Path, data):
             "workers",
             "bogo ops/s",
         ]
-        print(",".join(csv_keys), file=out)
+        print(",".join(csv_keys) + ",power", file=out)
 
         results = sorted(data["bench"].values(), key=result_key)
 
@@ -45,6 +45,18 @@ def create_csv_benchmarks_cpu(out_file: pathlib.Path, data):
             if "bogo ops/s" not in result:
                 continue
             values = [str(result[key]) for key in csv_keys]
+            mean_power = 0
+            result_package_mean = (
+                result.get("monitoring", {}).get("package", {}).get("mean", {})
+            )
+            if (
+                result_package_mean.get("unit") == "Watts"
+                and len(result_package_mean.get("events", [])) > 0
+            ):
+                mean_power = sum(result_package_mean["events"]) / len(
+                    result_package_mean["events"]
+                )
+            values.append(str(mean_power))
             print(",".join(values), file=out)
 
 
