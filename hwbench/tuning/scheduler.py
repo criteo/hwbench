@@ -15,17 +15,19 @@ class IOScheduler:
             for dirname in dirnames:
                 diskdir = pathlib.Path(rootpath) / dirname
                 file = diskdir / "queue/scheduler"
+                previous = file.read_text(encoding="utf-8").rstrip()
                 # see https://docs.kernel.org/block/switching-sched.html
                 # for deeper explanation
                 log.info(
                     f"write {self.scheduler} in {file}",
                     extra={
+                        "value": self.scheduler,
+                        "previous": previous,
                         "type": "sysfs",
                         "file": str(file),
-                        "value": self.scheduler,
                     },
                 )
-                (file).write_text(f"{self.scheduler}\n")
+                file.write_text(f"{self.scheduler}\n")
 
 
 class MQDeadlineIOScheduler(IOScheduler):

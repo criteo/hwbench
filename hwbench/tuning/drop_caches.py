@@ -11,9 +11,16 @@ class SysctlDropCaches:
         file = Path("/proc/sys/vm/drop_caches")
         # please read https://www.kernel.org/doc/Documentation/sysctl/vm.txt
         # for further explanation.
+        #
+        # reading this value is meaning less and the file is write only,
+        # so no previous value.
         value = 3
         tunninglog().info(
             "free slab objects and pagecache",
-            extra={"value": value, "file": str(file), "type": "procfs"},
+            extra={
+                "value": value,
+                "file": str(file),
+                "type": "procfs",
+            },
         )
-        (file).write_text(f"{value}\n")
+        file.write_text(f"{value}\n")

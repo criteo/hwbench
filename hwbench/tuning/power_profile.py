@@ -29,16 +29,18 @@ class PerformancePowerProfile:
             for dirname in dirnames:
                 if pattern.match(dirname):
                     cpudir = pathlib.Path(rootpath) / dirname
-                    governor = cpudir / "cpufreq/scaling_governor"
+                    file = cpudir / "cpufreq/scaling_governor"
+                    previous = file.read_text(encoding="utf-8").rstrip()
                     # please read https://www.kernel.org/doc/html/latest/admin-guide/pm/cpufreq.html
                     # for more explanation
                     value = "performance"
                     log.info(
-                        f"write {value} in {governor}",
+                        f"write {value} in {file}",
                         extra={
-                            "type": "sysfs",
-                            "file": str(governor),
                             "value": value,
+                            "previous": previous,
+                            "type": "sysfs",
+                            "file": str(file),
                         },
                     )
-                    (governor).write_text(f"{value}\n")
+                    file.write_text(f"{value}\n")
