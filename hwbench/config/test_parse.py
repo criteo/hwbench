@@ -65,3 +65,5 @@ class TestParseConfig(unittest.TestCase):
         assert self.config_file.parse_range("int8,float") == ["int8", "float"]
         assert self.config_file.parse_range("1-3 4-5") == [[1, 2, 3], [4, 5]]
         assert self.config_file.parse_range("1,32 2,33") == [[1, 32], [2, 33]]
+        with self.assertRaises(SystemExit):
+            self.config_file.parse_range("bad,range,bad-range")

@@ -154,9 +154,10 @@ class Config:
                 if "-" in item:
                     ranges = item.split("-")
                     if len(ranges) == 2:
-                        if ranges[0].isnumeric() and ranges[1].isnumeric():
-                            for cpu_number in range(int(ranges[0]), int(ranges[1]) + 1):
-                                current_group.append(cpu_number)
+                        if not ranges[0].isnumeric() or not ranges[1].isnumeric():
+                            h.fatal(f"Non-numeric range {ranges} in '{input}'")
+                        for cpu_number in range(int(ranges[0]), int(ranges[1]) + 1):
+                            current_group.append(cpu_number)
                 else:
                     # syntax: <x>
                     if item.isnumeric():
