@@ -73,8 +73,9 @@ def format_output(env, hw, results) -> dict[str, object]:
 
 
 def write_output(out_dir: pathlib.Path, out):
-    print(json.dumps(out, indent=4))
-    (out_dir / "results.json").write_text(json.dumps(out))
+    out_file = out_dir / "results.json"
+    print(f"Result file available at {str(out_file)}")
+    out_file.write_text(json.dumps(out))
 
 
 if __name__ == "__main__":
