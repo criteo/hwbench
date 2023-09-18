@@ -43,7 +43,8 @@ def validate_engine_module_parameter(config, section_name, value) -> str:
     assert engine.module_exists(engine_module_name)
     engine_module = engine.get_module(engine_module_name)
     for emp in config.parse_range(value):
-        assert emp in engine_module.get_module_parameters(special_keywords=True)
+        if emp not in engine_module.get_module_parameters(special_keywords=True):
+            return f"Engine {engine.get_name()}: {emp} does not exists"
     return ""
 
 
