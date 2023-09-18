@@ -112,13 +112,12 @@ class TestParse(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 benches.parse_config()
 
-    def test_numa(self):
-        """Check numa."""
-
-        def get_bench_parameters(index):
-            """Return the benchmark parameters."""
-            return benches.get_benchmarks()[index].get_parameters()
-
+    def load_mocked_hardware(
+        self,
+        cpuinfo=None,
+        cpucores=None,
+        numa=None,
+    ):
         def load(target, path):
             instance = target(path)
             stdout = (path / "stdout").read_bytes()
@@ -126,15 +125,65 @@ class TestParse(unittest.TestCase):
             instance.parse_cmd(stdout, stderr)
             return instance
 
-        fake_numa = load(NUMA, pathlib.Path("./tests/parsing/numa/8domainsllc"))
-        fake_cpuinfo = load(CPU_INFO, pathlib.Path("./tests/parsing/cpu_info/v2321"))
-        fake_cpucores = load(CPU_CORES, pathlib.Path("./tests/parsing/cpu_cores/v2321"))
-        cpu = MockCPU(".", fake_cpuinfo, fake_cpucores, fake_numa)
-        hw = MockHardware(cpu=cpu)
+        fake_numa = None
+        if numa:
+            fake_numa = load(NUMA, pathlib.Path(numa))
 
+        fake_cpuinfo = None
+        if cpuinfo:
+            fake_cpuinfo = load(CPU_INFO, pathlib.Path(cpuinfo))
+
+        fake_cpucores = None
+        if cpucores:
+            fake_cpucores = load(CPU_CORES, pathlib.Path(cpucores))
+
+        cpu = MockCPU(".", fake_cpuinfo, fake_cpucores, fake_numa)
+        return MockHardware(cpu=cpu)
+
+    def test_cores(self):
+        """Check cores syntax."""
+
+        def get_bench_parameters(index):
+            """Return the benchmark parameters."""
+            return benches.get_benchmarks()[index].get_parameters()
+
+        hw = self.load_mocked_hardware(cpucores="./tests/parsing/cpu_cores/v2321")
+
+        cfg = config.Config("./config/cores.conf", hw)
+        benches = benchmarks.Benchmarks(".", cfg, hw)
+        benches.parse_config()
+        CPU0 = [0, 64]
+        CPU1 = [1, 65]
+        CPU0_1 = sorted(CPU0 + CPU1)
+        CPU0_7 = [0, 1, 2, 3, 4, 5, 6, 7, 64, 65, 66, 67, 68, 69, 70, 71]
+        assert cfg.get_hosting_cpu_cores("cores") == [CPU0, CPU1, CPU0_7, CPU0_1]
+        assert get_bench_parameters(0).get_pinned_cpu() == CPU0
+        assert get_bench_parameters(1).get_pinned_cpu() == CPU1
+        assert get_bench_parameters(2).get_pinned_cpu() == CPU0_7
+        assert get_bench_parameters(3).get_pinned_cpu() == CPU0_1
+
+        # Testing broken syntax that must fail
+        cfg = config.Config("./config/sample_weirds.conf", hw)
+        benches = benchmarks.Benchmarks(".", cfg, hw)
+        with self.assertRaises(SystemExit):
+            cfg.get_hosting_cpu_cores("invalid_cpu_core")
+            cfg.get_hosting_cpu_cores("alpha_cpu_core")
+
+    def test_numa(self):
+        """Check numa."""
+
+        def get_bench_parameters(index):
+            """Return the benchmark parameters."""
+            return benches.get_benchmarks()[index].get_parameters()
+
+        hw = self.load_mocked_hardware(
+            cpucores="./tests/parsing/cpu_cores/v2321",
+            cpuinfo="./tests/parsing/cpu_info/v2321",
+            numa="./tests/parsing/numa/8domainsllc",
+        )
         assert hw.logical_core_count() == 128
-        assert fake_cpuinfo.get_vendor() == "AuthenticAMD"
-        assert fake_numa.count() == 8
+        assert hw.get_cpu().get_vendor() == "AuthenticAMD"
+        assert hw.get_cpu().get_numa_domains_count() == 8
         cfg = config.Config("./config/numa.conf", hw)
         benches = benchmarks.Benchmarks(".", cfg, hw)
         benches.parse_config()

@@ -117,23 +117,43 @@ class Config:
                 h.fatal(f"NUMA domain {domain} does not exists")
             return core_list
 
+        def get_physical_cores(core):
+            """Return the cores list for a particular physical core"""
+            if int(core) > self.hardware.get_cpu().get_physical_cores_count():
+                h.fatal(f"CPU: Physical core {core} does not exists")
+
+            core_list = self.hardware.get_cpu().get_peer_siblings(int(core))
+
+            if not core_list:
+                h.fatal(f"Unable to find sibblings for cpu core {core}")
+            return core_list
+
         hcc = self.get_directive(section_name, "hosting_cpu_cores")
 
         # If the hcc has some numa domains, lets expand them.
         # Let's search if there is any numa keyword
-        domains = re.findall(r"numa([0-9-,]+)", hcc)
+        ressources = re.findall(r"(numa|core)([0-9-,]+)", hcc)
 
-        for domain in domains:
-            cpus = ""
-            ints = []
-            # reuse the same parse_range function for a consistent syntax
-            for value in self.parse_range(domain):
-                ints += get_cores_from_domain(value)
+        if ressources:
+            if self.hardware is None:
+                h.fatal("Incorrect hardware init")
 
-            # Let's build the list of cpu for the selected numa domains
-            cpus = ",".join(str(e) for e in sorted(ints))
-            # Replace only the matched domain by the list of cpus
-            hcc = hcc.replace(f"numa{domain}", cpus, 1)
+            for ressource_name, ressource in ressources:
+                cpus = ""
+                ints = []
+                # reuse the same parse_range function for a consistent syntax
+                for value in self.parse_range(ressource):
+                    ressource_function = None
+                    if ressource_name == "numa":
+                        ressource_function = get_cores_from_domain
+                    else:
+                        ressource_function = get_physical_cores
+                    ints += ressource_function(value)
+
+                # Let's build the list of cpu for the selected numa domains
+                cpus = ",".join(str(e) for e in sorted(ints))
+                # Replace only the matched domain by the list of cpus
+                hcc = hcc.replace(f"{ressource_name}{ressource}", cpus, 1)
 
         return self.parse_range(hcc)
 
