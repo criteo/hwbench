@@ -3,6 +3,10 @@ import unittest
 from unittest.mock import patch
 from . import benchmarks
 from ..config import config
+from ..environment.cpu import MockCPU
+from ..environment.cpu_info import CPU_INFO
+from ..environment.cpu_cores import CPU_CORES
+from ..environment.numa import NUMA
 from ..environment.mock import MockHardware
 
 
@@ -18,8 +22,9 @@ class TestParse(unittest.TestCase):
                 .read_bytes()
                 .split(b":", 1)
             )
+            hw = MockHardware(cores=64)
             benches = benchmarks.Benchmarks(
-                ".", config.Config("config/sample.ini"), MockHardware(cores=64)
+                ".", config.Config("config/sample.ini", hw), hw
             )
             benches.parse_config()
 
@@ -100,9 +105,189 @@ class TestParse(unittest.TestCase):
                 .read_bytes()
                 .split(b":", 1)
             )
-            config_file = config.Config("./config/stream.ini")
+            config_file = config.Config("./config/stream.ini", MockHardware())
             assert config_file.get_config().getint("global", "runtime") == 5
             config_file.get_config().set("global", "runtime", "2")
             benches = benchmarks.Benchmarks(".", config_file, MockHardware())
             with self.assertRaises(SystemExit):
                 benches.parse_config()
+
+    def test_numa(self):
+        """Check numa."""
+
+        def get_bench_parameters(index):
+            """Return the benchmark parameters."""
+            return benches.get_benchmarks()[index].get_parameters()
+
+        def load(target, path):
+            instance = target(path)
+            stdout = (path / "stdout").read_bytes()
+            stderr = (path / "stderr").read_bytes()
+            instance.parse_cmd(stdout, stderr)
+            return instance
+
+        fake_numa = load(NUMA, pathlib.Path("./tests/parsing/numa/8domainsllc"))
+        fake_cpuinfo = load(CPU_INFO, pathlib.Path("./tests/parsing/cpu_info/v2321"))
+        fake_cpucores = load(CPU_CORES, pathlib.Path("./tests/parsing/cpu_cores/v2321"))
+        cpu = MockCPU(".", fake_cpuinfo, fake_cpucores, fake_numa)
+        hw = MockHardware(cpu=cpu)
+
+        assert hw.logical_core_count() == 128
+        assert fake_cpuinfo.get_vendor() == "AuthenticAMD"
+        assert fake_numa.count() == 8
+        cfg = config.Config("./config/numa.conf", hw)
+        benches = benchmarks.Benchmarks(".", cfg, hw)
+        benches.parse_config()
+        NUMA0 = [0, 1, 2, 3, 4, 5, 6, 7, 64, 65, 66, 67, 68, 69, 70, 71]
+        NUMA1 = [8, 9, 10, 11, 12, 13, 14, 15, 72, 73, 74, 75, 76, 77, 78, 79]
+        NUMA0_1 = sorted(NUMA0 + NUMA1)
+        NUMA7 = [56, 57, 58, 59, 60, 61, 62, 63, 120, 121, 122, 123, 124, 125, 126, 127]
+        NUMA07 = [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            63,
+            64,
+            65,
+            66,
+            67,
+            68,
+            69,
+            70,
+            71,
+            72,
+            73,
+            74,
+            75,
+            76,
+            77,
+            78,
+            79,
+            80,
+            81,
+            82,
+            83,
+            84,
+            85,
+            86,
+            87,
+            88,
+            89,
+            90,
+            91,
+            92,
+            93,
+            94,
+            95,
+            96,
+            97,
+            98,
+            99,
+            100,
+            101,
+            102,
+            103,
+            104,
+            105,
+            106,
+            107,
+            108,
+            109,
+            110,
+            111,
+            112,
+            113,
+            114,
+            115,
+            116,
+            117,
+            118,
+            119,
+            120,
+            121,
+            122,
+            123,
+            124,
+            125,
+            126,
+            127,
+        ]
+        assert cfg.get_hosting_cpu_cores("numa_nodes") == [
+            NUMA0,
+            NUMA1,
+            NUMA7,
+            NUMA07,
+            NUMA0_1,
+        ]
+        assert get_bench_parameters(0).get_pinned_cpu() == NUMA0
+        assert get_bench_parameters(1).get_pinned_cpu() == NUMA1
+        assert get_bench_parameters(2).get_pinned_cpu() == NUMA7
+        assert get_bench_parameters(3).get_pinned_cpu() == NUMA07
+        assert get_bench_parameters(4).get_pinned_cpu() == NUMA0_1
+
+        # Testing broken syntax that must fail
+        cfg = config.Config("./config/sample_weirds.conf", hw)
+        benches = benchmarks.Benchmarks(".", cfg, hw)
+        with self.assertRaises(SystemExit):
+            cfg.get_hosting_cpu_cores("invalid_numa_nodes")
+            cfg.get_hosting_cpu_cores("alpha_numa_nodes")

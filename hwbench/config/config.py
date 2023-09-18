@@ -1,14 +1,16 @@
 import configparser
 import importlib
 import os
-
+import re
 from . import config_syntax
 from ..bench.engine import EngineBase
+from ..environment import hardware as env_hw
+
 from ..utils import helpers as h
 
 
 class Config:
-    def __init__(self, config_file: str):
+    def __init__(self, config_file: str, hardware: env_hw.Hardware):
         self.config_file = config_file
         if not os.path.isfile(self.config_file):
             h.fatal(f"File '{self.config_file}' does not exists.")
@@ -25,6 +27,7 @@ class Config:
         self.config = configparser.RawConfigParser(
             default_section="global", defaults=default_parameters
         )
+        self.hardware = hardware
         self.config.read(self.config_file)
 
     def get_sections(self) -> list[str]:
@@ -104,7 +107,35 @@ class Config:
 
     def get_hosting_cpu_cores(self, section_name) -> list[str]:
         """Return the hosting cpu cores of a section."""
-        return self.parse_range(self.get_directive(section_name, "hosting_cpu_cores"))
+
+        def get_cores_from_domain(domain):
+            """Return the core list for a particular numa domain name"""
+            core_list = self.hardware.get_cpu().get_logical_cores_in_numa_domain(
+                int(domain)
+            )
+            if not core_list:
+                h.fatal(f"NUMA domain {domain} does not exists")
+            return core_list
+
+        hcc = self.get_directive(section_name, "hosting_cpu_cores")
+
+        # If the hcc has some numa domains, lets expand them.
+        # Let's search if there is any numa keyword
+        domains = re.findall(r"numa([0-9-,]+)", hcc)
+
+        for domain in domains:
+            cpus = ""
+            ints = []
+            # reuse the same parse_range function for a consistent syntax
+            for value in self.parse_range(domain):
+                ints += get_cores_from_domain(value)
+
+            # Let's build the list of cpu for the selected numa domains
+            cpus = ",".join(str(e) for e in sorted(ints))
+            # Replace only the matched domain by the list of cpus
+            hcc = hcc.replace(f"numa{domain}", cpus, 1)
+
+        return self.parse_range(hcc)
 
     def get_hosting_cpu_cores_scaling(self, section_name) -> str:
         """Return the hosting cpu cores scaling of a section."""

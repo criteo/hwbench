@@ -41,8 +41,9 @@ hosting_cpu_cores:
     unit : integer
     note : if omitted, all cores are selected
            special keywords :
-                quadran_<x>: selects the <x>th cpu quandrant of the CPU (AMD)
-                numa_<x>   : selects the <x>th NUMA node of the system
+                quadran<x> : selects the <x>th cpu quandrant of the CPU (AMD)
+                numa<x>    : selects NUMA node of the system.
+                             <x> can be integer, range or list.
                 all        : all cores are selected
                 none       : all cores are selected but no pinning is performed (default)
                 list       : items in hosting_cpu_cores list are considered separately

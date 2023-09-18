@@ -1,12 +1,13 @@
 import unittest
 import pathlib
 from unittest.mock import patch
+from ..environment.mock import MockHardware
 
 from . import config
 
 
 class TestParseConfig(unittest.TestCase):
-    config_file = config.Config("./config/sample.ini")
+    config_file = config.Config("./config/sample.ini", MockHardware())
 
     def test_sections_name(self):
         """Check if sections names are properly detected."""
@@ -42,7 +43,7 @@ class TestParseConfig(unittest.TestCase):
 
     def test_defaults(self):
         """Check if default values are properly set."""
-        config_file = config.Config("./config/sample_weirds.conf")
+        config_file = config.Config("./config/sample_weirds.conf", MockHardware())
         assert config_file.get_config().getint("noglobalruntime", "runtime") == 60
 
         # Now let's check an invalid syntax stop the tool

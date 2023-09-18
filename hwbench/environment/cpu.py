@@ -81,3 +81,14 @@ class CPU:
 
     def get_flags(self) -> list[str]:
         return self.cpu_info.get_flags()
+
+
+class MockCPU(CPU):
+    def __init__(self, out_dir, cpu_info, cpu_cores, numa):
+        self.out_dir = out_dir
+        self.cpu_info = cpu_info
+        self.cpu_cores = cpu_cores
+        self.numa = numa
+
+    def detect(self):
+        return

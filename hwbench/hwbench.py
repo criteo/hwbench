@@ -29,7 +29,7 @@ def main():
     env = env_soft.Environment(out_dir)
     hw = env_hw.Hardware(out_dir)
 
-    benches = benchmarks.Benchmarks(out_dir, config.Config(args.config), hw)
+    benches = benchmarks.Benchmarks(out_dir, config.Config(args.config, hw), hw)
     benches.parse_config()
     results = benches.run()
     benches.dump()
