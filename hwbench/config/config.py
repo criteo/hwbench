@@ -108,6 +108,13 @@ class Config:
     def get_hosting_cpu_cores(self, section_name) -> list[str]:
         """Return the hosting cpu cores of a section."""
 
+        def get_cores_from_quadrant(quadrant):
+            """Return the core list for a quadrant"""
+            core_list = self.hardware.get_cpu().get_cores_in_quadrant(int(quadrant))
+            if not core_list:
+                h.fatal(f"Quadrant {quadrant} does not exists")
+            return core_list
+
         def get_cores_from_domain(domain):
             """Return the core list for a particular numa domain name"""
             core_list = self.hardware.get_cpu().get_logical_cores_in_numa_domain(
@@ -132,7 +139,7 @@ class Config:
 
         # If the hcc has some numa domains, lets expand them.
         # Let's search if there is any numa keyword
-        ressources = re.findall(r"(numa|core)([0-9-,]+)", hcc)
+        ressources = re.findall(r"(quadrant|numa|core)([0-9-,]+)", hcc)
 
         if ressources:
             if self.hardware is None:
@@ -144,7 +151,9 @@ class Config:
                 # reuse the same parse_range function for a consistent syntax
                 for value in self.parse_range(ressource):
                     ressource_function = None
-                    if ressource_name == "numa":
+                    if ressource_name == "quadrant":
+                        ressource_function = get_cores_from_quadrant
+                    elif ressource_name == "numa":
                         ressource_function = get_cores_from_domain
                     else:
                         ressource_function = get_physical_cores

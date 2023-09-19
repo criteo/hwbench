@@ -184,6 +184,8 @@ class TestParse(unittest.TestCase):
         assert hw.logical_core_count() == 128
         assert hw.get_cpu().get_vendor() == "AuthenticAMD"
         assert hw.get_cpu().get_numa_domains_count() == 8
+        assert hw.get_cpu().get_quadrants_count() == 4
+
         cfg = config.Config("./config/numa.conf", hw)
         benches = benchmarks.Benchmarks(".", cfg, hw)
         benches.parse_config()
@@ -328,15 +330,28 @@ class TestParse(unittest.TestCase):
             NUMA07,
             NUMA0_1,
         ]
+        # Each quadrant is made of two numa nodes on this AMD system
+        assert hw.get_cpu().get_cores_in_quadrant(0) == NUMA0_1
+
         assert get_bench_parameters(0).get_pinned_cpu() == NUMA0
         assert get_bench_parameters(1).get_pinned_cpu() == NUMA1
         assert get_bench_parameters(2).get_pinned_cpu() == NUMA7
         assert get_bench_parameters(3).get_pinned_cpu() == NUMA07
         assert get_bench_parameters(4).get_pinned_cpu() == NUMA0_1
+        # Testing quadrants
+        assert get_bench_parameters(5).get_pinned_cpu() == NUMA0_1
+        assert len(get_bench_parameters(6).get_pinned_cpu()) == 32
+        assert len(get_bench_parameters(7).get_pinned_cpu()) == 128
+        assert len(get_bench_parameters(8).get_pinned_cpu()) == 64
 
         # Testing broken syntax that must fail
         cfg = config.Config("./config/sample_weirds.conf", hw)
         benches = benchmarks.Benchmarks(".", cfg, hw)
         with self.assertRaises(SystemExit):
-            cfg.get_hosting_cpu_cores("invalid_numa_nodes")
-            cfg.get_hosting_cpu_cores("alpha_numa_nodes")
+            for test_name in [
+                "invalid_numa_nodes",
+                "alpha_numa_nodes",
+                "invalid_quadrant",
+                "alpha_quadrant",
+            ]:
+                cfg.get_hosting_cpu_cores(test_name)

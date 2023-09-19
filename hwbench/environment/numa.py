@@ -20,6 +20,28 @@ class NUMA(External):
                 self.numa_domains[int(match.group("node"))] = [
                     int(cpu) for cpu in match.group("cpus").split()
                 ]
+            # node   0   1   2   3   4   5   6   7
+            #  0:  10  11  12  12  12  12  12  12
+            #  1:  11  10  12  12  12  12  12  12
+            #  2:  12  12  10  11  12  12  12  12
+            #  3:  12  12  11  10  12  12  12  12
+            #  4:  12  12  12  12  10  11  12  12
+            #  5:  12  12  12  12  11  10  12  12
+            #  6:  12  12  12  12  12  12  10  11
+            #  7:  12  12  12  12  12  12  11  10
+            numa_distance = re.findall(r"(\d+): (.*)", line)
+            if numa_distance:
+                for source, latencies in numa_distance:
+                    quadrant = self.__is_numa_node_in_quadrant(source)
+                    numa_dest = -1
+                    for latency in latencies.split():
+                        numa_dest += 1
+                        if int(latency) < 12:
+                            if not self.__is_numa_node_in_quadrant(numa_dest):
+                                if not quadrant:
+                                    self.quadrants.append([])
+                                    quadrant = self.quadrants[-1]
+                                quadrant.append(int(numa_dest))
         return self.numa_domains
 
     def run_cmd_version(self) -> list[str]:
@@ -35,9 +57,22 @@ class NUMA(External):
     def __init__(self, out_dir: pathlib.Path):
         super().__init__(out_dir)
         self.numa_domains = {}
+        self.quadrants = []
 
     def count(self) -> int:
         return len(self.numa_domains)
 
     def get_cores(self, numa_domain) -> list[int]:
         return self.numa_domains.get(numa_domain, [])
+
+    def quadrants_count(self) -> int:
+        return len(self.quadrants)
+
+    def get_numa_nodes_in_quadrant(self, quadrant: int) -> list[int]:
+        return self.quadrants[quadrant]
+
+    def __is_numa_node_in_quadrant(self, numa_node: int) -> list[int]:
+        for quadrant in self.quadrants:
+            if numa_node in quadrant:
+                return quadrant
+        return []

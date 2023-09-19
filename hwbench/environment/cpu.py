@@ -70,6 +70,18 @@ class CPU:
         """Return logical cores in a numa domain."""
         return self.numa.get_cores(numa_domain)
 
+    def get_quadrants_count(self) -> int:
+        """Return the number of quadrants."""
+        return self.numa.quadrants_count()
+
+    def get_cores_in_quadrant(self, quadrant_number: int) -> list[int]:
+        """Return the list of cores in a quadrant."""
+        numa_nodes = self.numa.get_numa_nodes_in_quadrant(quadrant_number)
+        cores = []
+        for numa_node in numa_nodes:
+            cores += self.get_logical_cores_in_numa_domain(numa_node)
+        return sorted(cores)
+
     def dump(self):
         return {
             "vendor": self.get_vendor(),
