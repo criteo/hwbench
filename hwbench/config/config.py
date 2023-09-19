@@ -5,7 +5,6 @@ import re
 from . import config_syntax
 from ..bench.engine import EngineBase
 from ..environment import hardware as env_hw
-
 from ..utils import helpers as h
 
 
@@ -136,6 +135,17 @@ class Config:
             return core_list
 
         hcc = self.get_directive(section_name, "hosting_cpu_cores")
+
+        # Let's replace helpers if any
+        helpers = re.findall("simple", hcc)
+        if helpers:
+            for helper in helpers:
+                helper_module = importlib.import_module(  # noqa: F841
+                    ".config_helpers", package="hwbench.config"
+                )
+                hcc = hcc.replace(
+                    helper, eval(f"helper_module.{helper}")(self.hardware), 1
+                )
 
         # If the hcc has some numa domains, lets expand them.
         # Let's search if there is any numa keyword
