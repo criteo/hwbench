@@ -17,7 +17,7 @@ class TestCores(tbc.TestCommon):
         CPU0 = [0, 64]
         CPU1 = [1, 65]
         CPU0_1 = sorted(CPU0 + CPU1)
-        CPU0_7 = [0, 1, 2, 3, 4, 5, 6, 7, 64, 65, 66, 67, 68, 69, 70, 71]
+        CPU0_7 = list(range(0, 8)) + list(range(64, 72))
         assert self.get_config().get_hosting_cpu_cores("cores") == [
             CPU0,
             CPU1,
