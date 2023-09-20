@@ -1,13 +1,12 @@
 import pathlib
-import unittest
 from unittest.mock import patch
-from . import benchmarks
-from ..config import config
+from . import test_benchmarks_common as tbc
 from ..environment.mock import MockHardware
 
 
-class TestParse(unittest.TestCase):
-    def test_parsing(self):
+class TestParse(tbc.TestCommon):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         # We need to patch list_module_parameters() function
         # to avoid considering the local stress-ng binary
         with patch(
@@ -18,40 +17,23 @@ class TestParse(unittest.TestCase):
                 .read_bytes()
                 .split(b":", 1)
             )
-            hw = MockHardware(cores=64)
-            benches = benchmarks.Benchmarks(
-                ".", config.Config("config/sample.ini", hw), hw
-            )
-            benches.parse_config()
+            self.hw = MockHardware(cores=64)
+            self.load_benches("./config/sample.ini")
+            self.parse_config()
 
-        def get_bench_parameters(index):
-            """Return the benchmark parameters."""
-            return benches.get_benchmarks()[index].get_parameters()
-
-        def bench_name(index) -> str:
-            """Return the benchmark name"""
-            return get_bench_parameters(index).get_name()
-
-        def bench_em(index) -> str:
-            """Return the benchmark engine module name"""
-            return benches.get_benchmarks()[index].get_enginemodule().get_name()
-
-        def bench_emp(index) -> str:
-            """Return the benchmark engine module parameter"""
-            return get_bench_parameters(index).get_engine_module_parameter()
-
+    def test_parsing(self):
         def assert_job(index, name, engine_module, engine_module_parameter=None):
             """Assert if a benchmark does not match the config file description."""
             # If not engine_module_parameter set, let's consider the engine_module
             if not engine_module_parameter:
                 engine_module_parameter = engine_module
-            assert bench_name(index) == name
-            assert bench_em(index) == engine_module
-            assert bench_emp(index) == engine_module_parameter
+            assert self.bench_name(index) == name
+            assert self.bench_em(index) == engine_module
+            assert self.bench_emp(index) == engine_module_parameter
 
-        assert benches.count_benchmarks() == 286
-        assert benches.count_jobs() == 9
-        assert benches.runtime() == 295
+        assert self.benches.count_benchmarks() == 286
+        assert self.benches.count_jobs() == 9
+        assert self.benches.runtime() == 295
 
         # Checking if each jobs as the right number of subjobs
         assert_job(0, "check_1_core_int8_perf", "cpu", "int8")
@@ -74,17 +56,25 @@ class TestParse(unittest.TestCase):
                 instances = 4
             else:
                 instances = 2
-            assert get_bench_parameters(job).get_engine_instances_count() == instances
+            assert (
+                self.get_bench_parameters(job).get_engine_instances_count() == instances
+            )
 
         group_count = 0
         for job in range(199, 203):
             group_count += 2
             assert_job(job, "check_physical_core_scale_plus_1_int8_perf", "cpu", "int8")
-            assert get_bench_parameters(job).get_engine_instances_count() == group_count
-            assert len(get_bench_parameters(job).get_pinned_cpu()) == group_count
+            assert (
+                self.get_bench_parameters(job).get_engine_instances_count()
+                == group_count
+            )
+            assert len(self.get_bench_parameters(job).get_pinned_cpu()) == group_count
 
         emp_all = (
-            benches.get_benchmarks()[203].get_enginemodule().get_module_parameters()
+            self.get_benches()
+            .get_benchmarks()[203]
+            .get_enginemodule()
+            .get_module_parameters()
         )
         emp_all.reverse()
         for job in range(203, 285):
@@ -101,9 +91,8 @@ class TestParse(unittest.TestCase):
                 .read_bytes()
                 .split(b":", 1)
             )
-            config_file = config.Config("./config/stream.ini", MockHardware())
-            assert config_file.get_config().getint("global", "runtime") == 5
-            config_file.get_config().set("global", "runtime", "2")
-            benches = benchmarks.Benchmarks(".", config_file, MockHardware())
+            self.load_benches("./config/stream.ini")
+            assert self.get_config().get_config().getint("global", "runtime") == 5
+            self.get_config().get_config().set("global", "runtime", "2")
             with self.assertRaises(SystemExit):
-                benches.parse_config()
+                self.parse_config()
