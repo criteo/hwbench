@@ -72,3 +72,8 @@ class TestCommon(unittest.TestCase):
     def bench_emp(self, index) -> str:
         """Return the benchmark engine module parameter"""
         return self.get_bench_parameters(index).get_engine_module_parameter()
+
+    def should_be_fatal(self, func, *args):
+        """Test if the function func is exiting."""
+        with self.assertRaises(SystemExit):
+            func(*args)

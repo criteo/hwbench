@@ -69,6 +69,8 @@ class NUMA(External):
         return len(self.quadrants)
 
     def get_numa_nodes_in_quadrant(self, quadrant: int) -> list[int]:
+        if quadrant > len(self.quadrants):
+            return []
         return self.quadrants[quadrant]
 
     def __is_numa_node_in_quadrant(self, numa_node: int) -> list[int]:

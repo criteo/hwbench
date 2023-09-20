@@ -1,17 +1,26 @@
-import unittest
 import pathlib
 from unittest.mock import patch
 from ..environment.mock import MockHardware
+from ..bench import test_benchmarks_common as tbc
 
-from . import config
 
-
-class TestParseConfig(unittest.TestCase):
-    config_file = config.Config("./config/sample.ini", MockHardware())
+class TestParseConfig(tbc.TestCommon):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        with patch(
+            "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
+        ) as p:
+            p.return_value = (
+                pathlib.Path("./tests/parsing/stressngmethods/v16/stdout")
+                .read_bytes()
+                .split(b":", 1)
+            )
+            self.hw = MockHardware()
+            self.load_benches("./config/sample.ini")
 
     def test_sections_name(self):
         """Check if sections names are properly detected."""
-        sections = self.config_file.get_sections()
+        sections = self.get_config().get_sections()
         assert sections == [
             "check_1_core_int8_perf",
             "check_1_core_int8_float_perf",
@@ -37,34 +46,45 @@ class TestParseConfig(unittest.TestCase):
                     .read_bytes()
                     .split(b":", 1)
                 )
-                self.config_file.validate_sections()
+                self.get_config().validate_sections()
         except Exception as exc:
             assert False, f"'validate_sections' detected a syntax error {exc}"
 
     def test_defaults(self):
         """Check if default values are properly set."""
-        config_file = config.Config("./config/sample_weirds.conf", MockHardware())
-        assert config_file.get_config().getint("noglobalruntime", "runtime") == 60
+        with patch(
+            "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
+        ) as p:
+            p.return_value = (
+                pathlib.Path("./tests/parsing/stressngmethods/v16/stdout")
+                .read_bytes()
+                .split(b":", 1)
+            )
+            self.load_benches("./config/sample_weirds.conf")
+            assert (
+                self.get_config().get_config().getint("noglobalruntime", "runtime")
+                == 60
+            )
 
-        # Now let's check an invalid syntax stop the tool
-        with self.assertRaises(SystemExit) as cm:
-            config_file.validate_section("engine_error")
-            config_file.validate_section("runtime_error")
-            config_file.validate_section("unknown_engine")
-            config_file.validate_section("unknown_engine_module")
-            config_file.validate_section("unknown_engine_module_parameter")
-            config_file.validate_section("unknown_monitoring")
-        # We must have triggered a SystemExit !
-        self.assertEqual(cm.exception.code, 1)
+            # Now let's check an invalid syntax stop the tool
+            for section in [
+                "engine_error",
+                "runtime_error",
+                "unknown_engine",
+                "unknown_engine_module",
+                "unknown_engine_module_parameter",
+                "unknown_monitoring",
+            ]:
+                self.should_be_fatal(self.get_config().validate_section, section)
 
     def test_range_list_input(self):
         """Check if parsing the range syntax is valid."""
-        assert self.config_file.parse_range("1") == [1]
-        assert self.config_file.parse_range("1,3,5") == [1, 3, 5]
-        assert self.config_file.parse_range("1-5") == [1, 2, 3, 4, 5]
-        assert self.config_file.parse_range("1-2,5-6") == [1, 2, 5, 6]
-        assert self.config_file.parse_range("int8,float") == ["int8", "float"]
-        assert self.config_file.parse_range("1-3 4-5") == [[1, 2, 3], [4, 5]]
-        assert self.config_file.parse_range("1,32 2,33") == [[1, 32], [2, 33]]
+        assert self.get_config().parse_range("1") == [1]
+        assert self.get_config().parse_range("1,3,5") == [1, 3, 5]
+        assert self.get_config().parse_range("1-5") == [1, 2, 3, 4, 5]
+        assert self.get_config().parse_range("1-2,5-6") == [1, 2, 5, 6]
+        assert self.get_config().parse_range("int8,float") == ["int8", "float"]
+        assert self.get_config().parse_range("1-3 4-5") == [[1, 2, 3], [4, 5]]
+        assert self.get_config().parse_range("1,32 2,33") == [[1, 32], [2, 33]]
         with self.assertRaises(SystemExit):
-            self.config_file.parse_range("bad,range,bad-range")
+            self.get_config().parse_range("bad,range,bad-range")

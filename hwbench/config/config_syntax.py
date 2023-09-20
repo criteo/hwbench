@@ -7,7 +7,8 @@ def validate_runtime(config, section_name, value) -> str:
 
 def validate_monitor(config, section_name, value) -> str:
     """Validate the monitor syntax."""
-    assert value in ["all", "none"]
+    if value not in ["all", "none"]:
+        return f"{value} is not a valid monitoring value"
     return ""
 
 
@@ -27,7 +28,8 @@ def validate_engine_module(config, section_name, value) -> str:
         engine = config.load_engine(config.get_engine(section_name))
     except ModuleNotFoundError:
         return f'Unknown "{value}" engine'
-    assert engine.module_exists(value)
+    if not engine.module_exists(value):
+        return f"engine_module {value} does not exist"
     engine_module = engine.get_module(value)
     assert engine_module.get_name() == value
     return ""

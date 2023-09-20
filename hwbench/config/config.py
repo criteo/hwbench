@@ -174,6 +174,9 @@ class Config:
                 # Replace only the matched domain by the list of cpus
                 hcc = hcc.replace(f"{ressource_name}{ressource}", cpus, 1)
 
+        ressources = re.findall(r"(quadrant.*|numa.*|core.*)", hcc)
+        if ressources:
+            h.fatal(f"The following keywords, didn't got processed ! : {ressources}")
         return self.parse_range(hcc)
 
     def get_hosting_cpu_cores_scaling(self, section_name) -> str:
