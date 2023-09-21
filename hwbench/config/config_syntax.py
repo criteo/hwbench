@@ -1,3 +1,6 @@
+import re
+
+
 def validate_runtime(config, section_name, value) -> str:
     """Validate the runtime syntax."""
     if not value.isnumeric():
@@ -67,6 +70,29 @@ def validate_stressor_range_scaling(config, section_name, value) -> str:
 
 def validate_hosting_cpu_cores(config, section_name, value) -> str:
     """Validate the hosting cpu cores syntax."""
+    # The concept here is to remove from the value string items we know.
+    # If one unhandled item is remaining, an error is reported.
+    if isinstance(value, str):
+        if value.isnumeric():
+            return ""
+        else:
+            ressources = re.findall(r"(quadrant|numa|core)([0-9-,]+)", value.lower())
+            if ressources:
+                for ressource in ressources:
+                    value = value.lower().replace(
+                        f"{ressource[0]}{ressource[1]}", "", 1
+                    )
+            for helper in ["all", "simple"]:
+                ressources = re.findall(rf"{helper}", value.lower())
+                if ressources:
+                    value = value.lower().replace(f"{helper}", "", 1)
+            range = config.parse_range(value)
+            if range:
+                value = value.lower().replace(value, "", 1)
+            if len(value):
+                return f"Unhandled string '{value}' in hosting cpu cores"
+    else:
+        return f"Unhandled {value} in hosting cpu cores"
     return ""
 
 

@@ -142,6 +142,13 @@ class Config:
 
         hcc = self.get_directive(section_name, "hosting_cpu_cores")
 
+        # Let's replace 'all' special keyword if any
+        all = re.findall("all", hcc)
+        if all:
+            hcc = hcc.replace(
+                "all", f"0-{self.hardware.get_cpu().get_logical_cores_count()-1}"
+            )
+
         # Let's replace helpers if any
         helpers = re.findall("simple", hcc)
         if helpers:
@@ -180,7 +187,7 @@ class Config:
                 # Replace only the matched domain by the list of cpus
                 hcc = hcc.replace(f"{ressource_name}{ressource}", cpus, 1)
 
-        ressources = re.findall(r"(quadrant.*|numa.*|core.*)", hcc)
+        ressources = re.findall(r"(all|simple|quadrant.*|numa.*|core.*)", hcc)
         if ressources:
             h.fatal(f"The following keywords, didn't got processed ! : {ressources}")
         return self.parse_range(hcc)
