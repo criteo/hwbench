@@ -31,6 +31,8 @@ class TestCores(tbc.TestCommon):
 
         # Testing broken syntax that must fail
         self.load_benches("./config/sample_weirds.conf")
-        with self.assertRaises(SystemExit):
-            self.get_config().get_hosting_cpu_cores("invalid_cpu_core")
-            self.get_config().get_hosting_cpu_cores("alpha_cpu_core")
+        for test_name in [
+            "invalid_cpu_core",
+            "alpha_cpu_core",
+        ]:
+            self.should_be_fatal(self.get_config().get_hosting_cpu_cores, test_name)

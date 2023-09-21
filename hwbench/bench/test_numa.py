@@ -29,14 +29,11 @@ class TestNuma(tbc.TestCommon):
         # Testing broken syntax that must fail
         # Testing quadrants
         self.load_benches("./config/sample_weirds.conf")
-        with self.assertRaises(SystemExit):
-            for test_name in [
-                "invalid_numa_nodes",
-                "alpha_numa_nodes",
-                "invalid_quadrant",
-                "alpha_quadrant",
-            ]:
-                self.get_config().get_hosting_cpu_cores(test_name)
+        for test_name in [
+            "invalid_quadrant",
+            "alpha_quadrant",
+        ]:
+            self.should_be_fatal(self.get_config().get_hosting_cpu_cores, test_name)
 
     def test_numa(self):
         """Check numa syntax"""
@@ -57,3 +54,12 @@ class TestNuma(tbc.TestCommon):
         assert self.get_bench_parameters(2).get_pinned_cpu() == self.NUMA7
         assert self.get_bench_parameters(3).get_pinned_cpu() == self.NUMA07
         assert self.get_bench_parameters(4).get_pinned_cpu() == self.NUMA0_1
+
+        # Testing broken syntax that must fail
+        # Testing quadrants
+        self.load_benches("./config/sample_weirds.conf")
+        for test_name in [
+            "invalid_numa_nodes",
+            "alpha_numa_nodes",
+        ]:
+            self.should_be_fatal(self.get_config().get_hosting_cpu_cores, test_name)
