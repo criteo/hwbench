@@ -77,3 +77,12 @@ class TestCommon(unittest.TestCase):
         """Test if the function func is exiting."""
         with self.assertRaises(SystemExit):
             func(*args)
+
+    def assert_job(self, index, name, engine_module, engine_module_parameter=None):
+        """Assert if a benchmark does not match the config file description."""
+        # If not engine_module_parameter set, let's consider the engine_module
+        if not engine_module_parameter:
+            engine_module_parameter = engine_module
+        assert self.bench_name(index) == name
+        assert self.bench_em(index) == engine_module
+        assert self.bench_emp(index) == engine_module_parameter

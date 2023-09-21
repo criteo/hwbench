@@ -22,35 +22,26 @@ class TestParse(tbc.TestCommon):
             self.parse_config()
 
     def test_parsing(self):
-        def assert_job(index, name, engine_module, engine_module_parameter=None):
-            """Assert if a benchmark does not match the config file description."""
-            # If not engine_module_parameter set, let's consider the engine_module
-            if not engine_module_parameter:
-                engine_module_parameter = engine_module
-            assert self.bench_name(index) == name
-            assert self.bench_em(index) == engine_module
-            assert self.bench_emp(index) == engine_module_parameter
-
         assert self.benches.count_benchmarks() == 286
         assert self.benches.count_jobs() == 9
         assert self.benches.runtime() == 295
 
         # Checking if each jobs as the right number of subjobs
-        assert_job(0, "check_1_core_int8_perf", "cpu", "int8")
-        assert_job(1, "check_1_core_int8_float_perf", "cpu", "int8")
-        assert_job(2, "check_1_core_int8_float_perf", "cpu", "float")
-        assert_job(3, "check_1_core_qsort_perf", "qsort")
+        self.assert_job(0, "check_1_core_int8_perf", "cpu", "int8")
+        self.assert_job(1, "check_1_core_int8_float_perf", "cpu", "int8")
+        self.assert_job(2, "check_1_core_int8_float_perf", "cpu", "float")
+        self.assert_job(3, "check_1_core_qsort_perf", "qsort")
 
         # Checking if the first 64 jobs are check_all_cores_int8_perf
         for job in range(4, 68):
-            assert_job(job, "check_all_cores_int8_perf", "cpu", "int8")
+            self.assert_job(job, "check_all_cores_int8_perf", "cpu", "int8")
 
         # Checking if remaining jobs are int8_8cores_16stressors
         for job in range(68, 196):
-            assert_job(job, "int8_8cores_16stressors", "cpu", "int8")
+            self.assert_job(job, "int8_8cores_16stressors", "cpu", "int8")
 
         for job in range(196, 199):
-            assert_job(job, "check_physical_core_int8_perf", "cpu", "int8")
+            self.assert_job(job, "check_physical_core_int8_perf", "cpu", "int8")
             # Ensure the auto syntax updated the number of engine instances
             if job == 198:
                 instances = 4
@@ -63,7 +54,9 @@ class TestParse(tbc.TestCommon):
         group_count = 0
         for job in range(199, 203):
             group_count += 2
-            assert_job(job, "check_physical_core_scale_plus_1_int8_perf", "cpu", "int8")
+            self.assert_job(
+                job, "check_physical_core_scale_plus_1_int8_perf", "cpu", "int8"
+            )  # noqa: E501
             assert (
                 self.get_bench_parameters(job).get_engine_instances_count()
                 == group_count
@@ -78,9 +71,9 @@ class TestParse(tbc.TestCommon):
         )
         emp_all.reverse()
         for job in range(203, 285):
-            assert_job(job, "run_all_stressng_cpu", "cpu", emp_all.pop())
+            self.assert_job(job, "run_all_stressng_cpu", "cpu", emp_all.pop())
         # Checking if the last job is sleep
-        assert_job(-1, "sleep", "sleep")
+        self.assert_job(-1, "sleep", "sleep")
 
     def test_stream_short(self):
         with patch(
