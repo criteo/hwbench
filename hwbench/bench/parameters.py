@@ -11,7 +11,7 @@ class BenchmarkParameters:
         out_dir: pathlib.Path,
         job_name: str,
         engine_instances: int,
-        pinned_cpu: str,
+        pinned_cpu,
         runtime: int,
         engine_module_parameter: str,
         engine_module_parameter_base: str,
@@ -29,7 +29,7 @@ class BenchmarkParameters:
         self.hw = hw
         self.monitoring = monitoring
 
-    def get_pinned_cpu(self) -> str:
+    def get_pinned_cpu(self):
         if self.pinned_cpu == "none":
             return ""
         return self.pinned_cpu

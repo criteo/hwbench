@@ -96,7 +96,7 @@ class Benchmarks:
                     self.__schedule_benchmarks(
                         job,
                         stressor_range_scaling,
-                        pinned_cpu.copy(),
+                        sorted(pinned_cpu.copy()),
                     )
             elif hosting_cpu_cores_scaling == "iterate":
                 for iteration in range(len(hosting_cpu_cores)):
@@ -107,6 +107,12 @@ class Benchmarks:
                         stressor_range_scaling,
                         pinned_cpu,
                     )
+            elif hosting_cpu_cores_scaling == "none":
+                self.__schedule_benchmarks(
+                    job,
+                    stressor_range_scaling,
+                    sorted(hosting_cpu_cores),
+                )
             else:
                 hccs = hosting_cpu_cores_scaling
                 h.fatal(f"Unsupported hosting_cpu_cores_scaling : {hccs}")
@@ -142,6 +148,8 @@ class Benchmarks:
                 if pinned_cpu == "none":
                     h.fatal("stressor_range=auto but no pinned cpu")
                 else:
+                    if isinstance(pinned_cpu, int):
+                        pinned_cpu = [pinned_cpu]
                     stressor_count = len(pinned_cpu)
             if engine_module_parameter == "all":
                 for individual_emp in engine_module.get_module_parameters():

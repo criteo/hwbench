@@ -22,9 +22,9 @@ class TestParse(tbc.TestCommon):
             self.parse_config()
 
     def test_parsing(self):
-        assert self.benches.count_benchmarks() == 286
-        assert self.benches.count_jobs() == 9
-        assert self.benches.runtime() == 295
+        assert self.benches.count_benchmarks() == 287
+        assert self.benches.count_jobs() == 10
+        assert self.benches.runtime() == 305
 
         # Checking if each jobs as the right number of subjobs
         self.assert_job(0, "check_1_core_int8_perf", "cpu", "int8")
@@ -72,6 +72,9 @@ class TestParse(tbc.TestCommon):
         emp_all.reverse()
         for job in range(203, 285):
             self.assert_job(job, "run_all_stressng_cpu", "cpu", emp_all.pop())
+
+        assert self.get_bench_parameters(285).get_pinned_cpu() == list(range(0, 128))
+
         # Checking if the last job is sleep
         self.assert_job(-1, "sleep", "sleep")
 

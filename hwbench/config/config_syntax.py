@@ -72,7 +72,7 @@ def validate_hosting_cpu_cores(config, section_name, value) -> str:
 
 def validate_hosting_cpu_cores_scaling(config, section_name, value) -> str:
     """Validate the hosting cpu cores scaling syntax."""
-    if not value.startswith("plus_") and value != "iterate":
+    if not value.startswith("plus_") and value not in ["iterate", "none"]:
         return f'Unknown hosting_cpu_cores_scaling="{value}"'
     return ""
 

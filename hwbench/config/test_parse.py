@@ -30,6 +30,7 @@ class TestParseConfig(tbc.TestCommon):
             "check_physical_core_int8_perf",
             "check_physical_core_scale_plus_1_int8_perf",
             "run_all_stressng_cpu",
+            "sleep_all",
             "sleep",
         ]
 
