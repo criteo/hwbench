@@ -147,6 +147,7 @@ class Benchmarks:
                         pinned_cpu,
                         runtime,
                         individual_emp,
+                        self.config.get_engine_module_parameter_base(job),
                         self.hardware,
                         monitoring,
                     )
@@ -162,6 +163,7 @@ class Benchmarks:
                     pinned_cpu,
                     runtime,
                     engine_module_parameter,
+                    self.config.get_engine_module_parameter_base(job),
                     self.hardware,
                     monitoring,
                 )
@@ -226,6 +228,10 @@ ETA {duration}"
                 print(f"engine_binary_parameters={em.run_cmd(param)}", file=f)
                 print(
                     f"engine_module_parameter={param.get_engine_module_parameter()}",
+                    file=f,
+                )
+                print(
+                    f"engine_module_parameter_base={param.get_engine_module_parameter_base()}",
                     file=f,
                 )
                 if param.get_pinned_cpu():

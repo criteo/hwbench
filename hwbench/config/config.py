@@ -22,6 +22,7 @@ class Config:
             "stressor_range_scaling": "plus_1",
             "hosting_cpu_cores": "none",
             "hosting_cpu_cores_scaling": "iterate",
+            "engine_module_parameter_base": "",
         }
         self.config = configparser.RawConfigParser(
             default_section="global", defaults=default_parameters
@@ -45,6 +46,7 @@ class Config:
             "engine",
             "engine_module",
             "engine_module_parameter",
+            "engine_module_parameter_base",
             "stressor_range",
             "stressor_range_scaling",
             "hosting_cpu_cores",
@@ -95,6 +97,10 @@ class Config:
         except KeyError:
             engine_module_parameter = self.get_engine_module(section_name)
         return self.parse_range(engine_module_parameter)
+
+    def get_engine_module_parameter_base(self, section_name) -> str:
+        """Return the engine module parameter base."""
+        return self.get_directive(section_name, "engine_module_parameter_base")
 
     def get_stressor_range(self, section_name) -> list[str]:
         """Return the stressor range of a section."""

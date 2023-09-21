@@ -50,6 +50,11 @@ def validate_engine_module_parameter(config, section_name, value) -> str:
     return ""
 
 
+def validate_engine_module_parameter_base(config, section_name, value) -> str:
+    """Validate the engine module parameter base syntax."""
+    return ""
+
+
 def validate_stressor_range(config, section_name, value) -> str:
     """Validate the stressor range syntax."""
     return ""

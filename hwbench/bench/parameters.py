@@ -14,6 +14,7 @@ class BenchmarkParameters:
         pinned_cpu: str,
         runtime: int,
         engine_module_parameter: str,
+        engine_module_parameter_base: str,
         hw: BaseHardware,
         monitoring: str,
     ):
@@ -22,6 +23,7 @@ class BenchmarkParameters:
         self.pinned_cpu = pinned_cpu
         self.engine_instances = engine_instances
         self.engine_module_parameter = engine_module_parameter
+        self.engine_module_parameter_base = engine_module_parameter_base
         self.runtime = runtime
         self.result_format = {}
         self.hw = hw
@@ -40,6 +42,9 @@ class BenchmarkParameters:
 
     def get_engine_module_parameter(self) -> str:
         return self.engine_module_parameter
+
+    def get_engine_module_parameter_base(self) -> str:
+        return self.engine_module_parameter_base
 
     def get_runtime(self) -> int:
         return self.runtime

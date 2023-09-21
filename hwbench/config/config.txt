@@ -32,6 +32,10 @@ engine_module_parameter:
     unit : text
     note : if not defined, equals engine_module name
 
+engine_module_parameter_base:
+    role : pass a static base parameter to engine_module
+    unit : text
+
 hosting_cpu_cores:
     role : list the logical cpu cores eligible during the test
     value: integer: x
