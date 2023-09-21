@@ -20,12 +20,6 @@ class Benchmark:
         self.job_number = job_number
         self.enginemodule = enginemodule
         self.parameters = parameters
-        invalid = self.validate_parameters()
-        if invalid:
-            h.fatal(
-                f"Unsupported parameter for {enginemodule.get_engine().get_name()}/"
-                f"{enginemodule.get_name()}: {invalid}"
-            )
 
     def get_enginemodule(self) -> EngineModuleBase:
         return self.enginemodule
@@ -49,12 +43,17 @@ class Benchmark:
             "job_name": self.parameters.get_name(),
         }
 
-    def validate_parameters(self) -> str:
+    def validate_parameters(self):
         """Verify that the benchmark parameters are correct at instanciation time.
         Returns empty string if OK, or an error message"""
         e = self.get_enginemodule()
         p = self.get_parameters()
-        return e.validate_module_parameters(p)
+        error = e.validate_module_parameters(p)
+        if error:
+            h.fatal(
+                f"Unsupported parameter for {e.get_engine().get_name()}/"
+                f"{e.get_name()}: {error}"
+            )
 
     def run(self):
         e = self.get_enginemodule()

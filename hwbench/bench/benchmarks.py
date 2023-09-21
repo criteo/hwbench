@@ -32,6 +32,11 @@ class Benchmarks:
 
         return engine_name, engine.get_module(engine_module_name)
 
+    def validate_jobs_parameters(self):
+        """Validate all jobs parameters."""
+        for bench in self.benchs:
+            bench.validate_parameters()
+
     def parse_config(self):
         """Parse the configuration file to create a list of benchmarks to run."""
         # Ensure the configuration file has a valid syntax
