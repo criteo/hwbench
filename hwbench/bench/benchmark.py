@@ -90,11 +90,11 @@ class ExternalBench(External):
             args.insert(0, "taskset")
         return args
 
-    def run(self):
+    def pre_run(self):
         if self.monitoring:
             # Start the monitoring in background
             # It runs the same amount of time as the benchmark
-            report_power = subprocess.Popen(
+            self.report_power = subprocess.Popen(
                 [
                     "python3",
                     "-m",
@@ -141,15 +141,15 @@ class ExternalBench(External):
             )
         )
 
-        # Run the benchmark
-        run = super().run()
-
+    def post_run(self, run):
         if self.monitoring:
             # Collect output and extract metrics
             (
                 stdout,
                 stderr,
-            ) = report_power.communicate()  # pyright: ignore [reportUnboundVariable]
+            ) = (
+                self.report_power.communicate()
+            )  # pyright: ignore [reportUnboundVariable]
             if stderr:
                 h.fatal(f"External_Bench: report_power failed : {stderr}")
             try:
@@ -159,4 +159,13 @@ class ExternalBench(External):
                     f"External_Bench: invalid report_power output : {stdout.decode()}"
                 )
 
+    def run(self):
+        # Prepre the run
+        self.pre_run()
+
+        # Run the benchmark
+        run = super().run()
+
+        # Clean the run
+        run = self.post_run(run)
         return run
