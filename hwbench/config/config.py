@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 import configparser
 import importlib
 import os
 import re
+from typing import Any
+
 from . import config_syntax
 from ..bench.engine import EngineBase
 from ..environment import hardware as env_hw
@@ -224,16 +228,16 @@ class Config:
         """Return the configuration object."""
         return self.config
 
-    def parse_range(self, input: str) -> list[str]:
+    def parse_range(self, input: str) -> list[Any]:
         """A function to parse the range syntax from a configuration directive."""
-        result = []
+        result: list[int | str | list[int]] = []
         # FIXME: implement 'all'
         # group1 group2...
         groups_count = len(input.split(" "))
 
         for group in input.split(" "):
             # syntax: <x>,<y>
-            current_group = []
+            current_group: list[Any] = []
             # Let's remove the [] if any
             for item in group.split(","):
                 # syntax: <x>-<y>
@@ -246,9 +250,10 @@ class Config:
                             current_group.append(cpu_number)
                 else:
                     # syntax: <x>
+                    item_group: str | int = item
                     if item.isnumeric():
-                        item = int(item)
-                    current_group.append(item)
+                        item_group = int(item)
+                    current_group.append(item_group)
             if groups_count > 1:
                 result.append(current_group)
             else:
