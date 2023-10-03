@@ -25,7 +25,7 @@ class BenchmarkParameters:
         self.engine_module_parameter = engine_module_parameter
         self.engine_module_parameter_base = engine_module_parameter_base
         self.runtime = runtime
-        self.result_format = {}
+        self.result_format: dict[str, str] = {}
         self.hw = hw
         self.monitoring = monitoring
 

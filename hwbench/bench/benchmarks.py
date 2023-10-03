@@ -11,7 +11,7 @@ class Benchmarks:
     def __init__(self, out_dir, config, hardware: BaseHardware):
         self.config = config
         self.out_dir = out_dir
-        self.benchs = []
+        self.benchs: list[Benchmark] = []
         self.hardware = hardware
 
     def get_engine(self, job):

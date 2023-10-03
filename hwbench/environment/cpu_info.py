@@ -9,7 +9,6 @@ class CPU_INFO(External):
         return ["lscpu"]
 
     def parse_cmd(self, stdout: bytes, _stderr: bytes):
-        self.cpu_specs = {}
         for line in stdout.decode("utf-8").splitlines():
             if not line:
                 continue
@@ -54,7 +53,7 @@ class CPU_INFO(External):
     def get_max_freq(self) -> float:
         max_freq = self.get_specs().get("CPU max MHz")
         if not max_freq:
-            max_freq = 0
+            max_freq = "0"
         return float(max_freq)
 
     def get_model(self) -> int:

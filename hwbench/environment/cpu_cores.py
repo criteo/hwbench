@@ -35,9 +35,8 @@ class CPU_CORES(External):
     def __init__(self, out_dir: pathlib.Path):
         self.raw_core_list = None
         self.raw_cpu_config = None
-        self.sockets = {}
-        self.cores = {}
-        self.logical_cpu = {}
+        self.sockets: dict[int, dict[int, list[int]]] = {}
+        self.logical_cpu: dict[int, list[int]] = {}
         super().__init__(out_dir)
 
     def get_socket(self, number) -> dict[int, list[int]]:

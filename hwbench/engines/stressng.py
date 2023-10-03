@@ -221,11 +221,11 @@ class StressNG(ExternalBench):
             line = 2
 
         # TODO: better parsing than this
-        score = 0
+        score = 0.0
         try:
             score = float(inp.splitlines()[line].split()[bogo_idx])
         except IndexError:
-            h.fatal(f"At line {line}, could not get element #{bogo_idx} of: '{inp}'")
+            h.fatal(f"At line {line}, could not get element #{bogo_idx} of: '{inp!r}'")
 
         # Add the score to the global output
         return self.parameters.get_result_format() | {"bogo ops/s": score}
@@ -304,20 +304,20 @@ class StressNGStream(StressNG):
 
         detail_size = self.parameters.get_engine_instances_count() or len(detail)
 
-        ret = {
+        ret: dict[str, Any] = {
             "detail": {
                 "read": [0] * detail_size,
                 "write": [0] * detail_size,
                 "Mflop/s": [0] * detail_size,
             },
-            "avg_read": 0,
-            "avg_write": 0,
-            "avg_Mflop/s": 0,
-            "avg_total": 0,
-            "sum_read": 0,
-            "sum_write": 0,
-            "sum_Mflop/s": 0,
-            "sum_total": 0,
+            "avg_read": 0.0,
+            "avg_write": 0.0,
+            "avg_Mflop/s": 0.0,
+            "avg_total": 0.0,
+            "sum_read": 0.0,
+            "sum_write": 0.0,
+            "sum_Mflop/s": 0.0,
+            "sum_total": 0.0,
         }
 
         for line in detail:

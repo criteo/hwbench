@@ -10,7 +10,7 @@ class EngineModuleBase(abc.ABC):
     def __init__(self, engine, name: str):
         self.name = name
         self.engine = engine
-        self.module_parameters = []
+        self.module_parameters: list[str] = []
 
     def get_engine(self):
         """Return the associated EngineBase."""

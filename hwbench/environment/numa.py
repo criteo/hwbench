@@ -56,8 +56,8 @@ class NUMA(External):
 
     def __init__(self, out_dir: pathlib.Path):
         super().__init__(out_dir)
-        self.numa_domains = {}
-        self.quadrants = []
+        self.numa_domains: dict[int, list[int]] = {}
+        self.quadrants: list[list[int]] = []
 
     def count(self) -> int:
         return len(self.numa_domains)
