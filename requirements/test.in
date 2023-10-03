@@ -9,4 +9,3 @@ black
 typing-extensions
 wheel
 pex
-pyright
