@@ -235,10 +235,10 @@ ETA {duration}"
                 print(f"[{param.get_name()}_{bench.get_job_number()}]", file=f)
                 print(f"runtime={param.get_runtime()}", file=f)
                 print(f"monitoring={param.get_monitoring()}", file=f)
-                print(f"engine={engine.get_binary()}", file=f)
+                print(f"engine={engine.get_name()}", file=f)
                 print(f"engine_module={em.get_name()}", file=f)
-                print(f"engine_binary={engine.get_name()}", file=f)
-                print(f"engine_binary_parameters={engine.run_cmd(param)}", file=f)
+                print(f"engine_binary={engine.get_binary()}", file=f)
+                print(f"engine_binary_parameters={engine.run_cmd()}", file=f)
                 print(
                     f"engine_module_parameter={param.get_engine_module_parameter()}",
                     file=f,
