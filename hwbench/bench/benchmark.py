@@ -158,6 +158,7 @@ class ExternalBench(External):
                 h.fatal(
                     f"External_Bench: invalid report_power output : {stdout.decode()}"
                 )
+        return run
 
     def run(self):
         # Prepre the run
@@ -167,5 +168,4 @@ class ExternalBench(External):
         run = super().run()
 
         # Clean the run
-        run = self.post_run(run)
-        return run
+        return self.post_run(run)
