@@ -151,7 +151,7 @@ class Spike(ExternalBench):
             # If the next cycle puts us out of the bondaries, let's stop here
             # We let a gentle 2 seconds bonus from the time rounding.
             if since_start() + self.cycle > self.parameters.get_runtime() + 2:
-                return super().post_run({})
+                return super().post_run(self.parameters.get_result_format())
 
             # If we have enough time, let's do another cycle
 
