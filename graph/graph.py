@@ -271,7 +271,10 @@ def generic_graph(
             value += f" {get_mean_events(monitoring[component])[sample]}"
         # Add power or thermal if needed on y2 axis
         if power:
-            value += f" {get_mean_events(monitoring['enclosure'])[sample]}"
+            if "enclosure" in monitoring:
+                value += f" {get_mean_events(monitoring['enclosure'])[sample]}"
+            else:
+                value += f" {get_mean_events(monitoring['chassis'])[sample]}"
             value += f" {get_mean_events(monitoring['chassis'])[sample]}"
         elif thermal:
             # Let's add all thermal components
