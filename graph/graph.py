@@ -173,6 +173,15 @@ def get_components(bench_data, component_name):
     ]
 
 
+def get_components_by_unit(bench_data, unit):
+    """Return the list of components of a benchmark."""
+    return [
+        key
+        for key, value in get_monitoring(bench_data).items()
+        if unit in value["min"]["unit"].lower()
+    ]
+
+
 def generic_graph(
     args,
     system_title,
@@ -187,12 +196,15 @@ def generic_graph(
 ):
     """Graph an undefined number of metrics of the same type against power or thermal"""
     monitoring = get_monitoring(bench_data)
-    components = get_components(bench_data, component_name)
+    if component_name == "temp":
+        components = get_components_by_unit(bench_data, "celsius")
+    else:
+        components = get_components(bench_data, component_name)
     if not components:
         print(f"{bench_name}: no {name}")
         return
 
-    thermal_components = get_components(bench_data, "temp")
+    thermal_components = get_components_by_unit(bench_data, "celsius")
     samples_count = get_samples_count(monitoring[components[0]])
     unit = get_min(monitoring[components[0]]).get(UNIT)
 
