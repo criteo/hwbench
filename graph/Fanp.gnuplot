@@ -11,7 +11,7 @@ set mxtics 2
 set grid xtics
 set xtics 10
 set ylabel ARG3
-set yrange [ 0 : 100 ] noreverse writeback
+set yrange [ 0 : 110 ] noreverse writeback
 set ytics 10 mirror
 set grid ytics
 set mytics 5
