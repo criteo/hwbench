@@ -302,9 +302,9 @@ def graph_fans(args, system_title, bench_name, bench_data):
         print(f"{bench_name}: no fans")
         return
 
-    gnuplot_prefix = "Fans"
+    gnuplot_prefix = ""
     if monitoring[fans[0]]["min"]["unit"] == "Percent":
-        gnuplot_prefix += "p"
+        gnuplot_prefix = "p"
 
     # Graph all fans versus power
     generic_graph(
@@ -315,7 +315,7 @@ def graph_fans(args, system_title, bench_name, bench_data):
         "fans_power",
         "fan",
         "Fans speed",
-        f"{gnuplot_prefix}_power.gnuplot",
+        f"Fans{gnuplot_prefix}_power.gnuplot",
     )
     # Graph all fans versus thermal
     generic_graph(
@@ -326,7 +326,7 @@ def graph_fans(args, system_title, bench_name, bench_data):
         "fans_thermal",
         "fan",
         "Fans speed",
-        f"{gnuplot_prefix}_thermal.gnuplot",
+        f"Fans{gnuplot_prefix}_thermal.gnuplot",
         power=False,
         thermal=True,
     )
@@ -346,7 +346,7 @@ def graph_fans(args, system_title, bench_name, bench_data):
             system_title,
             bench_name,
             bench_data,
-            "Fan",
+            f"Fan{gnuplot_prefix}",
             unit,
             fan,
             monitoring.get(fan),
