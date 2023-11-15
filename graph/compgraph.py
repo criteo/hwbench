@@ -8,15 +8,17 @@ import re
 import sys
 import tempfile
 from typing import Any  # noqa: F401
-from matplotlib.ticker import MultipleLocator
+from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 from statistics import mean, stdev
 
 MIN = "min"
 MAX = "max"
 MEAN = "mean"
+ERROR = "error"
 EVENTS = "events"
 UNIT = "unit"
-
+THERMAL = "thermal"
+POWER = "power"
 GRAPH_TYPES = ["perf", "perf_watt"]
 
 
@@ -58,9 +60,21 @@ class Bench:
             title += f"{self.engine_module_parameter()} "
         return title
 
+    def __get_events(self, metric_name: str, serie: str) -> list:
+        """Return the "serie" values of metric_name"""
+        return self.get_monitoring_metric(metric_name)[serie].get(EVENTS)
+
+    def get_min_events(self, metric_name: str) -> list:
+        """Return the min values of metric_name"""
+        return self.__get_events(metric_name, MIN)
+
     def get_mean_events(self, metric_name: str) -> list:
         """Return the mean values of metric_name"""
-        return self.get_monitoring_metric(metric_name)[MEAN].get(EVENTS)
+        return self.__get_events(metric_name, MEAN)
+
+    def get_max_events(self, metric_name: str) -> list:
+        """Return the max values of metric_name"""
+        return self.__get_events(metric_name, MAX)
 
     def get_monitoring(self) -> dict:
         """Return the monitoring metrics."""
@@ -70,11 +84,42 @@ class Bench:
         """Return one monitoring metric."""
         return self.get_monitoring()[metric_name]
 
+    def get_monitoring_metric_unit(self, metric_name) -> str:
+        """Return one monitoring metric unit"""
+        return self.get_monitoring_metric(metric_name)["min"]["unit"]
+
+    def get_monitoring_metric_axis(self, metric_name) -> tuple[Any, Any, Any]:
+        """Return adjusted metric axis values"""
+        unit = self.get_monitoring_metric_unit(metric_name)
+        # return y_max, y_major_tick, y_minor_tick
+        if unit == "Percent":
+            return 100, 10, 5
+        elif unit == "RPM":
+            return 21000, 1000, 250
+        elif unit == "Celsius":
+            return 110, 10, 5
+        return None, None, None
+
     def title(self) -> str:
         """Prepare the benchmark title name."""
         title = f"Stressor: {self.workers()} x {self.engine()} "
         title += f"{self.engine_module()} "
         title += f"{self.engine_module_parameter()} for {self.duration()} seconds"
+        return title
+
+    def get_system_title(self):
+        """Prepare the graph system title."""
+        d = self.get_trace().get_hardware().get("dmi")
+        c = self.get_trace().get_hardware().get("cpu")
+        k = self.get_trace().get_environment().get("kernel")
+        title = (
+            f"System: {d['serial']} {d['product']} Bios "
+            f"v{d['bios']['version']} Linux Kernel {k['release']}"
+        )
+        title += (
+            f"\nProcessor: {c['model']} with {c['physical_cores']} cores "
+            f"and {c['numa_domains']} NUMA domains"
+        )
         return title
 
     def job_name(self) -> str:
@@ -146,7 +191,27 @@ class Bench:
         except ValueError:
             fatal(f"No {perf} found in {self.get_bench_name()}")
 
-    def differences(self, other) -> str:
+    def get_components(self, component_name):
+        """Return the list of components of a benchmark."""
+        return [
+            key
+            for key, _ in self.get_monitoring().items()
+            if component_name in key.lower()
+        ]
+
+    def get_components_by_unit(self, unit):
+        """Return the list of components with a specific unit."""
+        return [
+            key
+            for key, value in self.get_monitoring().items()
+            if unit in value["min"]["unit"].lower()
+        ]
+
+    def get_samples_count(self, metric_name: str):
+        """Return the number of monitoring samples for a given metric"""
+        return len(self.get_mean_events(metric_name))
+
+    def differences(self, other):
         """Compare if two Bench objects are similar"""
         for setting in self.settings():
             # We just want to ensure jobs are similar in their design
@@ -216,6 +281,12 @@ class Trace:
         """Return the trace dict"""
         return self.trace
 
+    def get_hardware(self) -> dict:
+        return self.trace["hardware"]
+
+    def get_environment(self) -> dict:
+        return self.trace["environment"]
+
     def get_metric_name(self) -> str:
         """Return the metric name"""
         return self.metric_name
@@ -232,6 +303,147 @@ class Trace:
     def bench(self, bench_name: str) -> Bench:
         """Return one bench"""
         return Bench(self, bench_name)
+
+
+class Graph:
+    def __init__(
+        self,
+        args,
+        trace: Trace,
+        title: str,
+        xlabel: str,
+        ylabel: str,
+        output_dir,
+        filename,
+        square=False,
+        show_source_file=True,
+        plt_auto_close=True,
+    ) -> None:
+        self.ax2 = None
+        self.args = args
+        self.plt_auto_close = plt_auto_close
+        self.trace = trace
+        self.fig, self.ax = plt.subplots()
+        self.dpi = 100
+        self.fig.set_dpi(self.dpi)
+        if square:
+            self.fig.set_size_inches(args.width / self.dpi, args.width / self.dpi)
+            self.ax.set_box_aspect(1)
+        else:
+            self.fig.set_size_inches(args.width / self.dpi, args.height / self.dpi)
+        self.set_labels(xlabel, ylabel)
+        self.set_xticks_style()
+        self.set_title(title, show_source_file)
+        self.output_dir = output_dir
+        output_dir.mkdir(parents=True, exist_ok=True)
+        self.set_filename(filename)
+
+    def __del__(self):
+        """Destruction will close all plots"""
+        # Some graphs requires a deferred closing
+        # Let the user defining this behavior
+        if self.plt_auto_close:
+            plt.close("all")
+
+    def set_filename(self, filename: str):
+        self.filename = filename
+
+    def set_labels(self, xlabel: str, ylabel: str):
+        """Set the x & y labels"""
+        self.ax.set_xlabel(xlabel)
+        self.ax.set_ylabel(ylabel)
+
+    def set_xticks_style(self):
+        """Set the xtick style."""
+        self.ax.tick_params(
+            axis="x",
+            which="minor",
+            direction="out",
+            colors="silver",
+            grid_color="silver",
+            grid_alpha=0.5,
+            grid_linestyle="dotted",
+        )
+
+    def set_y2_axis(self, label: str, y2_max=None):
+        """Add a second y axis"""
+        ax2 = self.ax.twinx()  # instantiate a second axes that shares the same x-axis
+        ax2.tick_params(axis="y")
+        ax2.set_ylabel(label)
+        self.ax2 = ax2
+        self.y2_max = y2_max
+
+    def prepare_axes(
+        self, x_major_locator: int, x_minor_locator=0, y_locators=(None, None, None)
+    ):
+        """Set the ticks and axes limits."""
+        # This should be called _after_ the ax.*plot calls
+        ymax, y_major, y_minor = y_locators
+
+        if y_major:
+            self.ax.yaxis.set_major_locator(
+                MultipleLocator(y_major),
+            )
+
+        if y_minor:
+            self.ax.yaxis.set_minor_locator(
+                MultipleLocator(y_minor),
+            )
+
+        self.ax.set_xlim(None, xmin=0, emit=True)
+        self.ax.set_ylim(None, ymin=0, ymax=ymax, emit=True, auto=True)
+        # If we have a 2nd axis, let's prepare it
+        if self.ax2:
+            # Legend y1 at top left
+            self.ax.legend(loc=2)
+            # Legend y2 at top right
+            self.ax2.legend(loc=1)
+            self.ax2.set_ylim(None, ymin=0, ymax=self.y2_max, emit=True, auto=True)
+            self.fig.tight_layout()  # otherwise the right y-label is slightly clipped
+        else:
+            plt.legend()
+
+        self.ax.xaxis.set_major_locator(
+            MultipleLocator(x_major_locator),
+        )
+
+        if x_minor_locator:
+            self.ax.xaxis.set_minor_locator(
+                MultipleLocator(x_minor_locator),
+            )
+
+        self.ax.xaxis.set_minor_locator(AutoMinorLocator())
+        plt.minorticks_on()
+
+        self.ax.grid(which="major")
+
+    def set_title(self, title, show_source_file=True):
+        """Set the graph title"""
+        self.ax.set_title(title)
+        if show_source_file and self.trace:
+            # place a text box in upper left in axes coords
+            props = dict(boxstyle="round", facecolor="white", alpha=0.5)
+            self.ax.text(
+                0,
+                -0.1,
+                f"data plotted from {self.trace.get_filename()}",
+                transform=self.ax.transAxes,
+                fontsize=14,
+                verticalalignment="top",
+                bbox=props,
+            )
+
+    def get_ax(self):
+        """Return the ax object."""
+        return self.ax
+
+    def get_ax2(self):
+        """Return the ax2 object (for the 2nd y axis)."""
+        return self.ax2
+
+    def render(self):
+        """Render the graph to a file."""
+        plt.savefig(f"{self.output_dir}/{self.filename}.png", format="png")
 
 
 def valid_trace_file(trace_arg: str) -> Trace:
@@ -458,6 +670,223 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
     return rendered_graphs
 
 
+def generic_graph(
+    args,
+    output_dir,
+    bench: Bench,
+    component_name: str,
+    item_title: str,
+    second_axis=None,
+) -> int:
+    outfile = f"{component_name}"
+    trace = bench.get_trace()
+
+    if component_name == "temp":
+        components = bench.get_components_by_unit("celsius")
+    else:
+        components = bench.get_components(component_name)
+    if not components:
+        print(f"{bench.get_bench_name()}: no {component_name}")
+        return 0
+
+    thermal_components = bench.get_components_by_unit("celsius")
+    samples_count = bench.get_samples_count(components[0])
+
+    title = (
+        f'{item_title} during "{bench.get_bench_name()}" benchmark job\n'
+        f"\n Stressor: "
+    )
+    title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
+    title += f"\n{bench.get_system_title()}"
+    graph = Graph(
+        args,
+        trace,
+        title,
+        "Time [seconds]",
+        bench.get_monitoring_metric_unit(components[0]),
+        output_dir.joinpath(
+            f"{trace.get_name()}/{bench.get_bench_name()}/{component_name}"
+        ),
+        outfile,
+    )
+
+    if second_axis:
+        outfile += f"_vs_{second_axis}"
+        graph.set_filename(outfile)
+        if second_axis == THERMAL:
+            graph.set_y2_axis("Thermal (°C)", 110)
+        elif second_axis == POWER:
+            graph.set_y2_axis("Power (Watts)")
+            power_metrics = ["chassis"]
+            if "enclosure" in bench.get_monitoring():
+                power_metrics.append("enclosure")
+
+    if args.verbose:
+        print(
+            f"{trace.get_name()}/{bench.get_bench_name()}: {len(components)} {component_name} to graph with {samples_count} samples"
+        )
+
+    time_interval = 10  # Hardcoded for now in benchmark.py
+    time_serie = []
+    data_serie = {}  # type: dict[str, list]
+    data2_serie = {}  # type: dict[str, list]
+    for sample in range(0, samples_count):
+        time = sample * time_interval
+        time_serie.append(time)
+        # Collect all components mean value
+        for component in components:
+            if component not in data_serie:
+                data_serie[component] = []
+            data_serie[component].append(bench.get_mean_events(component)[sample])
+
+        if second_axis:
+            if second_axis == THERMAL:
+                for thermal_component in thermal_components:
+                    if thermal_component not in data2_serie:
+                        data2_serie[thermal_component] = []
+                    data2_serie[thermal_component].append(
+                        bench.get_mean_events(thermal_component)[sample]
+                    )
+            elif second_axis == POWER:
+                for power_metric in power_metrics:
+                    if power_metric not in data2_serie:
+                        data2_serie[power_metric] = []
+                    data2_serie[power_metric].append(
+                        bench.get_mean_events(power_metric)[sample]
+                    )
+
+    order = np.argsort(time_serie)
+    x_serie = np.array(time_serie)[order]
+
+    if second_axis:
+        for data2_item in data2_serie:
+            y2_serie = np.array(data2_serie[data2_item])[order]
+            graph.get_ax2().plot(x_serie, y2_serie, "", label=data2_item, marker="D")
+
+    for component in components:
+        y_serie = np.array(data_serie[component])[order]
+        graph.get_ax().plot(x_serie, y_serie, "", label=component)
+
+    graph.prepare_axes(30, 15, (bench.get_monitoring_metric_axis(components[0])))
+
+    graph.render()
+    return 1
+
+
+def yerr_graph(args, output_dir, bench: Bench, component_type: str, component: str):
+    trace = bench.get_trace()
+    samples_count = bench.get_samples_count(component)
+    time_interval = 10
+
+    time_serie = []
+    data_serie = {}  # type: dict[str, list]
+    data_serie[MEAN] = []
+    data_serie[ERROR] = []
+    for sample in range(0, samples_count):
+        time = sample * time_interval
+        time_serie.append(time)
+        mean_value = bench.get_mean_events(component)[sample]
+        data_serie[ERROR].append(
+            (
+                mean_value - bench.get_min_events(component)[sample],
+                bench.get_max_events(component)[sample] - mean_value,
+            )
+        )
+        data_serie[MEAN].append(mean_value)
+
+    title = (
+        f'{component} during "{bench.get_bench_name()}" benchmark job\n'
+        f"\n Stressor: "
+    )
+    title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
+    title += f"\n{bench.get_system_title()}"
+
+    graph = Graph(
+        args,
+        trace,
+        title,
+        "Time [seconds]",
+        bench.get_monitoring_metric_unit(component),
+        output_dir.joinpath(
+            f"{trace.get_name()}/{bench.get_bench_name()}/{component_type}"
+        ),
+        component,
+    )
+
+    order = np.argsort(time_serie)
+    x_serie = np.array(time_serie)[order]
+    y_serie = np.array(data_serie[MEAN])[order]
+    yerror_serie = np.array(data_serie[ERROR]).T
+    graph.get_ax().errorbar(
+        x_serie,
+        y_serie,
+        yerr=yerror_serie,
+        fmt="-b",
+        ecolor="r",
+        capsize=4,
+        label=component,
+    )
+    graph.prepare_axes(30, 15, bench.get_monitoring_metric_axis(component))
+    graph.render()
+    return 1
+
+
+def graph_fans(args, trace: Trace, bench_name: str, output_dir) -> int:
+    rendered_graphs = 0
+    bench = trace.bench(bench_name)
+    fans = bench.get_components("fan")
+    if not fans:
+        print(f"{bench_name}: no fans")
+        return rendered_graphs
+    for second_axis in [THERMAL, POWER]:
+        rendered_graphs += generic_graph(
+            args, output_dir, bench, "fan", "Fans speed", second_axis
+        )
+
+    for fan in fans:
+        rendered_graphs += yerr_graph(args, output_dir, bench, "fan", fan)
+
+    return rendered_graphs
+
+
+def graph_cpu(args, trace: Trace, bench_name: str, output_dir) -> int:
+    rendered_graphs = 0
+    bench = trace.bench(bench_name)
+    cpu_graphs = {}
+    cpu_graphs["watt_core"] = "Core power consumption"
+    cpu_graphs["package"] = "Package power consumption"
+    cpu_graphs["mhz_core"] = "Core frequency"
+    for graph in cpu_graphs:
+        # Let's render the performance, perf_per_temp, perf_per_watt graphs
+        for second_axis in [None, THERMAL, POWER]:
+            rendered_graphs += generic_graph(
+                args, output_dir, bench, graph, cpu_graphs[graph], second_axis
+            )
+
+    return rendered_graphs
+
+
+def graph_thermal(args, trace: Trace, bench_name: str, output_dir) -> int:
+    rendered_graphs = 0
+    bench = trace.bench(bench_name)
+    rendered_graphs += generic_graph(args, output_dir, bench, "temp", "Temperatures")
+    return rendered_graphs
+
+
+def graph_environment(args, output_dir) -> int:
+    rendered_graphs = 0
+    for trace in args.traces:
+        output_dir.joinpath(f"{trace.get_name()}").mkdir(parents=True, exist_ok=True)
+        benches = trace.bench_list()
+        print(f"environment: rendering {len(benches)} jobs from {trace.get_filename()}")
+        for bench_name in sorted(benches):
+            rendered_graphs += graph_fans(args, trace, bench_name, output_dir)
+            rendered_graphs += graph_cpu(args, trace, bench_name, output_dir)
+            rendered_graphs += graph_thermal(args, trace, bench_name, output_dir)
+
+    return rendered_graphs
+
+
 def plot_graphs(args, output_dir) -> int:
     jobs = []
     rendered_graphs = 0
@@ -486,6 +915,7 @@ def plot_graphs(args, output_dir) -> int:
 
 
 def main():
+    rendered_graphs = 0
     parser = argparse.ArgumentParser(
         prog="compgraph",
         description="compare hwbench results and plot them",
@@ -513,8 +943,9 @@ def main():
         output_dir = pathlib.Path(args.outdir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
+    rendered_graphs += graph_environment(args, output_dir)
     compare_bench_profiles(args)
-    rendered_graphs = plot_graphs(args, output_dir)
+    rendered_graphs += plot_graphs(args, output_dir)
     print(f"{rendered_graphs} graphs can be found in '{output_dir}' directory")
 
 
