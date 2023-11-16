@@ -487,12 +487,6 @@ def individual_graph(args, output_dir, bench_name: str, traces_name: list) -> in
     if args.verbose:
         print(f"Individual: rendering {bench_name}")
     rendered_graphs = 0
-    outdir = output_dir.joinpath("individual")
-    outdir.mkdir(parents=True, exist_ok=True)
-    fig, ax = plt.subplots()
-    my_dpi = 100
-    fig.set_dpi(my_dpi)
-    fig.set_size_inches(args.width / my_dpi, args.height / my_dpi)
 
     # As all benchmarks are known to be equivalent,
     # let's pick the first one as reference
@@ -508,19 +502,29 @@ def individual_graph(args, output_dir, bench_name: str, traces_name: list) -> in
         for trace in args.traces:
             trace.bench(bench_name).add_perf(perf, traces_perf)
 
-        # Prepare the plot for this benchmark
-        bar_colors = ["tab:red", "tab:blue", "tab:red", "tab:orange"]
-        ax.bar(traces_name, traces_perf, color=bar_colors)
         title = (
             f'{args.title}\n\n{bench.engine_module()} {perf} during "{bench_name}" benchmark\n'
             f"\n{trace.bench(bench_name).title()}"
         )
-        ax.set_ylabel(f"{unit}")
-        ax.set_title(title)
-        plt.grid(True)
         clean_perf = perf.replace(" ", "").replace("/", "")
         outfile = f"{bench_name}_{clean_perf}_{bench.workers()}x{bench.engine()}_{bench.engine_module()}_{bench.engine_module_parameter()}_{'_vs_'.join(traces_name)}"
-        plt.savefig(f"{outdir}/{outfile}.png", format="png")
+
+        graph = Graph(
+            args,
+            args.traces[0],
+            title,
+            "",
+            unit,
+            output_dir.joinpath("individual"),
+            outfile,
+            show_source_file=False,
+            plt_auto_close=False,
+        )
+        # Prepare the plot for this benchmark
+        bar_colors = ["tab:red", "tab:blue", "tab:red", "tab:orange"]
+        graph.get_ax().bar(traces_name, traces_perf, color=bar_colors)
+
+        graph.render()
         rendered_graphs += 1
 
     plt.close("all")
@@ -530,13 +534,11 @@ def individual_graph(args, output_dir, bench_name: str, traces_name: list) -> in
 def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
     """Render line graphs to compare performance scaling."""
     if args.verbose:
-        print(f"Scaling: rendering {job}")
+        print(f"Scaling: working on {job}")
     rendered_graphs = 0
     selected_bench_names = []
     jobs = {}  # type: dict[str, list[Any]]
     metrics = {}
-    for graph_type in ["scaling", "scaling_watt"]:
-        output_dir.joinpath(f"{graph_type}").mkdir(parents=True, exist_ok=True)
 
     # First extract all subjobs expended from the same job
     for bench_name in sorted(args.traces[0].bench_list()):
@@ -581,6 +583,9 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                         aggregated_perfs_watt[perf][trace.get_name()],
                     )
 
+        if len(logical_core_per_worker) == 1:
+            print(f"Scaling: No scaling detected on {job}, skipping graph")
+            break
         # Let's render all graphs types
         for graph_type in GRAPH_TYPES:
             # Let's render each performance graph
@@ -588,41 +593,46 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
 
             # for each performance metric we have to plot
             for perf in perf_list:
-                fig, ax = plt.subplots()
-                my_dpi = 100
-                fig.set_dpi(my_dpi)
-                # We force the args.width on both dimension to ensure a square graph
-                fig.set_size_inches(args.width / my_dpi, args.width / my_dpi)
                 clean_perf = perf.replace(" ", "").replace("/", "")
+                y_label = unit
                 if "watt" in graph_type:
                     graph_type_title = f"Scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
-                    ax.set_ylabel(f"{unit} per Watt")
+                    y_label = f"{unit} per Watt"
                     outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}_{'_vs_'.join(traces_name)}"
                     outdir = output_dir.joinpath("scaling_watt")
                 else:
                     graph_type_title = (
                         f"Scaling {graph_type}: {bench.get_title_engine_name()}"
                     )
-                    ax.set_ylabel(unit)
                     outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}_{'_vs_'.join(traces_name)}"
                     outdir = output_dir.joinpath("scaling")
 
-                # We want Xaxis to be plotted modulo 8 for the major and modulo 4 for the minor
-                ax.xaxis.set_major_locator(
-                    MultipleLocator(8),
+                title = (
+                    f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job\n'
+                    f"\n Stressor: "
                 )
-                ax.xaxis.set_minor_locator(
-                    MultipleLocator(4),
+                title += (
+                    f"{bench.get_title_engine_name()} for {bench.duration()} seconds"
                 )
+                xlabel = "Workers"
+                # If we have a constent ratio between cores & workers, let's report them under the Xaxis
+                if stdev(logical_core_per_worker) == 0:
+                    cores = "cores"
+                    if logical_core_per_worker[0] == 1:
+                        cores = "core"
+                    xlabel += f"\n({int(logical_core_per_worker[0])} logical {cores} per worker)"
 
-                ax.tick_params(
-                    axis="x",
-                    which="minor",
-                    direction="out",
-                    colors="silver",
-                    grid_color="silver",
-                    grid_alpha=0.5,
-                    grid_linestyle="dotted",
+                graph = Graph(
+                    args,
+                    trace,
+                    title,
+                    xlabel,
+                    y_label,
+                    outdir,
+                    outfile,
+                    square=True,
+                    show_source_file=False,
+                    plt_auto_close=False,
                 )
 
                 # Traces are not ordered by growing cpu cores count
@@ -635,34 +645,10 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                     if "watt" in graph_type:
                         y_source = aggregated_perfs_watt
                     y_serie = np.array(y_source[perf][trace_name])[order]
-                    ax.plot(x_serie, y_serie, "", label=trace_name)
+                    graph.get_ax().plot(x_serie, y_serie, "", label=trace_name)
 
-                title = (
-                    f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job\n'
-                    f"\n Stressor: "
-                )
-                title += (
-                    f"{bench.get_title_engine_name()} for {bench.duration()} seconds"
-                )
-                ax.set_title(title)
-
-                xlabel = "Workers"
-                # If we have a constent ratio between cores & workers, let's report them under the Xaxis
-                if stdev(logical_core_per_worker) == 0:
-                    cores = "cores"
-                    if logical_core_per_worker[0] == 1:
-                        cores = "core"
-                    xlabel += f"\n({int(logical_core_per_worker[0])} logical {cores} per worker)"
-                ax.set_xlabel(xlabel)
-                ax.set_box_aspect(1)
-                ax.set_xticks(range(0, int(max(workers) + 1), 8), minor=False)
-                # We want to force some axis constraints
-                ax.set_xlim(None, xmin=0, emit=True)
-                ax.set_ylim(None, ymin=0, emit=True, auto=True)
-                plt.minorticks_on()
-                plt.grid(which="both")
-                plt.legend()
-                plt.savefig(f"{outdir}/{outfile}.png", format="png")
+                graph.prepare_axes(8, 4)
+                graph.render()
                 rendered_graphs += 1
 
             plt.close("all")
@@ -901,7 +887,7 @@ def plot_graphs(args, output_dir) -> int:
     traces_name = [trace.get_name() for trace in args.traces]
 
     # Let's generate the scaling graphs
-    print(f"Scaling: rendering {len(jobs)} jobs")
+    print(f"Scaling: {len(jobs)} jobs")
     for job in jobs:
         rendered_graphs += scaling_graph(args, output_dir, job, traces_name)
 
