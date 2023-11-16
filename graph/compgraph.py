@@ -487,6 +487,7 @@ def individual_graph(args, output_dir, bench_name: str, traces_name: list) -> in
     if args.verbose:
         print(f"Individual: rendering {bench_name}")
     rendered_graphs = 0
+    temp_outdir = output_dir.joinpath("individual")
 
     # As all benchmarks are known to be equivalent,
     # let's pick the first one as reference
@@ -495,37 +496,56 @@ def individual_graph(args, output_dir, bench_name: str, traces_name: list) -> in
     # Extract the performance metrics, units and name from this bench
     perf_list, unit = bench.prepare_perf_metrics()
 
-    # for each performance metric we have to plot
-    for perf in perf_list:
-        traces_perf = []  # type: list[float]
-        # for each input trace file
-        for trace in args.traces:
-            trace.bench(bench_name).add_perf(perf, traces_perf)
+    # Let's render all graphs types
+    for graph_type in GRAPH_TYPES:
+        # for each performance metric we have to plot
+        for perf in perf_list:
+            traces_perf = []  # type: list[float]
+            traces_perf_watt = []  # type: list[float]
+            # for each input trace file
+            for trace in args.traces:
+                trace.bench(bench_name).add_perf(perf, traces_perf, traces_perf_watt)
 
-        title = (
-            f'{args.title}\n\n{bench.engine_module()} {perf} during "{bench_name}" benchmark\n'
-            f"\n{trace.bench(bench_name).title()}"
-        )
-        clean_perf = perf.replace(" ", "").replace("/", "")
-        outfile = f"{bench_name}_{clean_perf}_{bench.workers()}x{bench.engine()}_{bench.engine_module()}_{bench.engine_module_parameter()}_{'_vs_'.join(traces_name)}"
+            clean_perf = perf.replace(" ", "").replace("/", "")
+            outfile = f"{bench_name}_{clean_perf}_{bench.workers()}x{bench.engine()}_{bench.engine_module()}_{bench.engine_module_parameter()}_{'_vs_'.join(traces_name)}"
+            y_label = unit
 
-        graph = Graph(
-            args,
-            args.traces[0],
-            title,
-            "",
-            unit,
-            output_dir.joinpath("individual"),
-            outfile,
-            show_source_file=False,
-            plt_auto_close=False,
-        )
-        # Prepare the plot for this benchmark
-        bar_colors = ["tab:red", "tab:blue", "tab:red", "tab:orange"]
-        graph.get_ax().bar(traces_name, traces_perf, color=bar_colors)
+            if "watt" in graph_type:
+                graph_type_title = f"'{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
+                y_label = f"{unit} per Watt"
+                outfile = f"watt_{outfile}"
+                outdir = temp_outdir.joinpath("per_watt")
+            else:
+                graph_type_title = f"'{bench.get_title_engine_name()}'"
+                outdir = temp_outdir.joinpath("per_perf")
 
-        graph.render()
-        rendered_graphs += 1
+            title = (
+                f'{args.title}\n\n{graph_type_title} {perf} during "{bench_name}" benchmark\n'
+                f"\n{trace.bench(bench_name).title()}"
+            )
+
+            graph = Graph(
+                args,
+                args.traces[0],
+                title,
+                "",
+                y_label,
+                outdir,
+                outfile,
+                show_source_file=False,
+                plt_auto_close=False,
+            )
+
+            # Prepare the plot for this benchmark
+            bar_colors = ["tab:red", "tab:blue", "tab:red", "tab:orange"]
+
+            y_source = traces_perf
+            if "watt" in graph_type:
+                y_source = traces_perf_watt
+            graph.get_ax().bar(traces_name, y_source, color=bar_colors)
+
+            graph.render()
+            rendered_graphs += 1
 
     plt.close("all")
     return rendered_graphs
