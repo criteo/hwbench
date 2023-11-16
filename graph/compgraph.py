@@ -19,7 +19,7 @@ EVENTS = "events"
 UNIT = "unit"
 THERMAL = "thermal"
 POWER = "power"
-GRAPH_TYPES = ["perf", "perf_watt"]
+GRAPH_TYPES = ["perf", "perf_watt", "watts"]
 
 
 def fatal(reason):
@@ -175,7 +175,7 @@ class Bench:
         """Return the Trace object associated to this benchmark"""
         return self.trace
 
-    def add_perf(self, perf: str, traces_perf: list, traces_watt=None) -> None:
+    def add_perf(self, perf: str, traces_perf: list, perf_watt=None, watt=None) -> None:
         """Extract performance and power efficiency"""
         try:
             # Extracting performance
@@ -186,8 +186,12 @@ class Bench:
             traces_perf.append(value)
 
             # If we want to keep the perf/watt ratio, let's compute it
-            if traces_watt is not None:
-                traces_watt.append(value / self.get_trace().get_metric_mean(self))
+            if perf_watt is not None:
+                perf_watt.append(value / self.get_trace().get_metric_mean(self))
+
+            # If we want to keep the power consumption, let's save it
+            if watt is not None:
+                watt.append(self.get_trace().get_metric_mean(self))
         except ValueError:
             fatal(f"No {perf} found in {self.get_bench_name()}")
 
@@ -502,25 +506,33 @@ def individual_graph(args, output_dir, bench_name: str, traces_name: list) -> in
         for perf in perf_list:
             traces_perf = []  # type: list[float]
             traces_perf_watt = []  # type: list[float]
+            traces_watt = []  # type: list[float]
             # for each input trace file
             for trace in args.traces:
-                trace.bench(bench_name).add_perf(perf, traces_perf, traces_perf_watt)
+                trace.bench(bench_name).add_perf(
+                    perf, traces_perf, traces_perf_watt, traces_watt
+                )
 
             clean_perf = perf.replace(" ", "").replace("/", "")
             outfile = f"{bench_name}_{clean_perf}_{bench.workers()}x{bench.engine()}_{bench.engine_module()}_{bench.engine_module_parameter()}_{'_vs_'.join(traces_name)}"
             y_label = unit
-
-            if "watt" in graph_type:
+            outdir = temp_outdir.joinpath(graph_type)
+            if graph_type == "perf_watt":
                 graph_type_title = f"'{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
                 y_label = f"{unit} per Watt"
+                outfile = f"perfwatt_{outfile}"
+                y_source = traces_perf_watt
+            elif graph_type == "watts":
+                graph_type_title = f"'{args.traces[0].get_metric_name()}'"
                 outfile = f"watt_{outfile}"
-                outdir = temp_outdir.joinpath("per_watt")
+                y_label = "Watts"
+                y_source = traces_watt
             else:
-                graph_type_title = f"'{bench.get_title_engine_name()}'"
-                outdir = temp_outdir.joinpath("per_perf")
+                graph_type_title = f"'{bench.get_title_engine_name()} {perf}'"
+                y_source = traces_perf
 
             title = (
-                f'{args.title}\n\n{graph_type_title} {perf} during "{bench_name}" benchmark\n'
+                f'{args.title}\n\n{graph_type_title} during "{bench_name}" benchmark\n'
                 f"\n{trace.bench(bench_name).title()}"
             )
 
@@ -538,12 +550,7 @@ def individual_graph(args, output_dir, bench_name: str, traces_name: list) -> in
 
             # Prepare the plot for this benchmark
             bar_colors = ["tab:red", "tab:blue", "tab:red", "tab:orange"]
-
-            y_source = traces_perf
-            if "watt" in graph_type:
-                y_source = traces_perf_watt
             graph.get_ax().bar(traces_name, y_source, color=bar_colors)
-
             graph.render()
             rendered_graphs += 1
 
@@ -559,6 +566,7 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
     selected_bench_names = []
     jobs = {}  # type: dict[str, list[Any]]
     metrics = {}
+    temp_outdir = output_dir.joinpath("scaling")
 
     # First extract all subjobs expended from the same job
     for bench_name in sorted(args.traces[0].bench_list()):
@@ -580,6 +588,7 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
     for parameter in jobs.keys():
         aggregated_perfs = {}  # type: dict[str, dict[str, Any]]
         aggregated_perfs_watt = {}  # type: dict[str, dict[str, Any]]
+        aggregated_watt = {}  # type: dict[str, dict[str, Any]]
         workers = []
         logical_core_per_worker = []
         perf_list, unit = metrics[parameter]
@@ -592,15 +601,18 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 if perf not in aggregated_perfs.keys():
                     aggregated_perfs[perf] = {}
                     aggregated_perfs_watt[perf] = {}
+                    aggregated_watt[perf] = {}
                 # for each input trace file
                 for trace in args.traces:
                     if trace.get_name() not in aggregated_perfs[perf].keys():
                         aggregated_perfs[perf][trace.get_name()] = []
                         aggregated_perfs_watt[perf][trace.get_name()] = []
+                        aggregated_watt[perf][trace.get_name()] = []
                     trace.bench(bench_name).add_perf(
                         perf,
                         aggregated_perfs[perf][trace.get_name()],
                         aggregated_perfs_watt[perf][trace.get_name()],
+                        aggregated_watt[perf][trace.get_name()],
                     )
 
         if len(logical_core_per_worker) == 1:
@@ -615,17 +627,25 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
             for perf in perf_list:
                 clean_perf = perf.replace(" ", "").replace("/", "")
                 y_label = unit
-                if "watt" in graph_type:
+                outdir = temp_outdir.joinpath(graph_type)
+                if "perf_watt" in graph_type:
                     graph_type_title = f"Scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
                     y_label = f"{unit} per Watt"
                     outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}_{'_vs_'.join(traces_name)}"
-                    outdir = output_dir.joinpath("scaling_watt")
+                    y_source = aggregated_perfs_watt
+                elif "watts" in graph_type:
+                    graph_type_title = (
+                        f"Scaling {graph_type}: {args.traces[0].get_metric_name()}"
+                    )
+                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}_{'_vs_'.join(traces_name)}"
+                    y_label = "Watts"
+                    y_source = aggregated_watt
                 else:
                     graph_type_title = (
                         f"Scaling {graph_type}: {bench.get_title_engine_name()}"
                     )
                     outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}_{'_vs_'.join(traces_name)}"
-                    outdir = output_dir.joinpath("scaling")
+                    y_source = aggregated_perfs
 
                 title = (
                     f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job\n'
@@ -661,9 +681,6 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 for trace_name in aggregated_perfs[perf]:
                     order = np.argsort(workers)
                     x_serie = np.array(workers)[order]
-                    y_source = aggregated_perfs
-                    if "watt" in graph_type:
-                        y_source = aggregated_perfs_watt
                     y_serie = np.array(y_source[perf][trace_name])[order]
                     graph.get_ax().plot(x_serie, y_serie, "", label=trace_name)
 
