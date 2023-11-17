@@ -271,8 +271,7 @@ class Trace:
 
         # Let's check if the monitoring metrics exists in the first job
         try:
-            first_bench = self.bench(next(iter(self.bench_list())))
-            isinstance(self.get_metric_mean(first_bench), float)
+            isinstance(self.get_metric_mean(self.first_bench()), float)
         except KeyError:
             fatal(
                 f"Cannot find monitoring metric '{self.metric_name}' in {self.filename}"
@@ -319,6 +318,10 @@ class Trace:
     def bench_list(self) -> dict:
         """Return the list of benches"""
         return self.get_trace()["bench"].keys()
+
+    def first_bench(self) -> Bench:
+        """Return the first bench"""
+        return self.bench(next(iter(sorted(self.bench_list()))))
 
     def bench(self, bench_name: str) -> Bench:
         """Return one bench"""
