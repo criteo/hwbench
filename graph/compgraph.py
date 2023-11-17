@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import re
 import sys
-import tempfile
 from typing import Any  # noqa: F401
 from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 from statistics import mean, stdev
@@ -970,7 +969,7 @@ def main():
     parser.add_argument("--title", help="Title of the graph")
     parser.add_argument("--width", help="PNG width", type=int, default="1920")
     parser.add_argument("--height", help="PNG height", type=int, default="1080")
-    parser.add_argument("--outdir", help="Name of the output directory")
+    parser.add_argument("--outdir", help="Name of the output directory", required=True)
     parser.add_argument(
         "--verbose",
         action="store_true",
@@ -978,11 +977,8 @@ def main():
     )
 
     args = parser.parse_args()
-    if not args.outdir:
-        output_dir = tempfile.TemporaryDirectory(delete=False)
-    else:
-        output_dir = pathlib.Path(args.outdir)
-        output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = pathlib.Path(args.outdir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     rendered_graphs += graph_environment(args, output_dir)
     compare_bench_profiles(args)
