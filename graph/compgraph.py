@@ -337,20 +337,18 @@ class Graph:
     def __init__(
         self,
         args,
-        trace: Trace,
         title: str,
         xlabel: str,
         ylabel: str,
         output_dir,
         filename,
         square=False,
-        show_source_file=True,
+        show_source_file=None,
         plt_auto_close=True,
     ) -> None:
         self.ax2 = None
         self.args = args
         self.plt_auto_close = plt_auto_close
-        self.trace = trace
         self.fig, self.ax = plt.subplots()
         self.dpi = 100
         self.fig.set_dpi(self.dpi)
@@ -445,16 +443,16 @@ class Graph:
 
         self.ax.grid(which="major")
 
-    def set_title(self, title, show_source_file=True):
+    def set_title(self, title, show_source_file=None):
         """Set the graph title"""
         self.ax.set_title(title)
-        if show_source_file and self.trace:
+        if show_source_file:
             # place a text box in upper left in axes coords
             props = dict(boxstyle="round", facecolor="white", alpha=0.5)
             self.ax.text(
                 0,
                 -0.1,
-                f"data plotted from {self.trace.get_filename()}",
+                f"data plotted from {show_source_file.get_filename()}",
                 transform=self.ax.transAxes,
                 fontsize=14,
                 verticalalignment="top",
@@ -562,13 +560,11 @@ def individual_graph(args, output_dir, bench_name: str, traces_name: list) -> in
 
             graph = Graph(
                 args,
-                args.traces[0],
                 title,
                 "",
                 y_label,
                 outdir,
                 outfile,
-                show_source_file=False,
                 plt_auto_close=False,
             )
 
@@ -688,14 +684,12 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
 
                 graph = Graph(
                     args,
-                    trace,
                     title,
                     xlabel,
                     y_label,
                     outdir,
                     outfile,
                     square=True,
-                    show_source_file=False,
                     plt_auto_close=False,
                 )
 
@@ -747,7 +741,6 @@ def generic_graph(
     title += f"\n{bench.get_system_title()}"
     graph = Graph(
         args,
-        trace,
         title,
         "Time [seconds]",
         bench.get_monitoring_metric_unit(components[0]),
@@ -755,6 +748,7 @@ def generic_graph(
             f"{trace.get_name()}/{bench.get_bench_name()}/{component_name}"
         ),
         outfile,
+        show_source_file=trace,
     )
 
     if second_axis:
@@ -850,7 +844,6 @@ def yerr_graph(args, output_dir, bench: Bench, component_type: str, component: s
 
     graph = Graph(
         args,
-        trace,
         title,
         "Time [seconds]",
         bench.get_monitoring_metric_unit(component),
@@ -858,6 +851,7 @@ def yerr_graph(args, output_dir, bench: Bench, component_type: str, component: s
             f"{trace.get_name()}/{bench.get_bench_name()}/{component_type}"
         ),
         component,
+        show_source_file=trace,
     )
 
     order = np.argsort(time_serie)
