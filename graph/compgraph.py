@@ -109,9 +109,9 @@ class Bench:
 
     def get_system_title(self):
         """Prepare the graph system title."""
-        d = self.get_trace().get_hardware().get("dmi")
-        c = self.get_trace().get_hardware().get("cpu")
-        k = self.get_trace().get_environment().get("kernel")
+        d = self.get_trace().get_dmi()
+        c = self.get_trace().get_cpu()
+        k = self.get_trace().get_kernel()
         title = (
             f"System: {d['serial']} {d['product']} Bios "
             f"v{d['bios']['version']} Linux Kernel {k['release']}"
@@ -290,6 +290,21 @@ class Trace:
 
     def get_environment(self) -> dict:
         return self.trace["environment"]
+
+    def get_dmi(self):
+        return self.get_hardware().get("dmi")
+
+    def get_cpu(self):
+        return self.get_hardware().get("cpu")
+
+    def get_kernel(self):
+        return self.get_environment().get("kernel")
+
+    def get_chassis_serial(self):
+        return self.get_dmi()["serial"]
+
+    def get_chassis_product(self):
+        return self.get_dmi()["product"]
 
     def get_metric_name(self) -> str:
         """Return the metric name"""
