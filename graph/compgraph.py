@@ -871,6 +871,69 @@ def yerr_graph(args, output_dir, bench: Bench, component_type: str, component: s
     return 1
 
 
+def graph_enclosure(args, bench_name, output_dir) -> int:
+    """Graph enclosure vs sum of the chassis"""
+    if args.verbose:
+        print(f"enclosure: working on {bench_name}")
+
+    outdir = output_dir.joinpath("enclosure")
+
+    # As all benchmarks are known to be equivalent,
+    # let's pick the first one as reference
+    bench = args.traces[0].bench(bench_name)
+    base_outfile = f"{bench_name} {bench.workers()}x{bench.engine()}_{bench.engine_module()}_{bench.engine_module_parameter()}_enclosure"
+    y_label = "Watts"
+    title = (
+        f'{args.title}\n\nEnclosure power consumption during "{bench_name}" benchmark\n'
+        f"\n{bench.title()}"
+    )
+
+    graph = Graph(
+        args,
+        title,
+        "Time [seconds]",
+        y_label,
+        outdir,
+        f"time_watt_{base_outfile}",
+    )
+
+    time_interval = 10  # Hardcoded for now in benchmark.py
+    time_serie = []
+    data_serie = {}  # type: dict[str, list]
+    components = ["chassis", "enclosure"]
+    samples_count = bench.get_samples_count("chassis")
+    for sample in range(0, samples_count):
+        time = sample * time_interval
+        time_serie.append(time)
+        # Collect all components mean value
+        for component in components:
+            if component not in data_serie:
+                data_serie[component] = []
+
+            # We want to get the sum of chassis vs enclosure
+            if component == "chassis":
+                value = 0
+                # so let's add all chassis's value from each trace
+                for trace in args.traces:
+                    value += trace.bench(bench_name).get_mean_events(component)[sample]
+            else:
+                value = bench.get_mean_events(component)[sample]
+            data_serie[component].append(value)
+    order = np.argsort(time_serie)
+    x_serie = np.array(time_serie)[order]
+    for component in components:
+        y_serie = np.array(data_serie[component])[order]
+        curve_label = component
+        if component == "chassis":
+            curve_label = "sum of chassis"
+        graph.get_ax().plot(x_serie, y_serie, "", label=curve_label)
+
+    graph.prepare_axes(30, 15, (bench.get_monitoring_metric_axis(components[1])))
+    graph.render()
+
+    return 1
+
+
 def graph_fans(args, trace: Trace, bench_name: str, output_dir) -> int:
     rendered_graphs = 0
     bench = trace.bench(bench_name)
@@ -915,6 +978,31 @@ def graph_thermal(args, trace: Trace, bench_name: str, output_dir) -> int:
 
 def graph_environment(args, output_dir) -> int:
     rendered_graphs = 0
+    if args.same_enclosure:
+
+        def valid_traces(args):
+            chassis = [trace.get_chassis_serial() for trace in args.traces]
+            # Let's ensure we don't have the same serial twice
+
+            if len(chassis) == len(args.traces):
+                # Let's ensure all traces has chassis and enclosure metrics
+                for trace in args.traces:
+                    try:
+                        for metric in ["chassis", "enclosure"]:
+                            trace.get_metric_mean(trace.first_bench(), metric)
+                    except KeyError:
+                        return f"environment: missing '{metric}' monitoric metric in {trace.get_filename()}, disabling same-enclosure print"
+            else:
+                return "environment: chassis are not unique, disabling same-enclosure print"
+            return ""
+
+        error_message = valid_traces(args)
+        if not error_message:
+            for bench_name in sorted(args.traces[0].bench_list()):
+                rendered_graphs += graph_enclosure(args, bench_name, output_dir)
+        else:
+            print(error_message)
+
     for trace in args.traces:
         output_dir.joinpath(f"{trace.get_name()}").mkdir(parents=True, exist_ok=True)
         benches = trace.bench_list()
@@ -970,6 +1058,11 @@ def main():
     parser.add_argument("--width", help="PNG width", type=int, default="1920")
     parser.add_argument("--height", help="PNG height", type=int, default="1080")
     parser.add_argument("--outdir", help="Name of the output directory", required=True)
+    parser.add_argument(
+        "--same-enclosure",
+        help="All traces are from the same enclosure",
+        action="store_true",
+    )
     parser.add_argument(
         "--verbose",
         action="store_true",
