@@ -310,10 +310,15 @@ class Trace:
         """Return the metric name"""
         return self.metric_name
 
-    def get_metric_mean(self, bench: Bench) -> float:
+    def get_metric_mean_by_name(self, bench_name: str, metric_name="") -> float:
         """Return the mean of chosen metric"""
-        # return mean(get_mean_events(bench.get_monitoring_metric(self.metric_name)))
-        return mean(bench.get_mean_events(self.metric_name))
+        return self.get_metric_mean(self.bench(bench_name), metric_name)
+
+    def get_metric_mean(self, bench: Bench, metric_name="") -> float:
+        """Return the mean of chosen metric"""
+        if not metric_name:
+            metric_name = self.metric_name
+        return mean(bench.get_mean_events(metric_name))
 
     def bench_list(self) -> dict:
         """Return the list of benches"""
