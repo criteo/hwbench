@@ -175,15 +175,16 @@ class Bench:
         """Return the Trace object associated to this benchmark"""
         return self.trace
 
-    def add_perf(self, perf: str, traces_perf: list, perf_watt=None, watt=None) -> None:
+    def add_perf(self, perf="", traces_perf=None, perf_watt=None, watt=None) -> None:
         """Extract performance and power efficiency"""
         try:
-            # Extracting performance
-            value = self.get(perf)
-            # but let's consider sum_speed for memrate runs
-            if self.engine_module() in ["memrate"]:
-                value = self.get(perf)["sum_speed"]
-            traces_perf.append(value)
+            if perf and traces_perf is not None:
+                # Extracting performance
+                value = self.get(perf)
+                # but let's consider sum_speed for memrate runs
+                if self.engine_module() in ["memrate"]:
+                    value = self.get(perf)["sum_speed"]
+                traces_perf.append(value)
 
             # If we want to keep the perf/watt ratio, let's compute it
             if perf_watt is not None:
