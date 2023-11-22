@@ -1027,7 +1027,9 @@ def graph_environment(args, output_dir) -> int:
     for trace in args.traces:
         output_dir.joinpath(f"{trace.get_name()}").mkdir(parents=True, exist_ok=True)
         benches = trace.bench_list()
-        print(f"environment: rendering {len(benches)} jobs from {trace.get_filename()}")
+        print(
+            f"environment: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})"
+        )
         for bench_name in sorted(benches):
             rendered_graphs += graph_fans(args, trace, bench_name, output_dir)
             rendered_graphs += graph_cpu(args, trace, bench_name, output_dir)
