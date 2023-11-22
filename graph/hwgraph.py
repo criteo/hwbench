@@ -151,7 +151,7 @@ class Bench:
         unit = ""
         em = self.engine_module()
         # Preparing the performance metric to graph
-        if self.engine() not in ["stressng"]:
+        if self.engine() not in ["stressng", "sleep"]:
             fatal(f"Unsupported {em} engine")
         if self.engine() == "stressng":
             if em in ["cpu", "qsort", "vnni"]:
@@ -167,7 +167,9 @@ class Bench:
                 unit = "MB/s"
             else:
                 fatal(f"Unsupported {em} engine module")
-
+        elif self.engine() == "sleep":
+            perf_list = ["bogo ops/s"]
+            unit = "Bogo op/s"
         return perf_list, unit
 
     def get_trace(self):
@@ -613,7 +615,11 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
         perf_list, unit = metrics[parameter]
         for bench_name, bench in jobs[parameter]:
             workers.append(bench.workers())
-            logical_core_per_worker.append(bench.workers() / len(bench.cpu_pin()))
+            pin = len(bench.cpu_pin())
+            # If there is no cpu_pin, we'll have the same number of workers
+            if pin == 0:
+                pin = bench.workers()
+            logical_core_per_worker.append(bench.workers() / pin)
             # for each performance metric we have to plot,
             # let's prepare the data set to plot
             for perf in perf_list:
