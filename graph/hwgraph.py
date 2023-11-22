@@ -352,7 +352,6 @@ class Graph:
         self.plt_auto_close = plt_auto_close
         self.fig, self.ax = plt.subplots()
         self.dpi = 100
-        self.fig.set_dpi(self.dpi)
         if square:
             self.fig.set_size_inches(args.width / self.dpi, args.width / self.dpi)
             self.ax.set_box_aspect(1)
@@ -442,7 +441,8 @@ class Graph:
         self.ax.xaxis.set_minor_locator(AutoMinorLocator())
         plt.minorticks_on()
 
-        self.ax.grid(which="major")
+        self.ax.grid(which="major", linewidth=1)
+        self.ax.grid(which="minor", linewidth=0.2, linestyle="dashed")
 
     def set_title(self, title, show_source_file=None):
         """Set the graph title"""
@@ -470,7 +470,9 @@ class Graph:
 
     def render(self):
         """Render the graph to a file."""
-        plt.savefig(f"{self.output_dir}/{self.filename}.png", format="png")
+        plt.savefig(
+            f"{self.output_dir}/{self.filename}.png", format="png", dpi=self.args.dpi
+        )
 
 
 def valid_trace_file(trace_arg: str) -> Trace:
@@ -1078,6 +1080,7 @@ def main():
         help="List of benchmarks to compare",
     )
     parser.add_argument("--title", help="Title of the graph")
+    parser.add_argument("--dpi", help="PNG dpi", type=int, default="72")
     parser.add_argument("--width", help="PNG width", type=int, default="1920")
     parser.add_argument("--height", help="PNG height", type=int, default="1080")
     parser.add_argument("--outdir", help="Name of the output directory", required=True)
