@@ -899,7 +899,8 @@ def graph_enclosure(args, bench_name, output_dir) -> int:
 
     time_interval = 10  # Hardcoded for now in benchmark.py
     time_serie = []
-    data_serie = {}  # type: dict[str, list]
+    sum_serie = {}  # type: dict[str, list]
+    chassis_serie = {}  # type: dict[str, list]
     components = ["chassis", "enclosure"]
     samples_count = bench.get_samples_count("chassis")
     for sample in range(0, samples_count):
@@ -907,28 +908,42 @@ def graph_enclosure(args, bench_name, output_dir) -> int:
         time_serie.append(time)
         # Collect all components mean value
         for component in components:
-            if component not in data_serie:
-                data_serie[component] = []
+            if component not in sum_serie:
+                sum_serie[component] = []
 
             # We want to get the sum of chassis vs enclosure
             if component == "chassis":
                 value = 0
                 # so let's add all chassis's value from each trace
                 for trace in args.traces:
-                    value += trace.bench(bench_name).get_mean_events(component)[sample]
+                    chassis_power = trace.bench(bench_name).get_mean_events(component)[
+                        sample
+                    ]
+                    if trace.get_name() not in chassis_serie:
+                        chassis_serie[trace.get_name()] = []
+                    chassis_serie[trace.get_name()].append(chassis_power)
+                    value += chassis_power
             else:
                 value = bench.get_mean_events(component)[sample]
-            data_serie[component].append(value)
+            sum_serie[component].append(value)
     order = np.argsort(time_serie)
     x_serie = np.array(time_serie)[order]
     for component in components:
-        y_serie = np.array(data_serie[component])[order]
+        y_serie = np.array(sum_serie[component])[order]
         curve_label = component
         if component == "chassis":
             curve_label = "sum of chassis"
         graph.get_ax().plot(x_serie, y_serie, "", label=curve_label)
 
-    graph.prepare_axes(30, 15, (bench.get_monitoring_metric_axis(components[1])))
+    for trace in args.traces:
+        y_serie = np.array(chassis_serie[trace.get_name()])[order]
+        graph.get_ax().plot(x_serie, y_serie, "", label=trace.get_name())
+
+    graph.prepare_axes(
+        30,
+        15,
+        (None, 50, 25),
+    )
     graph.render()
 
     return 1
