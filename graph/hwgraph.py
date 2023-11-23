@@ -305,6 +305,12 @@ class Trace:
     def get_kernel(self):
         return self.get_environment().get("kernel")
 
+    def get_enclosure_serial(self):
+        return self.get_dmi()["chassis"]["serial"]
+
+    def get_enclosure_product(self):
+        return self.get_dmi()["chassis"]["product"]
+
     def get_chassis_serial(self):
         return self.get_dmi()["serial"]
 
@@ -1009,6 +1015,17 @@ def graph_thermal(args, trace: Trace, bench_name: str, output_dir) -> int:
 
 def graph_environment(args, output_dir) -> int:
     rendered_graphs = 0
+
+    enclosure = args.traces[0].get_enclosure_serial()
+    if enclosure:
+        enclosures = [t.get_enclosure_serial() == enclosure for t in args.traces]
+        # if all traces are from the same enclosure, let's enable the same_enclosure feature
+        if enclosures.count(True) == len(args.traces):
+            print(
+                f"environment: All traces are from the same enclosure ({enclosure}), enabling --same-enclosure feature"
+            )
+            args.same_enclosure = True
+
     if args.same_enclosure:
 
         def valid_traces(args):
