@@ -250,14 +250,14 @@ class Bench:
 
 
 class Trace:
-    def __init__(self, filename, name, metric_name):
+    def __init__(self, filename, logical_name, metric_name):
         self.filename = filename
-        self.name = name
+        self.logical_name = logical_name
         self.metric_name = metric_name
         self.__validate__()
 
     def get_name(self) -> str:
-        return self.name
+        return self.logical_name
 
     def __validate__(self) -> None:
         """Validate the new trace file"""
@@ -269,6 +269,10 @@ class Trace:
             self.trace = json.loads(pathlib.Path(self.filename).read_bytes())
         except ValueError:
             raise ValueError(f"{self.filename} is not a valid JSON file")
+
+        # If no logical name was given, let's use the serial number as a default
+        if not self.logical_name:
+            self.logical_name = self.get_chassis_serial()
 
         # Let's check if the monitoring metrics exists in the first job
         try:
@@ -478,14 +482,18 @@ class Graph:
 def valid_trace_file(trace_arg: str) -> Trace:
     """Custom argparse type to decode and validate the trace files"""
 
-    match = re.search(r"(?P<filename>.*):(?P<name>.*):(?P<power_metric>.*)", trace_arg)
+    match = re.search(
+        r"(?P<filename>.*):(?P<logical_name>.*):(?P<power_metric>.*)", trace_arg
+    )
     if not match:
         raise argparse.ArgumentTypeError(
-            f"{trace_arg} does not match 'filename:name:power_metric' syntax"
+            f"{trace_arg} does not match 'filename:logical_name:power_metric' syntax"
         )
 
     return Trace(
-        match.group("filename"), match.group("name"), match.group("power_metric")
+        match.group("filename"),
+        match.group("logical_name"),
+        match.group("power_metric"),
     )
 
 
