@@ -42,6 +42,10 @@ class DmiSys:
                 "version": self.info("bios_version"),
                 "release": self.info("bios_release"),
             },
+            "chassis": {
+                "product": self.info("chassis_version"),
+                "serial": self.info("chassis_serial"),
+            },
             "sysconf_threads": os.sysconf("SC_NPROCESSORS_ONLN"),
         }
 
