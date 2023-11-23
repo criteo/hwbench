@@ -355,11 +355,9 @@ class Graph:
         filename,
         square=False,
         show_source_file=None,
-        plt_auto_close=True,
     ) -> None:
         self.ax2 = None
         self.args = args
-        self.plt_auto_close = plt_auto_close
         self.fig, self.ax = plt.subplots()
         self.dpi = 100
         if square:
@@ -376,10 +374,8 @@ class Graph:
 
     def __del__(self):
         """Destruction will close all plots"""
-        # Some graphs requires a deferred closing
-        # Let the user defining this behavior
-        if self.plt_auto_close:
-            plt.close("all")
+        self.fig.clear()
+        plt.close(self.fig)
 
     def set_filename(self, filename: str):
         self.filename = filename
@@ -582,7 +578,6 @@ def individual_graph(args, output_dir, bench_name: str, traces_name: list) -> in
                 y_label,
                 outdir,
                 outfile,
-                plt_auto_close=False,
             )
 
             # Prepare the plot for this benchmark
@@ -590,8 +585,6 @@ def individual_graph(args, output_dir, bench_name: str, traces_name: list) -> in
             graph.get_ax().bar(traces_name, y_source, color=bar_colors)
             graph.render()
             rendered_graphs += 1
-
-    plt.close("all")
     return rendered_graphs
 
 
@@ -711,7 +704,6 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                     outdir,
                     outfile,
                     square=True,
-                    plt_auto_close=False,
                 )
 
                 # Traces are not ordered by growing cpu cores count
@@ -726,8 +718,6 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 graph.prepare_axes(8, 4)
                 graph.render()
                 rendered_graphs += 1
-
-            plt.close("all")
 
     return rendered_graphs
 
