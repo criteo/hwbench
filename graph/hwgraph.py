@@ -476,8 +476,12 @@ class Graph:
 
     def render(self):
         """Render the graph to a file."""
+        # Retrieve the rendering file format
+        file_format = self.args.format
         plt.savefig(
-            f"{self.output_dir}/{self.filename}.png", format="png", dpi=self.args.dpi
+            f"{self.output_dir}/{self.filename}.{file_format}",
+            format=file_format,
+            dpi=self.args.dpi,
         )
 
 
@@ -1095,9 +1099,16 @@ def main():
         help="List of benchmarks to compare",
     )
     parser.add_argument("--title", help="Title of the graph")
-    parser.add_argument("--dpi", help="PNG dpi", type=int, default="72")
-    parser.add_argument("--width", help="PNG width", type=int, default="1920")
-    parser.add_argument("--height", help="PNG height", type=int, default="1080")
+    parser.add_argument("--dpi", help="Graph dpi", type=int, default="72")
+    parser.add_argument("--width", help="Graph width", type=int, default="1920")
+    parser.add_argument("--height", help="Graph height", type=int, default="1080")
+    parser.add_argument(
+        "--format",
+        help="Graph file format",
+        type=str,
+        choices=["svg", "png"],
+        default="svg",
+    )
     parser.add_argument("--outdir", help="Name of the output directory", required=True)
     parser.add_argument(
         "--same-enclosure",
