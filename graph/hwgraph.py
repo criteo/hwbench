@@ -1010,6 +1010,10 @@ def graph_thermal(args, trace: Trace, bench_name: str, output_dir) -> int:
 
 def graph_environment(args, output_dir) -> int:
     rendered_graphs = 0
+    # If user disabled the environmental graphs, return immediately
+    if not args.no_env:
+        print("environment: disabled by user")
+        return rendered_graphs
 
     enclosure = args.traces[0].get_enclosure_serial()
     if enclosure:
@@ -1098,6 +1102,9 @@ def main():
         type=valid_trace_file,
         nargs="+",
         help="List of benchmarks to compare",
+    )
+    parser.add_argument(
+        "--no-env", help="Disable environmental graphs", action="store_false"
     )
     parser.add_argument("--title", help="Title of the graph")
     parser.add_argument("--dpi", help="Graph dpi", type=int, default="72")
