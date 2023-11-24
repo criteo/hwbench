@@ -2,6 +2,7 @@
 import argparse
 import json
 import pathlib
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import re
@@ -1109,6 +1110,12 @@ def main():
         choices=["svg", "png"],
         default="svg",
     )
+    parser.add_argument(
+        "--engine",
+        help="Select the matplotlib backend engine",
+        choices=["pgf", "svg", "agg", "cairo"],
+        default="cairo",
+    )
     parser.add_argument("--outdir", help="Name of the output directory", required=True)
     parser.add_argument(
         "--same-enclosure",
@@ -1122,6 +1129,12 @@ def main():
     )
 
     args = parser.parse_args()
+
+    try:
+        matplotlib.use(args.engine)
+    except ValueError:
+        fatal(f"Cannot load matplotlib backend engine {args.engine}")
+
     output_dir = pathlib.Path(args.outdir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
