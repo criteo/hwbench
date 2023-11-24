@@ -34,7 +34,7 @@ def main():
     results = benches.run()
     benches.dump()
 
-    out = format_output(env.dump(), hw.dump(), results)
+    out = format_output(env.dump(), hw.dump(), results, benches.config)
 
     write_output(out_dir, out)
 
@@ -64,11 +64,12 @@ def parse_options():
     return parser.parse_args()
 
 
-def format_output(env, hw, results) -> dict[str, object]:
+def format_output(env, hw, results, config) -> dict[str, object]:
     return {
         "environment": env,
         "hardware": hw,
         "bench": results,
+        "config": config.to_dict(),
     }
 
 

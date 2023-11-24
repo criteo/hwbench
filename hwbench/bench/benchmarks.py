@@ -37,6 +37,10 @@ class Benchmarks:
         for bench in self.benchs:
             bench.validate_parameters()
 
+    def get_config(self):
+        """Return the config."""
+        return self.config
+
     def parse_config(self):
         """Parse the configuration file to create a list of benchmarks to run."""
         # Ensure the configuration file has a valid syntax

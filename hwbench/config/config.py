@@ -34,6 +34,13 @@ class Config:
         self.hardware = hardware
         self.config.read(self.config_file)
 
+    def to_dict(self) -> dict:
+        output_dict = dict()
+        for section in self.config.sections():
+            items = self.config.items(section)
+            output_dict[section] = dict(items)
+        return output_dict
+
     def get_sections(self) -> list[str]:
         """Return all sections of a config file."""
         return self.config.sections()
