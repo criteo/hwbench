@@ -8,7 +8,7 @@ import numpy as np
 import re
 import sys
 from typing import Any  # noqa: F401
-from matplotlib.ticker import MultipleLocator, AutoMinorLocator
+from matplotlib.ticker import FuncFormatter, AutoMinorLocator, MultipleLocator
 from statistics import mean, stdev
 
 MIN = "min"
@@ -449,7 +449,11 @@ class Graph:
         self.y2_max = y2_max
 
     def prepare_axes(
-        self, x_major_locator: int, x_minor_locator=0, y_locators=(None, None, None)
+        self,
+        x_major_locator=0,
+        x_minor_locator=0,
+        y_locators=(None, None, None),
+        legend=True,
     ):
         """Set the ticks and axes limits."""
         # This should be called _after_ the ax.*plot calls
@@ -465,7 +469,6 @@ class Graph:
                 MultipleLocator(y_minor),
             )
 
-        self.ax.set_xlim(None, xmin=0, emit=True)
         self.ax.set_ylim(None, ymin=0, ymax=ymax, emit=True, auto=True)
         # If we have a 2nd axis, let's prepare it
         if self.ax2:
@@ -474,19 +477,35 @@ class Graph:
             # Legend y2 at top right
             self.ax2.legend(loc=1)
             self.ax2.set_ylim(None, ymin=0, ymax=self.y2_max, emit=True, auto=True)
+            self.ax2.yaxis.set_major_formatter(FuncFormatter(self.human_format))
             self.fig.tight_layout()  # otherwise the right y-label is slightly clipped
         else:
-            plt.legend()
+            # Bar graphs do not need legend, let the caller disable it
+            if legend:
+                plt.legend()
 
-        self.ax.xaxis.set_major_locator(
-            MultipleLocator(x_major_locator),
-        )
+        if x_major_locator:
+            self.ax.set_xlim(None, xmin=0, emit=True)
+            self.ax.xaxis.set_major_locator(
+                MultipleLocator(x_major_locator),
+            )
 
         if x_minor_locator:
             self.ax.xaxis.set_minor_locator(
                 MultipleLocator(x_minor_locator),
             )
+
+        self.ax.yaxis.set_major_formatter(FuncFormatter(self.human_format))
         self.prepare_grid()
+
+    def human_format(self, num, pos=None):
+        """Return format in Millions if necessary"""
+        # This function is compatible with FuncFormatter and fmt
+        unit = ""
+        if num > 1e6:
+            num *= 1e-6
+            unit = "M"
+        return f"{num:.2f}{unit}"
 
     def prepare_grid(self):
         self.ax.xaxis.set_minor_locator(AutoMinorLocator())
@@ -713,8 +732,9 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                         label_type="center",
                         color="white",
                         fontsize=16,
+                        fmt=graph.human_format,
                     )
-                    graph.prepare_grid()
+                    graph.prepare_axes(legend=False)
                     graph.render()
                     rendered_graphs += 1
 
@@ -742,8 +762,9 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                     label_type="center",
                     color="white",
                     fontsize=16,
+                    fmt=graph.human_format,
                 )
-                graph.prepare_grid()
+                graph.prepare_axes(legend=False)
                 graph.render()
                 rendered_graphs += 1
     return rendered_graphs
