@@ -540,6 +540,7 @@ def compare_traces(args) -> None:
     # To determine if traces can be compared, we'll compare only
     # the original configuration files, not the actual jobs.
 
+    names = []
     for trace in args.traces:
         # Is the current trace config file matches the first trace ?
         if set(args.traces[0].get_original_config()).difference(
@@ -550,6 +551,12 @@ def compare_traces(args) -> None:
             fatal(
                 f"{trace.filename} is not having the same configuration file as previous traces"
             )
+        if trace.get_name() in names:
+            fatal(
+                f"{trace.filename} is using '{trace.get_name()}' as logical_name while it's already in use"
+            )
+        else:
+            names.append(trace.get_name())
 
 
 def individual_graph(args, output_dir, bench_name: str, traces_name: list) -> int:
