@@ -294,6 +294,9 @@ class Trace:
     def get_hardware(self) -> dict:
         return self.trace["hardware"]
 
+    def get_original_config(self) -> dict:
+        return self.trace["config"]
+
     def get_environment(self) -> dict:
         return self.trace["environment"]
 
@@ -334,7 +337,7 @@ class Trace:
 
     def bench_list(self) -> dict:
         """Return the list of benches"""
-        return self.get_trace()["bench"].keys()
+        return self.get_trace()["bench"]
 
     def first_bench(self) -> Bench:
         """Return the first bench"""
@@ -343,6 +346,32 @@ class Trace:
     def bench(self, bench_name: str) -> Bench:
         """Return one bench"""
         return Bench(self, bench_name)
+
+    def get_benches_by_job(self, job: str) -> list[Bench]:
+        """Return the list of benches linked to job 'job'"""
+        # We only keep keep jobs liked to the searched job
+        return [
+            self.bench(bench_name)
+            for bench_name in self.bench_list()
+            if self.bench(bench_name).job_name() == job
+        ]
+
+    def get_benches_by_job_per_emp(self, job: str) -> dict:
+        """Return benches linked to job 'job' sorted by engine module parameter"""
+        jobs = {}  # type: dict[str, dict[str, Any]]
+        # For each bench associated to job 'job'
+        for bench in self.get_benches_by_job(job):
+            emp = bench.engine_module_parameter()
+            # If we don't know this emp, let's create its datastructure
+            if emp not in jobs:
+                jobs[emp] = {}
+                jobs[emp]["bench"] = []
+                # We also link the performance metrics if we need to graph them
+                jobs[emp]["metrics"] = bench.prepare_perf_metrics()
+
+            # The Bench object is directly linked to ease future parsing
+            jobs[emp]["bench"].append(bench)
+        return jobs
 
 
 class Graph:
@@ -504,26 +533,23 @@ def valid_trace_file(trace_arg: str) -> Trace:
     )
 
 
-def compare_bench_profiles(args) -> None:
-    """Check if benchmark profiles are similar."""
-    # To ensure a fair comparison, all jobs must strictly identical
-    # A next version will have to allow comparing jobs with different cpu types
-    job_profile = None
-    for trace in args.traces:
-        if not job_profile:
-            # Let's set the reference job
-            job_profile = trace
-        else:
-            # Is the current list of benchmark name matching the previous one
-            if set(job_profile.bench_list()).difference(trace.bench_list()):
-                fatal(f"{trace.filename} is different from previous traces")
+def compare_traces(args) -> None:
+    """Check if benchmark definition are similar."""
+    # To ensure a fair comparison, jobs must come from the same configuration file
+    # But the number and names can be different regarding the hardware configuration.
+    # To determine if traces can be compared, we'll compare only
+    # the original configuration files, not the actual jobs.
 
-            for job in sorted(job_profile.bench_list()):
-                # Let's check if the two bench are similar
-                # If not, a fatal() will be triggered
-                differences = job_profile.bench(job).differences(trace.bench(job))
-                if differences:
-                    fatal(differences)
+    for trace in args.traces:
+        # Is the current trace config file matches the first trace ?
+        if set(args.traces[0].get_original_config()).difference(
+            trace.get_original_config()
+        ):
+            # If a trace is not having the same configuration file,
+            # It's impossible to compare & graph the results.
+            fatal(
+                f"{trace.filename} is not having the same configuration file as previous traces"
+            )
 
 
 def individual_graph(args, output_dir, bench_name: str, traces_name: list) -> int:
@@ -595,59 +621,55 @@ def individual_graph(args, output_dir, bench_name: str, traces_name: list) -> in
 
 def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
     """Render line graphs to compare performance scaling."""
-    if args.verbose:
-        print(f"Scaling: working on {job}")
     rendered_graphs = 0
-    selected_bench_names = []
-    jobs = {}  # type: dict[str, list[Any]]
-    metrics = {}
     temp_outdir = output_dir.joinpath("scaling")
 
-    # First extract all subjobs expended from the same job
-    for bench_name in sorted(args.traces[0].bench_list()):
-        # As all traces are known to be similar, let's focus on a single trace to
-        # compute the list of jobs to process and their associated metrics
-        bench = args.traces[0].bench(bench_name)
-        if bench.job_name() == job:
-            selected_bench_names.append(bench_name)
-            emp = bench.engine_module_parameter()
-            if emp not in metrics:
-                perf_list, unit = bench.prepare_perf_metrics()
-                metrics[emp] = perf_list, unit
-            if emp not in jobs.keys():
-                jobs[emp] = []
-            jobs[emp].append([bench_name, bench])
-
+    # We extract the skeleton from the first trace
+    # This will give us the name of the engine module parameters and
+    # the metrics we need to plot
+    benches = args.traces[0].get_benches_by_job_per_emp(job)
+    if args.verbose:
+        print(
+            f"Scaling: working on job '{job}' : {len(benches.keys())} engine_module_parameter to render"
+        )
     # For all subjobs sharing the same engine module parameter
     # i.e int128
-    for parameter in jobs.keys():
+    for emp in benches.keys():
         aggregated_perfs = {}  # type: dict[str, dict[str, Any]]
         aggregated_perfs_watt = {}  # type: dict[str, dict[str, Any]]
         aggregated_watt = {}  # type: dict[str, dict[str, Any]]
-        workers = []
+        workers = {}  # type: dict[str, list]
         logical_core_per_worker = []
-        perf_list, unit = metrics[parameter]
-        for bench_name, bench in jobs[parameter]:
-            workers.append(bench.workers())
-            pin = len(bench.cpu_pin())
-            # If there is no cpu_pin, we'll have the same number of workers
-            if pin == 0:
-                pin = bench.workers()
-            logical_core_per_worker.append(bench.workers() / pin)
-            # for each performance metric we have to plot,
-            # let's prepare the data set to plot
-            for perf in perf_list:
-                if perf not in aggregated_perfs.keys():
-                    aggregated_perfs[perf] = {}
-                    aggregated_perfs_watt[perf] = {}
-                    aggregated_watt[perf] = {}
-                # for each input trace file
-                for trace in args.traces:
+        perf_list, unit = benches[emp]["metrics"]
+        # For each metric we need to plot
+        for perf in perf_list:
+            if perf not in aggregated_perfs.keys():
+                aggregated_perfs[perf] = {}
+                aggregated_perfs_watt[perf] = {}
+                aggregated_watt[perf] = {}
+            # For every trace file given at the command line
+            for trace in args.traces:
+                workers[trace.get_name()] = []
+                # Let's iterate on each Bench from this trace file matching this emp
+                for bench in trace.get_benches_by_job_per_emp(job)[emp]["bench"]:
+                    # Workers list may be different between traces
+                    # Let's keep a unique list of workers
+                    if bench.workers() not in workers[trace.get_name()]:
+                        workers[trace.get_name()].append(bench.workers())
+                        pin = len(bench.cpu_pin())
+                        # If there is no cpu_pin, we'll have the same number of workers
+                        if pin == 0:
+                            pin = bench.workers()
+                        logical_core_per_worker.append(bench.workers() / pin)
+
+                    # for each performance metric we have to plot,
+                    # let's prepare the data set to plot
                     if trace.get_name() not in aggregated_perfs[perf].keys():
                         aggregated_perfs[perf][trace.get_name()] = []
                         aggregated_perfs_watt[perf][trace.get_name()] = []
                         aggregated_watt[perf][trace.get_name()] = []
-                    trace.bench(bench_name).add_perf(
+
+                    bench.add_perf(
                         perf,
                         aggregated_perfs[perf][trace.get_name()],
                         aggregated_perfs_watt[perf][trace.get_name()],
@@ -657,6 +679,7 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
         if len(logical_core_per_worker) == 1:
             print(f"Scaling: No scaling detected on {job}, skipping graph")
             break
+
         # Let's render all graphs types
         for graph_type in GRAPH_TYPES:
             # Let's render each performance graph
@@ -670,20 +693,20 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 if "perf_watt" in graph_type:
                     graph_type_title = f"Scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
                     y_label = f"{unit} per Watt"
-                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}_{'_vs_'.join(traces_name)}"
+                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}{'_vs_'.join(traces_name)}"
                     y_source = aggregated_perfs_watt
                 elif "watts" in graph_type:
                     graph_type_title = (
                         f"Scaling {graph_type}: {args.traces[0].get_metric_name()}"
                     )
-                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}_{'_vs_'.join(traces_name)}"
+                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}{'_vs_'.join(traces_name)}"
                     y_label = "Watts"
                     y_source = aggregated_watt
                 else:
                     graph_type_title = (
                         f"Scaling {graph_type}: {bench.get_title_engine_name()}"
                     )
-                    outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}_{'_vs_'.join(traces_name)}"
+                    outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}{'_vs_'.join(traces_name)}"
                     y_source = aggregated_perfs
 
                 title = (
@@ -715,8 +738,10 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 # We need to prepare the x_serie to be sorted this way
                 # The y_serie depends on the graph type
                 for trace_name in aggregated_perfs[perf]:
-                    order = np.argsort(workers)
-                    x_serie = np.array(workers)[order]
+                    # Each trace can have different numbers of workers based on the hardware setup
+                    # So let's consider the list of x values per trace.
+                    order = np.argsort(workers[trace_name])
+                    x_serie = np.array(workers[trace_name])[order]
                     y_serie = np.array(y_source[perf][trace_name])[order]
                     graph.get_ax().plot(x_serie, y_serie, "", label=trace_name)
 
@@ -1146,7 +1171,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     rendered_graphs += graph_environment(args, output_dir)
-    compare_bench_profiles(args)
+    compare_traces(args)
     rendered_graphs += plot_graphs(args, output_dir)
     print(f"{rendered_graphs} graphs can be found in '{output_dir}' directory")
 
