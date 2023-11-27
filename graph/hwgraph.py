@@ -177,7 +177,9 @@ class Bench:
         """Return the Trace object associated to this benchmark"""
         return self.trace
 
-    def add_perf(self, perf="", traces_perf=None, perf_watt=None, watt=None) -> None:
+    def add_perf(
+        self, perf="", traces_perf=None, perf_watt=None, watt=None, index=None
+    ) -> None:
         """Extract performance and power efficiency"""
         try:
             if perf and traces_perf is not None:
@@ -186,15 +188,26 @@ class Bench:
                 # but let's consider sum_speed for memrate runs
                 if self.engine_module() in ["memrate"]:
                     value = self.get(perf)["sum_speed"]
-                traces_perf.append(value)
+                if index is None:
+                    traces_perf.append(value)
+                else:
+                    traces_perf[index] = value
 
             # If we want to keep the perf/watt ratio, let's compute it
             if perf_watt is not None:
-                perf_watt.append(value / self.get_trace().get_metric_mean(self))
+                metric = value / self.get_trace().get_metric_mean(self)
+                if index is None:
+                    perf_watt.append(metric)
+                else:
+                    perf_watt[index] = metric
 
             # If we want to keep the power consumption, let's save it
             if watt is not None:
-                watt.append(self.get_trace().get_metric_mean(self))
+                metric = self.get_trace().get_metric_mean(self)
+                if index is None:
+                    watt.append(metric)
+                else:
+                    watt[index] = metric
         except ValueError:
             fatal(f"No {perf} found in {self.get_bench_name()}")
 
@@ -473,7 +486,9 @@ class Graph:
             self.ax.xaxis.set_minor_locator(
                 MultipleLocator(x_minor_locator),
             )
+        self.prepare_grid()
 
+    def prepare_grid(self):
         self.ax.xaxis.set_minor_locator(AutoMinorLocator())
         plt.minorticks_on()
 
@@ -559,70 +574,178 @@ def compare_traces(args) -> None:
             names.append(trace.get_name())
 
 
-def individual_graph(args, output_dir, bench_name: str, traces_name: list) -> int:
+def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
     """Plot bar graph to compare traces during individual benchmarks."""
     if args.verbose:
-        print(f"Individual: rendering {bench_name}")
+        print(f"Individual: rendering {job}")
     rendered_graphs = 0
     temp_outdir = output_dir.joinpath("individual")
 
-    # As all benchmarks are known to be equivalent,
-    # let's pick the first one as reference
-    bench = args.traces[0].bench(bench_name)
-
-    # Extract the performance metrics, units and name from this bench
-    perf_list, unit = bench.prepare_perf_metrics()
-
-    # Let's render all graphs types
-    for graph_type in GRAPH_TYPES:
-        # for each performance metric we have to plot
+    benches = args.traces[0].get_benches_by_job_per_emp(job)
+    # For all subjobs sharing the same engine module parameter
+    # i.e int128
+    for emp in benches.keys():
+        aggregated_perfs = {}  # type: dict[str, dict[str, Any]]
+        aggregated_perfs_watt = {}  # type: dict[str, dict[str, Any]]
+        aggregated_watt = {}  # type: dict[str, dict[str, Any]]
+        max_perf = {}  # type: dict[str, list]
+        max_perfs_watt = {}  # type: dict[str, list]
+        max_watt = {}  # type: dict[str, list]
+        perf_list, unit = benches[emp]["metrics"]
+        # For each metric we need to plot
         for perf in perf_list:
-            traces_perf = []  # type: list[float]
-            traces_perf_watt = []  # type: list[float]
-            traces_watt = []  # type: list[float]
-            # for each input trace file
+            if perf not in aggregated_perfs.keys():
+                aggregated_perfs[perf] = {}
+                aggregated_perfs_watt[perf] = {}
+                aggregated_watt[perf] = {}
+                max_perf[perf] = [0] * len(traces_name)
+                max_perfs_watt[perf] = [0] * len(traces_name)
+                max_watt[perf] = [0] * len(traces_name)
+            # We want a datastructure where metrics of each iteration on the number of workers reports performance for each trace
+            # It looks like :
+            #  {2: [1264.58, 1063.5, 999.14, 1174.89],
+            #   4: [2496.75, 2125.14, 1998.55, 2311.87],
+            #   6: [3717.81, 3197.44, 2996.02, 3450.07],
+            #   8: [4939.88, 4265.68, 4031.51, 4579.23],
+            #  16: [9627.07, 8482.82, 7987.64, 8955.85],
+            #  32: [17591.86, 17058.58, 15966.49, 17183.78],
+            #  64: [0, 32507.33, 32468.21, 31999.65],
+            #  96: [0, 0, 47910.2, 0]}
+            # In this example 64 & 96 workers have partial values because some hosts didn't had enough cores to do it
+
+            # For every trace file given at the command line
+            index = 0
             for trace in args.traces:
-                trace.bench(bench_name).add_perf(
-                    perf, traces_perf, traces_perf_watt, traces_watt
+                # Let's iterate on each Bench from this trace file matching this em
+                for bench in trace.get_benches_by_job_per_emp(job)[emp]["bench"]:
+                    if bench.workers() not in aggregated_perfs[perf].keys():
+                        # If the worker count is not known yet, let's init all structures with as much zeros as the number of traces
+                        # This will be the default value in case of the host doesn't have performance results
+                        aggregated_perfs[perf][bench.workers()] = [0] * len(traces_name)
+                        aggregated_perfs_watt[perf][bench.workers()] = [0] * len(
+                            traces_name
+                        )
+                        aggregated_watt[perf][bench.workers()] = [0] * len(traces_name)
+                    bench.add_perf(
+                        perf,
+                        aggregated_perfs[perf][bench.workers()],
+                        aggregated_perfs_watt[perf][bench.workers()],
+                        aggregated_watt[perf][bench.workers()],
+                        index=index,
+                    )
+
+                    temp_max_perf = aggregated_perfs[perf][bench.workers()][index]
+                    if temp_max_perf > max_perf[perf][index]:
+                        max_perf[perf][index] = temp_max_perf
+                        max_perfs_watt[perf][index] = aggregated_perfs_watt[perf][
+                            bench.workers()
+                        ][index]
+                        max_watt[perf][index] = aggregated_watt[perf][bench.workers()][
+                            index
+                        ]
+
+                index = index + 1
+
+        for graph_type in GRAPH_TYPES:
+            # Let's render each performance graph
+            graph_type_title = ""
+
+            # for each performance metric we have to plot
+            for perf in perf_list:
+                clean_perf = perf.replace(" ", "").replace("/", "")
+                y_label = unit
+                outdir = temp_outdir.joinpath(graph_type)
+                outfile = f"{bench.get_title_engine_name().replace(' ','_')}"
+
+                # Let's define the tree architecture based on the benchmark profile
+                # If the benchmark as multiple performance results, let's put then in a specific directory
+                if len(perf_list) > 1:
+                    outdir = outdir.joinpath(emp, perf)
+                else:
+                    outdir = outdir.joinpath(emp)
+
+                # Select the proper datasource and titles/labels regarding the graph type
+                if graph_type == "perf_watt":
+                    graph_type_title = f"Individual {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
+                    graph_type_title += ": Bigger is better"
+                    y_label = f"{unit} per Watt"
+                    y_source = aggregated_perfs_watt
+                    y_max = max_perfs_watt
+                elif graph_type == "watts":
+                    graph_type_title = (
+                        f"Individual {graph_type}: {args.traces[0].get_metric_name()}"
+                    )
+                    graph_type_title += ": Lower is better"
+                    y_label = "Watts"
+                    y_source = aggregated_watt
+                    y_max = max_watt
+                else:
+                    graph_type_title = (
+                        f"Individual {graph_type}: {bench.get_title_engine_name()}"
+                    )
+                    graph_type_title += ": Bigger is better"
+                    y_source = aggregated_perfs
+                    y_max = max_perf
+
+                # For each performance we have
+                for worker in aggregated_perfs[perf]:
+                    # Let's make a custom graph
+                    title = f'{args.title}\n\n{graph_type_title} during "{bench.job_name()}" benchmark\n'
+                    title += f"\nStressor: {worker} x {bench.engine()} "
+                    title += f"{bench.engine_module()} "
+                    title += f"{bench.engine_module_parameter()} for {bench.duration()} seconds"
+                    y_serie = np.array(y_source[perf][worker])
+                    graph = Graph(
+                        args,
+                        title,
+                        "",
+                        y_label,
+                        outdir,
+                        f"{worker}_workers_{outfile}{graph_type}_{clean_perf}",
+                    )
+
+                    # Prepare the plot for this benchmark
+                    bar_colors = ["tab:red", "tab:blue", "tab:green", "tab:orange"]
+                    # zorder=3 ensure the graph with be on top of the grid
+                    graph.get_ax().bar(traces_name, y_serie, color=bar_colors, zorder=3)
+                    graph.get_ax().bar_label(
+                        graph.get_ax().containers[0],
+                        label_type="center",
+                        color="white",
+                        fontsize=16,
+                    )
+                    graph.prepare_grid()
+                    graph.render()
+                    rendered_graphs += 1
+
+                # Now render the max performance graph
+                # Concept is to show what every product reached as a maximum perf and plot them together
+                # This way we have on a single graph showing the max of 32 cores vs a 48 cores vs a 64 cores.
+                title = (
+                    f'{args.title}\n\n{graph_type_title} during "{job}" benchmark\n'
+                    f"\nProduct maximum performance during {bench.duration()} seconds"
+                )
+                y_serie = np.array(y_max[perf])
+                graph = Graph(
+                    args,
+                    title,
+                    "",
+                    y_label,
+                    outdir,
+                    f"max_perf_{outfile}{graph_type}_{clean_perf}_{'_vs_'.join(traces_name)}",
                 )
 
-            clean_perf = perf.replace(" ", "").replace("/", "")
-            outfile = f"{bench_name}_{clean_perf}_{bench.workers()}x{bench.engine()}_{bench.engine_module()}_{bench.engine_module_parameter()}_{'_vs_'.join(traces_name)}"
-            y_label = unit
-            outdir = temp_outdir.joinpath(graph_type)
-            if graph_type == "perf_watt":
-                graph_type_title = f"'{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
-                y_label = f"{unit} per Watt"
-                outfile = f"perfwatt_{outfile}"
-                y_source = traces_perf_watt
-            elif graph_type == "watts":
-                graph_type_title = f"'{args.traces[0].get_metric_name()}'"
-                outfile = f"watt_{outfile}"
-                y_label = "Watts"
-                y_source = traces_watt
-            else:
-                graph_type_title = f"'{bench.get_title_engine_name()} {perf}'"
-                y_source = traces_perf
-
-            title = (
-                f'{args.title}\n\n{graph_type_title} during "{bench_name}" benchmark\n'
-                f"\n{trace.bench(bench_name).title()}"
-            )
-
-            graph = Graph(
-                args,
-                title,
-                "",
-                y_label,
-                outdir,
-                outfile,
-            )
-
-            # Prepare the plot for this benchmark
-            bar_colors = ["tab:red", "tab:blue", "tab:red", "tab:orange"]
-            graph.get_ax().bar(traces_name, y_source, color=bar_colors)
-            graph.render()
-            rendered_graphs += 1
+                # zorder=3 ensure the graph with be on top of the grid
+                graph.get_ax().bar(traces_name, y_serie, color=bar_colors, zorder=3)
+                graph.get_ax().bar_label(
+                    graph.get_ax().containers[0],
+                    label_type="center",
+                    color="white",
+                    fontsize=16,
+                )
+                graph.prepare_grid()
+                graph.render()
+                rendered_graphs += 1
     return rendered_graphs
 
 
@@ -1115,10 +1238,9 @@ def plot_graphs(args, output_dir) -> int:
         rendered_graphs += scaling_graph(args, output_dir, job, traces_name)
 
     # Let's generate the unitary comparing graphs
-    benches = args.traces[0].bench_list()
-    print(f"Individual: rendering {len(benches)} jobs")
-    for bench_name in sorted(benches):
-        rendered_graphs += individual_graph(args, output_dir, bench_name, traces_name)
+    print(f"Individual: rendering {len(jobs)} jobs")
+    for job in jobs:
+        rendered_graphs += individual_graph(args, output_dir, job, traces_name)
 
     return rendered_graphs
 
