@@ -193,8 +193,11 @@ class StressNG(ExternalBench):
         self.stressor_name = parameters.get_engine_module_parameter()
         self.engine_module = engine_module
         self.parameters = parameters
+        self.skip = False
 
     def run_cmd(self) -> list[str]:
+        if self.skip:
+            return ["echo", "skipped benchmark"]
         # Let's build the command line to run the tool
         args = [
             self.engine_module.get_engine().get_binary(),
@@ -221,6 +224,11 @@ class StressNG(ExternalBench):
         return self.engine_module.get_engine().run_cmd_version()
 
     def parse_cmd(self, stdout: bytes, stderr: bytes):
+        if self.skip:
+            return self.parameters.get_result_format() | {
+                "bogo ops/s": 0,
+                "skipped": True,
+            }
         inp = stderr
         bogo_idx = 8
         line = -1
@@ -272,11 +280,14 @@ class StressNGStream(StressNG):
         # TODO: handle get_pinned_cpu ; it does not necessarily make sense for this
         # benchmark, but it could be revisited once we support pinning on multiple CPUs.
         if self.engine_module.get_engine().get_version() != "0.16.04":
-            raise NotImplementedError(
+            print(
                 "StressNGStream needs stress-ng version 0.16.04 ; "
                 "later version have different --metrics vs --metrics-brief options; "
-                "earlier version format memory bandwidth differently"
+                "earlier version format memory bandwidth differently; "
+                "This benchmark will be skipped with and have a performance of 0"
             )
+            self.skip = True
+            return ["echo", "Skipped benchmark"]
         ret: list[str] = [
             self.engine_module.get_engine().get_binary(),
             "--timeout",
@@ -289,10 +300,30 @@ class StressNGStream(StressNG):
         self.stream_l3_size: Optional[int] = None
         if self.stream_l3_size is not None:
             ret.extend(["--stream-l3-size", str(self.stream_l3_size)])
-
         return ret
 
+    def empty_result(self):
+        detail_size = self.parameters.get_engine_instances_count()
+        return {
+            "detail": {
+                "read": [0] * detail_size,
+                "write": [0] * detail_size,
+                "Mflop/s": [0] * detail_size,
+            },
+            "avg_read": 0.0,
+            "avg_write": 0.0,
+            "avg_Mflop/s": 0.0,
+            "avg_total": 0.0,
+            "sum_read": 0.0,
+            "sum_write": 0.0,
+            "sum_Mflop/s": 0.0,
+            "sum_total": 0.0,
+            "skipped": True,
+        }
+
     def parse_cmd(self, stdout: bytes, stderr: bytes) -> dict[str, Any]:
+        if self.skip:
+            return self.parameters.get_result_format() | self.empty_result()
         detail_rate = re.compile(r"\] stream: memory rate: ")
         summary_rate = re.compile(r"\] stream ")
         detail_parse = re.compile(
@@ -448,7 +479,6 @@ class StressNGVNNI(StressNG):
         super().__init__(engine_module, parameters)
         self.method = parameters.get_engine_module_parameter()
         self.methods = engine_module.methods
-        self.skip = False
         if not self.methods.available(self.method):
             raise LookupError(f"Unknown method {self.method}")
         if not self.methods.cpu_check(self.method, parameters.get_hw()):
@@ -458,7 +488,8 @@ class StressNGVNNI(StressNG):
     def run_cmd(self) -> list[str]:
         if not self.version_compatible():
             print("WARNING: skipping benchmark, needs stress-ng >= 0.16.04")
-        if not self.version_compatible() or self.skip:
+            self.skip = True
+        if self.skip:
             return ["echo", "skipped benchmark"]
         return (
             super().run_cmd()
@@ -470,11 +501,6 @@ class StressNGVNNI(StressNG):
         )
 
     def parse_cmd(self, stdout: bytes, stderr: bytes):
-        if not self.version_compatible() or self.skip:
-            return self.parameters.get_result_format() | {
-                "bogo ops/s": 0,
-                "skipped": True,
-            }
         return super().parse_cmd(stdout, stderr)
 
     def version_compatible(self) -> bool:
@@ -490,18 +516,60 @@ class StressNGMemrate(StressNG):
     def run_cmd(self) -> list[str]:
         # TODO: handle get_pinned_cpu ; it does not necessarily make sense for this
         # benchmark, but it could be revisited once we support pinning on multiple CPUs.
+        self.skip = False
         if self.engine_module.get_engine().get_version() != "0.16.04":
-            raise NotImplementedError(
-                "StressNGStream needs stress-ng version 0.16.04 ; "
+            print(
+                "StressNGMemrate needs stress-ng version 0.16.04 ; "
                 "later version have different --metrics vs --metrics-brief options; "
-                "earlier version format memory bandwidth differently"
+                "earlier version format memory bandwidth differently; "
+                "This benchmark will be skipped with and have a performance of 0"
             )
+            self.skip = True
+            return ["echo", "Skipped benchmark"]
         return super().run_cmd() + [
             "--memrate",
             str(self.parameters.get_engine_instances_count()),
         ]
 
+    def empty_result(self):
+        ret = {}
+        for method in [
+            "read1024",
+            "read128",
+            "read128pf",
+            "read16",
+            "read256",
+            "read32",
+            "read512",
+            "read64",
+            "read64pf",
+            "read8",
+            "write1024",
+            "write128",
+            "write128nt",
+            "write16",
+            "write16stod",
+            "write256",
+            "write32",
+            "write32nt",
+            "write32stow",
+            "write512",
+            "write64",
+            "write64nt",
+            "write64stoq",
+            "write8",
+            "write8stob",
+        ]:
+            ret[method] = {
+                "avg_speed": 0.0,
+                "sum_speed": 0.0,
+            }
+        ret["skipped"] = True
+        return ret
+
     def parse_cmd(self, stdout: bytes, stderr: bytes) -> dict[str, Any]:
+        if self.skip:
+            return self.parameters.get_result_format() | self.empty_result()
         summary_parse = re.compile(
             r"memrate .* (?P<speed>[0-9\.]+) (?P<test>[a-z0-9]+) MB per sec .*$"
         )
