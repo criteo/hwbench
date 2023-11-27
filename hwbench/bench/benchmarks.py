@@ -32,16 +32,11 @@ class Benchmarks:
 
         return engine_name, engine.get_module(engine_module_name)
 
-    def validate_jobs_parameters(self):
-        """Validate all jobs parameters."""
-        for bench in self.benchs:
-            bench.validate_parameters()
-
     def get_config(self):
         """Return the config."""
         return self.config
 
-    def parse_config(self):
+    def parse_config(self, validate_parameters=True):
         """Parse the configuration file to create a list of benchmarks to run."""
         # Ensure the configuration file has a valid syntax
         self.config.validate_sections()
@@ -101,46 +96,40 @@ class Benchmarks:
                         job,
                         stressor_range_scaling,
                         sorted(pinned_cpu.copy()),
+                        validate_parameters,
                     )
             elif hosting_cpu_cores_scaling == "iterate":
                 for iteration in range(len(hosting_cpu_cores)):
                     # Pick the last CPU of the list
                     pinned_cpu = hosting_cpu_cores.pop()
                     self.__schedule_benchmarks(
-                        job,
-                        stressor_range_scaling,
-                        pinned_cpu,
+                        job, stressor_range_scaling, pinned_cpu, validate_parameters
                     )
             elif hosting_cpu_cores_scaling == "none":
                 self.__schedule_benchmarks(
                     job,
                     stressor_range_scaling,
                     sorted(hosting_cpu_cores),
+                    validate_parameters,
                 )
             else:
                 hccs = hosting_cpu_cores_scaling
                 h.fatal(f"Unsupported hosting_cpu_cores_scaling : {hccs}")
 
     def __schedule_benchmarks(
-        self,
-        job,
-        stressor_range_scaling,
-        pinned_cpu,
+        self, job, stressor_range_scaling, pinned_cpu, validate_parameters: bool
     ):
         """Iterate on engine module parameters to schedule benchmarks."""
         # Detecting stressor range scaling mode
         if stressor_range_scaling == "plus_1":
             for emp in self.config.get_engine_module_parameter(job):
-                self.__schedule_benchmark(job, pinned_cpu, emp)
+                self.__schedule_benchmark(job, pinned_cpu, emp, validate_parameters)
         else:
             srs = stressor_range_scaling
             h.fatal(f"Unsupported stressor_range_scaling : {srs}")
 
     def __schedule_benchmark(
-        self,
-        job,
-        pinned_cpu,
-        engine_module_parameter,
+        self, job, pinned_cpu, engine_module_parameter, validate_parameters: bool
     ):
         """Schedule benchmark."""
         runtime = self.config.get_runtime(job)
@@ -171,7 +160,7 @@ class Benchmarks:
                     benchmark = Benchmark(
                         self.count_benchmarks(), engine_module, parameters
                     )
-                    self.add_benchmark(benchmark)
+                    self.add_benchmark(benchmark, validate_parameters)
             else:
                 parameters = BenchmarkParameters(
                     self.out_dir,
@@ -187,9 +176,11 @@ class Benchmarks:
                 benchmark = Benchmark(
                     self.count_benchmarks(), engine_module, parameters
                 )
-                self.add_benchmark(benchmark)
+                self.add_benchmark(benchmark, validate_parameters)
 
-    def add_benchmark(self, benchmark: Benchmark):
+    def add_benchmark(self, benchmark: Benchmark, validate_parameters: bool):
+        if validate_parameters:
+            benchmark.validate_parameters()
         self.benchs.append(benchmark)
 
     def count_benchmarks(self) -> int:

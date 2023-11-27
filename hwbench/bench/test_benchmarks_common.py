@@ -56,9 +56,7 @@ class TestCommon(unittest.TestCase):
         return self.benches
 
     def parse_config(self, validate_parameters=True):
-        parse = self.benches.parse_config()
-        if validate_parameters:
-            self.benches.validate_jobs_parameters()
+        parse = self.benches.parse_config(validate_parameters)
         return parse
 
     def get_config(self) -> config.Config:

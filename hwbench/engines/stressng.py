@@ -26,6 +26,7 @@ class EngineModulePinnable(EngineModuleBase):
                     f"Cannot pin on core #{cpu} we only have "
                     f"{params.get_hw().logical_core_count()} cores"
                 )
+        return ""
 
 
 class EngineModuleQsort(EngineModulePinnable):
@@ -94,6 +95,15 @@ class EngineModuleVNNI(EngineModulePinnable):
 
     def run(self, p: BenchmarkParameters):
         return StressNGVNNI(self, p).run()
+
+    def validate_module_parameters(self, params: BenchmarkParameters):
+        msg = super().validate_module_parameters(params)
+        method = params.get_engine_module_parameter()
+        if not self.methods.available(method):
+            msg += f"Unknown method {method}\n"
+        if not self.methods.cpu_check(method, params.get_hw()):
+            msg += f"CPU does not support method {method}\n"
+        return msg
 
 
 class EngineModuleCpu(EngineModulePinnable):
@@ -433,11 +443,11 @@ class StressNGVNNIMethods:
 
 class StressNGVNNI(StressNG):
     def __init__(
-        self, engine_module: EngineModuleBase, parameters: BenchmarkParameters
+        self, engine_module: EngineModuleVNNI, parameters: BenchmarkParameters
     ):
         super().__init__(engine_module, parameters)
         self.method = parameters.get_engine_module_parameter()
-        self.methods = StressNGVNNIMethods()
+        self.methods = engine_module.methods
         if not self.methods.available(self.method):
             raise LookupError(f"Unknown method {self.method}")
         if not self.methods.cpu_check(self.method, parameters.get_hw()):
