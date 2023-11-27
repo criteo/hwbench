@@ -547,6 +547,8 @@ class Graph:
             format=file_format,
             dpi=self.args.dpi,
         )
+        self.fig.clear()
+        plt.close(self.fig)
 
 
 def valid_trace_file(trace_arg: str) -> Trace:
