@@ -167,6 +167,7 @@ class TestParse(unittest.TestCase):
         assert test_params(Intel_6140, "noavx_vpaddb") is True
         assert test_params(Intel_6140, "avx_vpdpbusd512") is False
         assert test_params(Intel_6140, "avx_vpaddb128") is False
+        assert test_params(Intel_6140, "avx_vpdpwssd512") is False
 
         assert test_params(AMD_9534, "noavx_vpaddb") is True
         assert test_params(AMD_9534, "avx_vpdpbusd512") is True
@@ -175,12 +176,7 @@ class TestParse(unittest.TestCase):
         assert test_params(AMD_7502, "noavx_vpaddb") is True
         assert test_params(AMD_7502, "avx_vpdpbusd512") is False
         assert test_params(AMD_7502, "avx_vpaddb128") is False
+        assert test_params(AMD_7502, "avx_vpaddb256") is False
 
         with self.assertRaises(LookupError):
             test_instance(AMD_9534, "inexistant")
-
-        with self.assertRaises(NotImplementedError):
-            test_instance(AMD_7502, "avx_vpaddb256")
-
-        with self.assertRaises(NotImplementedError):
-            test_instance(Intel_6140, "avx_vpdpwssd512")

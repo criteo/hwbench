@@ -102,7 +102,7 @@ class EngineModuleVNNI(EngineModulePinnable):
         if not self.methods.available(method):
             msg += f"Unknown method {method}\n"
         if not self.methods.cpu_check(method, params.get_hw()):
-            msg += f"CPU does not support method {method}\n"
+            print(f"WARNING: CPU does not support method {method}, perf will be 0")
         return msg
 
 
@@ -448,15 +448,18 @@ class StressNGVNNI(StressNG):
         super().__init__(engine_module, parameters)
         self.method = parameters.get_engine_module_parameter()
         self.methods = engine_module.methods
+        self.skip = False
         if not self.methods.available(self.method):
             raise LookupError(f"Unknown method {self.method}")
         if not self.methods.cpu_check(self.method, parameters.get_hw()):
-            raise NotImplementedError(f"CPU does not support method {self.method}")
+            print(f"WARNING: CPU does not support method {self.method}, skipping")
+            self.skip = True
 
     def run_cmd(self) -> list[str]:
         if not self.version_compatible():
             print("WARNING: skipping benchmark, needs stress-ng >= 0.16.04")
-            return ["echo", "skipped benchmark, non-compatible stress-ng"]
+        if not self.version_compatible() or self.skip:
+            return ["echo", "skipped benchmark"]
         return (
             super().run_cmd()
             + [
@@ -467,8 +470,11 @@ class StressNGVNNI(StressNG):
         )
 
     def parse_cmd(self, stdout: bytes, stderr: bytes):
-        if not self.version_compatible():
-            return {}
+        if not self.version_compatible() or self.skip:
+            return self.parameters.get_result_format() | {
+                "bogo ops/s": 0,
+                "skipped": True,
+            }
         return super().parse_cmd(stdout, stderr)
 
     def version_compatible(self) -> bool:
