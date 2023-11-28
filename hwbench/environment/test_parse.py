@@ -20,29 +20,32 @@ class TestParseCPU(object):
         assert version == (d / "version").read_bytes().strip()
 
     def test_parsing_cpuinfo(self):
-        d = pathlib.Path("./tests/parsing/cpu_info/v2321")
-        print(f"parsing test {d.name}")
-        test_target = cpu_info.CPU_INFO(path)
+        for d in [
+            pathlib.Path("./tests/parsing/cpu_info/v2321"),
+            pathlib.Path("./tests/parsing/cpu_info/cpustorage"),
+        ]:
+            print(f"parsing test {d.name}")
+            test_target = cpu_info.CPU_INFO(path)
 
-        ver_stdout = (d / "version-stdout").read_bytes()
-        ver_stderr = (d / "version-stderr").read_bytes()
+            ver_stdout = (d / "version-stdout").read_bytes()
+            ver_stderr = (d / "version-stderr").read_bytes()
 
-        version = test_target.parse_version(ver_stdout, ver_stderr)
-        assert version == (d / "version").read_bytes().strip()
+            version = test_target.parse_version(ver_stdout, ver_stderr)
+            assert version == (d / "version").read_bytes().strip()
 
-        stdout = (d / "stdout").read_bytes()
-        stderr = (d / "stderr").read_bytes()
+            stdout = (d / "stdout").read_bytes()
+            stderr = (d / "stderr").read_bytes()
 
-        output = test_target.parse_cmd(stdout, stderr)
-        assert output == json.loads((d / "output").read_bytes())
+            output = test_target.parse_cmd(stdout, stderr)
+            assert output == json.loads((d / "output").read_bytes())
 
-        assert test_target.get_arch() == output["Architecture"]
-        assert test_target.get_family() == int(output["CPU family"])
-        assert test_target.get_max_freq() == float(output["CPU max MHz"])
-        assert test_target.get_model() == int(output["Model"])
-        assert test_target.get_model_name() == output["Model name"]
-        assert test_target.get_stepping() == int(output["Stepping"])
-        assert test_target.get_vendor() == output["Vendor ID"]
+            assert test_target.get_arch() == output["Architecture"]
+            assert test_target.get_family() == int(output["CPU family"])
+            assert test_target.get_max_freq() == float(output["CPU max MHz"])
+            assert test_target.get_model() == int(output["Model"])
+            assert test_target.get_model_name() == output["Model name"]
+            assert test_target.get_stepping() == int(output["Stepping"])
+            assert test_target.get_vendor() == output["Vendor ID"]
 
     def test_parsing_cpu_cores(self):
         d = pathlib.Path("./tests/parsing/cpu_cores/v2321")
@@ -208,6 +211,19 @@ class TestParseCPU(object):
         test_target.parse_cmd(stdout, stderr)
         assert test_target.count() == 1
         assert len(test_target.get_cores(0)) == 128
+
+    def test_parsing_numa_2_domains(self):
+        d = pathlib.Path("./tests/parsing/numa/2domains")
+        print(f"parsing test {d.name}")
+        test_target = numa.NUMA(path)
+
+        stdout = (d / "stdout").read_bytes()
+        stderr = (d / "stderr").read_bytes()
+
+        test_target.parse_cmd(stdout, stderr)
+        assert test_target.count() == 2
+        assert len(test_target.get_cores(0)) == 36
+        assert len(test_target.get_cores(1)) == 36
 
     def test_parsing_numa_4_domains(self):
         d = pathlib.Path("./tests/parsing/numa/4domains")

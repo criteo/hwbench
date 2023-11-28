@@ -14,6 +14,21 @@ def simple(hardware: env_hw.BaseHardware) -> str:
         else:
             core_count.append((test - 5) * 16)
 
+    # If the number of cores is not modulo 16, the last test is not testing all cores
+    # So if we don't have a test with the current max number of cores, let's add it
+    if hardware.get_cpu().get_physical_cores_count() not in core_count:
+        core_count.append(hardware.get_cpu().get_physical_cores_count())
+
+    # In case of multiple sockets, let's ensure we test a full socket during the scaling
+    cores_per_socket = int(
+        hardware.get_cpu().get_physical_cores_count()
+        / hardware.get_cpu().get_sockets_count()
+    )
+    if cores_per_socket not in core_count:
+        core_count.append(cores_per_socket)
+
+    core_count = sorted(core_count)
+
     global_cpu_list = ""
     for cpus in core_count:
         if cpus <= hardware.get_cpu().get_physical_cores_count():

@@ -16,10 +16,38 @@ class TestHelpers(tbc.TestCommon):
         """Testing helper functions."""
 
         # Simple
-        ## On a simple test and for a 64 core cpu, we must have 8 jobs created
+        ## On a simple test and for a 64 core cpu, we must have 9 jobs created
         ## Each of them must have the number of logical cores listed below
         logical_cores = [2, 4, 6, 8, 16, 32, 64, 96, 128]
+        assert self.get_benches().count_benchmarks() == 9
         for job in range(0, 9):
+            assert self.bench_name(job) == "simple"
+            assert (
+                len(self.get_bench_parameters(job).get_pinned_cpu())
+                == logical_cores[job]
+            )
+
+
+class TestHelpers_CPUSTORAGE(tbc.TestCommon):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.load_mocked_hardware(
+            cpucores="./tests/parsing/cpu_cores/cpustorage",
+            cpuinfo="./tests/parsing/cpu_info/cpustorage",
+            numa="./tests/parsing/numa/2domains",
+        )
+        self.load_benches("./config/helpers.conf")
+        self.parse_config()
+
+    def test_helpers(self):
+        """Testing helper functions."""
+
+        # Simple
+        ## On a simple test and for a dual socket 18 cores cpu, we must have 9 jobs created
+        ## Each of them must have the number of logical cores listed below
+        logical_cores = [2, 4, 6, 8, 16, 32, 36, 64, 72]
+        assert self.get_benches().count_benchmarks() == 9
+        for job in range(0, 8):
             assert self.bench_name(job) == "simple"
             assert (
                 len(self.get_bench_parameters(job).get_pinned_cpu())
