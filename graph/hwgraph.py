@@ -612,6 +612,7 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
         max_perf = {}  # type: dict[str, list]
         max_perfs_watt = {}  # type: dict[str, list]
         max_watt = {}  # type: dict[str, list]
+        max_workers = {}  # type: dict[str, list]
         perf_list, unit = benches[emp]["metrics"]
         # For each metric we need to plot
         for perf in perf_list:
@@ -622,6 +623,7 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                 max_perf[perf] = [0] * len(traces_name)
                 max_perfs_watt[perf] = [0] * len(traces_name)
                 max_watt[perf] = [0] * len(traces_name)
+                max_workers[perf] = [0] * len(traces_name)
             # We want a datastructure where metrics of each iteration on the number of workers reports performance for each trace
             # It looks like :
             #  {2: [1264.58, 1063.5, 999.14, 1174.89],
@@ -664,6 +666,7 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                         max_watt[perf][index] = aggregated_watt[perf][bench.workers()][
                             index
                         ]
+                        max_workers[perf][index] = bench.workers()
 
                 index = index + 1
 
@@ -759,13 +762,25 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
 
                 # zorder=3 ensure the graph with be on top of the grid
                 graph.get_ax().bar(traces_name, y_serie, color=bar_colors, zorder=3)
-                graph.get_ax().bar_label(
-                    graph.get_ax().containers[0],
-                    label_type="center",
-                    color="white",
-                    fontsize=16,
-                    fmt=graph.human_format,
-                )
+
+                # Let's put the normalized value in the center of the bar
+                for trace_name in range(len(traces_name)):
+                    plt.text(
+                        trace_name,
+                        y_serie[trace_name] // 2,
+                        graph.human_format(y_serie[trace_name]),
+                        ha="center",
+                        color="white",
+                        fontsize=16,
+                    )
+
+                # Add the number of workers, needed to reach that perf, below the trace name
+                bar_labels = traces_name.copy()
+                for trace_nb in range(len(traces_name)):
+                    bar_labels[trace_nb] += f"\n{max_workers[perf][trace_nb]} workers"
+                graph.get_ax().axes.xaxis.set_ticks(traces_name)
+                graph.get_ax().set_xticklabels(bar_labels)
+
                 graph.prepare_axes(legend=False)
                 graph.render()
                 rendered_graphs += 1
