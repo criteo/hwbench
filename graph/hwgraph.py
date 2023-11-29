@@ -287,6 +287,12 @@ class Trace:
         # If no logical name was given, let's use the serial number as a default
         if not self.logical_name:
             self.logical_name = self.get_chassis_serial()
+        elif self.logical_name == "CPU":
+            # keyword CPU can be used to automatically use the CPU model as logical name
+            self.logical_name = ""
+            if self.get_sockets_count() > 1:
+                self.logical_name = f"{self.get_sockets_count()} x "
+            self.logical_name += self.get_sanitized_cpu_model()
 
         # Let's check if the monitoring metrics exists in the first job
         try:
@@ -318,6 +324,21 @@ class Trace:
 
     def get_cpu(self):
         return self.get_hardware().get("cpu")
+
+    def get_sanitized_cpu_model(self):
+        return (
+            self.get_cpu()["model"]
+            .split("@", 1)[0]
+            .replace("(R)", "")
+            .replace("Processor", "")
+            .replace("CPU", "")
+        )
+
+    def get_sockets_count(self):
+        return self.get_cpu()["sockets"]
+
+    def get_physical_cores(self):
+        return self.get_cpu()["physical_cores"]
 
     def get_kernel(self):
         return self.get_environment().get("kernel")
@@ -757,7 +778,7 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                     "",
                     y_label,
                     outdir,
-                    f"max_perf_{outfile}{graph_type}_{clean_perf}_{'_vs_'.join(traces_name)}",
+                    f"max_perf_{outfile}{graph_type}_{clean_perf}_{'_vs_'.join(traces_name).replace(' ', '')}",
                 )
 
                 # zorder=3 ensure the graph with be on top of the grid
@@ -861,20 +882,20 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 if "perf_watt" in graph_type:
                     graph_type_title = f"Scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
                     y_label = f"{unit} per Watt"
-                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}{'_vs_'.join(traces_name)}"
+                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}{'_vs_'.join(traces_name).replace(' ', '')}"
                     y_source = aggregated_perfs_watt
                 elif "watts" in graph_type:
                     graph_type_title = (
                         f"Scaling {graph_type}: {args.traces[0].get_metric_name()}"
                     )
-                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}{'_vs_'.join(traces_name)}"
+                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}{'_vs_'.join(traces_name).replace(' ', '')}"
                     y_label = "Watts"
                     y_source = aggregated_watt
                 else:
                     graph_type_title = (
                         f"Scaling {graph_type}: {bench.get_title_engine_name()}"
                     )
-                    outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}{'_vs_'.join(traces_name)}"
+                    outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}{'_vs_'.join(traces_name).replace(' ', '')}"
                     y_source = aggregated_perfs
 
                 title = (
@@ -1288,12 +1309,20 @@ def main():
     parser = argparse.ArgumentParser(
         prog="compgraph",
         description="compare hwbench results and plot them",
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
         "--traces",
         type=valid_trace_file,
         nargs="+",
-        help="List of benchmarks to compare",
+        help="""List of benchmarks to compare.
+Syntax: <json_filename>:<logical_name>:<power_metric>
+json_file    : a results.json output file from hwbench
+logical_name : a name to represent the trace in the graph
+               if omitted, it will be replaced by the system serial number
+               'CPU' magic keyword implicit the use of CPU model as logical_name but must be unique over all trace files.
+power_metric : the name of a power metric, from the monitoring, to be used for 'watts' and 'perf per watt' graphs.
+""",
     )
     parser.add_argument(
         "--no-env", help="Disable environmental graphs", action="store_false"
