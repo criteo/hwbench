@@ -49,7 +49,10 @@ class Bench:
 
     def cpu_pin(self) -> list:
         """Return the list of pinned cpu."""
-        return self.get("cpu_pin")
+        cpu_pin = self.get("cpu_pin")
+        if isinstance(cpu_pin, int):
+            cpu_pin = [cpu_pin]
+        return cpu_pin
 
     def get_title_engine_name(self) -> str:
         """Do not repeat engine, engine_module and parameter if identical."""
