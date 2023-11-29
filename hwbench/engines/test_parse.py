@@ -59,7 +59,16 @@ class TestParse(unittest.TestCase):
                     # Mock elements
                     path = pathlib.Path("")
                     params = BenchmarkParameters(
-                        path, prefix, instances, "", 5, "", "", MockHardware(), "none"
+                        path,
+                        prefix,
+                        instances,
+                        "",
+                        5,
+                        "",
+                        "",
+                        MockHardware(),
+                        "none",
+                        "bypass",
                     )
                     module = engine_module(engine, prefix)
 
@@ -159,6 +168,7 @@ class TestParse(unittest.TestCase):
                 "",
                 MockHardware(flags),
                 "none",
+                "bypass",
             )
 
             # Instantiate test, it should not fail

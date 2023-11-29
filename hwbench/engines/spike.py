@@ -31,6 +31,9 @@ class EngineModuleCPUSpike(EngineModuleBase):
     def run(self, p: BenchmarkParameters):
         return Spike(self, p).run()
 
+    def fully_skipped_job(self, p) -> bool:
+        return Spike(self, p).fully_skipped_job()
+
 
 class Engine(EngineBase):
     """The main spike class."""

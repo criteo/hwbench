@@ -156,6 +156,7 @@ class Benchmarks:
                         self.config.get_engine_module_parameter_base(job),
                         self.hardware,
                         monitoring,
+                        self.config.get_skip_method(job),
                     )
                     benchmark = Benchmark(
                         self.count_benchmarks(), engine_module, parameters
@@ -172,6 +173,7 @@ class Benchmarks:
                     self.config.get_engine_module_parameter_base(job),
                     self.hardware,
                     monitoring,
+                    self.config.get_skip_method(job),
                 )
                 benchmark = Benchmark(
                     self.count_benchmarks(), engine_module, parameters
@@ -199,6 +201,10 @@ class Benchmarks:
             [
                 benchmark.get_parameters().get_runtime()
                 for benchmark in self.get_benchmarks()
+                # Only count benchmarks that are not fully skipped
+                if not benchmark.get_enginemodule().fully_skipped_job(
+                    benchmark.get_parameters()
+                )
             ]
         )
 

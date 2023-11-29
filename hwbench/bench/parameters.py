@@ -17,6 +17,7 @@ class BenchmarkParameters:
         engine_module_parameter_base: str,
         hw: BaseHardware,
         monitoring: str,
+        skip_method: str,
     ):
         self.out_dir = out_dir
         self.job_name = job_name
@@ -28,6 +29,7 @@ class BenchmarkParameters:
         self.result_format: dict[str, str] = {}
         self.hw = hw
         self.monitoring = monitoring
+        self.skip_method = skip_method
 
     def get_pinned_cpu(self):
         if self.pinned_cpu == "none":
@@ -51,6 +53,9 @@ class BenchmarkParameters:
 
     def get_monitoring(self) -> str:
         return self.monitoring
+
+    def get_skip_method(self) -> str:
+        return self.skip_method
 
     def set_result_format(self, format):
         """Set the default result content to be padded with performance results."""

@@ -1,5 +1,6 @@
 import json
 import subprocess
+import time
 from typing import Any
 
 from .parameters import BenchmarkParameters
@@ -75,6 +76,7 @@ class ExternalBench(External):
         self.runtime = parameters.get_runtime()
         self.parameters = parameters
         self.engine_module = engine_module
+        self.skip = False
 
     def get_taskset(self, args):
         # Let's pin the CPU if needed
@@ -90,8 +92,24 @@ class ExternalBench(External):
             args.insert(0, "taskset")
         return args
 
+    def fully_skipped_job(self) -> bool:
+        """A method to know if the job should be fully skipped."""
+        if not self.skip:
+            return False
+
+        if self.parameters.get_skip_method() == "wait":
+            # The job is skipped but we were asked to make a no-op run
+            return False
+
+        return True
+
     def pre_run(self):
-        if self.monitoring:
+        status = ""
+        if self.skip:
+            status = " : skipped"
+            if not self.fully_skipped_job():
+                status += " with wait method"
+        if self.monitoring and not self.fully_skipped_job():
             # Start the monitoring in background
             # It runs the same amount of time as the benchmark
             self.report_power = subprocess.Popen(
@@ -129,7 +147,7 @@ class ExternalBench(External):
         if self.parameters.get_monitoring():
             monitoring = "(M)"
         print(
-            "[{}] {}/{}/{}{}: {:3d} stressor{} for {}s".format(
+            "[{}] {}/{}/{}{}: {:3d} stressor{} for {}s{}".format(
                 p.get_name(),
                 self.engine_module.get_engine().get_name(),
                 self.engine_module.get_name(),
@@ -138,11 +156,12 @@ class ExternalBench(External):
                 p.get_engine_instances_count(),
                 cpu_location,
                 p.get_runtime(),
+                status,
             )
         )
 
     def post_run(self, run):
-        if self.monitoring:
+        if self.monitoring and not self.fully_skipped_job():
             # Collect output and extract metrics
             (
                 stdout,
@@ -160,12 +179,25 @@ class ExternalBench(External):
                 )
         return run
 
+    def empty_result(self):
+        """A method to report empty results"""
+        raise NotImplementedError
+
     def run(self):
         # Prepre the run
         self.pre_run()
 
-        # Run the benchmark
-        run = super().run()
+        if not self.skip:
+            # Run the benchmark
+            run = super().run()
+        else:
+            # We'll return empty results, benchmark is not even called
+            run = self.parameters.get_result_format() | self.empty_result()
+
+            # But if we were asked to wait, let's sleep the same amount of time
+            # as the original benchmark
+            if not self.fully_skipped_job():
+                time.sleep(self.parameters.get_runtime())
 
         # Clean the run
         return self.post_run(run)

@@ -31,6 +31,9 @@ class EngineModuleBase(abc.ABC):
     def validate_module_parameters(self, params: BenchmarkParameters) -> str:
         return ""
 
+    def fully_skipped_job(self, p) -> bool:
+        raise NotImplementedError
+
     @abc.abstractmethod
     def run(self, params: BenchmarkParameters):
         pass

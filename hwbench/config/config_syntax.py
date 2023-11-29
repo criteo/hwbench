@@ -111,3 +111,10 @@ def validate_thermal_start(config, section_name, value) -> str:
 def validate_fans_start(config, section_name, value) -> str:
     """Validate the fans start syntax."""
     return ""
+
+
+def validate_skip_method(config, section_name, value) -> str:
+    """Validate the skip_method syntax."""
+    if value not in ["bypass", "wait"]:
+        return f"{value} is not a valid skip method"
+    return ""

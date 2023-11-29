@@ -27,6 +27,7 @@ class Config:
             "hosting_cpu_cores": "none",
             "hosting_cpu_cores_scaling": "iterate",
             "engine_module_parameter_base": "",
+            "skip_method": "bypass",
         }
         self.config = configparser.RawConfigParser(
             default_section="global", defaults=default_parameters
@@ -64,6 +65,7 @@ class Config:
             "hosting_cpu_cores_scaling",
             "thermal_start",
             "fans_start",
+            "skip_method",
         ]
 
     def get_directive(self, section_name, directive) -> str:
@@ -206,6 +208,10 @@ class Config:
     def get_hosting_cpu_cores_scaling(self, section_name) -> str:
         """Return the hosting cpu cores scaling of a section."""
         return self.get_directive(section_name, "hosting_cpu_cores_scaling")
+
+    def get_skip_method(self, section_name) -> str:
+        """Return the skipping method of a section."""
+        return self.get_directive(section_name, "skip_method")
 
     def is_valid_keyword(self, keyword) -> bool:
         """Return if a keyword is valid"""

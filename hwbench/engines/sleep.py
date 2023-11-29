@@ -21,6 +21,9 @@ class EngineModuleSleep(EngineModuleBase):
     def run(self, p: BenchmarkParameters):
         return Sleep(self, p).run()
 
+    def fully_skipped_job(self, p) -> bool:
+        return Sleep(self, p).fully_skipped_job()
+
 
 class Engine(EngineBase):
     """The main sleep class."""

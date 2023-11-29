@@ -100,3 +100,10 @@ fans_start:
     unit : text
     note : if not listed, jobs can starts immediately
            fan_speed can be expressed in % or rpm
+
+skip_method:
+   role : defines the behavior when a test is skipped
+   value: bypass : the benchmark is not executed at all (default)
+          wait   : the benchmark is replaced by a sleep of the same duration
+                   this could be useful to ensure the global benchmarks last the same time
+   unit : text

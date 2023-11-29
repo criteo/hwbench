@@ -43,6 +43,9 @@ class EngineModuleQsort(EngineModulePinnable):
     def run(self, p: BenchmarkParameters):
         return StressNGQsort(self, p).run()
 
+    def fully_skipped_job(self, p) -> bool:
+        return StressNGQsort(self, p).fully_skipped_job()
+
 
 class EngineModuleMemrate(EngineModulePinnable):
     """This class implements the Memrate EngineModuleBase for StressNG"""
@@ -57,6 +60,9 @@ class EngineModuleMemrate(EngineModulePinnable):
 
     def run(self, p: BenchmarkParameters):
         return StressNGMemrate(self, p).run()
+
+    def fully_skipped_job(self, p) -> bool:
+        return StressNGMemrate(self, p).fully_skipped_job()
 
 
 class EngineModuleStream(EngineModulePinnable):
@@ -79,6 +85,9 @@ class EngineModuleStream(EngineModulePinnable):
             return "{msg}; StressNGStream needs at least a 5s of run time"
         return msg
 
+    def fully_skipped_job(self, p) -> bool:
+        return StressNGStream(self, p).fully_skipped_job()
+
 
 class EngineModuleVNNI(EngineModulePinnable):
     """This class implements the VNNI EngineModuleBase for StressNG"""
@@ -89,6 +98,9 @@ class EngineModuleVNNI(EngineModulePinnable):
         self.methods = StressNGVNNIMethods()
         for method in self.methods.enumerate():
             self.add_module_parameter(method)
+
+    def fully_skipped_job(self, p) -> bool:
+        return StressNGVNNI(self, p).fully_skipped_job()
 
     def run_cmd(self, p: BenchmarkParameters):
         return StressNGVNNI(self, p).run_cmd()
@@ -137,6 +149,9 @@ class EngineModuleCpu(EngineModulePinnable):
 
     def run(self, p: BenchmarkParameters):
         return StressNGCPU(self, p).run()
+
+    def fully_skipped_job(self, p) -> bool:
+        return StressNGCPU(self, p).fully_skipped_job()
 
 
 class Engine(EngineBase):
@@ -193,11 +208,8 @@ class StressNG(ExternalBench):
         self.stressor_name = parameters.get_engine_module_parameter()
         self.engine_module = engine_module
         self.parameters = parameters
-        self.skip = False
 
     def run_cmd(self) -> list[str]:
-        if self.skip:
-            return ["echo", "skipped benchmark"]
         # Let's build the command line to run the tool
         args = [
             self.engine_module.get_engine().get_binary(),
@@ -224,11 +236,6 @@ class StressNG(ExternalBench):
         return self.engine_module.get_engine().run_cmd_version()
 
     def parse_cmd(self, stdout: bytes, stderr: bytes):
-        if self.skip:
-            return self.parameters.get_result_format() | {
-                "bogo ops/s": 0,
-                "skipped": True,
-            }
         inp = stderr
         bogo_idx = 8
         line = -1
@@ -247,6 +254,13 @@ class StressNG(ExternalBench):
 
         # Add the score to the global output
         return self.parameters.get_result_format() | {"bogo ops/s": score}
+
+    def empty_result(self):
+        """Default empty results for stress-ng"""
+        return {
+            "bogo ops/s": 0,
+            "skipped": True,
+        }
 
 
 class StressNGCPU(StressNG):
@@ -482,7 +496,6 @@ class StressNGVNNI(StressNG):
         if not self.methods.available(self.method):
             raise LookupError(f"Unknown method {self.method}")
         if not self.methods.cpu_check(self.method, parameters.get_hw()):
-            print(f"WARNING: CPU does not support method {self.method}, skipping")
             self.skip = True
 
     def run_cmd(self) -> list[str]:
@@ -516,7 +529,6 @@ class StressNGMemrate(StressNG):
     def run_cmd(self) -> list[str]:
         # TODO: handle get_pinned_cpu ; it does not necessarily make sense for this
         # benchmark, but it could be revisited once we support pinning on multiple CPUs.
-        self.skip = False
         if self.engine_module.get_engine().get_version() != "0.16.04":
             print(
                 "StressNGMemrate needs stress-ng version 0.16.04 ; "
