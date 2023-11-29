@@ -45,7 +45,13 @@ class Bench:
 
     def get(self, setting):
         """Return a specific setting."""
-        return self.bench[setting]
+        return self.bench.get(setting)
+
+    def skipped(self) -> bool:
+        skipped = self.get("skipped")
+        if not skipped:
+            return False
+        return skipped
 
     def cpu_pin(self) -> list:
         """Return the list of pinned cpu."""
@@ -681,6 +687,8 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                         index=index,
                     )
 
+                    if bench.skipped():
+                        max_workers[perf][index] = -1
                     temp_max_perf = aggregated_perfs[perf][bench.workers()][index]
                     if temp_max_perf > max_perf[perf][index]:
                         max_perf[perf][index] = temp_max_perf
@@ -789,19 +797,25 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
 
                 # Let's put the normalized value in the center of the bar
                 for trace_name in range(len(traces_name)):
-                    plt.text(
-                        trace_name,
-                        y_serie[trace_name] // 2,
-                        graph.human_format(y_serie[trace_name]),
-                        ha="center",
-                        color="white",
-                        fontsize=16,
-                    )
+                    if y_serie[trace_name] > 0:
+                        plt.text(
+                            trace_name,
+                            y_serie[trace_name] // 2,
+                            graph.human_format(y_serie[trace_name]),
+                            ha="center",
+                            color="white",
+                            fontsize=16,
+                        )
 
                 # Add the number of workers, needed to reach that perf, below the trace name
                 bar_labels = traces_name.copy()
                 for trace_nb in range(len(traces_name)):
-                    bar_labels[trace_nb] += f"\n{max_workers[perf][trace_nb]} workers"
+                    if max_workers[perf][trace_nb] < 0:
+                        bar_labels[trace_nb] += "\nbenchmark skipped"
+                    else:
+                        bar_labels[
+                            trace_nb
+                        ] += f"\n{max_workers[perf][trace_nb]} workers"
                 graph.get_ax().axes.xaxis.set_ticks(traces_name)
                 graph.get_ax().set_xticklabels(bar_labels)
 
