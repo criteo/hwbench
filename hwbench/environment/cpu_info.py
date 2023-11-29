@@ -70,3 +70,6 @@ class CPU_INFO(External):
 
     def get_flags(self) -> list[str]:
         return self.flags
+
+    def get_sockets_count(self) -> int:
+        return int(self._mandatory_spec("Socket(s)"))

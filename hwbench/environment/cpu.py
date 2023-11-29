@@ -35,6 +35,10 @@ class CPU:
     def get_stepping(self) -> int:
         return self.cpu_info.get_stepping()
 
+    def get_sockets_count(self) -> int:
+        """Return the number of sockets."""
+        return self.cpu_info.get_sockets_count()
+
     def get_vendor(self) -> str:
         return self.cpu_info.get_vendor()
 
@@ -89,6 +93,7 @@ class CPU:
             "logical_cores": self.get_logical_cores_count(),
             "physical_cores": self.get_physical_cores_count(),
             "numa_domains": self.get_numa_domains_count(),
+            "sockets": self.get_sockets_count(),
         }
 
     def get_flags(self) -> list[str]:
