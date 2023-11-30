@@ -1020,8 +1020,9 @@ def generic_graph(
         elif second_axis == POWER:
             graph.set_y2_axis("Power (Watts)")
             power_metrics = ["chassis"]
-            if "enclosure" in bench.get_monitoring():
-                power_metrics.append("enclosure")
+            for additional_metric in ["enclosure", "infrastructure"]:
+                if additional_metric in bench.get_monitoring():
+                    power_metrics.append(additional_metric)
 
     if args.verbose:
         print(
@@ -1163,13 +1164,17 @@ def graph_enclosure(args, bench_name, output_dir) -> int:
     time_serie = []
     sum_serie = {}  # type: dict[str, list]
     chassis_serie = {}  # type: dict[str, list]
-    components = ["chassis", "enclosure"]
+    components = ["chassis", "enclosure", "infrastructure"]
     samples_count = bench.get_samples_count("chassis")
     for sample in range(0, samples_count):
         time = sample * time_interval
         time_serie.append(time)
         # Collect all components mean value
         for component in components:
+            # Not all components are available on every system
+            if component not in bench.get_monitoring():
+                continue
+
             if component not in sum_serie:
                 sum_serie[component] = []
 
