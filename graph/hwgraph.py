@@ -861,6 +861,12 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
         workers = {}  # type: dict[str, list]
         logical_core_per_worker = []
         perf_list, unit = benches[emp]["metrics"]
+
+        # If we can't detect several bench on the same emp, it means there was no scaling
+        if len(args.traces[0].get_benches_by_job_per_emp(job)[emp]["bench"]) == 1:
+            print(f"Scaling: No scaling detected on job '{job}', skipping graph")
+            continue
+
         # For each metric we need to plot
         for perf in perf_list:
             if perf not in aggregated_perfs.keys():
@@ -895,10 +901,6 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                         aggregated_perfs_watt[perf][trace.get_name()],
                         aggregated_watt[perf][trace.get_name()],
                     )
-
-        if len(logical_core_per_worker) == 1:
-            print(f"Scaling: No scaling detected on {job}, skipping graph")
-            break
 
         # Let's render all graphs types
         for graph_type in GRAPH_TYPES:
@@ -1328,7 +1330,7 @@ def plot_graphs(args, output_dir) -> int:
     traces_name = [trace.get_name() for trace in args.traces]
 
     # Let's generate the scaling graphs
-    print(f"Scaling: {len(jobs)} jobs")
+    print(f"Scaling: rendering {len(jobs)} jobs")
     for job in jobs:
         rendered_graphs += scaling_graph(args, output_dir, job, traces_name)
 
