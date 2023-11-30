@@ -720,7 +720,7 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                 outfile = f"{bench.get_title_engine_name().replace(' ','_')}"
 
                 # Let's define the tree architecture based on the benchmark profile
-                # If the benchmark as multiple performance results, let's put then in a specific directory
+                # If the benchmark has multiple performance results, let's put them in a specific directory
                 if len(perf_list) > 1:
                     outdir = outdir.joinpath(emp, perf)
                 else:
