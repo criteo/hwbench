@@ -529,12 +529,18 @@ class Graph:
         self.prepare_grid()
 
     def human_format(self, num, pos=None):
-        """Return format in Millions if necessary"""
+        """Return format in human readable units."""
         # This function is compatible with FuncFormatter and fmt
         unit = ""
-        if num > 1e6:
+        if num > 1e9:
+            num *= 1e-9
+            unit = "G"
+        elif num > 1e6:
             num *= 1e-6
             unit = "M"
+        elif num > 1e3:
+            num *= 1e-3
+            unit = "K"
         return f"{num:.2f}{unit}"
 
     def prepare_grid(self):
