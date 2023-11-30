@@ -322,7 +322,7 @@ class Trace:
             .replace("(R)", "")
             .replace("Processor", "")
             .replace("CPU", "")
-        )
+        ).strip()
 
     def get_sockets_count(self):
         return self.get_cpu()["sockets"]
