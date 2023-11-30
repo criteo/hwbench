@@ -778,50 +778,64 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                 # Now render the max performance graph
                 # Concept is to show what every product reached as a maximum perf and plot them together
                 # This way we have on a single graph showing the max of 32 cores vs a 48 cores vs a 64 cores.
-                title = (
-                    f'{args.title}\n\n{graph_type_title} during "{job}" benchmark\n'
-                    f"\nProduct maximum performance during {bench.duration()} seconds"
-                )
-                y_serie = np.array(y_max[perf])
-                graph = Graph(
-                    args,
-                    title,
-                    "",
-                    y_label,
-                    outdir,
-                    f"max_perf_{outfile}{graph_type}_{clean_perf}_{'_vs_'.join(traces_name).replace(' ', '')}",
-                )
-
-                # zorder=3 ensure the graph with be on top of the grid
-                graph.get_ax().bar(traces_name, y_serie, color=bar_colors, zorder=3)
-
-                # Let's put the normalized value in the center of the bar
-                for trace_name in range(len(traces_name)):
-                    if y_serie[trace_name] > 0:
-                        plt.text(
-                            trace_name,
-                            y_serie[trace_name] // 2,
-                            graph.human_format(y_serie[trace_name]),
-                            ha="center",
-                            color="white",
-                            fontsize=16,
-                        )
-
-                # Add the number of workers, needed to reach that perf, below the trace name
-                bar_labels = traces_name.copy()
-                for trace_nb in range(len(traces_name)):
-                    if max_workers[perf][trace_nb] < 0:
-                        bar_labels[trace_nb] += "\nbenchmark skipped"
+                for max_perf_type in ["max_perf_total", "max_perf_per_core"]:
+                    title = (
+                        f'{args.title}\n\n{graph_type_title} during "{job}" benchmark\n'
+                    )
+                    if max_perf_type == "max_perf_per_core":
+                        title += f"\nPer core maximum performance during {bench.duration()} seconds"
+                        y_max_per_core = [0] * len(y_max[perf])
+                        # Let's compute the performance per physical core
+                        for ymax_nb in range(len(y_max[perf])):
+                            y_max_per_core[ymax_nb] = (
+                                y_max[perf][ymax_nb]
+                                / args.traces[ymax_nb].get_physical_cores()
+                            )
+                        y_serie = np.array(y_max_per_core)
                     else:
-                        bar_labels[
-                            trace_nb
-                        ] += f"\n{max_workers[perf][trace_nb]} workers"
-                graph.get_ax().axes.xaxis.set_ticks(traces_name)
-                graph.get_ax().set_xticklabels(bar_labels)
+                        title += f"\nProduct maximum performance during {bench.duration()} seconds"
+                        y_serie = np.array(y_max[perf])
 
-                graph.prepare_axes(legend=False)
-                graph.render()
-                rendered_graphs += 1
+                    graph = Graph(
+                        args,
+                        title,
+                        "",
+                        y_label,
+                        outdir,
+                        f"{max_perf_type}_{outfile}{graph_type}_{clean_perf}_{'_vs_'.join(traces_name).replace(' ', '')}",
+                    )
+
+                    # zorder=3 ensure the graph with be on top of the grid
+                    graph.get_ax().bar(traces_name, y_serie, color=bar_colors, zorder=3)
+
+                    # Let's put the normalized value in the center of the bar
+                    for trace_name in range(len(traces_name)):
+                        if y_serie[trace_name] > 0:
+                            plt.text(
+                                trace_name,
+                                y_serie[trace_name] // 2,
+                                graph.human_format(y_serie[trace_name]),
+                                ha="center",
+                                color="white",
+                                fontsize=16,
+                            )
+
+                    # Add the number of workers, needed to reach that perf, below the trace name
+                    bar_labels = traces_name.copy()
+                    for trace_nb in range(len(traces_name)):
+                        if max_workers[perf][trace_nb] < 0:
+                            bar_labels[trace_nb] += "\nbenchmark skipped"
+                        else:
+                            bar_labels[
+                                trace_nb
+                            ] += f"\n{max_workers[perf][trace_nb]} workers"
+                    graph.get_ax().axes.xaxis.set_ticks(traces_name)
+                    graph.get_ax().set_xticklabels(bar_labels)
+
+                    graph.prepare_axes(legend=False)
+                    graph.render()
+                    rendered_graphs += 1
+
     return rendered_graphs
 
 
