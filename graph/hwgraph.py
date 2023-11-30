@@ -965,7 +965,13 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                     order = np.argsort(workers[trace_name])
                     x_serie = np.array(workers[trace_name])[order]
                     y_serie = np.array(y_source[perf][trace_name])[order]
-                    graph.get_ax().plot(x_serie, y_serie, "", label=trace_name)
+                    graph.get_ax().plot(
+                        x_serie,
+                        y_serie,
+                        "",
+                        label=trace_name,
+                        marker="o",
+                    )
 
                 graph.prepare_axes(8, 4)
                 graph.render()
