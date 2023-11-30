@@ -1078,7 +1078,7 @@ def generic_graph(
     if second_axis:
         for data2_item in data2_serie:
             y2_serie = np.array(data2_serie[data2_item])[order]
-            graph.get_ax2().plot(x_serie, y2_serie, "", label=data2_item, marker="D")
+            graph.get_ax2().plot(x_serie, y2_serie, "", label=data2_item, marker="o")
 
     for component in components:
         y_serie = np.array(data_serie[component])[order]
