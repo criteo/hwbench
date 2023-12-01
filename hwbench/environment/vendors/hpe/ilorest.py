@@ -1,5 +1,6 @@
 import json
-
+import subprocess
+from ....utils import helpers as h
 from ....utils.external import External
 
 
@@ -40,3 +41,105 @@ class IlorestServerclone(External):
     @property
     def name(self) -> str:
         return "ilorest-serverclone"
+
+
+class ILOREST:
+    """Main class to discuss with the ILO bmc."""
+
+    logged = False
+
+    def __init__(self):
+        self.login()
+
+    def __del__(self):
+        """Destructor."""
+        # Let's free the session we have set
+        if self.logged:
+            self.__ilorest("logout")
+
+    def __ilorest(self, arguments, nocache=True):
+        commands = None
+        output = None
+        if isinstance(arguments, str):
+            commands = arguments.split()
+        elif isinstance(arguments, list):
+            commands = arguments
+        else:
+            raise TypeError("arguments should be either a string or list type")
+
+        commands.append("--nologo")
+        if nocache:
+            commands.append("--nocache")
+        p = subprocess.Popen(["/usr/sbin/ilorest"] + commands, stdout=subprocess.PIPE)
+        output, _ = p.communicate()
+        return p.returncode, output.replace(b"Discovering data...Done", b"")
+
+    def login(self, last_try=False):
+        if self.logged:
+            return True
+        return_code, _ = self.__ilorest("login")
+        # We cannot login because of CreateLimitReachedForResource
+        # Let's reset the bmc and retry
+        if return_code == 32:
+            h.fatal("Cannot login to local ilo, return_code = {}".format(return_code))
+        elif return_code == 64:
+            h.fatal("Cannot login to local ilo", details="BMC is missing")
+        elif return_code == 0:
+            self.logged = True
+            return True
+        else:
+            h.fatal("Cannot login to local ilo, return_code = {}".format(return_code))
+
+    def raw_get(self, endpoint, to_json=False):
+        """Perform a raw get."""
+        command = "rawget /redfish/v1{}".format(endpoint)
+        return_code, rawget = self.__ilorest(command)
+        if return_code != 0:
+            raise subprocess.CalledProcessError(returncode=return_code, cmd=command)
+        if not to_json:
+            return rawget
+        return json.loads(rawget)
+
+    def get(self, endpoint, select=None, filter=None, to_json=False):
+        """Perform a get."""
+        command = "get {}".format(endpoint)
+        if select:
+            command += " --select {}".format(select)
+        if filter:
+            command += ' --filter "{}"'.format(filter)
+        command += " -j"
+        return_code, get = self.__ilorest(command)
+        if return_code != 0:
+            raise subprocess.CalledProcessError(returncode=return_code, cmd=command)
+        if not to_json:
+            return get
+        return json.loads(get)
+
+    def list(self, select, filter=None, to_json=False):
+        """Perform a get."""
+        command = "list "
+        if select:
+            command += " --select {}".format(select)
+        if filter:
+            command += ' --filter "{}"'.format(filter)
+        command += " -j"
+        return_code, get = self.__ilorest(command)
+        if return_code != 0:
+            raise subprocess.CalledProcessError(returncode=return_code, cmd=command)
+        if not to_json:
+            return get
+        return json.loads(get)
+
+    def get_ip(self):
+        """Return the BMC IPV4 address"""
+        bmc_netconfig = self.list(
+            select="ethernetinterface", filter="id=1", to_json=True
+        )
+        if bmc_netconfig:
+            for nc in bmc_netconfig:
+                if "Manager Dedicated Network Interface" in nc.get("Name"):
+                    ipv4 = nc.get("IPv4Addresses")
+                    if ipv4:
+                        return ipv4[0].get("Address")
+
+        h.fatal("Cannot detect BMC ip")

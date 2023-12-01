@@ -1,0 +1,24 @@
+Set in Progress         : Set Complete
+Auth Type Support       : MD5 
+Auth Type Enable        : Callback : MD5 
+                        : User     : MD5 
+                        : Operator : MD5 
+                        : Admin    : MD5 
+                        : OEM      : 
+IP Address Source       : DHCP Address
+IP Address              : 10.168.97.137
+Subnet Mask             : 255.255.255.128
+MAC Address             : 6c:3c:8c:73:4c:6e
+SNMP Community String   : public
+IP Header               : TTL=0x40 Flags=0x40 Precedence=0x00 TOS=0x10
+BMC ARP Control         : ARP Responses Enabled, Gratuitous ARP Disabled
+Gratituous ARP Intrvl   : 2.0 seconds
+Default Gateway IP      : 10.168.97.129
+Default Gateway MAC     : 00:00:00:00:00:00
+Backup Gateway IP       : 0.0.0.0
+Backup Gateway MAC      : 00:00:00:00:00:00
+802.1q VLAN ID          : Disabled
+802.1q VLAN Priority    : 0
+RMCP+ Cipher Suites     : 3,17
+Cipher Suite Priv Max   : Not Available
+Bad Password Threshold  : Not Available

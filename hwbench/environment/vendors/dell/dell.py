@@ -1,4 +1,9 @@
-from ..vendor import Vendor
+from ..vendor import Vendor, BMC
+
+
+class IDRAC(BMC):
+    def get_thermal(self):
+        return self.get_redfish_url("/redfish/v1/Chassis/System.Embedded.1/Thermal")
 
 
 class Dell(Vendor):
@@ -12,4 +17,11 @@ class Dell(Vendor):
         return
 
     def name(self) -> str:
-        return "Dell"
+        return "DELL"
+
+    def prepare(self):
+        """Prepare the Dell object"""
+        if not self.bmc:
+            self.bmc = IDRAC(self.out_dir, self)
+            self.bmc.run()
+        super().prepare()

@@ -1,7 +1,17 @@
-from .vendor import Vendor
+from .vendor import Vendor, BMC
+
+
+class MockedBMC(BMC):
+    def get_ip(self) -> str:
+        return "1.2.3.4"
 
 
 class MockVendor(Vendor):
+    def __init__(self, out_dir, dmi):
+        self.out_dir = out_dir
+        self.dmi = dmi
+        self.bmc = MockedBMC(self.out_dir, self)
+
     def detect(self) -> bool:
         return True
 
@@ -14,3 +24,6 @@ class MockVendor(Vendor):
 
     def name(self) -> str:
         return "MockVendor"
+
+    def prepare(self):
+        pass

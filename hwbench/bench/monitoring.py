@@ -1,4 +1,5 @@
 from ..environment.hardware import BaseHardware
+from ..utils import helpers as h
 
 
 class Monitoring:
@@ -12,4 +13,11 @@ class Monitoring:
         self.prepare()
 
     def prepare(self):
-        print(f"Starting monitoring for {self.vendor.name()} vendor")
+        if self.vendor.get_bmc().get_ip() == "0.0.0.0":
+            h.fatal("BMC has no IP, monitoring will not be possible")
+
+        print(
+            f"Starting monitoring for {self.vendor.name()} vendor with {self.vendor.get_bmc().get_ip()}"
+        )
+        if self.vendor.get_bmc().get_thermal() is None:
+            h.fatal("Cannot detect thermal metrics from BMC")

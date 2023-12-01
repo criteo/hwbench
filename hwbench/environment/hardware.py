@@ -6,7 +6,6 @@ from typing import Optional
 from .base import BaseEnvironment
 from .vendors.detect import first_matching_vendor
 from .vendors.vendor import Vendor
-from .vendors.mock import MockVendor
 from .cpu import CPU
 from .dmi import DmiSys, DmidecodeRaw
 from .lspci import Lspci, LspciBin
@@ -20,7 +19,7 @@ class BaseHardware(BaseEnvironment):
         self.out_dir = out_dir
         self.cpu = CPU(out_dir)
         self.cpu.detect()
-        self.vendor: Vendor = MockVendor(None, None)
+        self.vendor: Vendor
 
     @abstractmethod
     def cpu_flags(self) -> list[str]:

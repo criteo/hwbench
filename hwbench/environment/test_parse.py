@@ -4,6 +4,7 @@ import json
 from . import cpu_cores
 from . import cpu_info
 from . import numa
+from .vendors.vendor import BMC
 from .vendors.amd import amd
 
 path = pathlib.Path("")
@@ -250,3 +251,12 @@ class TestParseCPU(object):
         assert test_target.count() == 8
         for domain in range(0, test_target.count()):
             assert len(test_target.get_cores(domain)) == 16
+
+    def test_ipmitool_parsing(self):
+        d = pathlib.Path("./tests/parsing/ipmitool/1818")
+        print(f"parsing test {d.name}")
+        test_target = BMC(path, None)
+        stdout = (d / "stdout").read_bytes()
+        stderr = (d / "stderr").read_bytes()
+        test_target.parse_cmd(stdout, stderr)
+        assert test_target.get_ip() == "10.168.97.137"
