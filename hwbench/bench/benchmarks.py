@@ -1,6 +1,8 @@
 from datetime import timedelta
+from typing import Optional
 from ..utils import helpers as h
 from .benchmark import Benchmark
+from .monitoring import Monitoring
 from .parameters import BenchmarkParameters
 from ..environment.hardware import BaseHardware
 
@@ -13,6 +15,7 @@ class Benchmarks:
         self.out_dir = out_dir
         self.benchs: list[Benchmark] = []
         self.hardware = hardware
+        self.monitoring = None
 
     def get_engine(self, job):
         """Return the engine of a particular job."""
@@ -115,6 +118,10 @@ class Benchmarks:
             else:
                 hccs = hosting_cpu_cores_scaling
                 h.fatal(f"Unsupported hosting_cpu_cores_scaling : {hccs}")
+
+        # If any benchmark require monitoring, let's initiate it
+        if self.need_monitoring():
+            self.monitoring = Monitoring(self.out_dir, self.config, self.hardware)
 
     def __schedule_benchmarks(
         self, job, stressor_range_scaling, pinned_cpu, validate_parameters: bool
@@ -254,3 +261,11 @@ ETA {duration}"
                     f"stressor_instances={param.get_engine_instances_count()}", file=f
                 )
                 print("", file=f)
+
+    def get_monitoring(self) -> Optional[Monitoring]:
+        """Return the monitoring object"""
+        return self.monitoring
+
+    def need_monitoring(self):
+        """Return if at least one bench requires monitoring"""
+        return [bench.need_monitoring() for bench in self.benchs].count(True) > 0

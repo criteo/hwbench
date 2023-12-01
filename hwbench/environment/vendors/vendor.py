@@ -17,3 +17,7 @@ class Vendor(ABC):
     @abstractmethod
     def save_bmc_config(self):
         pass
+
+    @abstractmethod
+    def name(self) -> str:
+        pass

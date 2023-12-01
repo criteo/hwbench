@@ -11,3 +11,6 @@ class MockVendor(Vendor):
 
     def save_bmc_config(self):
         self.out_dir.joinpath("mock-bmc-config").write_text("")
+
+    def name(self) -> str:
+        return "MockVendor"

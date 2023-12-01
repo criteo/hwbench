@@ -78,6 +78,11 @@ class TestParse(tbc.TestCommon):
         # Checking if the last job is sleep
         self.assert_job(-1, "sleep", "sleep")
 
+    def test_monitoring(self):
+        """Test if at least one benchmark needs monitoring."""
+        # This config file needs monitoring
+        assert self.benches.need_monitoring()
+
     def test_stream_short(self):
         with patch(
             "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
@@ -92,3 +97,5 @@ class TestParse(tbc.TestCommon):
             self.get_config().get_config().set("global", "runtime", "2")
             with self.assertRaises(SystemExit):
                 self.parse_config()
+            # This config file doesn't need monitoring
+            assert self.benches.need_monitoring() is False

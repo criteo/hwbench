@@ -11,3 +11,6 @@ class Amd(Vendor):
 
     def save_bmc_config(self):
         return
+
+    def name(self) -> str:
+        return "AMD Corporation"

@@ -64,6 +64,10 @@ class Benchmark:
         # Exectue the engine module
         return e.run(p)
 
+    def need_monitoring(self):
+        """Return True if this benchmark requires monitoring."""
+        return self.get_parameters().get_monitoring() != "none"
+
 
 class ExternalBench(External):
     def __init__(

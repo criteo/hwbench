@@ -1,4 +1,5 @@
 from .hardware import Hardware
+from .vendors.mock import MockVendor
 
 
 class MockHardware(Hardware):
@@ -6,6 +7,7 @@ class MockHardware(Hardware):
         self.cpu = cpu
         self.flags = flags
         self.cores = cores
+        self.vendor = MockVendor(None, None)
         if cpu:
             cpu.detect()
 
