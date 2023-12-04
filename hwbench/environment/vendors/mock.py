@@ -1,9 +1,13 @@
-from .vendor import Vendor, BMC
+from .vendor import Temperature, Vendor, BMC, ThermalContext
 
 
 class MockedBMC(BMC):
     def get_ip(self) -> str:
         return "1.2.3.4"
+
+    def read_thermals(self) -> dict[str, dict[str, Temperature]]:
+        # Let's add a faked thermal metric
+        return {str(ThermalContext.CPU): {"CPU1": Temperature("CPU1", 40)}}
 
 
 class MockVendor(Vendor):

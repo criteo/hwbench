@@ -1,9 +1,21 @@
-from ..vendor import Vendor, BMC
+from ..vendor import Vendor, BMC, Temperature
 
 
 class IDRAC(BMC):
     def get_thermal(self):
         return self.get_redfish_url("/redfish/v1/Chassis/System.Embedded.1/Thermal")
+
+    def read_thermals(self) -> dict[str, dict[str, Temperature]]:
+        thermals = {}  # type: dict[str, dict[str, Temperature]]
+        for t in self.get_thermal().get("Temperatures"):
+            if t["ReadingCelsius"] <= 0:
+                continue
+            pc = t["PhysicalContext"]
+            if pc not in thermals:
+                thermals[pc] = {}
+            name = t["Name"].split("Temp")[0].strip()
+            thermals[pc][t["Name"]] = Temperature(name, t["ReadingCelsius"])
+        return thermals
 
 
 class Dell(Vendor):

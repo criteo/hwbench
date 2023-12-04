@@ -3,8 +3,58 @@ import json
 import pathlib
 import redfish  # type: ignore
 from abc import ABC, abstractmethod
+from enum import Enum
 from ...utils import helpers as h
 from ...utils.external import External
+
+
+class MonitorMetric:
+    """A class to represent temperatures"""
+
+    def __init__(self, name: str, value: float, unit: str):
+        self.name = name
+        self.value = value
+        self.unit = unit
+
+    def get_name(self):
+        return self.name
+
+    def get_value(self):
+        return self.value
+
+    def get_unit(self):
+        return self.unit
+
+    def __eq__(self, compared_temperature) -> bool:
+        return (
+            str(self.name) == str(compared_temperature.get_name())
+            and self.value == compared_temperature.get_value()
+            and self.unit == compared_temperature.get_unit()
+        )
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def __str__(self) -> str:
+        return f"{self.name}={self.value} {self.unit}"
+
+
+class Temperature(MonitorMetric):
+    def __init__(self, name: str, value: float):
+        self.name = name
+        self.value = value
+        super().__init__(name, value, "Celsius")
+
+
+class ThermalContext(Enum):
+    INTAKE = "Intake"
+    CPU = "CPU"
+    MEMORY = "Memory"
+    SYSTEMBOARD = "SystemBoard"
+    POWERSUPPLY = "PowerSupply"
+
+    def __str__(self) -> str:
+        return str(self.value)
 
 
 class BMC(External):
@@ -102,7 +152,12 @@ class BMC(External):
             return None
 
     def get_thermal(self):
-        return []
+        return {}
+
+    def read_thermals(self) -> dict[str, dict[str, Temperature]]:
+        """Return thermals from server"""
+        # To be implemented by vendors
+        return {}
 
 
 class Vendor(ABC):

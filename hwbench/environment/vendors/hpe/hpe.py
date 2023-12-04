@@ -1,5 +1,6 @@
 import pathlib
-from ..vendor import Vendor, BMC
+import re
+from ..vendor import Vendor, BMC, Temperature
 from .ilorest import Ilorest, IlorestServerclone, ILOREST
 
 
@@ -13,6 +14,49 @@ class ILO(BMC):
 
     def get_thermal(self):
         return self.get_redfish_url("/redfish/v1/Chassis/1/Thermal")
+
+    def read_thermals(self) -> dict[str, dict[str, Temperature]]:
+        thermals = {}  # type: dict[str, dict[str, Temperature]]
+        for t in self.get_thermal().get("Temperatures"):
+            if t["ReadingCelsius"] <= 0:
+                continue
+            pc = t["PhysicalContext"]
+            if pc not in thermals:
+                thermals[pc] = {}
+
+            # Temperature metrics are named like the following :
+            # 05-P1 DIMM 5-8
+            # 14-VR P1 Mem 1
+            # 19-BMC Zone
+            match = re.search(
+                r"(?P<index>[0-9.]+)-(?P<sensor>[A-Za-z0-9]*) (?P<detail>[A-Za-z0-9*]*)(?P<details>.*)$",
+                t["Name"],
+            )
+            # Normalizing names
+            if match:
+                s = match.group("sensor")
+                d = match.group("detail")
+                de = match.group("details").strip()
+                # i  s  d    de
+                # 04-P1 DIMM 1-4
+                sd = f"{s}{d}"
+
+                def add(name):
+                    thermals[pc][t["Name"]] = Temperature(
+                        name,
+                        t["ReadingCelsius"],
+                    )
+
+                # We don't consider all sensors for now
+                # This could be updated depending on the needs
+                if s == "CPU":
+                    add(sd)
+                elif s == "Inlet":
+                    add(s)
+                elif d == "DIMM":
+                    # P1 DIMM 1-4
+                    add(f"{s} {d} {de}")
+        return thermals
 
 
 class Hpe(Vendor):
