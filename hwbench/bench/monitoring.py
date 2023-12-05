@@ -24,17 +24,21 @@ class Monitoring:
             f"Starting monitoring for {self.vendor.name()} vendor with {self.vendor.get_bmc().get_ip()}"
         )
 
-        thermals = self.vendor.get_bmc().read_thermals()
-        if not len(thermals):
-            h.fatal("Cannot detect thermal metrics from BMC")
+        def check_monitoring(func, type: str):
+            metrics = func
+            if not len(metrics):
+                h.fatal("Cannot detect thermal metrics from BMC")
 
-        print(
-            "Monitoring thermal metrics:"
-            + ", ".join(
-                [
-                    f"{len(thermals[pc])}x{pc}"
-                    for pc in thermals
-                    if len(thermals[pc]) > 0
-                ]
+            print(
+                f"Monitoring {type} metrics:"
+                + ", ".join(
+                    [
+                        f"{len(metrics[pc])}x{pc}"
+                        for pc in metrics
+                        if len(metrics[pc]) > 0
+                    ]
+                )
             )
-        )
+
+        check_monitoring(self.vendor.get_bmc().read_thermals(), "thermal")
+        check_monitoring(self.vendor.get_bmc().read_fans(), "fans")

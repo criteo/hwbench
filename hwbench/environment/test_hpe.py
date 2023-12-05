@@ -1,5 +1,5 @@
 import pathlib
-from .vendors.vendor import Temperature, ThermalContext
+from .vendors.vendor import MonitorMetric, Temperature, ThermalContext, FanContext
 from .vendors.hpe.hpe import Hpe, ILO
 from .test_vendors import TestVendors, PATCH_TYPES
 
@@ -52,6 +52,20 @@ class TestHpeAp2K(TestGenericHpe):
 
         super().generic_thermal_test(expected_output)
 
+    def test_fan(self):
+        expected_output = self.generic_fan_output()
+        expected_output[str(FanContext.FAN)] = {
+            "Fan 1": MonitorMetric("Fan 1", 47, "Percent"),
+            "Fan 2": MonitorMetric("Fan 2", 47, "Percent"),
+            "Fan 3": MonitorMetric("Fan 3", 0, "Percent"),
+            "Fan 4": MonitorMetric("Fan 4", 47, "Percent"),
+            "Fan 5": MonitorMetric("Fan 5", 0, "Percent"),
+            "Fan 6": MonitorMetric("Fan 6", 48, "Percent"),
+            "Fan 7": MonitorMetric("Fan 7", 48, "Percent"),
+        }
+
+        super().generic_fan_test(expected_output)
+
 
 class TestHpeDL380(TestGenericHpe):
     def __init__(self, *args, **kwargs):
@@ -75,3 +89,16 @@ class TestHpeDL380(TestGenericHpe):
             "10-P2 DIMM 7-12": Temperature("P2 DIMM 7-12", 35),
         }
         super().generic_thermal_test(expected_output)
+
+    def test_fan(self):
+        expected_output = self.generic_fan_output()
+        expected_output[str(FanContext.FAN)] = {
+            "Fan 1": MonitorMetric("Fan 1", 25, "Percent"),
+            "Fan 2": MonitorMetric("Fan 2", 28, "Percent"),
+            "Fan 3": MonitorMetric("Fan 3", 25, "Percent"),
+            "Fan 4": MonitorMetric("Fan 4", 25, "Percent"),
+            "Fan 5": MonitorMetric("Fan 5", 25, "Percent"),
+            "Fan 6": MonitorMetric("Fan 6", 25, "Percent"),
+        }
+
+        super().generic_fan_test(expected_output)

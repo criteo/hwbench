@@ -6,7 +6,7 @@ import unittest
 from enum import Enum
 from unittest.mock import patch
 from typing import Any  # noqa: F401
-from .vendors.vendor import Vendor, ThermalContext
+from .vendors.vendor import Vendor, ThermalContext, FanContext
 
 
 path = pathlib.Path("")
@@ -103,13 +103,30 @@ class TestVendors(unittest.TestCase):
             str(ThermalContext.POWERSUPPLY): {},
         }
 
-    def generic_thermal_test(self, expected_output):
-        vendor = self.get_vendor()
-        thermals = vendor.get_bmc().read_thermals()
-        for pc in thermals:
+    def generic_fan_output(self):
+        return {str(FanContext.FAN): {}}
+
+    def generic_test(self, expected_output, func):
+        for pc in func:
             if pc not in expected_output.keys():
                 assert False, f"Missing Physical Context '{pc}' in expected_output"
-            for sensor in thermals[pc]:
+            for sensor in func[pc]:
                 if sensor not in expected_output[pc]:
                     assert False, f"Missing sensor '{sensor}' in '{pc}'"
-                assert thermals[pc][sensor] == expected_output[pc][sensor]
+                if func[pc][sensor] != expected_output[pc][sensor]:
+                    print(
+                        f"name: {func[pc][sensor].get_name()} vs {expected_output[pc][sensor].get_name()}\n"
+                        f"value:{func[pc][sensor].get_value()} vs {expected_output[pc][sensor].get_value()}\n"
+                        f"unit: {func[pc][sensor].get_unit()} vs {expected_output[pc][sensor].get_unit()}"
+                    )
+                    assert False, "Metrics do not match"
+
+    def generic_thermal_test(self, expected_output):
+        return self.generic_test(
+            expected_output, self.get_vendor().get_bmc().read_thermals()
+        )
+
+    def generic_fan_test(self, expected_output):
+        return self.generic_test(
+            expected_output, self.get_vendor().get_bmc().read_fans()
+        )

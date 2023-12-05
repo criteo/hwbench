@@ -25,11 +25,11 @@ class MonitorMetric:
     def get_unit(self):
         return self.unit
 
-    def __eq__(self, compared_temperature) -> bool:
+    def __eq__(self, compared_metric) -> bool:
         return (
-            str(self.name) == str(compared_temperature.get_name())
-            and self.value == compared_temperature.get_value()
-            and self.unit == compared_temperature.get_unit()
+            str(self.name) == str(compared_metric.get_name())
+            and self.value == compared_metric.get_value()
+            and self.unit == compared_metric.get_unit()
         )
 
     def __repr__(self) -> str:
@@ -52,6 +52,13 @@ class ThermalContext(Enum):
     MEMORY = "Memory"
     SYSTEMBOARD = "SystemBoard"
     POWERSUPPLY = "PowerSupply"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+class FanContext(Enum):
+    FAN = "Fan"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -158,6 +165,17 @@ class BMC(External):
         """Return thermals from server"""
         # To be implemented by vendors
         return {}
+
+    def read_fans(self) -> dict[str, dict[str, MonitorMetric]]:
+        """Return fans from server"""
+        # Generic for now, could be override by vendors
+        fans = {str(FanContext.FAN): {}}  # type: dict[str, dict[str, MonitorMetric]]
+        for f in self.get_thermal().get("Fans"):
+            name = f["Name"]
+            fans[str(FanContext.FAN)][name] = MonitorMetric(
+                f["Name"], f["Reading"], f["ReadingUnits"]
+            )
+        return fans
 
 
 class Vendor(ABC):
