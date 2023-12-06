@@ -41,6 +41,13 @@ class TestGenericHpe(TestVendors):
             PATCH_TYPES.RETURN_VALUE,
             self.sample(self.path + "power"),
         )
+
+        self.install_patch(
+            "hwbench.environment.vendors.hpe.hpe.ILO.get_oem_chassis",
+            PATCH_TYPES.RETURN_VALUE,
+            self.sample(self.path + "oem_chassis"),
+        )
+
         self.get_vendor().bmc = ILO("", self.get_vendor(), None)
         # And finish by calling the parent setUp()
         super().setUp()
@@ -82,6 +89,8 @@ class TestHpeAp2K(TestGenericHpe):
         expected_output = self.generic_power_output()
         expected_output[str(PowerContext.POWER)] = {
             "Chassis": Power("Chassis", 116.0),
+            "Server": Power("Server", 75),
+            "ServerInChassis": Power("ServerInChassis", 78.75),
         }
 
         super().generic_power_consumption_test(expected_output)

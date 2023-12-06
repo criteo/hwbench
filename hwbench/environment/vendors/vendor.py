@@ -1,5 +1,6 @@
 import configparser
 import json
+import logging
 import pathlib
 import redfish  # type: ignore
 from abc import ABC, abstractmethod
@@ -166,7 +167,15 @@ class BMC(External):
     def get_redfish_url(self, url):
         """Return the content of a Redfish url."""
         try:
-            return self.redfish_obj.get(url, None).dict
+            redfish = self.redfish_obj.get(url, None).dict
+
+            # Let's ignore errors and return empty objects
+            # It will be up to the caller to see there is no answer and process this
+            # {'error': {'code': 'iLO.0.10.ExtendedInfo', 'message': 'See @Message.ExtendedInfo for more information.', '@Message.ExtendedInfo': [{'MessageArgs': ['/redfish/v1/Chassis/enclosurechassis/'], 'MessageId': 'Base.1.4.ResourceMissingAtURI'}]}}
+            if redfish and "error" in redfish:
+                logging.error(f"Parsing redfish url {url} failed : {redfish}")
+                return {}
+            return redfish
         except redfish.rest.v1.RetriesExhaustedError:
             return None
         except json.decoder.JSONDecodeError:

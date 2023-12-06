@@ -75,6 +75,31 @@ class ILO(BMC):
             )
         return psus
 
+    def read_power_consumption(self):
+        pc = super().read_power_consumption()
+        oem_chassis = self.get_oem_chassis()
+        if oem_chassis:
+            pc[str(PowerContext.POWER)]["Server"] = Power(
+                "Server",
+                oem_chassis["Oem"]["Hpe"]["NodePowerWatts"],
+            )
+            if "HPE Apollo2000 Gen10+" in oem_chassis["Name"]:
+                # Let's compute a ServerInChassis by
+                # - Collecting the chassis power consumption and divide it by the number of sleds (4)
+                # - Add the difference from this average to the sled
+                pc[str(PowerContext.POWER)]["ServerInChassis"] = Power(
+                    "ServerInChassis",
+                    oem_chassis["Oem"]["Hpe"]["NodePowerWatts"]
+                    + (
+                        (oem_chassis["Oem"]["Hpe"]["ChassisPowerWatts"] / 4)
+                        - oem_chassis["Oem"]["Hpe"]["NodePowerWatts"]
+                    ),
+                )
+        return pc
+
+    def get_oem_chassis(self):
+        return self.get_redfish_url("/redfish/v1/Chassis/enclosurechassis/")
+
 
 class Hpe(Vendor):
     def __init__(self, out_dir, dmi):

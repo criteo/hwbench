@@ -1,4 +1,4 @@
-from ..vendor import Vendor, BMC, Temperature
+from ..vendor import Vendor, BMC, Temperature, Power, PowerContext
 
 
 class IDRAC(BMC):
@@ -19,6 +19,28 @@ class IDRAC(BMC):
 
     def get_power(self):
         return self.get_redfish_url("/redfish/v1/Chassis/System.Embedded.1/Power")
+
+    def get_oem_system(self):
+        return self.get_redfish_url(
+            "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/DellAttributes/System.Embedded.1"
+        )
+
+    def read_power_consumption(self):
+        pc = super().read_power_consumption()
+        oem_system = self.get_oem_system()
+        if "ServerPwr.1.SCViewSledPwr" in oem_system["Attributes"]:
+            # ServerPwr.1.SCViewSledPwr = PowerConsumedWatts + 'SC-BMC.1.ChassisInfraPowe / nb_servers
+            pc[str(PowerContext.POWER)]["ServerInChassis"] = Power(
+                "ServerInChassis", oem_system["Attributes"]["ServerPwr.1.SCViewSledPwr"]
+            )
+        if "SC-BMC.1.ChassisInfraPower" in oem_system["Attributes"]:
+            # SC-BMC.1.ChassisInfraPower = ServerPwr.1.SCViewSledPwr + 'chassis / nb_servers
+            pc[str(PowerContext.POWER)]["Infrastructure"] = Power(
+                "Infrastructure",
+                oem_system["Attributes"]["SC-BMC.1.ChassisInfraPower"],
+            )
+
+        return pc
 
 
 class Dell(Vendor):

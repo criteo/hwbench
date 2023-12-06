@@ -41,6 +41,11 @@ class TestDell(TestVendors):
             PATCH_TYPES.RETURN_VALUE,
             self.sample(self.path + "power"),
         )
+        self.install_patch(
+            "hwbench.environment.vendors.dell.dell.IDRAC.get_oem_system",
+            PATCH_TYPES.RETURN_VALUE,
+            self.sample(self.path + "oem_system"),
+        )
         # And finish by calling the parent setUp()
         super().setUp()
 
@@ -75,6 +80,9 @@ class TestDell(TestVendors):
         expected_output = self.generic_power_output()
         expected_output[str(PowerContext.POWER)] = {
             "Chassis": Power("Chassis", 80),
+            "Server": Power("Server", 54),
+            "ServerInChassis": Power("ServerInChassis", 112),
+            "Infrastructure": Power("Infrastructure", 54),
         }
 
         super().generic_power_consumption_test(expected_output)
