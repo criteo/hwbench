@@ -138,3 +138,8 @@ class TestVendors(unittest.TestCase):
         return self.generic_test(
             expected_output, self.get_vendor().get_bmc().read_power_consumption()
         )
+
+    def generic_power_supplies_test(self, expected_output):
+        return self.generic_test(
+            expected_output, self.get_vendor().get_bmc().read_power_supplies()
+        )

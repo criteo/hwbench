@@ -43,3 +43,4 @@ class Monitoring:
         check_monitoring(self.vendor.get_bmc().read_thermals(), "thermal")
         check_monitoring(self.vendor.get_bmc().read_fans(), "fans")
         check_monitoring(self.vendor.get_bmc().read_power_consumption(), "power")
+        check_monitoring(self.vendor.get_bmc().read_power_supplies(), "power_supplies")

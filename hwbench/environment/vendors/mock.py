@@ -26,6 +26,10 @@ class MockedBMC(BMC):
         # Let's add a faked power metric
         return {str(PowerContext.POWER): {"Chassis": Power("Chassis", 125.0)}}
 
+    def read_power_supplies(self) -> dict[str, dict[str, Power]]:
+        # Let's add a faked power supplies
+        return {str(PowerContext.POWER): {"PS1 status": Power("PS1", 125.0)}}
+
 
 class MockVendor(Vendor):
     def __init__(self, out_dir, dmi):

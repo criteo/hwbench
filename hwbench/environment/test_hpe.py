@@ -86,6 +86,15 @@ class TestHpeAp2K(TestGenericHpe):
 
         super().generic_power_consumption_test(expected_output)
 
+    def test_power_supplies(self):
+        expected_output = self.generic_power_output()
+        expected_output[str(PowerContext.POWER)] = {
+            "HpeServerPowerSupply1": Power("PS1", 116.0),
+            "HpeServerPowerSupply2": Power("PS2", 116.0),
+        }
+
+        super().generic_power_supplies_test(expected_output)
+
 
 class TestHpeDL380(TestGenericHpe):
     def __init__(self, *args, **kwargs):
@@ -130,3 +139,12 @@ class TestHpeDL380(TestGenericHpe):
         }
 
         super().generic_power_consumption_test(expected_output)
+
+    def test_power_supplies(self):
+        expected_output = self.generic_power_output()
+        expected_output[str(PowerContext.POWER)] = {
+            "HpeServerPowerSupply1": Power("PS1", 147.0),
+            "HpeServerPowerSupply2": Power("PS2", 154.0),
+        }
+
+        super().generic_power_supplies_test(expected_output)

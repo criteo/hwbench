@@ -205,6 +205,16 @@ class BMC(External):
             )
         return chassis
 
+    def read_power_supplies(self) -> dict[str, dict[str, Power]]:
+        """Return power supplies power from server"""
+        # Generic for now, could be override by vendors
+        psus = {str(PowerContext.POWER): {}}  # type: dict[str, dict[str, Power]]
+        for psu in self.get_power().get("PowerSupplies"):
+            psus[str(PowerContext.POWER)][psu["Name"]] = Power(
+                psu["Name"].split()[0], psu["PowerInputWatts"]
+            )
+        return psus
+
 
 class Vendor(ABC):
     def __init__(self, out_dir, dmi):

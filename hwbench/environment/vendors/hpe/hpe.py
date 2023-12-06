@@ -1,6 +1,6 @@
 import pathlib
 import re
-from ..vendor import Vendor, BMC, Temperature
+from ..vendor import Vendor, BMC, Temperature, Power, PowerContext
 from .ilorest import Ilorest, IlorestServerclone, ILOREST
 
 
@@ -60,6 +60,20 @@ class ILO(BMC):
 
     def get_power(self):
         return self.get_redfish_url("/redfish/v1/Chassis/1/Power/")
+
+    def read_power_supplies(self) -> dict[str, dict[str, Power]]:
+        """Return power supplies power from server"""
+        # Generic for now, could be override by vendors
+        psus = {str(PowerContext.POWER): {}}  # type: dict[str, dict[str, Power]]
+        for psu in self.get_power().get("PowerSupplies"):
+            # Both PSUs are named the same (HpeServerPowerSupply)
+            # Let's update it to have a unique name
+            name = psu["Name"] + str(psu["Oem"]["Hpe"]["BayNumber"])
+            psu_name = "PS" + str(psu["Oem"]["Hpe"]["BayNumber"])
+            psus[str(PowerContext.POWER)][name] = Power(
+                psu_name, psu["Oem"]["Hpe"]["AveragePowerOutputWatts"]
+            )
+        return psus
 
 
 class Hpe(Vendor):

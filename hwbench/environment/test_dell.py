@@ -78,3 +78,12 @@ class TestDell(TestVendors):
         }
 
         super().generic_power_consumption_test(expected_output)
+
+    def test_power_supplies(self):
+        expected_output = self.generic_power_output()
+        expected_output[str(PowerContext.POWER)] = {
+            "PS1 Status": Power("PS1", 168.0),
+            "PS2 Status": Power("PS2", 171.0),
+        }
+
+        super().generic_power_supplies_test(expected_output)
