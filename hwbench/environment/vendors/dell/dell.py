@@ -17,6 +17,9 @@ class IDRAC(BMC):
             thermals[pc][t["Name"]] = Temperature(name, t["ReadingCelsius"])
         return thermals
 
+    def get_power(self):
+        return self.get_redfish_url("/redfish/v1/Chassis/System.Embedded.1/Power")
+
 
 class Dell(Vendor):
     def detect(self) -> bool:

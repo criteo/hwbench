@@ -46,6 +46,13 @@ class Temperature(MonitorMetric):
         super().__init__(name, value, "Celsius")
 
 
+class Power(MonitorMetric):
+    def __init__(self, name: str, value: float):
+        self.name = name
+        self.value = value
+        super().__init__(name, value, "Watts")
+
+
 class ThermalContext(Enum):
     INTAKE = "Intake"
     CPU = "CPU"
@@ -59,6 +66,13 @@ class ThermalContext(Enum):
 
 class FanContext(Enum):
     FAN = "Fan"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+class PowerContext(Enum):
+    POWER = "Power"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -176,6 +190,20 @@ class BMC(External):
                 f["Name"], f["Reading"], f["ReadingUnits"]
             )
         return fans
+
+    def get_power(self):
+        """Return the power metrics."""
+        return {}
+
+    def read_power_consumption(self) -> dict[str, dict[str, Power]]:
+        """Return power consumption from server"""
+        # Generic for now, could be override by vendors
+        chassis = {str(PowerContext.POWER): {}}  # type: dict[str, dict[str, Power]]
+        for power in self.get_power().get("PowerControl"):
+            chassis[str(PowerContext.POWER)]["Chassis"] = Power(
+                "Chassis", power["PowerConsumedWatts"]
+            )
+        return chassis
 
 
 class Vendor(ABC):

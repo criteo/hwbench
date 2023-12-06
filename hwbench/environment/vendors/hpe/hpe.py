@@ -58,6 +58,9 @@ class ILO(BMC):
                     add(f"{s} {d} {de}")
         return thermals
 
+    def get_power(self):
+        return self.get_redfish_url("/redfish/v1/Chassis/1/Power/")
+
 
 class Hpe(Vendor):
     def __init__(self, out_dir, dmi):

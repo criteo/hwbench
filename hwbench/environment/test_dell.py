@@ -1,5 +1,12 @@
 import pathlib
-from .vendors.vendor import Temperature, MonitorMetric, ThermalContext, FanContext
+from .vendors.vendor import (
+    Power,
+    Temperature,
+    MonitorMetric,
+    ThermalContext,
+    FanContext,
+    PowerContext,
+)
 from .vendors.dell.dell import Dell
 from .test_vendors import TestVendors, PATCH_TYPES
 
@@ -9,6 +16,7 @@ path = pathlib.Path("")
 class TestDell(TestVendors):
     def __init__(self, *args, **kwargs):
         super().__init__(Dell("", None), *args, **kwargs)
+        self.path = "tests/vendors/Dell/C6615/"
 
     def setUp(self):
         # setUp is called by pytest to install patches
@@ -26,7 +34,12 @@ class TestDell(TestVendors):
         self.install_patch(
             "hwbench.environment.vendors.dell.dell.IDRAC.get_thermal",
             PATCH_TYPES.RETURN_VALUE,
-            self.sample("tests/vendors/Dell/C6615/thermal"),
+            self.sample(self.path + "thermal"),
+        )
+        self.install_patch(
+            "hwbench.environment.vendors.dell.dell.IDRAC.get_power",
+            PATCH_TYPES.RETURN_VALUE,
+            self.sample(self.path + "power"),
         )
         # And finish by calling the parent setUp()
         super().setUp()
@@ -57,3 +70,11 @@ class TestDell(TestVendors):
         }
 
         super().generic_fan_test(expected_output)
+
+    def test_power_consumption(self):
+        expected_output = self.generic_power_output()
+        expected_output[str(PowerContext.POWER)] = {
+            "Chassis": Power("Chassis", 80),
+        }
+
+        super().generic_power_consumption_test(expected_output)

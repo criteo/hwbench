@@ -6,7 +6,7 @@ import unittest
 from enum import Enum
 from unittest.mock import patch
 from typing import Any  # noqa: F401
-from .vendors.vendor import Vendor, ThermalContext, FanContext
+from .vendors.vendor import Vendor, ThermalContext, FanContext, PowerContext
 
 
 path = pathlib.Path("")
@@ -106,6 +106,9 @@ class TestVendors(unittest.TestCase):
     def generic_fan_output(self):
         return {str(FanContext.FAN): {}}
 
+    def generic_power_output(self):
+        return {str(PowerContext.POWER): {}}
+
     def generic_test(self, expected_output, func):
         for pc in func:
             if pc not in expected_output.keys():
@@ -129,4 +132,9 @@ class TestVendors(unittest.TestCase):
     def generic_fan_test(self, expected_output):
         return self.generic_test(
             expected_output, self.get_vendor().get_bmc().read_fans()
+        )
+
+    def generic_power_consumption_test(self, expected_output):
+        return self.generic_test(
+            expected_output, self.get_vendor().get_bmc().read_power_consumption()
         )

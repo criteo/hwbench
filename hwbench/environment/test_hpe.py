@@ -1,5 +1,12 @@
 import pathlib
-from .vendors.vendor import MonitorMetric, Temperature, ThermalContext, FanContext
+from .vendors.vendor import (
+    Power,
+    MonitorMetric,
+    Temperature,
+    ThermalContext,
+    FanContext,
+    PowerContext,
+)
 from .vendors.hpe.hpe import Hpe, ILO
 from .test_vendors import TestVendors, PATCH_TYPES
 
@@ -7,9 +14,9 @@ path = pathlib.Path("")
 
 
 class TestGenericHpe(TestVendors):
-    def __init__(self, thermal: str, *args, **kwargs):
+    def __init__(self, path: str, *args, **kwargs):
         super().__init__(Hpe("", None), *args, **kwargs)
-        self.thermal = thermal
+        self.path = path
 
     def setUp(self):
         # setUp is called by pytest to install patches
@@ -27,7 +34,12 @@ class TestGenericHpe(TestVendors):
         self.install_patch(
             "hwbench.environment.vendors.hpe.hpe.ILO.get_thermal",
             PATCH_TYPES.RETURN_VALUE,
-            self.sample(self.thermal),
+            self.sample(self.path + "thermal"),
+        )
+        self.install_patch(
+            "hwbench.environment.vendors.hpe.hpe.ILO.get_power",
+            PATCH_TYPES.RETURN_VALUE,
+            self.sample(self.path + "power"),
         )
         self.get_vendor().bmc = ILO("", self.get_vendor(), None)
         # And finish by calling the parent setUp()
@@ -36,7 +48,7 @@ class TestGenericHpe(TestVendors):
 
 class TestHpeAp2K(TestGenericHpe):
     def __init__(self, *args, **kwargs):
-        super().__init__("tests/vendors/Hpe/XL225N/thermal", *args, **kwargs)
+        super().__init__("tests/vendors/Hpe/XL225N/", *args, **kwargs)
 
     def test_thermal(self):
         expected_output = self.generic_thermal_output()
@@ -66,10 +78,18 @@ class TestHpeAp2K(TestGenericHpe):
 
         super().generic_fan_test(expected_output)
 
+    def test_power_consumption(self):
+        expected_output = self.generic_power_output()
+        expected_output[str(PowerContext.POWER)] = {
+            "Chassis": Power("Chassis", 116.0),
+        }
+
+        super().generic_power_consumption_test(expected_output)
+
 
 class TestHpeDL380(TestGenericHpe):
     def __init__(self, *args, **kwargs):
-        super().__init__("tests/vendors/Hpe/DL380/thermal", *args, **kwargs)
+        super().__init__("tests/vendors/Hpe/DL380/", *args, **kwargs)
 
     def test_thermal(self):
         expected_output = self.generic_thermal_output()
@@ -102,3 +122,11 @@ class TestHpeDL380(TestGenericHpe):
         }
 
         super().generic_fan_test(expected_output)
+
+    def test_power_consumption(self):
+        expected_output = self.generic_power_output()
+        expected_output[str(PowerContext.POWER)] = {
+            "Chassis": Power("Chassis", 301),
+        }
+
+        super().generic_power_consumption_test(expected_output)

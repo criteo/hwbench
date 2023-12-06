@@ -1,4 +1,13 @@
-from .vendor import MonitorMetric, Temperature, Vendor, BMC, ThermalContext, FanContext
+from .vendor import (
+    Power,
+    MonitorMetric,
+    Temperature,
+    Vendor,
+    BMC,
+    ThermalContext,
+    FanContext,
+    PowerContext,
+)
 
 
 class MockedBMC(BMC):
@@ -12,6 +21,10 @@ class MockedBMC(BMC):
     def read_fans(self) -> dict[str, dict[str, MonitorMetric]]:
         # Let's add a faked fans metric
         return {str(FanContext.FAN): {"Fan1": MonitorMetric("Fan1", 40, "RPM")}}
+
+    def read_power_consumption(self) -> dict[str, dict[str, Power]]:
+        # Let's add a faked power metric
+        return {str(PowerContext.POWER): {"Chassis": Power("Chassis", 125.0)}}
 
 
 class MockVendor(Vendor):
