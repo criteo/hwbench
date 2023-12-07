@@ -6,6 +6,7 @@ tox
 mock
 ruff
 black
+types-cachetools
 typing-extensions
 wheel
 pex

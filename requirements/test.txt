@@ -31,7 +31,9 @@ black==23.10.0 \
 cachetools==5.3.1 \
     --hash=sha256:95ef631eeaea14ba2e36f06437f36463aac3a096799e876ee55e5cdccb102590 \
     --hash=sha256:dce83f2d9b4e1f732a8cd44af8e8fab2dbe46201467fc98b3ef8f269092bf62b
-    # via tox
+    # via
+    #   -r requirements/base.txt
+    #   tox
 certifi==2023.11.17 \
     --hash=sha256:9b469f3a900bf28dc19b8cfbf8019bf47f7fdd1a65a1d4ffb98fc14166beb4d1 \
     --hash=sha256:e036ab49d5b79556f99cfc2d9320b34cfbe5be05c5871b51de9329f0603b0474
@@ -710,6 +712,10 @@ tomli==2.0.1 \
 tox==4.11.3 \
     --hash=sha256:5039f68276461fae6a9452a3b2c7295798f00a0e92edcd9a3b78ba1a73577951 \
     --hash=sha256:599af5e5bb0cad0148ac1558a0b66f8fff219ef88363483b8d92a81e4246f28f
+    # via -r requirements/test.in
+types-cachetools==5.3.0.7 \
+    --hash=sha256:27c982cdb9cf3fead8b0089ee6b895715ecc99dac90ec29e2cab56eb1aaf4199 \
+    --hash=sha256:98c069dc7fc087b1b061703369c80751b0a0fc561f6fb072b554e5eee23773a0
     # via -r requirements/test.in
 typing-extensions==4.8.0 \
     --hash=sha256:8f92fc8806f9a6b641eaa5318da32b44d401efaac0f6678c9bc448ba3605faa0 \

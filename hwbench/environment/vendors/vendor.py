@@ -1,4 +1,5 @@
 import configparser
+import cachetools.func
 import json
 import logging
 import pathlib
@@ -164,8 +165,12 @@ class BMC(External):
         except Exception as exception:
             h.fatal(type(exception))
 
+    @cachetools.func.ttl_cache(maxsize=128, ttl=1.5)
     def get_redfish_url(self, url):
         """Return the content of a Redfish url."""
+        # The same url can be called several times like read_thermals() and read_fans() consuming the same redfish endpoint.
+        # To avoid multiplicating identical redfish calls, a ttl cache is implemented to avoid multiple redfish calls in a row.
+        # As we want to keep a possible high frequency (< 5sec) precision, let's consider the cache must live up to 1.5 seconds
         try:
             redfish = self.redfish_obj.get(url, None).dict
 
