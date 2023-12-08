@@ -4,55 +4,77 @@ import json
 import logging
 import pathlib
 import redfish  # type: ignore
+import statistics
+import sys
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from enum import Enum
 from ...utils import helpers as h
 from ...utils.external import External
 
 
+@dataclass
 class MonitorMetric:
-    """A class to represent temperatures"""
+    """A class to represent monitoring metrics"""
 
-    def __init__(self, name: str, value: float, unit: str):
-        self.name = name
-        self.value = value
-        self.unit = unit
+    name: str
+    unit: str
+    # We let an option to init with an initial value
+    # The default is set to None and this value shall be used during comparison or repr
+    value: float = field(default=sys.float_info.max, compare=False, repr=False)
+    values: list[float] = field(default_factory=list, init=False)
+    mean: list[float] = field(default_factory=list, init=False)
+    min: list[float] = field(default_factory=list, init=False)
+    max: list[float] = field(default_factory=list, init=False)
+    stdev: list[float] = field(default_factory=list, init=False)
+
+    def __post_init__(self):
+        # Called after __init__
+        if self.value is not None and self.value is not sys.float_info.max:
+            # If a value is given, let's add it
+            self.add(self.value)
 
     def get_name(self):
         return self.name
 
-    def get_value(self):
-        return self.value
+    def get_values(self):
+        return self.values
 
     def get_unit(self):
         return self.unit
 
-    def __eq__(self, compared_metric) -> bool:
-        return (
-            str(self.name) == str(compared_metric.get_name())
-            and self.value == compared_metric.get_value()
-            and self.unit == compared_metric.get_unit()
-        )
+    def add(self, value: float):
+        """Add a single value"""
+        self.values.append(value)
 
-    def __repr__(self) -> str:
-        return self.__str__()
+    def compact(self):
+        """Compute new min/max/mean/stdev from values."""
+        # Let's compute the stats for this run
+        self.min.append(min(self.values))
+        self.max.append(max(self.values))
+        self.mean.append(statistics.mean(self.values))
+        self.stdev.append(statistics.stdev(self.values))
+        # And reset values so a new set of stats can be started
+        self.values = []
 
-    def __str__(self) -> str:
-        return f"{self.name}={self.value} {self.unit}"
+    def reset(self):
+        """Reset all metrics to the default."""
+        self.value = sys.float_info.max
+        self.values = []
+        self.mean = []
+        self.min = []
+        self.max = []
+        self.stdev = []
 
 
 class Temperature(MonitorMetric):
-    def __init__(self, name: str, value: float):
-        self.name = name
-        self.value = value
-        super().__init__(name, value, "Celsius")
+    def __init__(self, name: str, value=None):
+        super().__init__(name, "Celsius", value=value)
 
 
 class Power(MonitorMetric):
-    def __init__(self, name: str, value: float):
-        self.name = name
-        self.value = value
-        super().__init__(name, value, "Watts")
+    def __init__(self, name: str, value=None):
+        super().__init__(name, "Watts", value=value)
 
 
 class ThermalContext(Enum):
@@ -173,7 +195,6 @@ class BMC(External):
         # As we want to keep a possible high frequency (< 5sec) precision, let's consider the cache must live up to 1.5 seconds
         try:
             redfish = self.redfish_obj.get(url, None).dict
-
             # Let's ignore errors and return empty objects
             # It will be up to the caller to see there is no answer and process this
             # {'error': {'code': 'iLO.0.10.ExtendedInfo', 'message': 'See @Message.ExtendedInfo for more information.', '@Message.ExtendedInfo': [{'MessageArgs': ['/redfish/v1/Chassis/enclosurechassis/'], 'MessageId': 'Base.1.4.ResourceMissingAtURI'}]}}
@@ -189,45 +210,61 @@ class BMC(External):
     def get_thermal(self):
         return {}
 
-    def read_thermals(self) -> dict[str, dict[str, Temperature]]:
+    def read_thermals(
+        self, thermals: dict[str, dict[str, Temperature]] = {}
+    ) -> dict[str, dict[str, Temperature]]:
         """Return thermals from server"""
         # To be implemented by vendors
         return {}
 
-    def read_fans(self) -> dict[str, dict[str, MonitorMetric]]:
+    def read_fans(
+        self, fans: dict[str, dict[str, MonitorMetric]] = {}
+    ) -> dict[str, dict[str, MonitorMetric]]:
         """Return fans from server"""
         # Generic for now, could be override by vendors
-        fans = {str(FanContext.FAN): {}}  # type: dict[str, dict[str, MonitorMetric]]
+        if not fans:
+            fans = {str(FanContext.FAN): {}}  # type: ignore[no-redef]
         for f in self.get_thermal().get("Fans"):
             name = f["Name"]
-            fans[str(FanContext.FAN)][name] = MonitorMetric(
-                f["Name"], f["Reading"], f["ReadingUnits"]
-            )
+            if name not in fans[str(FanContext.FAN)]:
+                fans[str(FanContext.FAN)][name] = MonitorMetric(
+                    f["Name"], f["ReadingUnits"]
+                )
+            fans[str(FanContext.FAN)][name].add(f["Reading"])
         return fans
 
     def get_power(self):
         """Return the power metrics."""
         return {}
 
-    def read_power_consumption(self) -> dict[str, dict[str, Power]]:
+    def read_power_consumption(
+        self, power_consumption: dict[str, dict[str, Power]] = {}
+    ) -> dict[str, dict[str, Power]]:
         """Return power consumption from server"""
         # Generic for now, could be override by vendors
-        chassis = {str(PowerContext.POWER): {}}  # type: dict[str, dict[str, Power]]
-        for power in self.get_power().get("PowerControl"):
-            chassis[str(PowerContext.POWER)]["Chassis"] = Power(
-                "Chassis", power["PowerConsumedWatts"]
-            )
-        return chassis
+        if not power_consumption:
+            power_consumption = {str(PowerContext.POWER): {"Chassis": Power("Chassis")}}  # type: ignore[no-redef]
 
-    def read_power_supplies(self) -> dict[str, dict[str, Power]]:
+        power_consumption[str(PowerContext.POWER)]["Chassis"].add(
+            self.get_power().get("PowerControl")[0]["PowerConsumedWatts"]
+        )
+        return power_consumption
+
+    def read_power_supplies(
+        self, power_supplies: dict[str, dict[str, Power]] = {}
+    ) -> dict[str, dict[str, Power]]:
         """Return power supplies power from server"""
         # Generic for now, could be override by vendors
-        psus = {str(PowerContext.POWER): {}}  # type: dict[str, dict[str, Power]]
+        if not power_supplies:
+            power_supplies = {str(PowerContext.POWER): {}}  # type: ignore[no-redef]
         for psu in self.get_power().get("PowerSupplies"):
-            psus[str(PowerContext.POWER)][psu["Name"]] = Power(
-                psu["Name"].split()[0], psu["PowerInputWatts"]
+            psu_name = psu["Name"].split()[0]
+            if psu["Name"] not in power_supplies[str(PowerContext.POWER)]:
+                power_supplies[str(PowerContext.POWER)][psu["Name"]] = Power(psu_name)
+            power_supplies[str(PowerContext.POWER)][psu["Name"]].add(
+                psu["PowerInputWatts"]
             )
-        return psus
+        return power_supplies
 
 
 class Vendor(ABC):

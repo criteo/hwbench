@@ -119,27 +119,27 @@ class TestVendors(unittest.TestCase):
                 if func[pc][sensor] != expected_output[pc][sensor]:
                     print(
                         f"name: {func[pc][sensor].get_name()} vs {expected_output[pc][sensor].get_name()}\n"
-                        f"value:{func[pc][sensor].get_value()} vs {expected_output[pc][sensor].get_value()}\n"
+                        f"value:{func[pc][sensor].get_values()} vs {expected_output[pc][sensor].get_values()}\n"
                         f"unit: {func[pc][sensor].get_unit()} vs {expected_output[pc][sensor].get_unit()}"
                     )
                     assert False, "Metrics do not match"
 
     def generic_thermal_test(self, expected_output):
         return self.generic_test(
-            expected_output, self.get_vendor().get_bmc().read_thermals()
+            expected_output, self.get_vendor().get_bmc().read_thermals({})
         )
 
     def generic_fan_test(self, expected_output):
         return self.generic_test(
-            expected_output, self.get_vendor().get_bmc().read_fans()
+            expected_output, self.get_vendor().get_bmc().read_fans({})
         )
 
     def generic_power_consumption_test(self, expected_output):
         return self.generic_test(
-            expected_output, self.get_vendor().get_bmc().read_power_consumption()
+            expected_output, self.get_vendor().get_bmc().read_power_consumption({})
         )
 
     def generic_power_supplies_test(self, expected_output):
         return self.generic_test(
-            expected_output, self.get_vendor().get_bmc().read_power_supplies()
+            expected_output, self.get_vendor().get_bmc().read_power_supplies({})
         )

@@ -15,8 +15,9 @@ class ILO(BMC):
     def get_thermal(self):
         return self.get_redfish_url("/redfish/v1/Chassis/1/Thermal")
 
-    def read_thermals(self) -> dict[str, dict[str, Temperature]]:
-        thermals = {}  # type: dict[str, dict[str, Temperature]]
+    def read_thermals(
+        self, thermals: dict[str, dict[str, Temperature]] = {}
+    ) -> dict[str, dict[str, Temperature]]:
         for t in self.get_thermal().get("Temperatures"):
             if t["ReadingCelsius"] <= 0:
                 continue
@@ -42,10 +43,9 @@ class ILO(BMC):
                 sd = f"{s}{d}"
 
                 def add(name):
-                    thermals[pc][t["Name"]] = Temperature(
-                        name,
-                        t["ReadingCelsius"],
-                    )
+                    if t["Name"] not in thermals[pc]:
+                        thermals[pc][t["Name"]] = Temperature(name)
+                    thermals[pc][t["Name"]].add(t["ReadingCelsius"])
 
                 # We don't consider all sensors for now
                 # This could be updated depending on the needs
@@ -61,41 +61,53 @@ class ILO(BMC):
     def get_power(self):
         return self.get_redfish_url("/redfish/v1/Chassis/1/Power/")
 
-    def read_power_supplies(self) -> dict[str, dict[str, Power]]:
+    def read_power_supplies(
+        self, power_supplies: dict[str, dict[str, Power]] = {}
+    ) -> dict[str, dict[str, Power]]:
         """Return power supplies power from server"""
-        # Generic for now, could be override by vendors
-        psus = {str(PowerContext.POWER): {}}  # type: dict[str, dict[str, Power]]
+        if not power_supplies:
+            power_supplies = {str(PowerContext.POWER): {}}  # type: ignore[no-redef]
         for psu in self.get_power().get("PowerSupplies"):
             # Both PSUs are named the same (HpeServerPowerSupply)
             # Let's update it to have a unique name
             name = psu["Name"] + str(psu["Oem"]["Hpe"]["BayNumber"])
             psu_name = "PS" + str(psu["Oem"]["Hpe"]["BayNumber"])
-            psus[str(PowerContext.POWER)][name] = Power(
-                psu_name, psu["Oem"]["Hpe"]["AveragePowerOutputWatts"]
+            if name not in power_supplies[str(PowerContext.POWER)]:
+                power_supplies[str(PowerContext.POWER)][name] = Power(psu_name)
+            power_supplies[str(PowerContext.POWER)][name].add(
+                psu["Oem"]["Hpe"]["AveragePowerOutputWatts"]
             )
-        return psus
 
-    def read_power_consumption(self):
-        pc = super().read_power_consumption()
+        return power_supplies
+
+    def read_power_consumption(
+        self, power_consumption: dict[str, dict[str, Power]] = {}
+    ):
+        power_consumption = super().read_power_consumption(power_consumption)
         oem_chassis = self.get_oem_chassis()
         if oem_chassis:
-            pc[str(PowerContext.POWER)]["Server"] = Power(
-                "Server",
-                oem_chassis["Oem"]["Hpe"]["NodePowerWatts"],
+            if "Server" not in power_consumption[str(PowerContext.POWER)]:
+                power_consumption[str(PowerContext.POWER)]["Server"] = Power("Server")
+            power_consumption[str(PowerContext.POWER)]["Server"].add(
+                oem_chassis["Oem"]["Hpe"]["NodePowerWatts"]
             )
             if "HPE Apollo2000 Gen10+" in oem_chassis["Name"]:
                 # Let's compute a ServerInChassis by
                 # - Collecting the chassis power consumption and divide it by the number of sleds (4)
                 # - Add the difference from this average to the sled
-                pc[str(PowerContext.POWER)]["ServerInChassis"] = Power(
-                    "ServerInChassis",
+                if "ServerInChassis" not in power_consumption[str(PowerContext.POWER)]:
+                    power_consumption[str(PowerContext.POWER)][
+                        "ServerInChassis"
+                    ] = Power("ServerInChassis")
+                power_consumption[str(PowerContext.POWER)]["ServerInChassis"].add(
                     oem_chassis["Oem"]["Hpe"]["NodePowerWatts"]
                     + (
                         (oem_chassis["Oem"]["Hpe"]["ChassisPowerWatts"] / 4)
                         - oem_chassis["Oem"]["Hpe"]["NodePowerWatts"]
-                    ),
-                )
-        return pc
+                    )
+                ),
+
+        return power_consumption
 
     def get_oem_chassis(self):
         return self.get_redfish_url("/redfish/v1/Chassis/enclosurechassis/")

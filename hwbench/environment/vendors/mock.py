@@ -14,19 +14,21 @@ class MockedBMC(BMC):
     def get_ip(self) -> str:
         return "1.2.3.4"
 
-    def read_thermals(self) -> dict[str, dict[str, Temperature]]:
+    def read_thermals(self, thermals=None) -> dict[str, dict[str, Temperature]]:
         # Let's add a faked thermal metric
         return {str(ThermalContext.CPU): {"CPU1": Temperature("CPU1", 40)}}
 
-    def read_fans(self) -> dict[str, dict[str, MonitorMetric]]:
+    def read_fans(self, fans=None) -> dict[str, dict[str, MonitorMetric]]:
         # Let's add a faked fans metric
-        return {str(FanContext.FAN): {"Fan1": MonitorMetric("Fan1", 40, "RPM")}}
+        return {str(FanContext.FAN): {"Fan1": MonitorMetric("Fan1", "RPM", 40)}}
 
-    def read_power_consumption(self) -> dict[str, dict[str, Power]]:
+    def read_power_consumption(
+        self, power_consumption=None
+    ) -> dict[str, dict[str, Power]]:
         # Let's add a faked power metric
         return {str(PowerContext.POWER): {"Chassis": Power("Chassis", 125.0)}}
 
-    def read_power_supplies(self) -> dict[str, dict[str, Power]]:
+    def read_power_supplies(self, power_supplies=None) -> dict[str, dict[str, Power]]:
         # Let's add a faked power supplies
         return {str(PowerContext.POWER): {"PS1 status": Power("PS1", 125.0)}}
 

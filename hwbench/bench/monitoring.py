@@ -1,5 +1,6 @@
 from ..environment.hardware import BaseHardware
 from ..utils import helpers as h
+from ..environment.vendors.vendor import MonitorMetric
 
 
 class Monitoring:
@@ -10,6 +11,10 @@ class Monitoring:
         self.out_dir = out_dir
         self.hardware = hardware
         self.vendor = hardware.get_vendor()
+        self.fans: dict[str, dict[str, MonitorMetric]] = {}
+        self.power_consumption: dict[str, dict[str, MonitorMetric]] = {}
+        self.power_supplies: dict[str, dict[str, MonitorMetric]] = {}
+        self.thermal: dict[str, dict[str, MonitorMetric]] = {}
         self.prepare()
 
     def prepare(self):
@@ -40,7 +45,14 @@ class Monitoring:
                 )
             )
 
-        check_monitoring(self.vendor.get_bmc().read_thermals(), "thermal")
-        check_monitoring(self.vendor.get_bmc().read_fans(), "fans")
-        check_monitoring(self.vendor.get_bmc().read_power_consumption(), "power")
-        check_monitoring(self.vendor.get_bmc().read_power_supplies(), "power_supplies")
+        check_monitoring(self.vendor.get_bmc().read_thermals(self.thermal), "thermal")
+        check_monitoring(self.vendor.get_bmc().read_fans(self.fans), "fans")
+        check_monitoring(
+            self.vendor.get_bmc().read_power_consumption(self.power_consumption),
+            "power",
+        )
+        check_monitoring(
+            self.vendor.get_bmc().read_power_supplies(self.power_supplies),
+            "power_supplies",
+        )
+        return

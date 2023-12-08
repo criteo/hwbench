@@ -62,18 +62,17 @@ class TestDell(TestVendors):
     def test_fan(self):
         expected_output = self.generic_fan_output()
         expected_output[str(FanContext.FAN)] = {
-            "Fan1A": MonitorMetric("Fan1A", 10680, "RPM"),
-            "Fan1B": MonitorMetric("Fan1B", 11040, "RPM"),
-            "Fan2A": MonitorMetric("Fan2A", 10680, "RPM"),
-            "Fan2B": MonitorMetric("Fan2B", 10920, "RPM"),
-            "Fan3A": MonitorMetric("Fan3A", 9360, "RPM"),
-            "Fan3B": MonitorMetric("Fan3B", 9600, "RPM"),
-            "Fan4A": MonitorMetric("Fan4A", 9360, "RPM"),
-            "Fan4B": MonitorMetric("Fan4B", 9480, "RPM"),
-            "Fan5A": MonitorMetric("Fan5A", 5880, "RPM"),
-            "Fan5B": MonitorMetric("Fan5B", 4560, "RPM"),
+            "Fan1A": MonitorMetric("Fan1A", "RPM", 10680),
+            "Fan1B": MonitorMetric("Fan1B", "RPM", 11040),
+            "Fan2A": MonitorMetric("Fan2A", "RPM", 10680),
+            "Fan2B": MonitorMetric("Fan2B", "RPM", 10920),
+            "Fan3A": MonitorMetric("Fan3A", "RPM", 9360),
+            "Fan3B": MonitorMetric("Fan3B", "RPM", 9600),
+            "Fan4A": MonitorMetric("Fan4A", "RPM", 9360),
+            "Fan4B": MonitorMetric("Fan4B", "RPM", 9480),
+            "Fan5A": MonitorMetric("Fan5A", "RPM", 5880),
+            "Fan5B": MonitorMetric("Fan5B", "RPM", 4560),
         }
-
         super().generic_fan_test(expected_output)
 
     def test_power_consumption(self):
@@ -84,7 +83,6 @@ class TestDell(TestVendors):
             "ServerInChassis": Power("ServerInChassis", 112),
             "Infrastructure": Power("Infrastructure", 54),
         }
-
         super().generic_power_consumption_test(expected_output)
 
     def test_power_supplies(self):
@@ -93,5 +91,4 @@ class TestDell(TestVendors):
             "PS1 Status": Power("PS1", 168.0),
             "PS2 Status": Power("PS2", 171.0),
         }
-
         super().generic_power_supplies_test(expected_output)
