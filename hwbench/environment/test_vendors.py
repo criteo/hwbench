@@ -107,7 +107,7 @@ class TestVendors(unittest.TestCase):
         return {str(FanContext.FAN): {}}
 
     def generic_power_output(self):
-        return {str(PowerContext.POWER): {}}
+        return {str(PowerContext.BMC): {}}
 
     def generic_test(self, expected_output, func):
         for pc in func:

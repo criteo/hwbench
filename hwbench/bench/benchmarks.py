@@ -1,4 +1,5 @@
 from datetime import timedelta
+from typing import Optional
 from ..utils import helpers as h
 from .benchmark import Benchmark
 from .monitoring import Monitoring
@@ -264,8 +265,12 @@ ETA {duration}"
                 )
                 print("", file=f)
 
-    def get_monitoring_config(self, bench: Benchmark) -> str:
+    def get_monitoring(self) -> Optional[Monitoring]:
         """Return the monitoring object"""
+        return self.monitoring
+
+    def get_monitoring_config(self, bench: Benchmark) -> str:
+        """Return the monitoring configuration"""
         return self.config.get_monitor(bench)
 
     def need_monitoring(self):

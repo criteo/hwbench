@@ -136,7 +136,7 @@ class BMC(External):
     ) -> dict[str, dict[str, MonitorMetric]]:
         """Return fans from server"""
         # Generic for now, could be override by vendors
-        if not fans:
+        if str(FanContext.FAN) not in fans:
             fans[str(FanContext.FAN)] = {}  # type: ignore[no-redef]
         for f in self.get_thermal().get("Fans"):
             name = f["Name"]
@@ -156,10 +156,10 @@ class BMC(External):
     ) -> dict[str, dict[str, Power]]:
         """Return power consumption from server"""
         # Generic for now, could be override by vendors
-        if not power_consumption:
-            power_consumption[str(PowerContext.POWER)] = {"Chassis": Power("Chassis")}  # type: ignore[no-redef]
+        if str(PowerContext.BMC) not in power_consumption:
+            power_consumption[str(PowerContext.BMC)] = {"Chassis": Power("Chassis")}  # type: ignore[no-redef]
 
-        power_consumption[str(PowerContext.POWER)]["Chassis"].add(
+        power_consumption[str(PowerContext.BMC)]["Chassis"].add(
             self.get_power().get("PowerControl")[0]["PowerConsumedWatts"]
         )
         return power_consumption
@@ -169,13 +169,13 @@ class BMC(External):
     ) -> dict[str, dict[str, Power]]:
         """Return power supplies power from server"""
         # Generic for now, could be override by vendors
-        if not power_supplies:
-            power_supplies[str(PowerContext.POWER)] = {}  # type: ignore[no-redef]
+        if str(PowerContext.BMC) not in power_supplies:
+            power_supplies[str(PowerContext.BMC)] = {}  # type: ignore[no-redef]
         for psu in self.get_power().get("PowerSupplies"):
             psu_name = psu["Name"].split()[0]
-            if psu["Name"] not in power_supplies[str(PowerContext.POWER)]:
-                power_supplies[str(PowerContext.POWER)][psu["Name"]] = Power(psu_name)
-            power_supplies[str(PowerContext.POWER)][psu["Name"]].add(
+            if psu["Name"] not in power_supplies[str(PowerContext.BMC)]:
+                power_supplies[str(PowerContext.BMC)][psu["Name"]] = Power(psu_name)
+            power_supplies[str(PowerContext.BMC)][psu["Name"]].add(
                 psu["PowerInputWatts"]
             )
         return power_supplies

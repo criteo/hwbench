@@ -70,16 +70,16 @@ class ILO(BMC):
         self, power_supplies: dict[str, dict[str, Power]] = {}
     ) -> dict[str, dict[str, Power]]:
         """Return power supplies power from server"""
-        if not power_supplies:
-            power_supplies = {str(PowerContext.POWER): {}}  # type: ignore[no-redef]
+        if str(PowerContext.BMC) not in power_supplies:
+            power_supplies = {str(PowerContext.BMC): {}}  # type: ignore[no-redef]
         for psu in self.get_power().get("PowerSupplies"):
             # Both PSUs are named the same (HpeServerPowerSupply)
             # Let's update it to have a unique name
             name = psu["Name"] + str(psu["Oem"]["Hpe"]["BayNumber"])
             psu_name = "PS" + str(psu["Oem"]["Hpe"]["BayNumber"])
-            if name not in power_supplies[str(PowerContext.POWER)]:
-                power_supplies[str(PowerContext.POWER)][name] = Power(psu_name)
-            power_supplies[str(PowerContext.POWER)][name].add(
+            if name not in power_supplies[str(PowerContext.BMC)]:
+                power_supplies[str(PowerContext.BMC)][name] = Power(psu_name)
+            power_supplies[str(PowerContext.BMC)][name].add(
                 psu["Oem"]["Hpe"]["AveragePowerOutputWatts"]
             )
 
@@ -91,20 +91,20 @@ class ILO(BMC):
         power_consumption = super().read_power_consumption(power_consumption)
         oem_chassis = self.get_oem_chassis()
         if oem_chassis:
-            if "Server" not in power_consumption[str(PowerContext.POWER)]:
-                power_consumption[str(PowerContext.POWER)]["Server"] = Power("Server")
-            power_consumption[str(PowerContext.POWER)]["Server"].add(
+            if "Server" not in power_consumption[str(PowerContext.BMC)]:
+                power_consumption[str(PowerContext.BMC)]["Server"] = Power("Server")
+            power_consumption[str(PowerContext.BMC)]["Server"].add(
                 oem_chassis["Oem"]["Hpe"]["NodePowerWatts"]
             )
             if "HPE Apollo2000 Gen10+" in oem_chassis["Name"]:
                 # Let's compute a ServerInChassis by
                 # - Collecting the chassis power consumption and divide it by the number of sleds (4)
                 # - Add the difference from this average to the sled
-                if "ServerInChassis" not in power_consumption[str(PowerContext.POWER)]:
-                    power_consumption[str(PowerContext.POWER)][
+                if "ServerInChassis" not in power_consumption[str(PowerContext.BMC)]:
+                    power_consumption[str(PowerContext.BMC)]["ServerInChassis"] = Power(
                         "ServerInChassis"
-                    ] = Power("ServerInChassis")
-                power_consumption[str(PowerContext.POWER)]["ServerInChassis"].add(
+                    )
+                power_consumption[str(PowerContext.BMC)]["ServerInChassis"].add(
                     oem_chassis["Oem"]["Hpe"]["NodePowerWatts"]
                     + (
                         (oem_chassis["Oem"]["Hpe"]["ChassisPowerWatts"] / 4)

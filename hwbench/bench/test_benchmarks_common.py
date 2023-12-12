@@ -1,5 +1,7 @@
+import ast
 import pathlib
 import unittest
+from unittest.mock import patch
 from . import benchmarks
 from ..config import config
 from ..environment.cpu import MockCPU
@@ -56,8 +58,12 @@ class TestCommon(unittest.TestCase):
         return self.benches
 
     def parse_config(self, validate_parameters=True):
-        parse = self.benches.parse_config(validate_parameters)
-        return parse
+        # We need to mock turbostat when parsing config with monitoring
+        # We mock the run() command to get a constant output
+        with patch("hwbench.environment.turbostat.Turbostat.run") as ts:
+            with open("tests/parsing/turbostat/run", "r") as f:
+                ts.return_value = ast.literal_eval(f.read())
+                return self.benches.parse_config(validate_parameters)
 
     def get_config(self) -> config.Config:
         return self.config

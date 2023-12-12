@@ -1,7 +1,7 @@
 import pathlib
 from unittest.mock import patch
 from . import test_benchmarks_common as tbc
-from ..environment.mock import MockHardware
+from .monitoring_structs import Metrics
 
 
 class TestParse(tbc.TestCommon):
@@ -17,7 +17,11 @@ class TestParse(tbc.TestCommon):
                 .read_bytes()
                 .split(b":", 1)
             )
-            self.hw = MockHardware(cores=64)
+            self.load_mocked_hardware(
+                cpucores="./tests/parsing/cpu_cores/v2321",
+                cpuinfo="./tests/parsing/cpu_info/v2321",
+                numa="./tests/parsing/numa/8domainsllc",
+            )
             self.load_benches("./config/sample.ini")
             self.parse_config()
 
@@ -82,6 +86,14 @@ class TestParse(tbc.TestCommon):
         """Test if at least one benchmark needs monitoring."""
         # This config file needs monitoring
         assert self.benches.need_monitoring()
+        monitoring = self.benches.get_monitoring()
+
+        def get_monitoring_members(metric: Metrics):
+            data = monitoring.get_metric(metric)
+            return [len(data[pc]) for pc in data if len(data[pc]) > 0]
+
+        assert get_monitoring_members(Metrics.FREQ)[0] == 48
+        assert get_monitoring_members(Metrics.POWER_CONSUMPTION)[0] == 49
 
     def test_stream_short(self):
         with patch(

@@ -2,6 +2,7 @@ import time
 from typing import Any
 from threading import Thread
 from ..environment.hardware import BaseHardware
+from ..environment.turbostat import Turbostat
 from ..utils import helpers as h
 from .monitoring_structs import Metrics, MonitorMetric
 
@@ -34,6 +35,7 @@ class Monitoring:
         self.vendor = hardware.get_vendor()
         self.metrics: Any = {}
         self.executor: ThreadWithReturnValue
+        self.turbostat: Turbostat = None  # type: ignore[assignment]
         self.__reset_metrics()
         self.prepare()
 
@@ -45,7 +47,7 @@ class Monitoring:
         """Return the actual metrics."""
         return self.metrics
 
-    def __get_metric(self, metric: Metrics):
+    def get_metric(self, metric: Metrics):
         """Return one metric."""
         return self.metrics[str(metric)]
 
@@ -64,7 +66,7 @@ class Monitoring:
         )
 
         def check_monitoring(metric: Metrics):
-            data = self.__get_metric(metric)
+            data = self.get_metric(metric)
             if not len(data):
                 h.fatal(f"Cannot detect {str(metric)} metrics")
 
@@ -75,35 +77,42 @@ class Monitoring:
                 )
             )
 
-        # - checking the bmc monitoring works
+        # - checking if the CPU monitoring works
+        if self.hardware.cpu.get_arch() == "x86_64":
+            self.turbostat = Turbostat(
+                self.hardware,
+                self.get_metric(Metrics.FREQ),
+                self.get_metric(Metrics.POWER_CONSUMPTION),
+            )
+            check_monitoring(Metrics.FREQ)
 
         # - checking if the bmc monitoring works
         # These calls will also initialize the datastructures out of the monitoring loop
-        self.vendor.get_bmc().read_thermals(self.__get_metric(Metrics.THERMAL))
+        self.vendor.get_bmc().read_thermals(self.get_metric(Metrics.THERMAL))
         check_monitoring(Metrics.THERMAL)
 
-        self.vendor.get_bmc().read_fans(self.__get_metric(Metrics.FANS))
+        self.vendor.get_bmc().read_fans(self.get_metric(Metrics.FANS))
         check_monitoring(Metrics.FANS)
 
         self.vendor.get_bmc().read_power_consumption(
-            self.__get_metric(Metrics.POWER_CONSUMPTION)
+            self.get_metric(Metrics.POWER_CONSUMPTION)
         )
         check_monitoring(Metrics.POWER_CONSUMPTION)
 
         self.vendor.get_bmc().read_power_supplies(
-            self.__get_metric(Metrics.POWER_SUPPLIES)
+            self.get_metric(Metrics.POWER_SUPPLIES)
         )
         check_monitoring(Metrics.POWER_SUPPLIES)
 
     def __monitor_bmc(self):
         """Monitor the bmc metrics"""
-        self.vendor.get_bmc().read_thermals(self.__get_metric(Metrics.THERMAL))
-        self.vendor.get_bmc().read_fans(self.__get_metric(Metrics.FANS))
+        self.vendor.get_bmc().read_thermals(self.get_metric(Metrics.THERMAL))
+        self.vendor.get_bmc().read_fans(self.get_metric(Metrics.FANS))
         self.vendor.get_bmc().read_power_consumption(
-            self.__get_metric(Metrics.POWER_CONSUMPTION)
+            self.get_metric(Metrics.POWER_CONSUMPTION)
         )
         self.vendor.get_bmc().read_power_supplies(
-            self.__get_metric(Metrics.POWER_SUPPLIES)
+            self.get_metric(Metrics.POWER_SUPPLIES)
         )
 
     def __compact(self):
@@ -119,7 +128,7 @@ class Monitoring:
             ]:
                 continue
             for _, component in metric_type.items():
-                for _, metric in component.items():
+                for metric_name, metric in component.items():
                     metric.compact()
 
     def monitor(self, precision: int, frequency: int, duration: int):
@@ -164,6 +173,10 @@ class Monitoring:
             return start_run + ((loops_done + 1) * precision) * 1e9
 
         while True:
+            if self.turbostat:
+                # Turbostat will run for the whole duration of this loop
+                # We just retract a 2/10th of second to ensure it will not overdue
+                self.turbostat.run(interval=(precision - 0.2))
             if loops_done and loops_done % frequency == 0:
                 # At every frequency, the maths are computed
                 self.__compact()
@@ -172,7 +185,7 @@ class Monitoring:
             end = self.get_monotonic_clock()
             monitoring_duration = end - start
             # Let's monitor the time spent at monitoring the BMC
-            self.__get_metric(Metrics.MONITOR)["BMC"]["Polling"].add(
+            self.get_metric(Metrics.MONITOR)["BMC"]["Polling"].add(
                 monitoring_duration * 1e-6
             )
 
@@ -184,9 +197,17 @@ class Monitoring:
             # If the the current time + sleep_time is above the total duration (we accept up to 500ms overdue)
             if (end + monitoring_duration + sleep_time_ns) > (end_of_run + 0.5 * 1e9):
                 # We can stop the monitoring, no more measures will be done
+                self.turbostat.parse()
                 break
 
-            time.sleep(sleep_time)
+            if sleep_time < 0:
+                print(
+                    f"Sleep time is greater than expected : {sleep_time} vs {precision}"
+                )
+            else:
+                time.sleep(sleep_time)
+                # Turbostat should be already completed, let's parse the output
+                self.turbostat.parse()
             loops_done = loops_done + 1
 
         # Monitoring is over, let's compute the maths
@@ -210,4 +231,10 @@ class Monitoring:
         self.__set_metric(Metrics.POWER_CONSUMPTION, {})
         self.__set_metric(Metrics.POWER_SUPPLIES, {})
         self.__set_metric(Metrics.THERMAL, {})
+        if self.turbostat:
+            freq, power = self.turbostat.reset_metrics()
+            self.__set_metric(Metrics.FREQ, freq)
+            self.__set_metric(Metrics.POWER_CONSUMPTION, power)
+        else:
+            self.__set_metric(Metrics.FREQ, {})
         self.__set_metric(Metrics.MONITOR, {})

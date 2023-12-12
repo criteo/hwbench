@@ -77,7 +77,7 @@ class TestDell(TestVendors):
 
     def test_power_consumption(self):
         expected_output = self.generic_power_output()
-        expected_output[str(PowerContext.POWER)] = {
+        expected_output[str(PowerContext.BMC)] = {
             "Chassis": Power("Chassis", 80),
             "Server": Power("Server", 54),
             "ServerInChassis": Power("ServerInChassis", 112),
@@ -87,7 +87,7 @@ class TestDell(TestVendors):
 
     def test_power_supplies(self):
         expected_output = self.generic_power_output()
-        expected_output[str(PowerContext.POWER)] = {
+        expected_output[str(PowerContext.BMC)] = {
             "PS1 Status": Power("PS1", 168.0),
             "PS2 Status": Power("PS2", 171.0),
         }

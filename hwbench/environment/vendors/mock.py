@@ -31,9 +31,7 @@ class MockedBMC(BMC):
         self, power_consumption: dict[str, dict[str, Power]] = {}
     ) -> dict[str, dict[str, Power]]:
         # Let's add a faked power metric
-        power_consumption[str(PowerContext.POWER)] = {
-            "Chassis": Power("Chassis", 125.0)
-        }
+        power_consumption[str(PowerContext.BMC)] = {"Chassis": Power("Chassis", 125.0)}
         return power_consumption
 
     def read_power_supplies(
@@ -41,7 +39,7 @@ class MockedBMC(BMC):
     ) -> dict[str, dict[str, Power]]:
         # Let's add a faked power supplies
 
-        power_supplies[str(PowerContext.POWER)] = {"PS1 status": Power("PS1", 125.0)}
+        power_supplies[str(PowerContext.BMC)] = {"PS1 status": Power("PS1", 125.0)}
         return power_supplies
 
 

@@ -87,7 +87,7 @@ class TestHpeAp2K(TestGenericHpe):
 
     def test_power_consumption(self):
         expected_output = self.generic_power_output()
-        expected_output[str(PowerContext.POWER)] = {
+        expected_output[str(PowerContext.BMC)] = {
             "Chassis": Power("Chassis", 116.0),
             "Server": Power("Server", 75),
             "ServerInChassis": Power("ServerInChassis", 78.75),
@@ -97,7 +97,7 @@ class TestHpeAp2K(TestGenericHpe):
 
     def test_power_supplies(self):
         expected_output = self.generic_power_output()
-        expected_output[str(PowerContext.POWER)] = {
+        expected_output[str(PowerContext.BMC)] = {
             "HpeServerPowerSupply1": Power("PS1", 116.0),
             "HpeServerPowerSupply2": Power("PS2", 116.0),
         }
@@ -143,7 +143,7 @@ class TestHpeDL380(TestGenericHpe):
 
     def test_power_consumption(self):
         expected_output = self.generic_power_output()
-        expected_output[str(PowerContext.POWER)] = {
+        expected_output[str(PowerContext.BMC)] = {
             "Chassis": Power("Chassis", 301),
         }
 
@@ -151,7 +151,7 @@ class TestHpeDL380(TestGenericHpe):
 
     def test_power_supplies(self):
         expected_output = self.generic_power_output()
-        expected_output[str(PowerContext.POWER)] = {
+        expected_output[str(PowerContext.BMC)] = {
             "HpeServerPowerSupply1": Power("PS1", 147.0),
             "HpeServerPowerSupply2": Power("PS2", 154.0),
         }

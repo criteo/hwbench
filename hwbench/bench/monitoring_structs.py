@@ -78,6 +78,7 @@ class Metrics(Enum):
     POWER_SUPPLIES = "PowerSupplies"
     THERMAL = "Thermal"
     MONITOR = "Monitor"
+    FREQ = "Freq"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -111,8 +112,16 @@ class FanContext(Enum):
         return str(self.value)
 
 
+class CPUContext(Enum):
+    CPU = "CPU"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
 class PowerContext(Enum):
-    POWER = "Power"
+    BMC = "BMC"
+    CPU = "CPU"
 
     def __str__(self) -> str:
         return str(self.value)
