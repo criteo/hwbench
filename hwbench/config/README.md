@@ -16,7 +16,7 @@ Each job selects:
    - 'stressor_range': defines the number of stressors to run on each hosting_cpu_cores
 
 stressors & hosting_cpu_cores has an associated _scaling parameter
-defining how cpu and stressors are associated at each interation.
+defining how cpu and stressors are associated at each iteration.
 
 The current implementation only has 'one by one' approach like :
 

@@ -68,6 +68,7 @@ class TestParse(unittest.TestCase):
                         "",
                         MockHardware(),
                         "none",
+                        None,
                         "bypass",
                     )
                     module = engine_module(engine, prefix)
@@ -168,6 +169,7 @@ class TestParse(unittest.TestCase):
                 "",
                 MockHardware(flags),
                 "none",
+                None,
                 "bypass",
             )
 

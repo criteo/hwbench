@@ -6,8 +6,8 @@ import unittest
 from enum import Enum
 from unittest.mock import patch
 from typing import Any  # noqa: F401
-from .vendors.vendor import Vendor, ThermalContext, FanContext, PowerContext
-
+from .vendors.vendor import Vendor
+from ..bench.monitoring_structs import FanContext, PowerContext, ThermalContext
 
 path = pathlib.Path("")
 

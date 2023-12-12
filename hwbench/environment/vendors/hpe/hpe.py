@@ -1,6 +1,11 @@
 import pathlib
 import re
-from ..vendor import Vendor, BMC, Temperature, Power, PowerContext
+from ....bench.monitoring_structs import (
+    Power,
+    PowerContext,
+    Temperature,
+)
+from ..vendor import Vendor, BMC
 from .ilorest import Ilorest, IlorestServerclone, ILOREST
 
 

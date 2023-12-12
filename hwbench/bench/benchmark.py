@@ -1,5 +1,3 @@
-import json
-import subprocess
 import time
 from typing import Any
 
@@ -66,7 +64,7 @@ class Benchmark:
 
     def need_monitoring(self):
         """Return True if this benchmark requires monitoring."""
-        return self.get_parameters().get_monitoring() != "none"
+        return self.get_parameters().get_monitoring_config() != "none"
 
 
 class ExternalBench(External):
@@ -75,7 +73,7 @@ class ExternalBench(External):
     ):
         super().__init__(parameters.out_dir)
         self.monitoring = False
-        if parameters.get_monitoring() == "all":
+        if parameters.get_monitoring_config() == "all":
             self.monitoring = True
         self.runtime = parameters.get_runtime()
         self.parameters = parameters
@@ -116,22 +114,8 @@ class ExternalBench(External):
         if self.monitoring and not self.fully_skipped_job():
             # Start the monitoring in background
             # It runs the same amount of time as the benchmark
-            self.report_power = subprocess.Popen(
-                [
-                    "python3",
-                    "-m",
-                    "report_power.report_power",
-                    "--name",
-                    "monitoring",
-                    "--simple",
-                    "--limit",
-                    f"{self.parameters.get_runtime()}",
-                    "--interval",
-                    "10",
-                ],
-                cwd="/root",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+            self.parameters.get_monitoring().monitor(
+                2, 5, self.parameters.get_runtime()
             )
         p = self.parameters
         cpu_location = ""
@@ -166,21 +150,7 @@ class ExternalBench(External):
 
     def post_run(self, run):
         if self.monitoring and not self.fully_skipped_job():
-            # Collect output and extract metrics
-            (
-                stdout,
-                stderr,
-            ) = (
-                self.report_power.communicate()
-            )  # pyright: ignore [reportUnboundVariable]
-            if stderr:
-                h.fatal(f"External_Bench: report_power failed : {stderr}")
-            try:
-                run["monitoring"] = json.loads(stdout.decode())["monitoring"]["metrics"]
-            except json.JSONDecodeError:
-                h.fatal(
-                    f"External_Bench: invalid report_power output : {stdout.decode()}"
-                )
+            run["monitoring"] = self.parameters.get_monitoring().get_monitor_metrics()
         return run
 
     def empty_result(self):

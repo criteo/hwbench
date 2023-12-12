@@ -1,5 +1,6 @@
 import pathlib
 
+from .monitoring import Monitoring
 from ..environment.hardware import BaseHardware
 
 
@@ -16,7 +17,8 @@ class BenchmarkParameters:
         engine_module_parameter: str,
         engine_module_parameter_base: str,
         hw: BaseHardware,
-        monitoring: str,
+        monitoring_config: str,
+        monitoring: Monitoring,
         skip_method: str,
     ):
         self.out_dir = out_dir
@@ -28,6 +30,7 @@ class BenchmarkParameters:
         self.runtime = runtime
         self.result_format: dict[str, str] = {}
         self.hw = hw
+        self.monitoring_config = monitoring_config
         self.monitoring = monitoring
         self.skip_method = skip_method
 
@@ -51,7 +54,10 @@ class BenchmarkParameters:
     def get_runtime(self) -> int:
         return self.runtime
 
-    def get_monitoring(self) -> str:
+    def get_monitoring_config(self) -> str:
+        return self.monitoring_config
+
+    def get_monitoring(self) -> Monitoring:
         return self.monitoring
 
     def get_skip_method(self) -> str:

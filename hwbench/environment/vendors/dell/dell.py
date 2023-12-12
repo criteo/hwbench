@@ -1,4 +1,9 @@
-from ..vendor import Vendor, BMC, Temperature, Power, PowerContext
+from ....bench.monitoring_structs import (
+    Power,
+    PowerContext,
+    Temperature,
+)
+from ..vendor import Vendor, BMC
 
 
 class IDRAC(BMC):
@@ -28,7 +33,9 @@ class IDRAC(BMC):
             "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/DellAttributes/System.Embedded.1"
         )
 
-    def read_power_consumption(self, power_consumption=None):
+    def read_power_consumption(
+        self, power_consumption: dict[str, dict[str, Power]] = {}
+    ):
         power_consumption = super().read_power_consumption(power_consumption)
         oem_system = self.get_oem_system()
         if "ServerPwr.1.SCViewSledPwr" in oem_system["Attributes"]:

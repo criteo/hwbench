@@ -1,13 +1,12 @@
-from .vendor import (
-    Power,
-    MonitorMetric,
-    Temperature,
-    Vendor,
-    BMC,
-    ThermalContext,
+from ...bench.monitoring_structs import (
     FanContext,
+    MonitorMetric,
+    Power,
     PowerContext,
+    Temperature,
+    ThermalContext,
 )
+from .vendor import Vendor, BMC
 
 
 class MockedBMC(BMC):

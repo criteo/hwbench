@@ -4,102 +4,16 @@ import json
 import logging
 import pathlib
 import redfish  # type: ignore
-import statistics
-import sys
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from enum import Enum
 from ...utils import helpers as h
 from ...utils.external import External
-
-
-@dataclass
-class MonitorMetric:
-    """A class to represent monitoring metrics"""
-
-    name: str
-    unit: str
-    # We let an option to init with an initial value
-    # The default is set to None and this value shall be used during comparison or repr
-    value: float = field(default=sys.float_info.max, compare=False, repr=False)
-    values: list[float] = field(default_factory=list, init=False)
-    mean: list[float] = field(default_factory=list, init=False)
-    min: list[float] = field(default_factory=list, init=False)
-    max: list[float] = field(default_factory=list, init=False)
-    stdev: list[float] = field(default_factory=list, init=False)
-
-    def __post_init__(self):
-        # Called after __init__
-        if self.value is not None and self.value is not sys.float_info.max:
-            # If a value is given, let's add it
-            self.add(self.value)
-
-    def get_name(self):
-        return self.name
-
-    def get_values(self):
-        return self.values
-
-    def get_unit(self):
-        return self.unit
-
-    def add(self, value: float):
-        """Add a single value"""
-        self.values.append(value)
-
-    def compact(self):
-        """Compute new min/max/mean/stdev from values."""
-        # Let's compute the stats for this run
-        self.min.append(min(self.values))
-        self.max.append(max(self.values))
-        self.mean.append(statistics.mean(self.values))
-        self.stdev.append(statistics.stdev(self.values))
-        # And reset values so a new set of stats can be started
-        self.values = []
-
-    def reset(self):
-        """Reset all metrics to the default."""
-        self.value = sys.float_info.max
-        self.values = []
-        self.mean = []
-        self.min = []
-        self.max = []
-        self.stdev = []
-
-
-class Temperature(MonitorMetric):
-    def __init__(self, name: str, value=None):
-        super().__init__(name, "Celsius", value=value)
-
-
-class Power(MonitorMetric):
-    def __init__(self, name: str, value=None):
-        super().__init__(name, "Watts", value=value)
-
-
-class ThermalContext(Enum):
-    INTAKE = "Intake"
-    CPU = "CPU"
-    MEMORY = "Memory"
-    SYSTEMBOARD = "SystemBoard"
-    POWERSUPPLY = "PowerSupply"
-
-    def __str__(self) -> str:
-        return str(self.value)
-
-
-class FanContext(Enum):
-    FAN = "Fan"
-
-    def __str__(self) -> str:
-        return str(self.value)
-
-
-class PowerContext(Enum):
-    POWER = "Power"
-
-    def __str__(self) -> str:
-        return str(self.value)
+from ...bench.monitoring_structs import (
+    FanContext,
+    Power,
+    PowerContext,
+    MonitorMetric,
+    Temperature,
+)
 
 
 class BMC(External):
@@ -223,7 +137,7 @@ class BMC(External):
         """Return fans from server"""
         # Generic for now, could be override by vendors
         if not fans:
-            fans = {str(FanContext.FAN): {}}  # type: ignore[no-redef]
+            fans[str(FanContext.FAN)] = {}  # type: ignore[no-redef]
         for f in self.get_thermal().get("Fans"):
             name = f["Name"]
             if name not in fans[str(FanContext.FAN)]:
@@ -243,7 +157,7 @@ class BMC(External):
         """Return power consumption from server"""
         # Generic for now, could be override by vendors
         if not power_consumption:
-            power_consumption = {str(PowerContext.POWER): {"Chassis": Power("Chassis")}}  # type: ignore[no-redef]
+            power_consumption[str(PowerContext.POWER)] = {"Chassis": Power("Chassis")}  # type: ignore[no-redef]
 
         power_consumption[str(PowerContext.POWER)]["Chassis"].add(
             self.get_power().get("PowerControl")[0]["PowerConsumedWatts"]
@@ -256,7 +170,7 @@ class BMC(External):
         """Return power supplies power from server"""
         # Generic for now, could be override by vendors
         if not power_supplies:
-            power_supplies = {str(PowerContext.POWER): {}}  # type: ignore[no-redef]
+            power_supplies[str(PowerContext.POWER)] = {}  # type: ignore[no-redef]
         for psu in self.get_power().get("PowerSupplies"):
             psu_name = psu["Name"].split()[0]
             if psu["Name"] not in power_supplies[str(PowerContext.POWER)]:

@@ -1,5 +1,4 @@
 from datetime import timedelta
-from typing import Optional
 from ..utils import helpers as h
 from .benchmark import Benchmark
 from .monitoring import Monitoring
@@ -15,7 +14,7 @@ class Benchmarks:
         self.out_dir = out_dir
         self.benchs: list[Benchmark] = []
         self.hardware = hardware
-        self.monitoring = None
+        self.monitoring: Monitoring = None  # type: ignore[assignment]
 
     def get_engine(self, job):
         """Return the engine of a particular job."""
@@ -119,10 +118,6 @@ class Benchmarks:
                 hccs = hosting_cpu_cores_scaling
                 h.fatal(f"Unsupported hosting_cpu_cores_scaling : {hccs}")
 
-        # If any benchmark require monitoring, let's initiate it
-        if self.need_monitoring():
-            self.monitoring = Monitoring(self.out_dir, self.config, self.hardware)
-
     def __schedule_benchmarks(
         self, job, stressor_range_scaling, pinned_cpu, validate_parameters: bool
     ):
@@ -140,8 +135,13 @@ class Benchmarks:
     ):
         """Schedule benchmark."""
         runtime = self.config.get_runtime(job)
-        monitoring = self.config.get_monitor(job)
+        monitoring_config = self.get_monitoring_config(job)
         _, engine_module = self.get_engine(job)
+
+        # If job needs monitoring, let's create it
+        if monitoring_config != "none" and not self.monitoring:
+            self.monitoring = Monitoring(self.out_dir, self.config, self.hardware)
+
         # For each stressor, add a benchmark object to the list
         for stressor_count in self.config.get_stressor_range(job):
             if stressor_count == "auto":
@@ -162,7 +162,8 @@ class Benchmarks:
                         individual_emp,
                         self.config.get_engine_module_parameter_base(job),
                         self.hardware,
-                        monitoring,
+                        monitoring_config,
+                        self.monitoring,
                         self.config.get_skip_method(job),
                     )
                     benchmark = Benchmark(
@@ -179,7 +180,8 @@ class Benchmarks:
                     engine_module_parameter,
                     self.config.get_engine_module_parameter_base(job),
                     self.hardware,
-                    monitoring,
+                    monitoring_config,
+                    self.monitoring,
                     self.config.get_skip_method(job),
                 )
                 benchmark = Benchmark(
@@ -262,9 +264,9 @@ ETA {duration}"
                 )
                 print("", file=f)
 
-    def get_monitoring(self) -> Optional[Monitoring]:
+    def get_monitoring_config(self, bench: Benchmark) -> str:
         """Return the monitoring object"""
-        return self.monitoring
+        return self.config.get_monitor(bench)
 
     def need_monitoring(self):
         """Return if at least one bench requires monitoring"""

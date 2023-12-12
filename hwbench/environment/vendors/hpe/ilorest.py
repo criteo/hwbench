@@ -9,7 +9,10 @@ class Ilorest(External):
         return ["ilorest", "get", "--json", "--nologo", "--select", "Bios."]
 
     def parse_cmd(self, stdout: bytes, _stderr: bytes):
-        return json.loads(stdout.decode("utf-8"))
+        try:
+            return json.loads(stdout.decode("utf-8"))
+        except json.decoder.JSONDecodeError:
+            h.fatal(stdout)
 
     def run_cmd_version(self) -> list[str]:
         return ["ilorest", "--version"]

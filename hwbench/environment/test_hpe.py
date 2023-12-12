@@ -1,14 +1,14 @@
 import pathlib
-from .vendors.vendor import (
-    Power,
-    MonitorMetric,
-    Temperature,
-    ThermalContext,
-    FanContext,
-    PowerContext,
-)
 from .vendors.hpe.hpe import Hpe, ILO
 from .test_vendors import TestVendors, PATCH_TYPES
+from ..bench.monitoring_structs import (
+    FanContext,
+    MonitorMetric,
+    Power,
+    PowerContext,
+    Temperature,
+    ThermalContext,
+)
 
 path = pathlib.Path("")
 
