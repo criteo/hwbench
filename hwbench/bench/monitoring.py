@@ -63,43 +63,37 @@ class Monitoring:
             f"Starting monitoring for {self.vendor.name()} vendor with {self.vendor.get_bmc().get_ip()}"
         )
 
-        def check_monitoring(func, type: str):
-            metrics = func
-            if not len(metrics):
-                h.fatal(f"Cannot detect {type} metrics from BMC")
+        def check_monitoring(metric: Metrics):
+            data = self.__get_metric(metric)
+            if not len(data):
+                h.fatal(f"Cannot detect {str(metric)} metrics")
 
             print(
-                f"Monitoring {type} metrics:"
+                f"Monitoring {str(metric)} metrics:"
                 + ", ".join(
-                    [
-                        f"{len(metrics[pc])}x{pc}"
-                        for pc in metrics
-                        if len(metrics[pc]) > 0
-                    ]
+                    [f"{len(data[pc])}x{pc}" for pc in data if len(data[pc]) > 0]
                 )
             )
 
         # - checking the bmc monitoring works
+
+        # - checking if the bmc monitoring works
         # These calls will also initialize the datastructures out of the monitoring loop
-        check_monitoring(
-            self.vendor.get_bmc().read_thermals(self.__get_metric(Metrics.THERMAL)),
-            "thermal",
+        self.vendor.get_bmc().read_thermals(self.__get_metric(Metrics.THERMAL))
+        check_monitoring(Metrics.THERMAL)
+
+        self.vendor.get_bmc().read_fans(self.__get_metric(Metrics.FANS))
+        check_monitoring(Metrics.FANS)
+
+        self.vendor.get_bmc().read_power_consumption(
+            self.__get_metric(Metrics.POWER_CONSUMPTION)
         )
-        check_monitoring(
-            self.vendor.get_bmc().read_fans(self.__get_metric(Metrics.FANS)), "fans"
+        check_monitoring(Metrics.POWER_CONSUMPTION)
+
+        self.vendor.get_bmc().read_power_supplies(
+            self.__get_metric(Metrics.POWER_SUPPLIES)
         )
-        check_monitoring(
-            self.vendor.get_bmc().read_power_consumption(
-                self.__get_metric(Metrics.POWER_CONSUMPTION)
-            ),
-            "power",
-        )
-        check_monitoring(
-            self.vendor.get_bmc().read_power_supplies(
-                self.__get_metric(Metrics.POWER_SUPPLIES)
-            ),
-            "power_supplies",
-        )
+        check_monitoring(Metrics.POWER_SUPPLIES)
 
     def __monitor_bmc(self):
         """Monitor the bmc metrics"""

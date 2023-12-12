@@ -13,23 +13,36 @@ class MockedBMC(BMC):
     def get_ip(self) -> str:
         return "1.2.3.4"
 
-    def read_thermals(self, thermals=None) -> dict[str, dict[str, Temperature]]:
+    def read_thermals(
+        self, thermals: dict[str, dict[str, Temperature]] = {}
+    ) -> dict[str, dict[str, Temperature]]:
         # Let's add a faked thermal metric
-        return {str(ThermalContext.CPU): {"CPU1": Temperature("CPU1", 40)}}
+        thermals[str(ThermalContext.CPU)] = {"CPU1": Temperature("CPU1", 40)}
+        return thermals
 
-    def read_fans(self, fans=None) -> dict[str, dict[str, MonitorMetric]]:
+    def read_fans(
+        self, fans: dict[str, dict[str, MonitorMetric]] = {}
+    ) -> dict[str, dict[str, MonitorMetric]]:
         # Let's add a faked fans metric
-        return {str(FanContext.FAN): {"Fan1": MonitorMetric("Fan1", "RPM", 40)}}
+        fans[str(FanContext.FAN)] = {"Fan1": MonitorMetric("Fan1", "RPM", 40)}
+        return fans
 
     def read_power_consumption(
-        self, power_consumption=None
+        self, power_consumption: dict[str, dict[str, Power]] = {}
     ) -> dict[str, dict[str, Power]]:
         # Let's add a faked power metric
-        return {str(PowerContext.POWER): {"Chassis": Power("Chassis", 125.0)}}
+        power_consumption[str(PowerContext.POWER)] = {
+            "Chassis": Power("Chassis", 125.0)
+        }
+        return power_consumption
 
-    def read_power_supplies(self, power_supplies=None) -> dict[str, dict[str, Power]]:
+    def read_power_supplies(
+        self, power_supplies: dict[str, dict[str, Power]] = {}
+    ) -> dict[str, dict[str, Power]]:
         # Let's add a faked power supplies
-        return {str(PowerContext.POWER): {"PS1 status": Power("PS1", 125.0)}}
+
+        power_supplies[str(PowerContext.POWER)] = {"PS1 status": Power("PS1", 125.0)}
+        return power_supplies
 
 
 class MockVendor(Vendor):
