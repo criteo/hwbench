@@ -1,7 +1,7 @@
 import numpy as np
 from statistics import stdev
-from graph import Graph, GRAPH_TYPES
 from typing import Any  # noqa: F401
+from graph.graph import Graph, GRAPH_TYPES
 
 
 def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:

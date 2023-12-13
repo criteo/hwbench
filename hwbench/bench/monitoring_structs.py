@@ -26,6 +26,15 @@ class MonitorMetric:
             # If a value is given, let's add it
             self.add(self.value)
 
+    def load_from_dict(self, input: dict):
+        self.name = str(input.get("name"))
+        self.unit = str(input.get("unit"))
+        self.mean = input.get("mean")  # type: ignore[assignment]
+        self.min = input.get("min")  # type: ignore[assignment]
+        self.max = input.get("max")  # type: ignore[assignment]
+        self.stdev = input.get("stdev")  # type: ignore[assignment]
+        self.samples = input.get("samples")  # type: ignore[assignment]
+
     def get_name(self):
         """Return the metric name"""
         return self.name
@@ -83,6 +92,14 @@ class Metrics(Enum):
     def __str__(self) -> str:
         return str(self.value)
 
+    @classmethod
+    def list(cls):
+        return list(map(lambda mm: mm.value, cls))
+
+    @classmethod
+    def list_str(cls):
+        return [str(mm.value) for mm in cls]
+
 
 class Temperature(MonitorMetric):
     def __init__(self, name: str, value=None):
@@ -125,3 +142,40 @@ class PowerContext(Enum):
 
     def __str__(self) -> str:
         return str(self.value)
+
+
+class PowerCategories(Enum):
+    CHASSIS = "Chassis"
+    INFRASTRUCTURE = "Infrastructure"
+    SERVER = "Server"
+    SERVERINCHASSIS = "ServerInChassis"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+    @classmethod
+    def list(cls):
+        return list(map(lambda mm: mm.value, cls))
+
+    @classmethod
+    def list_str(cls):
+        return [str(mm.value) for mm in cls]
+
+
+class MonitoringMetadata(Enum):
+    PRECISION = "precision"
+    FREQUENCY = "frequency"
+    ITERATION_TIME = "iteration_time"
+    MONITORING_TIME = "monitoring_time"
+    OVERDUE_TIME_MS = "overdue_time_ms"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+    @classmethod
+    def list(cls):
+        return list(map(lambda mm: mm.value, cls))
+
+    @classmethod
+    def list_str(cls):
+        return [str(mm.value) for mm in cls]

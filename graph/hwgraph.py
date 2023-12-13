@@ -2,14 +2,15 @@
 import argparse
 import pathlib
 import re
+import sys
 from typing import Any  # noqa: F401
 
-from common import fatal
-from graph import init_matplotlib, generic_graph, yerr_graph, THERMAL, POWER
-from individual import individual_graph
-from scaling import scaling_graph
-from enclosure import graph_enclosure
-from trace import Trace
+from graph.common import fatal
+from graph.graph import init_matplotlib, generic_graph, yerr_graph, THERMAL, POWER
+from graph.individual import individual_graph
+from graph.scaling import scaling_graph
+from graph.enclosure import graph_enclosure
+from graph.trace import Trace
 
 
 def valid_trace_file(trace_arg: str) -> Trace:
@@ -23,11 +24,32 @@ def valid_trace_file(trace_arg: str) -> Trace:
             f"{trace_arg} does not match 'filename:logical_name:power_metric' syntax"
         )
 
-    return Trace(
+    trace = Trace(
         match.group("filename"),
         match.group("logical_name"),
         match.group("power_metric"),
     )
+    trace.validate()
+    return trace
+
+
+def list_metrics_in_trace(args: argparse.Namespace):
+    """List power metrics of a trace file"""
+    Trace(args.trace).list_power_metrics()
+    sys.exit(0)
+
+
+def render_traces(args: argparse.Namespace):
+    """Render the trace files passed in arguments"""
+    rendered_graphs = 0
+    init_matplotlib(args)
+    output_dir = pathlib.Path(args.outdir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    rendered_graphs += graph_environment(args, output_dir)
+    compare_traces(args)
+    rendered_graphs += plot_graphs(args, output_dir)
+    print(f"{rendered_graphs} graphs can be found in '{output_dir}' directory")
 
 
 def compare_traces(args) -> None:
@@ -181,13 +203,17 @@ def plot_graphs(args, output_dir) -> int:
 
 
 def main():
-    rendered_graphs = 0
     parser = argparse.ArgumentParser(
-        prog="compgraph",
+        prog="hwgraph",
         description="compare hwbench results and plot them",
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    parser.add_argument(
+    subparsers = parser.add_subparsers(help="hwgraph sub-commands")
+
+    parser_graph = subparsers.add_parser(
+        "graph", help="Generate graphs from trace files"
+    )
+    parser_graph.add_argument(
         "--traces",
         type=valid_trace_file,
         nargs="+",
@@ -199,48 +225,58 @@ logical_name : a name to represent the trace in the graph
                'CPU' magic keyword implicit the use of CPU model as logical_name but must be unique over all trace files.
 power_metric : the name of a power metric, from the monitoring, to be used for 'watts' and 'perf per watt' graphs.
 """,
+        required=True,
     )
-    parser.add_argument(
+    parser_graph.add_argument(
         "--no-env", help="Disable environmental graphs", action="store_false"
     )
-    parser.add_argument("--title", help="Title of the graph")
-    parser.add_argument("--dpi", help="Graph dpi", type=int, default="72")
-    parser.add_argument("--width", help="Graph width", type=int, default="1920")
-    parser.add_argument("--height", help="Graph height", type=int, default="1080")
-    parser.add_argument(
+    parser_graph.add_argument("--title", help="Title of the graph")
+    parser_graph.add_argument("--dpi", help="Graph dpi", type=int, default="72")
+    parser_graph.add_argument("--width", help="Graph width", type=int, default="1920")
+    parser_graph.add_argument("--height", help="Graph height", type=int, default="1080")
+    parser_graph.add_argument(
         "--format",
         help="Graph file format",
         type=str,
         choices=["svg", "png"],
         default="svg",
     )
-    parser.add_argument(
+    parser_graph.add_argument(
         "--engine",
         help="Select the matplotlib backend engine",
         choices=["pgf", "svg", "agg", "cairo"],
         default="cairo",
     )
-    parser.add_argument("--outdir", help="Name of the output directory", required=True)
-    parser.add_argument(
+    parser_graph.add_argument(
+        "--outdir", help="Name of the output directory", required=True
+    )
+    parser_graph.add_argument(
         "--same-enclosure",
         help="All traces are from the same enclosure",
         action="store_true",
     )
-    parser.add_argument(
+    parser_graph.add_argument(
         "--verbose",
         action="store_true",
         help="Enable verbose mode",
     )
+    parser_graph.set_defaults(func=render_traces)
+
+    parser_list = subparsers.add_parser(
+        "list", help="list monitoring metrics from a trace file"
+    )
+    parser_list.add_argument(
+        "--trace",
+        type=str,
+        help="""List power metrics of a trace file.""",
+        required=True,
+    )
+    parser_list.set_defaults(func=list_metrics_in_trace)
 
     args = parser.parse_args()
-    init_matplotlib(args)
-    output_dir = pathlib.Path(args.outdir)
-    output_dir.mkdir(parents=True, exist_ok=True)
 
-    rendered_graphs += graph_environment(args, output_dir)
-    compare_traces(args)
-    rendered_graphs += plot_graphs(args, output_dir)
-    print(f"{rendered_graphs} graphs can be found in '{output_dir}' directory")
+    # Call the appropriate sub command
+    args.func(args)
 
 
 if __name__ == "__main__":

@@ -2,8 +2,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter, AutoMinorLocator, MultipleLocator
-from common import fatal
-from trace import Bench
+from graph.common import fatal
+from graph.trace import Bench
 
 MEAN = "mean"
 ERROR = "error"

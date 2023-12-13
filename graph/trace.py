@@ -2,7 +2,14 @@ import json
 import pathlib
 from statistics import mean
 from typing import Any  # noqa: F401
-from common import fatal
+from graph.common import fatal
+from hwbench.bench.monitoring_structs import (
+    Metrics,
+    MonitoringMetadata,
+    MonitorMetric,
+    Power,
+    Temperature,
+)
 
 EVENTS = "events"
 MIN = "min"
@@ -15,6 +22,7 @@ class Bench:
         self.trace = trace
         self.bench = self.trace.get_trace()["bench"][bench_name]
         self.bench_name = bench_name
+        self.metrics: Any = {}
 
     def get_bench_name(self) -> str:
         """Return the benchmark name"""
@@ -69,6 +77,47 @@ class Bench:
     def get_monitoring(self) -> dict:
         """Return the monitoring metrics."""
         return self.get("monitoring")
+
+    def load_monitoring(self):
+        self.metrics = {}
+        m = self.get_monitoring()
+        if m:
+            for metric in m.keys():
+                if metric in MonitoringMetadata:
+                    self.metrics[metric] = m[metric]
+                elif metric in Metrics:
+                    self.metrics[metric] = {}
+                    for component_family in m[metric].keys():
+                        self.metrics[metric][component_family] = {}
+                        for measure in m[metric][component_family]:
+                            original_measure = m[metric][component_family][measure]
+                            if original_measure["unit"] == "Watts":
+                                mm = Power(measure, original_measure["unit"])
+                            elif original_measure["unit"] == "Celsius":
+                                mm = Temperature(measure, original_measure["unit"])
+                            else:
+                                mm = MonitorMetric(measure, original_measure["unit"])
+                            mm.load_from_dict(original_measure)
+                            self.metrics[metric][component_family][measure] = mm
+                else:
+                    fatal(f"Unexpected {metric} in monitoring")
+        return self.metrics
+
+    def get_metrics(self):
+        return self.metrics
+
+    def get_monitoring_metric2(
+        self, metric: Metrics
+    ) -> dict[str, dict[str, MonitorMetric]]:
+        """Return one monitoring metric."""
+        return self.metrics[str(metric)]
+
+    def get_monitoring_metric_by_name(
+        self, metric: Metrics, metric_name: str
+    ) -> dict[str, MonitorMetric]:
+        """Return one monitoring metric."""
+        component, measure = metric_name.split(".")
+        return self.metrics[str(metric)][component][measure]
 
     def get_monitoring_metric(self, metric_name) -> dict:
         """Return one monitoring metric."""
@@ -254,16 +303,21 @@ class Bench:
 
 
 class Trace:
-    def __init__(self, filename, logical_name, metric_name):
+    def __init__(
+        self,
+        filename: str = "",
+        logical_name: str = "",
+        metric_name: str = "",
+    ):
         self.filename = filename
         self.logical_name = logical_name
         self.metric_name = metric_name
-        self.__validate__()
+        self.__load_file()
 
     def get_name(self) -> str:
         return self.logical_name
 
-    def __validate__(self) -> None:
+    def __load_file(self):
         """Validate the new trace file"""
         if not pathlib.Path(self.filename).is_file():
             raise ValueError(f"{self.filename} is not a valid file")
@@ -274,6 +328,7 @@ class Trace:
         except ValueError:
             raise ValueError(f"{self.filename} is not a valid JSON file")
 
+    def validate(self) -> None:
         # If no logical name was given, let's use the serial number as a default
         if not self.logical_name:
             self.logical_name = self.get_chassis_serial()
@@ -285,12 +340,30 @@ class Trace:
             self.logical_name += self.get_sanitized_cpu_model()
 
         # Let's check if the monitoring metrics exists in the first job
+        first_bench = self.first_bench()
+        first_bench.load_monitoring()
         try:
-            isinstance(self.get_metric_mean(self.first_bench()), float)
+            isinstance(
+                first_bench.get_monitoring_metric_by_name(
+                    Metrics.POWER_CONSUMPTION, self.metric_name
+                ),
+                Power,
+            )
         except KeyError:
             fatal(
-                f"Cannot find monitoring metric '{self.metric_name}' in {self.filename}"
+                f"Cannot find monitoring metric '{self.metric_name}' in {self.filename}.\
+                  \nUse --list-metrics to detect possible values."
             )
+
+    def list_power_metrics(self):
+        first_bench = self.first_bench()
+        first_bench.load_monitoring()
+        print("List of power metrics:")
+        for name, value in first_bench.get_monitoring_metric2(
+            Metrics.POWER_CONSUMPTION
+        ).items():
+            for v in value:
+                print(f"{name}.{v}")
 
     def get_filename(self) -> str:
         """Return the filename associated to this Trace object."""

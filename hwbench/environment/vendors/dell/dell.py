@@ -1,5 +1,6 @@
 from ....bench.monitoring_structs import (
     Power,
+    PowerCategories,
     PowerContext,
     Temperature,
 )
@@ -40,22 +41,28 @@ class IDRAC(BMC):
         oem_system = self.get_oem_system()
         if "ServerPwr.1.SCViewSledPwr" in oem_system["Attributes"]:
             # ServerPwr.1.SCViewSledPwr = PowerConsumedWatts + 'SC-BMC.1.ChassisInfraPowe / nb_servers
-            if "ServerInChassis" not in power_consumption[str(PowerContext.BMC)]:
-                power_consumption[str(PowerContext.BMC)]["ServerInChassis"] = Power(
-                    "ServerInChassis"
-                )
-            power_consumption[str(PowerContext.BMC)]["ServerInChassis"].add(
-                oem_system["Attributes"]["ServerPwr.1.SCViewSledPwr"]
-            )
+            if (
+                str(PowerCategories.SERVERINCHASSIS)
+                not in power_consumption[str(PowerContext.BMC)]
+            ):
+                power_consumption[str(PowerContext.BMC)][
+                    str(PowerCategories.SERVERINCHASSIS)
+                ] = Power(str(PowerCategories.SERVERINCHASSIS))
+            power_consumption[str(PowerContext.BMC)][
+                str(PowerCategories.SERVERINCHASSIS)
+            ].add(oem_system["Attributes"]["ServerPwr.1.SCViewSledPwr"])
         if "SC-BMC.1.ChassisInfraPower" in oem_system["Attributes"]:
             # SC-BMC.1.ChassisInfraPower = ServerPwr.1.SCViewSledPwr + 'chassis / nb_servers
-            if "Infrastructure" not in power_consumption[str(PowerContext.BMC)]:
-                power_consumption[str(PowerContext.BMC)]["Infrastructure"] = Power(
-                    "Infrastructure"
-                )
-            power_consumption[str(PowerContext.BMC)]["Infrastructure"].add(
-                oem_system["Attributes"]["SC-BMC.1.ChassisInfraPower"]
-            )
+            if (
+                str(PowerCategories.INFRASTRUCTURE)
+                not in power_consumption[str(PowerContext.BMC)]
+            ):
+                power_consumption[str(PowerContext.BMC)][
+                    str(PowerCategories.INFRASTRUCTURE)
+                ] = Power(str(PowerCategories.INFRASTRUCTURE))
+            power_consumption[str(PowerContext.BMC)][
+                str(PowerCategories.INFRASTRUCTURE)
+            ].add(oem_system["Attributes"]["SC-BMC.1.ChassisInfraPower"])
 
         return power_consumption
 

@@ -5,6 +5,7 @@ from ..bench.monitoring_structs import (
     FanContext,
     MonitorMetric,
     Power,
+    PowerCategories,
     PowerContext,
     Temperature,
     ThermalContext,
@@ -78,10 +79,14 @@ class TestDell(TestVendors):
     def test_power_consumption(self):
         expected_output = self.generic_power_output()
         expected_output[str(PowerContext.BMC)] = {
-            "Chassis": Power("Chassis", 80),
-            "Server": Power("Server", 54),
-            "ServerInChassis": Power("ServerInChassis", 112),
-            "Infrastructure": Power("Infrastructure", 54),
+            str(PowerCategories.CHASSIS): Power(str(PowerCategories.CHASSIS), 80),
+            str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER), 54),
+            str(PowerCategories.SERVERINCHASSIS): Power(
+                str(PowerCategories.SERVERINCHASSIS), 112
+            ),
+            str(PowerCategories.INFRASTRUCTURE): Power(
+                str(PowerCategories.INFRASTRUCTURE), 54
+            ),
         }
         super().generic_power_consumption_test(expected_output)
 

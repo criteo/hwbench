@@ -2,6 +2,7 @@ import pathlib
 import re
 from ....bench.monitoring_structs import (
     Power,
+    PowerCategories,
     PowerContext,
     Temperature,
 )
@@ -91,20 +92,30 @@ class ILO(BMC):
         power_consumption = super().read_power_consumption(power_consumption)
         oem_chassis = self.get_oem_chassis()
         if oem_chassis:
-            if "Server" not in power_consumption[str(PowerContext.BMC)]:
-                power_consumption[str(PowerContext.BMC)]["Server"] = Power("Server")
-            power_consumption[str(PowerContext.BMC)]["Server"].add(
+            if (
+                str(PowerCategories.SERVER)
+                not in power_consumption[str(PowerContext.BMC)]
+            ):
+                power_consumption[str(PowerContext.BMC)][
+                    str(PowerCategories.SERVER)
+                ] = Power(str(PowerCategories.SERVER))
+            power_consumption[str(PowerContext.BMC)][str(PowerCategories.SERVER)].add(
                 oem_chassis["Oem"]["Hpe"]["NodePowerWatts"]
             )
             if "HPE Apollo2000 Gen10+" in oem_chassis["Name"]:
                 # Let's compute a ServerInChassis by
                 # - Collecting the chassis power consumption and divide it by the number of sleds (4)
                 # - Add the difference from this average to the sled
-                if "ServerInChassis" not in power_consumption[str(PowerContext.BMC)]:
-                    power_consumption[str(PowerContext.BMC)]["ServerInChassis"] = Power(
-                        "ServerInChassis"
-                    )
-                power_consumption[str(PowerContext.BMC)]["ServerInChassis"].add(
+                if (
+                    str(PowerCategories.SERVERINCHASSIS)
+                    not in power_consumption[str(PowerContext.BMC)]
+                ):
+                    power_consumption[str(PowerContext.BMC)][
+                        str(PowerCategories.SERVERINCHASSIS)
+                    ] = Power(str(PowerCategories.SERVERINCHASSIS))
+                power_consumption[str(PowerContext.BMC)][
+                    str(PowerCategories.SERVERINCHASSIS)
+                ].add(
                     oem_chassis["Oem"]["Hpe"]["NodePowerWatts"]
                     + (
                         (oem_chassis["Oem"]["Hpe"]["ChassisPowerWatts"] / 4)

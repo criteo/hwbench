@@ -118,9 +118,9 @@ class TestVendors(unittest.TestCase):
                     assert False, f"Missing sensor '{sensor}' in '{pc}'"
                 if func[pc][sensor] != expected_output[pc][sensor]:
                     print(
-                        f"name: {func[pc][sensor].get_name()} vs {expected_output[pc][sensor].get_name()}\n"
-                        f"value:{func[pc][sensor].get_values()} vs {expected_output[pc][sensor].get_values()}\n"
-                        f"unit: {func[pc][sensor].get_unit()} vs {expected_output[pc][sensor].get_unit()}"
+                        f"name: |{func[pc][sensor].get_name()}| vs |{expected_output[pc][sensor].get_name()}|\n"
+                        f"value:|{func[pc][sensor].get_values()}| vs |{expected_output[pc][sensor].get_values()}|\n"
+                        f"unit: |{func[pc][sensor].get_unit()}| vs |{expected_output[pc][sensor].get_unit()}|"
                     )
                     assert False, "Metrics do not match"
 

@@ -4,7 +4,7 @@ from threading import Thread
 from ..environment.hardware import BaseHardware
 from ..environment.turbostat import Turbostat
 from ..utils import helpers as h
-from .monitoring_structs import Metrics, MonitorMetric
+from .monitoring_structs import Metrics, MonitorMetric, MonitoringMetadata
 
 
 class ThreadWithReturnValue(Thread):
@@ -119,13 +119,7 @@ class Monitoring:
         """Compute statistics"""
         for metric_name, metric_type in self.metrics.items():
             # Do not compact metadata
-            if metric_name in [
-                "precision",
-                "frequency",
-                "iteration_time",
-                "monitoring_time",
-                "overdue_time_ms",
-            ]:
+            if metric_name in MonitoringMetadata.list_str():
                 continue
             for _, component in metric_type.items():
                 for metric_name, metric in component.items():
@@ -158,9 +152,9 @@ class Monitoring:
         # If frequency == 2, every two <precision> run, maths are computed
         start_run = self.get_monotonic_clock()
         self.__reset_metrics()
-        self.metrics["precision"] = precision
-        self.metrics["frequency"] = frequency
-        self.metrics["iteration_time"] = frequency * precision
+        self.metrics[str(MonitoringMetadata.PRECISION)] = precision
+        self.metrics[str(MonitoringMetadata.FREQUENCY)] = frequency
+        self.metrics[str(MonitoringMetadata.ITERATION_TIME)] = frequency * precision
         self.metrics[str(Metrics.MONITOR)] = {
             "BMC": {"Polling": MonitorMetric("Polling", "ms")}
         }
@@ -212,10 +206,12 @@ class Monitoring:
 
         # How much time did we spent in this loop ?
         completed_time = self.get_monotonic_clock()
-        self.metrics["monitoring_time"] = (completed_time - start_run) * 1e-9
+        self.metrics[str(MonitoringMetadata.MONITORING_TIME)] = (
+            completed_time - start_run
+        ) * 1e-9
 
         # We were supposed to last "duration", how close are we from this metric ?
-        self.metrics["overdue_time_ms"] = (
+        self.metrics[str(MonitoringMetadata.OVERDUE_TIME_MS)] = (
             (completed_time - start_run) - (duration * 1e9)
         ) * 1e-6
 

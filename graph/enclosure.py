@@ -1,5 +1,5 @@
 import numpy as np
-from graph import Graph
+from graph.graph import Graph
 
 
 def graph_enclosure(args, bench_name, output_dir) -> int:
