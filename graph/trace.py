@@ -266,9 +266,22 @@ class Bench:
             if unit in value["min"]["unit"].lower()
         ]
 
-    def get_samples_count(self, metric_name: str):
-        """Return the number of monitoring samples for a given metric"""
-        return len(self.get_mean_events(metric_name))
+    def get_time_interval(self):
+        return self.metrics[str(MonitoringMetadata.ITERATION_TIME)]
+
+    def get_component(
+        self, metric_type: Metrics, component: Any
+    ) -> dict[str, MonitorMetric]:
+        return self.get_monitoring_metric2(metric_type)[str(component)]
+
+    def get_single_metric(
+        self, metric_type: Metrics, component: Any, metric: Any
+    ) -> MonitorMetric:
+        return self.get_monitoring_metric2(metric_type)[str(component)][str(metric)]
+
+    def get_samples_count(self):
+        """Return the number of monitoring samples"""
+        return self.metrics[str(MonitoringMetadata.SAMPLES_COUNT)]
 
     def differences(self, other):
         """Compare if two Bench objects are similar"""
@@ -331,7 +344,7 @@ class Trace:
     def validate(self) -> None:
         # If no logical name was given, let's use the serial number as a default
         if not self.logical_name:
-            self.logical_name = self.get_chassis_serial()
+            self.logical_name = self.get_server_serial()
         elif self.logical_name == "CPU":
             # keyword CPU can be used to automatically use the CPU model as logical name
             self.logical_name = ""
@@ -406,16 +419,16 @@ class Trace:
     def get_kernel(self):
         return self.get_environment().get("kernel")
 
-    def get_enclosure_serial(self):
+    def get_chassis_serial(self):
         return self.get_dmi()["chassis"]["serial"]
 
-    def get_enclosure_product(self):
+    def get_chassis_product(self):
         return self.get_dmi()["chassis"]["product"]
 
-    def get_chassis_serial(self):
+    def get_server_serial(self):
         return self.get_dmi()["serial"]
 
-    def get_chassis_product(self):
+    def get_server_product(self):
         return self.get_dmi()["product"]
 
     def get_metric_name(self) -> str:
@@ -438,11 +451,15 @@ class Trace:
 
     def first_bench(self) -> Bench:
         """Return the first bench"""
-        return self.bench(next(iter(sorted(self.bench_list()))))
+        b = self.bench(next(iter(sorted(self.bench_list()))))
+        b.load_monitoring()
+        return b
 
     def bench(self, bench_name: str) -> Bench:
         """Return one bench"""
-        return Bench(self, bench_name)
+        b = Bench(self, bench_name)
+        b.load_monitoring()
+        return b
 
     def get_benches_by_job(self, job: str) -> list[Bench]:
         """Return the list of benches linked to job 'job'"""

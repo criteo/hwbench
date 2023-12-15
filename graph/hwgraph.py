@@ -9,8 +9,9 @@ from graph.common import fatal
 from graph.graph import init_matplotlib, generic_graph, yerr_graph, THERMAL, POWER
 from graph.individual import individual_graph
 from graph.scaling import scaling_graph
-from graph.enclosure import graph_enclosure
+from graph.chassis import graph_chassis
 from graph.trace import Trace
+from hwbench.bench.monitoring_structs import PowerCategories, PowerContext, Metrics
 
 
 def valid_trace_file(trace_arg: str) -> Trace:
@@ -127,38 +128,47 @@ def graph_environment(args, output_dir) -> int:
         print("environment: disabled by user")
         return rendered_graphs
 
-    enclosure = args.traces[0].get_enclosure_serial()
-    if enclosure:
-        enclosures = [t.get_enclosure_serial() == enclosure for t in args.traces]
-        # if all traces are from the same enclosure, let's enable the same_enclosure feature
-        if enclosures.count(True) == len(args.traces):
+    chassis = args.traces[0].get_chassis_serial()
+    if chassis:
+        all_chassis = [t.get_chassis_serial() == chassis for t in args.traces]
+        # if all traces are from the same chassis, let's enable the same_chassis feature
+        if all_chassis.count(True) == len(args.traces):
             print(
-                f"environment: All traces are from the same enclosure ({enclosure}), enabling --same-enclosure feature"
+                f"environment: All traces are from the same chassis ({chassis}), enabling --same-chassis feature"
             )
-            args.same_enclosure = True
+            args.same_chassis = True
 
-    if args.same_enclosure:
+    if args.same_chassis:
 
         def valid_traces(args):
-            chassis = [trace.get_chassis_serial() for trace in args.traces]
+            server = [trace.get_server_serial() for trace in args.traces]
             # Let's ensure we don't have the same serial twice
 
-            if len(chassis) == len(args.traces):
-                # Let's ensure all traces has chassis and enclosure metrics
+            if len(server) == len(args.traces):
+                # Let's ensure all traces has server and chassis metrics
                 for trace in args.traces:
                     try:
-                        for metric in ["chassis", "enclosure"]:
-                            trace.get_metric_mean(trace.first_bench(), metric)
+                        for metric in [
+                            PowerCategories.CHASSIS,
+                            PowerCategories.SERVER,
+                        ]:
+                            trace.first_bench().get_single_metric(
+                                Metrics.POWER_CONSUMPTION,
+                                PowerContext.BMC,
+                                metric,
+                            )
                     except KeyError:
                         return f"environment: missing '{metric}' monitoric metric in {trace.get_filename()}, disabling same-enclosure print"
             else:
-                return "environment: chassis are not unique, disabling same-enclosure print"
+                return (
+                    "environment: server are not unique, disabling same-chassis print"
+                )
             return ""
 
         error_message = valid_traces(args)
         if not error_message:
             for bench_name in sorted(args.traces[0].bench_list()):
-                rendered_graphs += graph_enclosure(args, bench_name, output_dir)
+                rendered_graphs += graph_chassis(args, bench_name, output_dir)
         else:
             print(error_message)
 
@@ -251,8 +261,8 @@ power_metric : the name of a power metric, from the monitoring, to be used for '
         "--outdir", help="Name of the output directory", required=True
     )
     parser_graph.add_argument(
-        "--same-enclosure",
-        help="All traces are from the same enclosure",
+        "--same-chassis",
+        help="All traces are from the same chassis",
         action="store_true",
     )
     parser_graph.add_argument(

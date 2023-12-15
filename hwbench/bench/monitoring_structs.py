@@ -47,6 +47,18 @@ class MonitorMetric:
         """Return the unit for this metric"""
         return self.unit
 
+    def get_min(self):
+        """Return the min for this metric"""
+        return self.min
+
+    def get_mean(self):
+        """Return the mean for this metric"""
+        return self.mean
+
+    def get_max(self):
+        """Return the max for this metric"""
+        return self.max
+
     def get_samples(self):
         """Return the number of samples"""
         return self.samples
@@ -152,11 +164,14 @@ class PowerCategories(Enum):
     #  --------------------
     CHASSIS = "Chassis"  # The chassis power consumption
     INFRASTRUCTURE = "Infrastructure"  # = Chassis - servers (fans, pdb, ..)
-    SERVER = "Server"  # One server
     SERVERINCHASSIS = "ServerInChassis"  # One server + its part of the chassis
+    SERVER = "Server"  # One server
 
     def __str__(self) -> str:
         return str(self.value)
+
+    def __eq__(self, value):
+        return self.__str__() == str(value)
 
     @classmethod
     def list(cls):

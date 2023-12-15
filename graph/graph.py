@@ -211,7 +211,7 @@ def generic_graph(
         return 0
 
     thermal_components = bench.get_components_by_unit("celsius")
-    samples_count = bench.get_samples_count(components[0])
+    samples_count = bench.get_samples_count()
 
     title = (
         f'{item_title} during "{bench.get_bench_name()}" benchmark job\n'
@@ -297,7 +297,7 @@ def generic_graph(
 
 def yerr_graph(args, output_dir, bench: Bench, component_type: str, component: str):
     trace = bench.get_trace()
-    samples_count = bench.get_samples_count(component)
+    samples_count = bench.get_samples_count()
     time_interval = 10
 
     time_serie = []
