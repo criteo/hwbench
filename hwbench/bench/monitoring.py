@@ -161,6 +161,7 @@ class Monitoring:
         # When will we hit "duration" ?
         end_of_run = start_run + duration * 1e9
         loops_done = 0
+        compact_count = 0
 
         def next_iter():
             # When does the next iteration must starts ?
@@ -174,6 +175,7 @@ class Monitoring:
             if loops_done and loops_done % frequency == 0:
                 # At every frequency, the maths are computed
                 self.__compact()
+                compact_count = compact_count + 1
             start = self.get_monotonic_clock()
             self.__monitor_bmc()
             end = self.get_monotonic_clock()
@@ -214,6 +216,8 @@ class Monitoring:
         self.metrics[str(MonitoringMetadata.OVERDUE_TIME_MS)] = (
             (completed_time - start_run) - (duration * 1e9)
         ) * 1e-6
+
+        self.metrics[str(MonitoringMetadata.SAMPLES_COUNT)] = compact_count
 
         # And return the final metrics
         return self.__get_metrics()

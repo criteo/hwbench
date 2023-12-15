@@ -168,6 +168,7 @@ class MonitoringMetadata(Enum):
     ITERATION_TIME = "iteration_time"
     MONITORING_TIME = "monitoring_time"
     OVERDUE_TIME_MS = "overdue_time_ms"
+    SAMPLES_COUNT = "samples_count"
 
     def __str__(self) -> str:
         return str(self.value)
