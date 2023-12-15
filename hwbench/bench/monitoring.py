@@ -210,9 +210,6 @@ class Monitoring:
                 self.turbostat.parse()
             loops_done = loops_done + 1
 
-        # Monitoring is over, let's compute the maths
-        self.__compact()
-
         # How much time did we spent in this loop ?
         completed_time = self.get_monotonic_clock()
         self.metrics["monitoring_time"] = (completed_time - start_run) * 1e-9
