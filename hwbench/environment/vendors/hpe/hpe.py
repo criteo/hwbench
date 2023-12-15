@@ -2,7 +2,7 @@ import pathlib
 import re
 from ....bench.monitoring_structs import (
     Power,
-    PowerCategories,
+    PowerCategories as PowerCat,
     PowerContext,
     Temperature,
 )
@@ -72,7 +72,7 @@ class ILO(BMC):
     ) -> dict[str, dict[str, Power]]:
         """Return power supplies power from server"""
         if str(PowerContext.BMC) not in power_supplies:
-            power_supplies = {str(PowerContext.BMC): {}}  # type: ignore[no-redef]
+            power_supplies[str(PowerContext.BMC)] = {}  # type: ignore[no-redef]
         for psu in self.get_power().get("PowerSupplies"):
             # Both PSUs are named the same (HpeServerPowerSupply)
             # Let's update it to have a unique name
@@ -89,40 +89,36 @@ class ILO(BMC):
     def read_power_consumption(
         self, power_consumption: dict[str, dict[str, Power]] = {}
     ):
-        power_consumption = super().read_power_consumption(power_consumption)
         oem_chassis = self.get_oem_chassis()
-        if oem_chassis:
-            if (
-                str(PowerCategories.SERVER)
-                not in power_consumption[str(PowerContext.BMC)]
-            ):
-                power_consumption[str(PowerContext.BMC)][
-                    str(PowerCategories.SERVER)
-                ] = Power(str(PowerCategories.SERVER))
-            power_consumption[str(PowerContext.BMC)][str(PowerCategories.SERVER)].add(
+
+        # If server is not in a chassis, the default parsing is good
+        # That's the case for regular ProLiant servers
+        if not oem_chassis:
+            return super().read_power_consumption(power_consumption)
+
+        # But for multi-server chassis, ...
+        if "HPE Apollo2000 Gen10+" in oem_chassis["Name"]:
+            if str(PowerContext.BMC) not in power_consumption:
+                power_consumption[str(PowerContext.BMC)] = {
+                    str(PowerCat.SERVER): Power(str(PowerCat.SERVER)),
+                    str(PowerCat.CHASSIS): Power(str(PowerCat.CHASSIS)),
+                    str(PowerCat.SERVERINCHASSIS): Power(str(PowerCat.SERVERINCHASSIS)),
+                }  # type: ignore[no-redef]
+
+            # On Apollo2000, the generic PowerConsumedWatts is fact SERVERINCHASSIS
+            power_consumption[str(PowerContext.BMC)][str(PowerCat.SERVERINCHASSIS)].add(
+                self.get_power().get("PowerControl")[0]["PowerConsumedWatts"]
+            )
+
+            # And extract SERVER from NodePowerWatts
+            power_consumption[str(PowerContext.BMC)][str(PowerCat.SERVER)].add(
                 oem_chassis["Oem"]["Hpe"]["NodePowerWatts"]
             )
-            if "HPE Apollo2000 Gen10+" in oem_chassis["Name"]:
-                # Let's compute a ServerInChassis by
-                # - Collecting the chassis power consumption and divide it by the number of sleds (4)
-                # - Add the difference from this average to the sled
-                if (
-                    str(PowerCategories.SERVERINCHASSIS)
-                    not in power_consumption[str(PowerContext.BMC)]
-                ):
-                    power_consumption[str(PowerContext.BMC)][
-                        str(PowerCategories.SERVERINCHASSIS)
-                    ] = Power(str(PowerCategories.SERVERINCHASSIS))
-                power_consumption[str(PowerContext.BMC)][
-                    str(PowerCategories.SERVERINCHASSIS)
-                ].add(
-                    oem_chassis["Oem"]["Hpe"]["NodePowerWatts"]
-                    + (
-                        (oem_chassis["Oem"]["Hpe"]["ChassisPowerWatts"] / 4)
-                        - oem_chassis["Oem"]["Hpe"]["NodePowerWatts"]
-                    )
-                ),
 
+            # And CHASSIS from ChassisPowerWatts
+            power_consumption[str(PowerContext.BMC)][str(PowerCat.CHASSIS)].add(
+                oem_chassis["Oem"]["Hpe"]["ChassisPowerWatts"]
+            )
         return power_consumption
 
     def get_oem_chassis(self):

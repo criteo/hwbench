@@ -158,9 +158,9 @@ class BMC(External):
         """Return power consumption from server"""
         # Generic for now, could be override by vendors
         if str(PowerContext.BMC) not in power_consumption:
-            power_consumption[str(PowerContext.BMC)] = {str(PowerCategories.CHASSIS): Power(str(PowerCategories.CHASSIS))}  # type: ignore[no-redef]
+            power_consumption[str(PowerContext.BMC)] = {str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER))}  # type: ignore[no-redef]
 
-        power_consumption[str(PowerContext.BMC)][str(PowerCategories.CHASSIS)].add(
+        power_consumption[str(PowerContext.BMC)][str(PowerCategories.SERVER)].add(
             self.get_power().get("PowerControl")[0]["PowerConsumedWatts"]
         )
         return power_consumption

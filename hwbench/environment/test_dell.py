@@ -79,8 +79,8 @@ class TestDell(TestVendors):
     def test_power_consumption(self):
         expected_output = self.generic_power_output()
         expected_output[str(PowerContext.BMC)] = {
-            str(PowerCategories.CHASSIS): Power(str(PowerCategories.CHASSIS), 80),
-            str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER), 54),
+            str(PowerCategories.CHASSIS): Power(str(PowerCategories.CHASSIS), 339),
+            str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER), 80),
             str(PowerCategories.SERVERINCHASSIS): Power(
                 str(PowerCategories.SERVERINCHASSIS), 112
             ),

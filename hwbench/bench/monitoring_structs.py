@@ -145,10 +145,15 @@ class PowerContext(Enum):
 
 
 class PowerCategories(Enum):
-    CHASSIS = "Chassis"
-    INFRASTRUCTURE = "Infrastructure"
-    SERVER = "Server"
-    SERVERINCHASSIS = "ServerInChassis"
+    #      4N CHASSIS            1N CHASSIS
+    #  --------------------       ----------
+    # | [server]  [server] |     | [server] |
+    # | [server]  |server] |      ----------
+    #  --------------------
+    CHASSIS = "Chassis"  # The chassis power consumption
+    INFRASTRUCTURE = "Infrastructure"  # = Chassis - servers (fans, pdb, ..)
+    SERVER = "Server"  # One server
+    SERVERINCHASSIS = "ServerInChassis"  # One server + its part of the chassis
 
     def __str__(self) -> str:
         return str(self.value)

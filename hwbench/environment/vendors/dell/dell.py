@@ -1,6 +1,6 @@
 from ....bench.monitoring_structs import (
     Power,
-    PowerCategories,
+    PowerCategories as PowerCat,
     PowerContext,
     Temperature,
 )
@@ -42,27 +42,44 @@ class IDRAC(BMC):
         if "ServerPwr.1.SCViewSledPwr" in oem_system["Attributes"]:
             # ServerPwr.1.SCViewSledPwr = PowerConsumedWatts + 'SC-BMC.1.ChassisInfraPowe / nb_servers
             if (
-                str(PowerCategories.SERVERINCHASSIS)
+                str(PowerCat.SERVERINCHASSIS)
                 not in power_consumption[str(PowerContext.BMC)]
             ):
                 power_consumption[str(PowerContext.BMC)][
-                    str(PowerCategories.SERVERINCHASSIS)
-                ] = Power(str(PowerCategories.SERVERINCHASSIS))
-            power_consumption[str(PowerContext.BMC)][
-                str(PowerCategories.SERVERINCHASSIS)
-            ].add(oem_system["Attributes"]["ServerPwr.1.SCViewSledPwr"])
+                    str(PowerCat.SERVERINCHASSIS)
+                ] = Power(str(PowerCat.SERVERINCHASSIS))
+            power_consumption[str(PowerContext.BMC)][str(PowerCat.SERVERINCHASSIS)].add(
+                oem_system["Attributes"]["ServerPwr.1.SCViewSledPwr"]
+            )
         if "SC-BMC.1.ChassisInfraPower" in oem_system["Attributes"]:
             # SC-BMC.1.ChassisInfraPower = ServerPwr.1.SCViewSledPwr + 'chassis / nb_servers
             if (
-                str(PowerCategories.INFRASTRUCTURE)
+                str(PowerCat.INFRASTRUCTURE)
                 not in power_consumption[str(PowerContext.BMC)]
             ):
                 power_consumption[str(PowerContext.BMC)][
-                    str(PowerCategories.INFRASTRUCTURE)
-                ] = Power(str(PowerCategories.INFRASTRUCTURE))
-            power_consumption[str(PowerContext.BMC)][
-                str(PowerCategories.INFRASTRUCTURE)
-            ].add(oem_system["Attributes"]["SC-BMC.1.ChassisInfraPower"])
+                    str(PowerCat.INFRASTRUCTURE)
+                ] = Power(str(PowerCat.INFRASTRUCTURE))
+            power_consumption[str(PowerContext.BMC)][str(PowerCat.INFRASTRUCTURE)].add(
+                oem_system["Attributes"]["SC-BMC.1.ChassisInfraPower"]
+            )
+
+        # As we don't have a chassis direct metric, let's consider the sum of the PSUs
+        if str(PowerCat.CHASSIS) not in power_consumption[str(PowerContext.BMC)]:
+            power_consumption[str(PowerContext.BMC)][str(PowerCat.CHASSIS)] = Power(
+                str(PowerCat.CHASSIS)
+            )
+        psus = super().read_power_supplies()
+        power_consumption[str(PowerContext.BMC)][str(PowerCat.CHASSIS)].add(
+            float(
+                sum(
+                    [
+                        psu.get_values()[-1]
+                        for _, psu in psus[str(PowerContext.BMC)].items()
+                    ]
+                )
+            )
+        )
 
         return power_consumption
 
