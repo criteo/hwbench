@@ -1,0 +1,9 @@
+[tool.pip-tools]
+rebuild = true
+generate-hashes = true
+resolver = "backtracking"
+allow-unsafe = true
+no-emit-index-url = true
+no-emit-trusted-host = true
+quiet = true
+strip-extras = true
