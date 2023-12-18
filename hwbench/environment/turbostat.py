@@ -68,9 +68,9 @@ class Turbostat:
             if self.has(CPUSTATS.CORE_WATTS):
                 self.power_metrics[str(PowerContext.CPU)][
                     f"Core_{cores}"
-                ] = MonitorMetric(CORE, "Watts")
+                ] = MonitorMetric(f"Core_{cores}", "Watts")
             self.freq_metrics[str(CPUContext.CPU)][f"Core_{cores}"] = MonitorMetric(
-                CORE, "Mhz"
+                f"Core_{cores}", "Mhz"
             )
         return self.freq_metrics, self.power_metrics
 
