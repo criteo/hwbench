@@ -6,12 +6,17 @@ import sys
 from typing import Any  # noqa: F401
 
 from graph.common import fatal
-from graph.graph import init_matplotlib, generic_graph, yerr_graph, THERMAL, POWER
+from graph.graph import init_matplotlib, generic_graph, yerr_graph
 from graph.individual import individual_graph
 from graph.scaling import scaling_graph
 from graph.chassis import graph_chassis
 from graph.trace import Trace
-from hwbench.bench.monitoring_structs import PowerCategories, PowerContext, Metrics
+from hwbench.bench.monitoring_structs import (
+    FanContext,
+    PowerCategories,
+    PowerContext,
+    Metrics,
+)
 
 
 def valid_trace_file(trace_arg: str) -> Trace:
@@ -82,17 +87,17 @@ def compare_traces(args) -> None:
 def graph_fans(args, trace: Trace, bench_name: str, output_dir) -> int:
     rendered_graphs = 0
     bench = trace.bench(bench_name)
-    fans = bench.get_components("fan")
+    fans = bench.get_component(Metrics.FANS, FanContext.FAN)
     if not fans:
         print(f"{bench_name}: no fans")
         return rendered_graphs
-    for second_axis in [THERMAL, POWER]:
+    for second_axis in [Metrics.THERMAL, Metrics.POWER_CONSUMPTION]:
         rendered_graphs += generic_graph(
-            args, output_dir, bench, "fan", "Fans speed", second_axis
+            args, output_dir, bench, Metrics.FANS, "Fans speed", second_axis
         )
 
     for fan in fans:
-        rendered_graphs += yerr_graph(args, output_dir, bench, "fan", fan)
+        rendered_graphs += yerr_graph(args, output_dir, bench, Metrics.FANS, fans[fan])
 
     return rendered_graphs
 
@@ -101,23 +106,31 @@ def graph_cpu(args, trace: Trace, bench_name: str, output_dir) -> int:
     rendered_graphs = 0
     bench = trace.bench(bench_name)
     cpu_graphs = {}
-    cpu_graphs["watt_core"] = "Core power consumption"
-    cpu_graphs["package"] = "Package power consumption"
-    cpu_graphs["mhz_core"] = "Core frequency"
-    for graph in cpu_graphs:
+    cpu_graphs["CPU Core power consumption"] = {Metrics.POWER_CONSUMPTION: "Core"}
+    cpu_graphs["Package power consumption"] = {Metrics.POWER_CONSUMPTION: "package"}
+    cpu_graphs["Core frequency"] = {Metrics.FREQ: "Core"}
+    for graph_name in cpu_graphs:
         # Let's render the performance, perf_per_temp, perf_per_watt graphs
-        for second_axis in [None, THERMAL, POWER]:
-            rendered_graphs += generic_graph(
-                args, output_dir, bench, graph, cpu_graphs[graph], second_axis
-            )
+        for metric, filter in cpu_graphs[graph_name].items():
+            for second_axis in [None, Metrics.THERMAL, Metrics.POWER_CONSUMPTION]:
+                rendered_graphs += generic_graph(
+                    args,
+                    output_dir,
+                    bench,
+                    metric,
+                    graph_name,
+                    second_axis,
+                    filter=filter,
+                )
 
     return rendered_graphs
 
 
 def graph_thermal(args, trace: Trace, bench_name: str, output_dir) -> int:
     rendered_graphs = 0
-    bench = trace.bench(bench_name)
-    rendered_graphs += generic_graph(args, output_dir, bench, "temp", "Temperatures")
+    rendered_graphs += generic_graph(
+        args, output_dir, trace.bench(bench_name), Metrics.THERMAL, str(Metrics.THERMAL)
+    )
     return rendered_graphs
 
 

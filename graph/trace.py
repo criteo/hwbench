@@ -59,22 +59,6 @@ class Bench:
             title += f"{self.engine_module_parameter()} "
         return title
 
-    def __get_events(self, metric_name: str, serie: str) -> list:
-        """Return the "serie" values of metric_name"""
-        return self.get_monitoring_metric(metric_name)[serie].get(EVENTS)
-
-    def get_min_events(self, metric_name: str) -> list:
-        """Return the min values of metric_name"""
-        return self.__get_events(metric_name, MIN)
-
-    def get_mean_events(self, metric_name: str) -> list:
-        """Return the mean values of metric_name"""
-        return self.__get_events(metric_name, MEAN)
-
-    def get_max_events(self, metric_name: str) -> list:
-        """Return the max values of metric_name"""
-        return self.__get_events(metric_name, MAX)
-
     def get_monitoring(self) -> dict:
         """Return the monitoring metrics."""
         return self.get("monitoring")
@@ -104,10 +88,7 @@ class Bench:
                     fatal(f"Unexpected {metric} in monitoring")
         return self.metrics
 
-    def get_metrics(self):
-        return self.metrics
-
-    def get_monitoring_metric2(
+    def get_monitoring_metric(
         self, metric: Metrics
     ) -> dict[str, dict[str, MonitorMetric]]:
         """Return one monitoring metric."""
@@ -115,22 +96,13 @@ class Bench:
 
     def get_monitoring_metric_by_name(
         self, metric: Metrics, metric_name: str
-    ) -> dict[str, MonitorMetric]:
+    ) -> MonitorMetric:
         """Return one monitoring metric."""
         component, measure = metric_name.split(".")
         return self.metrics[str(metric)][component][measure]
 
-    def get_monitoring_metric(self, metric_name) -> dict:
-        """Return one monitoring metric."""
-        return self.get_monitoring()[metric_name]
-
-    def get_monitoring_metric_unit(self, metric_name) -> str:
-        """Return one monitoring metric unit"""
-        return self.get_monitoring_metric(metric_name)["min"]["unit"]
-
-    def get_monitoring_metric_axis(self, metric_name) -> tuple[Any, Any, Any]:
+    def get_monitoring_metric_axis(self, unit: str) -> tuple[Any, Any, Any]:
         """Return adjusted metric axis values"""
-        unit = self.get_monitoring_metric_unit(metric_name)
         # return y_max, y_major_tick, y_minor_tick
         if unit == "Percent":
             return 100, 10, 5
@@ -139,6 +111,42 @@ class Bench:
         elif unit == "Celsius":
             return 110, 10, 5
         return None, None, None
+
+    def get_component(
+        self, metric_type: Metrics, component: Any
+    ) -> dict[str, MonitorMetric]:
+        return self.get_monitoring_metric(metric_type)[str(component)]
+
+    def get_single_metric(
+        self, metric_type: Metrics, component: Any, metric: Any
+    ) -> MonitorMetric:
+        return self.get_component(metric_type, component)[str(metric)]
+
+    def get_samples_count(self):
+        """Return the number of monitoring samples"""
+        return self.metrics[str(MonitoringMetadata.SAMPLES_COUNT)]
+
+    def get_first_metric(self, metric_type: Metrics):
+        """Return the first metric of a given metric type"""
+        metric = self.get_monitoring_metric(metric_type)
+        component = metric[next(iter(metric))]
+        return component[next(iter(component))]
+
+    def get_metric_unit(self, metric_type: Metrics):
+        """Return the metric unit of a given metric"""
+        return self.get_first_metric(metric_type).get_unit()
+
+    def get_all_metrics(self, metric_type: Metrics, filter=None) -> list[MonitorMetric]:
+        """Return all metrics of a given type."""
+        metrics = []
+        for _, metric in self.get_monitoring_metric(metric_type).items():
+            for component_name, component in metric.items():
+                if not filter:
+                    metrics.append(component)
+                else:
+                    if filter in component_name:
+                        metrics.append(component)
+        return metrics
 
     def title(self) -> str:
         """Prepare the benchmark title name."""
@@ -235,7 +243,11 @@ class Bench:
 
             # If we want to keep the perf/watt ratio, let's compute it
             if perf_watt is not None:
-                metric = value / self.get_trace().get_metric_mean(self)
+                metric = value / mean(
+                    self.get_monitoring_metric_by_name(
+                        Metrics.POWER_CONSUMPTION, self.get_trace().get_metric_name()
+                    ).get_mean()
+                )
                 if index is None:
                     perf_watt.append(metric)
                 else:
@@ -243,7 +255,11 @@ class Bench:
 
             # If we want to keep the power consumption, let's save it
             if watt is not None:
-                metric = self.get_trace().get_metric_mean(self)
+                metric = mean(
+                    self.get_monitoring_metric_by_name(
+                        Metrics.POWER_CONSUMPTION, self.get_trace().get_metric_name()
+                    ).get_mean()
+                )
                 if index is None:
                     watt.append(metric)
                 else:
@@ -251,38 +267,8 @@ class Bench:
         except ValueError:
             fatal(f"No {perf} found in {self.get_bench_name()}")
 
-    def get_components(self, component_name):
-        """Return the list of components of a benchmark."""
-        return [
-            key
-            for key, _ in self.get_monitoring().items()
-            if component_name in key.lower()
-        ]
-
-    def get_components_by_unit(self, unit):
-        """Return the list of components with a specific unit."""
-        return [
-            key
-            for key, value in self.get_monitoring().items()
-            if unit in value["min"]["unit"].lower()
-        ]
-
     def get_time_interval(self):
         return self.metrics[str(MonitoringMetadata.ITERATION_TIME)]
-
-    def get_component(
-        self, metric_type: Metrics, component: Any
-    ) -> dict[str, MonitorMetric]:
-        return self.get_monitoring_metric2(metric_type)[str(component)]
-
-    def get_single_metric(
-        self, metric_type: Metrics, component: Any, metric: Any
-    ) -> MonitorMetric:
-        return self.get_monitoring_metric2(metric_type)[str(component)][str(metric)]
-
-    def get_samples_count(self):
-        """Return the number of monitoring samples"""
-        return self.metrics[str(MonitoringMetadata.SAMPLES_COUNT)]
 
     def get_psu_power(self):
         psus = self.get_component(Metrics.POWER_SUPPLIES, PowerContext.BMC)
@@ -385,7 +371,7 @@ class Trace:
         first_bench = self.first_bench()
         first_bench.load_monitoring()
         print("List of power metrics:")
-        for name, value in first_bench.get_monitoring_metric2(
+        for name, value in first_bench.get_monitoring_metric(
             Metrics.POWER_CONSUMPTION
         ).items():
             for v in value:
@@ -447,16 +433,6 @@ class Trace:
     def get_metric_name(self) -> str:
         """Return the metric name"""
         return self.metric_name
-
-    def get_metric_mean_by_name(self, bench_name: str, metric_name="") -> float:
-        """Return the mean of chosen metric"""
-        return self.get_metric_mean(self.bench(bench_name), metric_name)
-
-    def get_metric_mean(self, bench: Bench, metric_name="") -> float:
-        """Return the mean of chosen metric"""
-        if not metric_name:
-            metric_name = self.metric_name
-        return mean(bench.get_mean_events(metric_name))
 
     def bench_list(self) -> dict:
         """Return the list of benches"""

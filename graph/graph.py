@@ -4,11 +4,10 @@ import numpy as np
 from matplotlib.ticker import FuncFormatter, AutoMinorLocator, MultipleLocator
 from graph.common import fatal
 from graph.trace import Bench
+from hwbench.bench.monitoring_structs import Metrics, MonitorMetric
 
 MEAN = "mean"
 ERROR = "error"
-THERMAL = "thermal"
-POWER = "power"
 
 
 def init_matplotlib(args):
@@ -202,24 +201,23 @@ def generic_graph(
     args,
     output_dir,
     bench: Bench,
-    component_name: str,
+    component_type: Metrics,
     item_title: str,
     second_axis=None,
+    filter=None,
 ) -> int:
-    outfile = f"{component_name}"
+    outfile = f"{item_title}"
     trace = bench.get_trace()
 
-    if component_name == "temp":
-        components = bench.get_components_by_unit("celsius")
-    else:
-        components = bench.get_components(component_name)
-    if not components:
-        print(f"{bench.get_bench_name()}: no {component_name}")
+    components = bench.get_all_metrics(component_type, filter)
+    if not len(components):
+        title = f"{item_title}: no {str(component_type)} metric found"
+        if filter:
+            title += f" with filter = '{filter}'"
         return 0
 
-    thermal_components = bench.get_components_by_unit("celsius")
     samples_count = bench.get_samples_count()
-
+    unit = bench.get_metric_unit(component_type)
     title = (
         f'{item_title} during "{bench.get_bench_name()}" benchmark job\n'
         f"\n Stressor: "
@@ -230,9 +228,9 @@ def generic_graph(
         args,
         title,
         "Time [seconds]",
-        bench.get_monitoring_metric_unit(components[0]),
+        unit,
         output_dir.joinpath(
-            f"{trace.get_name()}/{bench.get_bench_name()}/{component_name}"
+            f"{trace.get_name()}/{bench.get_bench_name()}/{str(component_type)}"
         ),
         outfile,
         show_source_file=trace,
@@ -241,48 +239,38 @@ def generic_graph(
     if second_axis:
         outfile += f"_vs_{second_axis}"
         graph.set_filename(outfile)
-        if second_axis == THERMAL:
+        if second_axis == Metrics.THERMAL:
             graph.set_y2_axis("Thermal (°C)", 110)
-        elif second_axis == POWER:
+        elif second_axis == Metrics.POWER_CONSUMPTION:
             graph.set_y2_axis("Power (Watts)")
-            power_metrics = ["chassis"]
-            for additional_metric in ["enclosure", "infrastructure"]:
-                if additional_metric in bench.get_monitoring():
-                    power_metrics.append(additional_metric)
 
     if args.verbose:
         print(
-            f"{trace.get_name()}/{bench.get_bench_name()}: {len(components)} {component_name} to graph with {samples_count} samples"
+            f"{trace.get_name()}/{bench.get_bench_name()}: {len(components)} {str(component_type)} to graph with {samples_count} samples"
         )
 
-    time_interval = 10  # Hardcoded for now in benchmark.py
     time_serie = []
     data_serie = {}  # type: dict[str, list]
     data2_serie = {}  # type: dict[str, list]
     for sample in range(0, samples_count):
-        time = sample * time_interval
+        time = sample * bench.get_time_interval()
         time_serie.append(time)
         # Collect all components mean value
         for component in components:
-            if component not in data_serie:
-                data_serie[component] = []
-            data_serie[component].append(bench.get_mean_events(component)[sample])
+            if component.get_name() not in data_serie:
+                data_serie[component.get_name()] = []
+            data_serie[component.get_name()].append(component.get_mean()[sample])
 
         if second_axis:
-            if second_axis == THERMAL:
-                for thermal_component in thermal_components:
-                    if thermal_component not in data2_serie:
-                        data2_serie[thermal_component] = []
-                    data2_serie[thermal_component].append(
-                        bench.get_mean_events(thermal_component)[sample]
-                    )
-            elif second_axis == POWER:
-                for power_metric in power_metrics:
-                    if power_metric not in data2_serie:
-                        data2_serie[power_metric] = []
-                    data2_serie[power_metric].append(
-                        bench.get_mean_events(power_metric)[sample]
-                    )
+            for _, entry in bench.get_monitoring_metric(second_axis).items():
+                for sensor, measure in entry.items():
+                    # We don't plot the Cores here
+                    # We don't plot sensor on y2 if already plot on y1
+                    if sensor in data_serie or sensor.startswith("Core"):
+                        continue
+                    if sensor not in data2_serie:
+                        data2_serie[sensor] = []
+                    data2_serie[sensor].append(measure.get_mean()[sample])
 
     order = np.argsort(time_serie)
     x_serie = np.array(time_serie)[order]
@@ -293,38 +281,46 @@ def generic_graph(
             graph.get_ax2().plot(x_serie, y2_serie, "", label=data2_item, marker="o")
 
     for component in components:
-        y_serie = np.array(data_serie[component])[order]
-        graph.get_ax().plot(x_serie, y_serie, "", label=component)
+        y_serie = np.array(data_serie[component.get_name()])[order]
+        graph.get_ax().plot(x_serie, y_serie, "", label=component.get_name())
 
-    graph.prepare_axes(30, 15, (bench.get_monitoring_metric_axis(components[0])))
+    graph.prepare_axes(
+        30,
+        15,
+        (bench.get_monitoring_metric_axis(unit)),
+        points_to_plot=len(next(iter(data_serie))),
+        interval=bench.get_time_interval(),
+    )
 
     graph.render()
     return 1
 
 
-def yerr_graph(args, output_dir, bench: Bench, component_type: str, component: str):
+def yerr_graph(
+    args, output_dir, bench: Bench, component_type: Metrics, component: MonitorMetric
+):
     trace = bench.get_trace()
     samples_count = bench.get_samples_count()
-    time_interval = 10
+    unit = bench.get_metric_unit(component_type)
 
     time_serie = []
     data_serie = {}  # type: dict[str, list]
     data_serie[MEAN] = []
     data_serie[ERROR] = []
     for sample in range(0, samples_count):
-        time = sample * time_interval
+        time = sample * bench.get_time_interval()
         time_serie.append(time)
-        mean_value = bench.get_mean_events(component)[sample]
+        mean_value = component.get_mean()[sample]
         data_serie[ERROR].append(
             (
-                mean_value - bench.get_min_events(component)[sample],
-                bench.get_max_events(component)[sample] - mean_value,
+                mean_value - component.get_min()[sample],
+                component.get_max()[sample] - mean_value,
             )
         )
         data_serie[MEAN].append(mean_value)
 
     title = (
-        f'{component} during "{bench.get_bench_name()}" benchmark job\n'
+        f'{component.get_name()} during "{bench.get_bench_name()}" benchmark job\n'
         f"\n Stressor: "
     )
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
@@ -334,11 +330,11 @@ def yerr_graph(args, output_dir, bench: Bench, component_type: str, component: s
         args,
         title,
         "Time [seconds]",
-        bench.get_monitoring_metric_unit(component),
+        unit,
         output_dir.joinpath(
-            f"{trace.get_name()}/{bench.get_bench_name()}/{component_type}"
+            f"{trace.get_name()}/{bench.get_bench_name()}/{str(component_type)}"
         ),
-        component,
+        component.get_name(),
         show_source_file=trace,
     )
 
@@ -353,8 +349,14 @@ def yerr_graph(args, output_dir, bench: Bench, component_type: str, component: s
         fmt="-b",
         ecolor="r",
         capsize=4,
-        label=component,
+        label=component.get_name(),
     )
-    graph.prepare_axes(30, 15, bench.get_monitoring_metric_axis(component))
+    graph.prepare_axes(
+        30,
+        15,
+        bench.get_monitoring_metric_axis(unit),
+        points_to_plot=len(next(iter(data_serie))),
+        interval=bench.get_time_interval(),
+    )
     graph.render()
     return 1
