@@ -245,7 +245,7 @@ ETA {duration}"
                 param = bench.get_parameters()
                 print(f"[{param.get_name()}_{bench.get_job_number()}]", file=f)
                 print(f"runtime={param.get_runtime()}", file=f)
-                print(f"monitoring={param.get_monitoring()}", file=f)
+                print(f"monitoring={param.get_monitoring_config()}", file=f)
                 print(f"engine={engine.get_name()}", file=f)
                 print(f"engine_module={em.get_name()}", file=f)
                 print(f"engine_binary={engine.get_binary()}", file=f)
@@ -263,6 +263,7 @@ ETA {duration}"
                 print(
                     f"stressor_instances={param.get_engine_instances_count()}", file=f
                 )
+                print(f"cmdline={' '.join(em.run_cmd(param))}", file=f)
                 print("", file=f)
 
     def get_monitoring(self) -> Optional[Monitoring]:
