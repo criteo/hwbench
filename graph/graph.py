@@ -88,6 +88,8 @@ class Graph:
         x_minor_locator=0,
         y_locators=(None, None, None),
         legend=True,
+        points_to_plot=0,
+        interval=0,
     ):
         """Set the ticks and axes limits."""
         # This should be called _after_ the ax.*plot calls
@@ -117,6 +119,11 @@ class Graph:
             # Bar graphs do not need legend, let the caller disable it
             if legend:
                 plt.legend()
+
+        # If we have less than 15 points to render, let's use the real time interval
+        if points_to_plot and points_to_plot < 15:
+            x_major_locator = interval
+            x_minor_locator = interval / 2
 
         if x_major_locator:
             self.ax.set_xlim(None, xmin=0, emit=True)

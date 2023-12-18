@@ -46,6 +46,8 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             if str(component) not in sum_serie:
                 sum_serie[str(component)] = []
                 sum_serie_in_chassis[str(component)] = []
+                sum_serie[str(Metrics.POWER_SUPPLIES)] = []
+                sum_serie_in_chassis[str(Metrics.POWER_SUPPLIES)] = []
 
             value = 0
             # We want to get the sum of servers/serversinchassis vs chassis
@@ -83,6 +85,12 @@ def graph_chassis(args, bench_name, output_dir) -> int:
                 ).get_mean()[sample]
                 sum_serie[str(component)].append(value)
                 sum_serie_in_chassis[str(component)].append(value)
+
+            # Let's add the PSUs
+            psus = bench.get_psu_power()
+            if psus:
+                sum_serie[str(Metrics.POWER_SUPPLIES)].append(psus[sample])
+                sum_serie_in_chassis[str(Metrics.POWER_SUPPLIES)].append(psus[sample])
 
     order = np.argsort(time_serie)
     x_serie = np.array(time_serie)[order]
@@ -134,18 +142,12 @@ def graph_chassis(args, bench_name, output_dir) -> int:
                 marker=get_marker(graph_type),
             )
 
-        metrics_to_print = len(next(iter(sum_serie_to_plot)))
-        # By default, one minor every 15s, one major every 30s
-        x_major_locator = 30
-        x_minor_locator = 15
-        # If we have less than 15 points to render, let's use the real time interval
-        if metrics_to_print < 15:
-            x_major_locator = bench.get_time_interval()
-            x_minor_locator = bench.get_time_interval() / 2
         graph.prepare_axes(
-            x_major_locator,
-            x_minor_locator,
+            30,
+            15,
             (None, 50, 25),
+            points_to_plot=len(next(iter(sum_serie_to_plot))),
+            interval=bench.get_time_interval(),
         )
         graph.render()
 

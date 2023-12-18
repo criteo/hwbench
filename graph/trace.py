@@ -8,6 +8,7 @@ from hwbench.bench.monitoring_structs import (
     MonitoringMetadata,
     MonitorMetric,
     Power,
+    PowerContext,
     Temperature,
 )
 
@@ -282,6 +283,18 @@ class Bench:
     def get_samples_count(self):
         """Return the number of monitoring samples"""
         return self.metrics[str(MonitoringMetadata.SAMPLES_COUNT)]
+
+    def get_psu_power(self):
+        psus = self.get_component(Metrics.POWER_SUPPLIES, PowerContext.BMC)
+        power = 0
+        if psus:
+            power = [0] * len(psus[next(iter(psus))].get_samples())
+            for _, psu in psus.items():
+                count = 0
+                for value in psu.get_mean():
+                    power[count] = power[count] + value
+                    count = count + 1
+        return power
 
     def differences(self, other):
         """Compare if two Bench objects are similar"""
