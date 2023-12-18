@@ -58,7 +58,11 @@ class Turbostat:
         # Let's make a first quick run to detect system
         self.pre_run()
 
-    def reset_metrics(self):
+    def reset_metrics(self, power_metrics=None):
+        if power_metrics is not None:
+            self.power_metrics = power_metrics
+        if str(PowerContext.CPU) not in self.power_metrics:
+            self.power_metrics[str(PowerContext.CPU)] = {}
         self.power_metrics[str(PowerContext.CPU)][PACKAGE] = MonitorMetric(
             PACKAGE, "Watts"
         )
@@ -163,7 +167,7 @@ class Turbostat:
 
     def parse(self):
         """Parse the run() output"""
-        self.get_output()
+        self.get_process_output()
 
         # Header is two lines
         header_size = 2

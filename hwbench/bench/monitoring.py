@@ -229,7 +229,7 @@ class Monitoring:
         self.__set_metric(Metrics.POWER_SUPPLIES, {})
         self.__set_metric(Metrics.THERMAL, {})
         if self.turbostat:
-            freq, power = self.turbostat.reset_metrics()
+            freq, power = self.turbostat.reset_metrics({})
             self.__set_metric(Metrics.FREQ, freq)
             self.__set_metric(Metrics.POWER_CONSUMPTION, power)
         else:
