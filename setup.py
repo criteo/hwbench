@@ -14,7 +14,7 @@ def read_requirements(path):
 
 
 meta = {}
-meta["requirements"] = read_requirements("requirements/base.txt")
+meta["requirements"] = read_requirements("requirements/base.in")
 meta["install_requires"] = [line for line in meta["requirements"] if "://" not in line]
 
 
@@ -24,7 +24,7 @@ setuptools.setup(
     install_requires=meta["install_requires"],
     python_requires="~=3.9",
     dependency_links=[],
-    data_files=[(".", ["requirements/base.txt"])],
+    data_files=[(".", ["requirements/base.in"])],
     entry_points={
         "console_scripts": [
             "hwbench =  hwbench.hwbench:main",

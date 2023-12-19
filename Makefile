@@ -12,9 +12,11 @@ update_env:
 	./$(UPDATE_DEPS_ENV)/bin/pip install --upgrade --quiet pip-tools
 
 update_deps: update_env
+	./$(UPDATE_DEPS_ENV)/bin/pip-compile --upgrade --output-file=requirements/base.txt requirements/base.in
 	./$(UPDATE_DEPS_ENV)/bin/pip-compile --upgrade --output-file=requirements/test.txt requirements/test.in
 
 regen_hashes: update_env
+	./$(UPDATE_DEPS_ENV)/bin/pip-compile --output-file=requirements/base.txt requirements/base.in
 	./$(UPDATE_DEPS_ENV)/bin/pip-compile --output-file=requirements/test.txt requirements/test.in
 
 clean:
