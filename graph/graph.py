@@ -271,6 +271,13 @@ def generic_graph(
                     if sensor not in data2_serie:
                         data2_serie[sensor] = []
                     data2_serie[sensor].append(measure.get_mean()[sample])
+            # If we are plotting the power consumption, having the PSUs would be useful to compare with.
+            if second_axis == Metrics.POWER_CONSUMPTION:
+                psus = bench.get_psu_power()
+                if psus:
+                    if str(Metrics.POWER_SUPPLIES) not in data2_serie:
+                        data2_serie[str(Metrics.POWER_SUPPLIES)] = []
+                    data2_serie[str(Metrics.POWER_SUPPLIES)].append(psus[sample])
 
     order = np.argsort(time_serie)
     x_serie = np.array(time_serie)[order]
