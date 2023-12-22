@@ -120,7 +120,7 @@ class Graph:
                 plt.legend()
 
         # If we have less than 15 points to render, let's use the real time interval
-        if points_to_plot and points_to_plot < 15:
+        if points_to_plot and points_to_plot < 30:
             x_major_locator = interval
             x_minor_locator = interval / 2
 
@@ -288,7 +288,7 @@ def generic_graph(
         30,
         15,
         (bench.get_monitoring_metric_axis(unit)),
-        points_to_plot=len(next(iter(data_serie))),
+        points_to_plot=len(data_serie[next(iter(data_serie))]),
         interval=bench.get_time_interval(),
     )
 
@@ -355,7 +355,7 @@ def yerr_graph(
         30,
         15,
         bench.get_monitoring_metric_axis(unit),
-        points_to_plot=len(next(iter(data_serie))),
+        points_to_plot=len(data_serie[next(iter(data_serie))]),
         interval=bench.get_time_interval(),
     )
     graph.render()
