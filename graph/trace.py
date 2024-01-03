@@ -353,18 +353,21 @@ class Trace:
 
         # Let's check if the monitoring metrics exists in the first job
         first_bench = self.first_bench()
-        first_bench.load_monitoring()
+        metrics = first_bench.load_monitoring()
+        if not metrics:
+            fatal(f"{self.filename}: Cannot find monitoring metrics")
+
+        if str(Metrics.POWER_CONSUMPTION) not in metrics:
+            fatal(f"{self.filename}: Cannot find power consumption metrics")
+
         try:
-            isinstance(
-                first_bench.get_monitoring_metric_by_name(
-                    Metrics.POWER_CONSUMPTION, self.metric_name
-                ),
-                Power,
+            first_bench.get_monitoring_metric_by_name(
+                Metrics.POWER_CONSUMPTION, self.metric_name
             )
         except KeyError:
             fatal(
-                f"Cannot find monitoring metric '{self.metric_name}' in {self.filename}.\
-                  \nUse --list-metrics to detect possible values."
+                f"{self.filename}: Cannot find {self.metric_name} in power consumption metrics.\
+                    \nUse --list-metrics to detect possible values."
             )
 
     def list_power_metrics(self):
