@@ -40,7 +40,9 @@ class IDRAC(BMC):
         power_consumption = super().read_power_consumption(power_consumption)
         oem_system = self.get_oem_system()
         if "ServerPwr.1.SCViewSledPwr" in oem_system["Attributes"]:
-            # ServerPwr.1.SCViewSledPwr = PowerConsumedWatts + 'SC-BMC.1.ChassisInfraPowe / nb_servers
+            # ServerPwr.1.SCViewSledPwr is computed from other metrics
+            # It includes the SLED power consumption + a mathematical portion of the chassis consumption
+            # It's computed like : ServerPwr.1.SCViewSledPwr = PowerConsumedWatts + 'SC-BMC.1.ChassisInfraPower / nb_servers'
             if (
                 str(PowerCat.SERVERINCHASSIS)
                 not in power_consumption[str(PowerContext.BMC)]
@@ -52,7 +54,8 @@ class IDRAC(BMC):
                 oem_system["Attributes"]["ServerPwr.1.SCViewSledPwr"]
             )
         if "SC-BMC.1.ChassisInfraPower" in oem_system["Attributes"]:
-            # SC-BMC.1.ChassisInfraPower = ServerPwr.1.SCViewSledPwr + 'chassis / nb_servers
+            # SC-BMC.1.ChassisInfraPower reports the power consumption of the chassis infrastructure,
+            # not counting the SLEDs
             if (
                 str(PowerCat.INFRASTRUCTURE)
                 not in power_consumption[str(PowerContext.BMC)]
@@ -64,7 +67,8 @@ class IDRAC(BMC):
                 oem_system["Attributes"]["SC-BMC.1.ChassisInfraPower"]
             )
 
-        # As we don't have a chassis direct metric, let's consider the sum of the PSUs
+        # Let's add the sum of the power supplies to get the inlet power consumption
+        # It will be compared at some point with the PDU reporting.
         if str(PowerCat.CHASSIS) not in power_consumption[str(PowerContext.BMC)]:
             power_consumption[str(PowerContext.BMC)][str(PowerCat.CHASSIS)] = Power(
                 str(PowerCat.CHASSIS)
