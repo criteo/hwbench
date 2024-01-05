@@ -567,6 +567,7 @@ class StressNGMemrate(StressNG):
             return ["echo", "Skipped benchmark"]
         return super().run_cmd() + [
             "--memrate",
+            "--memrate-flush",
             str(self.parameters.get_engine_instances_count()),
         ]
 
