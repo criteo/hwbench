@@ -231,15 +231,22 @@ class Bench:
         """Extract performance and power efficiency"""
         try:
             if perf and traces_perf is not None:
-                # Extracting performance
-                value = self.get(perf)
-                # but let's consider sum_speed for memrate runs
-                if self.engine_module() in ["memrate"]:
-                    value = self.get(perf)["sum_speed"]
-                if index is None:
-                    traces_perf.append(value)
-                else:
-                    traces_perf[index] = value
+                try:
+                    # Extracting performance
+                    metric_name = perf
+                    value = self.get(perf)
+                    # but let's consider sum_speed for memrate runs
+                    if self.engine_module() in ["memrate"]:
+                        metric_name = f"{perf}/sum_speed"
+                        value = self.get(perf)["sum_speed"]
+                    if index is None:
+                        traces_perf.append(value)
+                    else:
+                        traces_perf[index] = value
+                except TypeError:
+                    fatal(
+                        f"{self.trace.get_name()}/{self.get_bench_name()}: unable to find metric {metric_name}"
+                    )
 
             # If we want to keep the perf/watt ratio, let's compute it
             if perf_watt is not None:
