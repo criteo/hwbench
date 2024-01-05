@@ -239,14 +239,19 @@ class Bench:
                     if self.engine_module() in ["memrate"]:
                         metric_name = f"{perf}/sum_speed"
                         value = self.get(perf)["sum_speed"]
-                    effective_runtime = self.get("effective_runtime")
-                    delta = abs(effective_runtime - self.duration())
-                    # The effective runtime must be within ~1sec compared to the expected duration
-                    if delta > 1:
-                        print(
-                            f"{self.trace.get_name()}/{self.get_bench_name()} didn't completed on time. "
-                            f"Effective_runtime={effective_runtime} vs {self.duration()} : delta=[{delta:.2f}s; {delta/self.duration()*100:.2f}%]"
-                        )
+                    try:
+                        effective_runtime = self.get("effective_runtime")
+                        delta = abs(effective_runtime - self.duration())
+                        # The effective runtime must be within ~1sec compared to the expected duration
+                        if delta > 1:
+                            print(
+                                f"{self.trace.get_name()}/{self.get_bench_name()} didn't completed on time. "
+                                f"Effective_runtime={effective_runtime} vs {self.duration()} : delta=[{delta:.2f}s; {delta/self.duration()*100:.2f}%]"
+                            )
+                    except TypeError:
+                        # We can ignore the delay computation if effective_runtime is not defined
+                        # Not all engines are able to provide an effective_runtime.
+                        pass
                     if index is None:
                         traces_perf.append(value)
                     else:
