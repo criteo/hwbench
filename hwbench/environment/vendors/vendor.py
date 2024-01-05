@@ -24,9 +24,10 @@ class BMC(External):
         self.config_file: configparser.ConfigParser
         self.redfish_obj = None
         self.vendor = vendor
+        self.logged = False
 
     def __del__(self):
-        if self.redfish_obj:
+        if self.logged:
             self.redfish_obj.logout()
 
     def run_cmd(self) -> list[str]:
@@ -91,6 +92,7 @@ class BMC(External):
                 timeout=10,
             )
             self.redfish_obj.login()
+            self.logged = True
         except json.decoder.JSONDecodeError:
             h.fatal("JSONDecodeError on {}".format(server_url))
         except redfish.rest.v1.RetriesExhaustedError:
