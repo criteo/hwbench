@@ -84,6 +84,25 @@ def compare_traces(args) -> None:
             names.append(trace.get_name())
 
 
+def graph_monitoring_metrics(args, trace: Trace, bench_name: str, output_dir) -> int:
+    rendered_graphs = 0
+    bench = trace.bench(bench_name)
+    for metric_name in ["BMC", "CPU"]:
+        metrics = bench.get_component(Metrics.MONITOR, metric_name)
+        if metrics:
+            for metric in metrics:
+                rendered_graphs += yerr_graph(
+                    args,
+                    output_dir,
+                    bench,
+                    Metrics.MONITOR,
+                    metrics[metric],
+                    prefix=f"{metric_name}.",
+                )
+
+    return rendered_graphs
+
+
 def graph_fans(args, trace: Trace, bench_name: str, output_dir) -> int:
     rendered_graphs = 0
     bench = trace.bench(bench_name)
@@ -192,6 +211,9 @@ def graph_environment(args, output_dir) -> int:
             f"environment: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})"
         )
         for bench_name in sorted(benches):
+            rendered_graphs += graph_monitoring_metrics(
+                args, trace, bench_name, output_dir
+            )
             rendered_graphs += graph_fans(args, trace, bench_name, output_dir)
             rendered_graphs += graph_cpu(args, trace, bench_name, output_dir)
             rendered_graphs += graph_thermal(args, trace, bench_name, output_dir)

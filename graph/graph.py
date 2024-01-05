@@ -304,7 +304,12 @@ def generic_graph(
 
 
 def yerr_graph(
-    args, output_dir, bench: Bench, component_type: Metrics, component: MonitorMetric
+    args,
+    output_dir,
+    bench: Bench,
+    component_type: Metrics,
+    component: MonitorMetric,
+    prefix="",
 ):
     trace = bench.get_trace()
     samples_count = bench.get_samples_count()
@@ -327,7 +332,7 @@ def yerr_graph(
         data_serie[MEAN].append(mean_value)
 
     title = (
-        f'{component.get_name()} during "{bench.get_bench_name()}" benchmark job\n'
+        f'{prefix}{component.get_name()} during "{bench.get_bench_name()}" benchmark job\n'
         f"\n Stressor: "
     )
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
@@ -341,7 +346,7 @@ def yerr_graph(
         output_dir.joinpath(
             f"{trace.get_name()}/{bench.get_bench_name()}/{str(component_type)}"
         ),
-        component.get_name(),
+        f"{prefix}{component.get_name()}",
         show_source_file=trace,
     )
 
