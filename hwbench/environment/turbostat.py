@@ -111,6 +111,9 @@ class Turbostat:
         english_env["LC_ALL"] = "C"
         # We can override the interval time at runtime
         cmd_line = [
+            "taskset",
+            "-c",
+            f"{self.hardware.get_cpu().get_logical_cores_count()-1}",
             "turbostat",
             "-c",
             "core",
