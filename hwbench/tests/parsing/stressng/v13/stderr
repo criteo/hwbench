@@ -1,6 +1,0 @@
-stress-ng: info:  [119157] setting to a 2 second run per stressor
-stress-ng: info:  [119157] dispatching hogs: 12 qsort
-stress-ng: info:  [119157] successful run completed in 2.00s
-stress-ng: info:  [119157] stressor       bogo ops real time  usr time  sys time   bogo ops/s     bogo ops/s
-stress-ng: info:  [119157]                           (secs)    (secs)    (secs)   (real time) (usr+sys time)
-stress-ng: info:  [119157] qsort               163      2.00     22.95      0.01        81.50           7.10

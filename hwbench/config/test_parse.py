@@ -11,7 +11,7 @@ class TestParseConfig(tbc.TestCommon):
             "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
         ) as p:
             p.return_value = (
-                pathlib.Path("./tests/parsing/stressngmethods/v16/stdout")
+                pathlib.Path("./tests/parsing/stressngmethods/v17/stdout")
                 .read_bytes()
                 .split(b":", 1)
             )
@@ -43,7 +43,7 @@ class TestParseConfig(tbc.TestCommon):
                 "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
             ) as p:
                 p.return_value = (
-                    pathlib.Path("./tests/parsing/stressngmethods/v16/stdout")
+                    pathlib.Path("./tests/parsing/stressngmethods/v17/stdout")
                     .read_bytes()
                     .split(b":", 1)
                 )
@@ -57,7 +57,7 @@ class TestParseConfig(tbc.TestCommon):
             "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
         ) as p:
             p.return_value = (
-                pathlib.Path("./tests/parsing/stressngmethods/v16/stdout")
+                pathlib.Path("./tests/parsing/stressngmethods/v17/stdout")
                 .read_bytes()
                 .split(b":", 1)
             )

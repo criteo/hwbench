@@ -1,7 +1,0 @@
-stress-ng: metrc: [15981] stressor       bogo ops real time  usr time  sys time   bogo ops/s     bogo ops/s
-stress-ng: metrc: [15981]                           (secs)    (secs)    (secs)   (real time) (usr+sys time)
-stress-ng: metrc: [15981] qsort               207      2.01     23.85      0.24       103.13           8.59
-stress-ng: metrc: [15981] miscellaneous metrics:
-stress-ng: metrc: [15981] qsort          107026286.42 qsort comparisons per sec (geometric mean of 12 instances)
-stress-ng: metrc: [15981] qsort                 11.16 qsort comparisons per item (geometric mean of 12 instances)
-

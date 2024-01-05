@@ -19,12 +19,12 @@ from .stressng import (
 )
 
 
-def mock_engine():
+def mock_engine(version: str) -> StressNG:
     # We need to patch list_module_parameters() function
     # to avoid considering the local stress-ng binary
     with patch("hwbench.engines.stressng.EngineModuleCpu.list_module_parameters") as p:
         p.return_value = (
-            pathlib.Path("./tests/parsing/stressngmethods/v16/stdout")
+            pathlib.Path(f"./tests/parsing/stressngmethods/{version}/stdout")
             .read_bytes()
             .split(b":", 1)
         )
@@ -35,7 +35,7 @@ class TestParse(unittest.TestCase):
     def test_engine_parsing_version(self):
         test_dir = pathlib.Path("./tests/parsing/stressng")
         for d in test_dir.iterdir():
-            test_target = mock_engine()
+            test_target = mock_engine("v17")
             if not d.is_dir():
                 continue
             ver_stdout = (d / "version-stdout").read_bytes()
@@ -44,11 +44,11 @@ class TestParse(unittest.TestCase):
             assert version == (d / "version").read_bytes().strip()
 
     def test_module_parsing_output(self):
-        engine = mock_engine()
-        for classname, engine_module, prefix, instances in [
-            (StressNGQsort, EngineModuleQsort, "stressng", 0),
-            (StressNGStream, EngineModuleStream, "stressng-stream", 0),
-            (StressNGMemrate, EngineModuleMemrate, "stressng-memrate", 128),
+        engine_v17 = mock_engine("v17")
+        for classname, engine_module, prefix, instances, engine in [
+            (StressNGQsort, EngineModuleQsort, "stressng", 0, engine_v17),
+            (StressNGStream, EngineModuleStream, "stressng-stream", 0, engine_v17),
+            (StressNGMemrate, EngineModuleMemrate, "stressng-memrate", 128, engine_v17),
         ]:
             test_dir = pathlib.Path(f"./tests/parsing/{prefix}")
             for d in test_dir.iterdir():
@@ -96,7 +96,7 @@ class TestParse(unittest.TestCase):
                 continue
 
             print(f"parsing methods test {d.name}")
-            test_target = mock_engine().get_module("cpu")
+            test_target = mock_engine("v17").get_module("cpu")
             assert test_target
 
             output = test_target.get_module_parameters()
@@ -174,7 +174,7 @@ class TestParse(unittest.TestCase):
             )
 
             # Instantiate test, it should not fail
-            StressNGVNNI(EngineModuleVNNI(mock_engine(), "vnni"), params)
+            StressNGVNNI(EngineModuleVNNI(mock_engine("v17"), "vnni"), params)
 
         assert test_params(Intel_6140, "noavx_vpaddb") is True
         assert test_params(Intel_6140, "avx_vpdpbusd512") is False

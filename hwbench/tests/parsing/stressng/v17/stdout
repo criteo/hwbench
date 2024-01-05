@@ -1,0 +1,14 @@
+stress-ng: info:  [74875] setting to a 10 secs run per stressor
+stress-ng: info:  [74875] dispatching hogs: 128 qsort
+stress-ng: info:  [74876] qsort: using method 'qsort-libc'
+stress-ng: metrc: [74875] stressor       bogo ops real time  usr time  sys time   bogo ops/s     bogo ops/s CPU used per       RSS Max
+stress-ng: metrc: [74875]                           (secs)    (secs)    (secs)   (real time) (usr+sys time) instance (%)          (KB)
+stress-ng: metrc: [74875] qsort             15341     10.00   1279.61      0.16      1534.09          11.99        99.98          5852
+stress-ng: metrc: [74875] miscellaneous metrics:
+stress-ng: metrc: [74875] qsort          141520047.07 qsort comparisons per sec (harmonic mean of 128 instances)
+stress-ng: metrc: [74875] qsort                 11.15 qsort comparisons per item (harmonic mean of 128 instances)
+stress-ng: info:  [74875] skipped: 0
+stress-ng: info:  [74875] passed: 128: qsort (128)
+stress-ng: info:  [74875] failed: 0
+stress-ng: info:  [74875] metrics untrustworthy: 0
+stress-ng: info:  [74875] successful run completed in 10.04 secs

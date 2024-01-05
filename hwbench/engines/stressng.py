@@ -82,7 +82,7 @@ class EngineModuleStream(EngineModulePinnable):
     def validate_module_parameters(self, params: BenchmarkParameters):
         msg = super().validate_module_parameters(params)
         if params.get_runtime() < 5:
-            return "{msg}; StressNGStream needs at least a 5s of run time"
+            return f"{msg}; StressNGStream needs at least a 5s of run time"
         return msg
 
     def fully_skipped_job(self, p) -> bool:
@@ -209,16 +209,29 @@ class StressNG(ExternalBench):
         self.engine_module = engine_module
         self.parameters = parameters
 
+    def version_compatible(self) -> bool:
+        engine = self.engine_module.get_engine()
+        return engine.version_major() >= 17 and engine.version_minor() >= 4
+
+    def need_skip_because_version(self):
+        if not self.version_compatible():
+            print("WARNING: skipping benchmark, needs stress-ng >= 0.17.04")
+            self.skip = True
+            return ["echo", "skipped benchmark"]
+        return None
+
     def run_cmd(self) -> list[str]:
+        skip = self.need_skip_because_version()
+        if skip:
+            return skip
+
         # Let's build the command line to run the tool
         args = [
             self.engine_module.get_engine().get_binary(),
             "--timeout",
             str(self.parameters.get_runtime()),
-            "--metrics-brief",
+            "--metrics",
         ]
-        if self.version_major() >= 16:
-            args.insert(1, "--quiet")
 
         return self.get_taskset(args)
 
@@ -237,21 +250,12 @@ class StressNG(ExternalBench):
 
     def stats_parse(self) -> re.Pattern:
         """Return a regexp pattern to match the stats metrics"""
-        # metrc: [612870] stressor       bogo ops real time  usr time  sys time   bogo ops/s     bogo ops/s
-        # stress-ng: metrc: [612870]                           (secs)    (secs)    (secs)   (real time) (usr+sys time)
-        # stress-ng: metrc: [612870] stream           178255     10.21    633.39      7.78     17466.43         278.02
-        message_level = "metrc"
-
-        if self.version_major() < 16:
-            # Before v16, runtime metrics were in info
-            # stress-ng: info:  [119157] stressor       bogo ops real time  usr time  sys time   bogo ops/s     bogo ops/s
-            # stress-ng: info:  [119157]                           (secs)    (secs)    (secs)   (real time) (usr+sys time)
-            # stress-ng: info:  [119157] qsort               163      2.00     22.95      0.01        81.50           7.10
-            # TODO: drop this code when releases < 16 will be obsolete
-            message_level = "info"
+        # stress-ng: metrc: [58878] stressor       bogo ops real time  usr time  sys time   bogo ops/s     bogo ops/s CPU used per       RSS Max
+        # stress-ng: metrc: [58878]                           (secs)    (secs)    (secs)   (real time) (usr+sys time) instance (%)          (KB)
+        # stress-ng: metrc: [58878] stream            39999     10.01   1231.71     48.89      3995.57          31.23        99.94         14360
 
         return re.compile(
-            rf"stress-ng: {message_level}:"
+            r"stress-ng: metrc:"
             r"\s+\[(?P<pid>[0-9]+)\] "
             r"(?P<engine>[a-z]+) "
             r"\s+(?P<bogo_ops>[0-9]+) "
@@ -260,6 +264,8 @@ class StressNG(ExternalBench):
             r"\s+(?P<sys_time>[0-9\.]+) "
             r"\s+(?P<bogo_ops_sec>[0-9\.]+) "
             r"\s+(?P<bogo_ops_sec_realtime>[0-9\.]+)"
+            r"\s+(?P<cpu_used_percent>[0-9\.]+)"
+            r"\s+(?P<rss_max>[0-9\.]+)"
         )
 
     def parse_cmd(self, stdout: bytes, stderr: bytes):
@@ -314,20 +320,14 @@ class StressNGStream(StressNG):
     def run_cmd(self) -> list[str]:
         # TODO: handle get_pinned_cpu ; it does not necessarily make sense for this
         # benchmark, but it could be revisited once we support pinning on multiple CPUs.
-        if self.engine_module.get_engine().get_version() != "0.16.04":
-            print(
-                "StressNGStream needs stress-ng version 0.16.04 ; "
-                "later version have different --metrics vs --metrics-brief options; "
-                "earlier version format memory bandwidth differently; "
-                "This benchmark will be skipped with and have a performance of 0"
-            )
-            self.skip = True
-            return ["echo", "Skipped benchmark"]
+        skip = self.need_skip_because_version()
+        if skip:
+            return skip
         ret: list[str] = [
             self.engine_module.get_engine().get_binary(),
             "--timeout",
             str(self.parameters.get_runtime()),
-            "--metrics-brief",
+            "--metrics",
             "--stream",
             str(self.parameters.get_engine_instances_count()),
         ]
@@ -526,11 +526,9 @@ class StressNGVNNI(StressNG):
             self.skip = True
 
     def run_cmd(self) -> list[str]:
-        if not self.version_compatible():
-            print("WARNING: skipping benchmark, needs stress-ng >= 0.16.04")
-            self.skip = True
-        if self.skip:
-            return ["echo", "skipped benchmark"]
+        skip = self.need_skip_because_version()
+        if skip:
+            return skip
         return (
             super().run_cmd()
             + [
@@ -543,12 +541,6 @@ class StressNGVNNI(StressNG):
     def parse_cmd(self, stdout: bytes, stderr: bytes):
         return super().parse_cmd(stdout, stderr)
 
-    def version_compatible(self) -> bool:
-        engine = self.engine_module.get_engine()
-        return engine.version_major() > 16 or (
-            engine.version_major() == 16 and engine.version_minor() >= 4
-        )
-
 
 class StressNGMemrate(StressNG):
     """The StressNG Memrate memory stressor."""
@@ -556,15 +548,9 @@ class StressNGMemrate(StressNG):
     def run_cmd(self) -> list[str]:
         # TODO: handle get_pinned_cpu ; it does not necessarily make sense for this
         # benchmark, but it could be revisited once we support pinning on multiple CPUs.
-        if self.engine_module.get_engine().get_version() != "0.16.04":
-            print(
-                "StressNGMemrate needs stress-ng version 0.16.04 ; "
-                "later version have different --metrics vs --metrics-brief options; "
-                "earlier version format memory bandwidth differently; "
-                "This benchmark will be skipped with and have a performance of 0"
-            )
-            self.skip = True
-            return ["echo", "Skipped benchmark"]
+        skip = self.need_skip_because_version()
+        if skip:
+            return skip
         return super().run_cmd() + [
             "--memrate",
             str(self.parameters.get_engine_instances_count()),
