@@ -145,45 +145,56 @@ class Monitoring:
         """Private method to perform the monitoring."""
         # This function will be a thread of self.monitor()
         #
-        #  >|            duration                     |<
+        #  >|                 duration                |<
         #  >|    precision       |<                   |
-        # __|monitor_bmc()|______|monitor_bmc()|______|
-        #   |            >|stime |<
+        # __|monitor_loop|_______|monitor_loop|_______|
+        #   |           >| stime |<
+        # stime is the time to wait before starting a new monitor_loop
         # If frequency == 2, every two <precision> run, maths are computed
-        start_run = self.get_monotonic_clock()
+        start_monitoring = self.get_monotonic_clock()
         self.__reset_metrics()
         self.metrics[str(MonitoringMetadata.PRECISION)] = precision
         self.metrics[str(MonitoringMetadata.FREQUENCY)] = frequency
         self.metrics[str(MonitoringMetadata.ITERATION_TIME)] = frequency * precision
         self.metrics[str(Metrics.MONITOR)] = {
-            "BMC": {"Polling": MonitorMetric("Polling", "ms")}
+            "BMC": {"Polling": MonitorMetric("Polling", "ms")},
+            "CPU": {"Polling": MonitorMetric("Polling", "ms")},
         }
         # When will we hit "duration" ?
-        end_of_run = start_run + duration * 1e9
+        end_of_run = start_monitoring + duration * 1e9
         loops_done = 0
         compact_count = 0
 
         def next_iter():
             # When does the next iteration must starts ?
-            return start_run + ((loops_done + 1) * precision) * 1e9
+            return start_monitoring + ((loops_done + 1) * precision) * 1e9
 
+        # monitor_loop
         while True:
+            start_time = self.get_monotonic_clock()
             if self.turbostat:
                 # Turbostat will run for the whole duration of this loop
                 # We just retract a 2/10th of second to ensure it will not overdue
                 self.turbostat.run(interval=(precision - 0.2))
+                # Let's monitor the time spent at monitoring the CPU
+                self.get_metric(Metrics.MONITOR)["CPU"]["Polling"].add(
+                    (self.get_monotonic_clock() - start_time) * 1e-6
+                )
             if loops_done and loops_done % frequency == 0:
                 # At every frequency, the maths are computed
                 self.__compact()
                 compact_count = compact_count + 1
-            start = self.get_monotonic_clock()
+
+            start_bmc = self.get_monotonic_clock()
             self.__monitor_bmc()
-            end = self.get_monotonic_clock()
-            monitoring_duration = end - start
+            end_bmc = self.get_monotonic_clock()
             # Let's monitor the time spent at monitoring the BMC
             self.get_metric(Metrics.MONITOR)["BMC"]["Polling"].add(
-                monitoring_duration * 1e-6
+                (end_bmc - start_bmc) * 1e-6
             )
+
+            # We compute the time spent since we started this iteration
+            monitoring_duration = end_bmc - start_time
 
             # Based on the time passed, let's compute the amount of sleep time
             # to keep in sync with the expected precision
@@ -191,30 +202,38 @@ class Monitoring:
             sleep_time = sleep_time_ns / 1e9
 
             # If the the current time + sleep_time is above the total duration (we accept up to 500ms overdue)
-            if (end + monitoring_duration + sleep_time_ns) > (end_of_run + 0.5 * 1e9):
+            if (end_bmc + monitoring_duration + sleep_time_ns) > (
+                end_of_run + 0.5 * 1e9
+            ):
                 # We can stop the monitoring, no more measures will be done
-                self.turbostat.parse()
+                if self.turbostat:
+                    self.turbostat.parse()
                 break
 
             if sleep_time < 0:
+                # The iteration is already late on schedule, no need to sleep
                 print(
-                    f"Sleep time is greater than expected : {sleep_time} vs {precision}"
+                    f"Monitoring iteration {loops_done} is {abs(sleep_time):.2f}ms late"
                 )
             else:
+                # The iteration is on time, let's sleep until the next one
                 time.sleep(sleep_time)
+
+            if self.turbostat:
                 # Turbostat should be already completed, let's parse the output
                 self.turbostat.parse()
+
             loops_done = loops_done + 1
 
-        # How much time did we spent in this loop ?
+        # How much time did we spent in this monitoring loop ?
         completed_time = self.get_monotonic_clock()
         self.metrics[str(MonitoringMetadata.MONITORING_TIME)] = (
-            completed_time - start_run
+            completed_time - start_monitoring
         ) * 1e-9
 
         # We were supposed to last "duration", how close are we from this metric ?
         self.metrics[str(MonitoringMetadata.OVERDUE_TIME_MS)] = (
-            (completed_time - start_run) - (duration * 1e9)
+            (completed_time - start_monitoring) - (duration * 1e9)
         ) * 1e-6
 
         self.metrics[str(MonitoringMetadata.SAMPLES_COUNT)] = compact_count
