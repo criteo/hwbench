@@ -235,30 +235,51 @@ class StressNG(ExternalBench):
     def run_cmd_version(self) -> list[str]:
         return self.engine_module.get_engine().run_cmd_version()
 
+    def stats_parse(self) -> re.Pattern:
+        """Return a regexp pattern to match the stats metrics"""
+        # metrc: [612870] stressor       bogo ops real time  usr time  sys time   bogo ops/s     bogo ops/s
+        # stress-ng: metrc: [612870]                           (secs)    (secs)    (secs)   (real time) (usr+sys time)
+        # stress-ng: metrc: [612870] stream           178255     10.21    633.39      7.78     17466.43         278.02
+        message_level = "metrc"
+
+        if self.version_major() < 16:
+            # Before v16, runtime metrics were in info
+            # stress-ng: info:  [119157] stressor       bogo ops real time  usr time  sys time   bogo ops/s     bogo ops/s
+            # stress-ng: info:  [119157]                           (secs)    (secs)    (secs)   (real time) (usr+sys time)
+            # stress-ng: info:  [119157] qsort               163      2.00     22.95      0.01        81.50           7.10
+            # TODO: drop this code when releases < 16 will be obsolete
+            message_level = "info"
+
+        return re.compile(
+            rf"stress-ng: {message_level}:"
+            r"\s+\[(?P<pid>[0-9]+)\] "
+            r"(?P<engine>[a-z]+) "
+            r"\s+(?P<bogo_ops>[0-9]+) "
+            r"\s+(?P<real_time>[0-9\.]+) "
+            r"\s+(?P<user_time>[0-9\.]+) "
+            r"\s+(?P<sys_time>[0-9\.]+) "
+            r"\s+(?P<bogo_ops_sec>[0-9\.]+) "
+            r"\s+(?P<bogo_ops_sec_realtime>[0-9\.]+)"
+        )
+
     def parse_cmd(self, stdout: bytes, stderr: bytes):
-        inp = stderr
-        bogo_idx = 8
-        line = -1
-        if self.version_major() == 15:
-            line = -2
-        if self.version_major() >= 16:
-            inp = stdout
-            line = 2
+        """Generic stress-ng output parsing to extract performance metrics."""
+        for line in (stdout or stderr).splitlines():
+            stats = self.stats_parse().search(str(line))
+            if stats:
+                s = stats.groupdict()
+                return self.parameters.get_result_format() | {
+                    "bogo ops/s": float(s["bogo_ops_sec"]),
+                    "effective_runtime": float(s["real_time"]),
+                }
 
-        # TODO: better parsing than this
-        score = 0.0
-        try:
-            score = float(inp.splitlines()[line].split()[bogo_idx])
-        except IndexError:
-            h.fatal(f"At line {line}, could not get element #{bogo_idx} of: '{inp!r}'")
-
-        # Add the score to the global output
-        return self.parameters.get_result_format() | {"bogo ops/s": score}
+        h.fatal("Unable to detect stress-ng reporting metrics")
 
     def empty_result(self):
         """Default empty results for stress-ng"""
         return {
             "bogo ops/s": 0,
+            "effective_runtime": 0,
             "skipped": True,
         }
 
@@ -333,6 +354,7 @@ class StressNGStream(StressNG):
             "sum_Mflop/s": 0.0,
             "sum_total": 0.0,
             "skipped": True,
+            "effective_runtime": 0.0,
         }
 
     def parse_cmd(self, stdout: bytes, stderr: bytes) -> dict[str, Any]:
@@ -373,6 +395,7 @@ class StressNGStream(StressNG):
             "sum_write": 0.0,
             "sum_Mflop/s": 0.0,
             "sum_total": 0.0,
+            "effective_runtime": 0.0,
         }
 
         for line in detail:
@@ -396,6 +419,10 @@ class StressNGStream(StressNG):
                     ret[f"avg_{source}"] = float(r["rate"])
                 elif source == "compute":
                     ret["avg_Mflop/s"] = float(r["rate"])
+
+            stats = self.stats_parse().search(line)
+            if stats:
+                ret["effective_runtime"] = float(stats["real_time"])
 
         # Let's build the grand total of read + write
         ret["sum_total"] = ret["sum_read"] + ret["sum_write"]
@@ -575,6 +602,7 @@ class StressNGMemrate(StressNG):
             ret[method] = {
                 "avg_speed": 0.0,
                 "sum_speed": 0.0,
+                "effective_runtime": 0.0,
             }
         ret["skipped"] = True
         return ret
@@ -582,7 +610,8 @@ class StressNGMemrate(StressNG):
     def parse_cmd(self, stdout: bytes, stderr: bytes) -> dict[str, Any]:
         if self.skip:
             return self.parameters.get_result_format() | self.empty_result()
-        summary_parse = re.compile(
+        summary_parse = re.compile(r"memrate .*")
+        summary_parse_perf = re.compile(
             r"memrate .* (?P<speed>[0-9\.]+) (?P<test>[a-z0-9]+) MB per sec .*$"
         )
         out = (stdout or stderr).splitlines()
@@ -592,7 +621,10 @@ class StressNGMemrate(StressNG):
         ret = {}
 
         for line in summary:
-            matches = summary_parse.search(line)
+            stats = self.stats_parse().search(line)
+            if stats:
+                ret["effective_runtime"] = float(stats["real_time"])
+            matches = summary_parse_perf.search(line)
             if matches is not None:
                 r = matches.groupdict()
                 test = r["test"]
@@ -600,5 +632,5 @@ class StressNGMemrate(StressNG):
                     "avg_speed": float(r["speed"]),
                     "sum_speed": float(r["speed"])
                     * self.parameters.get_engine_instances_count(),
-                }
+                }  # type: ignore[assignment]
         return ret | self.parameters.get_result_format()
