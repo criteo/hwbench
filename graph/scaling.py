@@ -1,4 +1,5 @@
 import numpy as np
+from itertools import cycle
 from statistics import stdev
 from typing import Any  # noqa: F401
 from graph.graph import Graph, GRAPH_TYPES
@@ -23,6 +24,7 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
         aggregated_perfs = {}  # type: dict[str, dict[str, Any]]
         aggregated_perfs_watt = {}  # type: dict[str, dict[str, Any]]
         aggregated_watt = {}  # type: dict[str, dict[str, Any]]
+        aggregated_watt_err = {}  # type: dict[str, dict[str, Any]]
         workers = {}  # type: dict[str, list]
         logical_core_per_worker = []
         perf_list, unit = benches[emp]["metrics"]
@@ -38,6 +40,7 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 aggregated_perfs[perf] = {}
                 aggregated_perfs_watt[perf] = {}
                 aggregated_watt[perf] = {}
+                aggregated_watt_err[perf] = {}
             # For every trace file given at the command line
             for trace in args.traces:
                 workers[trace.get_name()] = []
@@ -59,12 +62,14 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                         aggregated_perfs[perf][trace.get_name()] = []
                         aggregated_perfs_watt[perf][trace.get_name()] = []
                         aggregated_watt[perf][trace.get_name()] = []
+                        aggregated_watt_err[perf][trace.get_name()] = []
 
                     bench.add_perf(
                         perf,
-                        aggregated_perfs[perf][trace.get_name()],
-                        aggregated_perfs_watt[perf][trace.get_name()],
-                        aggregated_watt[perf][trace.get_name()],
+                        traces_perf=aggregated_perfs[perf][trace.get_name()],
+                        perf_watt=aggregated_perfs_watt[perf][trace.get_name()],
+                        watt=aggregated_watt[perf][trace.get_name()],
+                        watt_err=aggregated_watt_err[perf][trace.get_name()],
                     )
 
         # Let's render all graphs types
@@ -121,22 +126,53 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                     square=True,
                 )
 
+                # Let's defined colors used during the rendering
+                # As we use error bars, let's ensure colors are readable with the error color.
+                colors = [
+                    "tab:blue",
+                    "tab:purple",
+                    "tab:green",
+                    "peru",
+                    "slategrey",
+                ]
+                e_colors = [
+                    "darkblue",
+                    "darkmagenta",
+                    "darkgreen",
+                    "tab:brown",
+                    "tab:grey",
+                ]
                 # Traces are not ordered by growing cpu cores count
                 # We need to prepare the x_serie to be sorted this way
                 # The y_serie depends on the graph type
-                for trace_name in aggregated_perfs[perf]:
+                for trace_name, color_name, e_color in zip(
+                    aggregated_perfs[perf], colors, cycle(e_colors)
+                ):
                     # Each trace can have different numbers of workers based on the hardware setup
                     # So let's consider the list of x values per trace.
                     order = np.argsort(workers[trace_name])
                     x_serie = np.array(workers[trace_name])[order]
                     y_serie = np.array(y_source[perf][trace_name])[order]
-                    graph.get_ax().plot(
-                        x_serie,
-                        y_serie,
-                        "",
-                        label=trace_name,
-                        marker="o",
-                    )
+                    # If we plot the power consumption, let's use errorbars
+                    if y_source == aggregated_watt:
+                        graph.get_ax().errorbar(
+                            x_serie,
+                            y_serie,
+                            yerr=np.array(aggregated_watt_err[perf][trace_name]).T,
+                            ecolor=e_color,
+                            color=color_name,
+                            capsize=4,
+                            label=trace_name,
+                        )
+                    else:
+                        graph.get_ax().plot(
+                            x_serie,
+                            y_serie,
+                            "",
+                            color=color_name,
+                            label=trace_name,
+                            marker="o",
+                        )
 
                 graph.prepare_axes(8, 4)
                 graph.render()

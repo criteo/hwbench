@@ -226,7 +226,13 @@ class Bench:
         return self.trace
 
     def add_perf(
-        self, perf="", traces_perf=None, perf_watt=None, watt=None, index=None
+        self,
+        perf="",
+        traces_perf=None,
+        perf_watt=None,
+        watt=None,
+        watt_err=None,
+        index=None,
     ) -> None:
         """Extract performance and power efficiency"""
         try:
@@ -284,6 +290,32 @@ class Bench:
                     watt.append(metric)
                 else:
                     watt[index] = metric
+
+                # If we want to keep the error distribution to plot error bars
+                if watt_err is not None:
+                    mean_value = mean(
+                        self.get_monitoring_metric_by_name(
+                            Metrics.POWER_CONSUMPTION,
+                            self.get_trace().get_metric_name(),
+                        ).get_mean()
+                    )
+                    min_value = mean(
+                        self.get_monitoring_metric_by_name(
+                            Metrics.POWER_CONSUMPTION,
+                            self.get_trace().get_metric_name(),
+                        ).get_min()
+                    )
+                    max_value = mean(
+                        self.get_monitoring_metric_by_name(
+                            Metrics.POWER_CONSUMPTION,
+                            self.get_trace().get_metric_name(),
+                        ).get_max()
+                    )
+                    metric = (mean_value - min_value, max_value - mean_value)
+                    if index is None:
+                        watt_err.append(metric)
+                    else:
+                        watt_err[index] = metric
         except ValueError:
             fatal(f"No {perf} found in {self.get_bench_name()}")
 
