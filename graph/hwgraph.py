@@ -52,8 +52,8 @@ def render_traces(args: argparse.Namespace):
     output_dir = pathlib.Path(args.outdir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    rendered_graphs += graph_environment(args, output_dir)
     compare_traces(args)
+    rendered_graphs += graph_environment(args, output_dir)
     rendered_graphs += plot_graphs(args, output_dir)
     print(f"{rendered_graphs} graphs can be found in '{output_dir}' directory")
 
@@ -68,9 +68,7 @@ def compare_traces(args) -> None:
     names = []
     for trace in args.traces:
         # Is the current trace config file matches the first trace ?
-        if set(args.traces[0].get_original_config()).difference(
-            trace.get_original_config()
-        ):
+        if args.traces[0].get_original_config() != trace.get_original_config():
             # If a trace is not having the same configuration file,
             # It's impossible to compare & graph the results.
             fatal(
