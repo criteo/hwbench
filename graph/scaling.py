@@ -85,20 +85,20 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 if "perf_watt" in graph_type:
                     graph_type_title = f"Scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
                     y_label = f"{unit} per Watt"
-                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}{'_vs_'.join(traces_name).replace(' ', '')}"
+                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}"
                     y_source = aggregated_perfs_watt
                 elif "watts" in graph_type:
                     graph_type_title = (
                         f"Scaling {graph_type}: {args.traces[0].get_metric_name()}"
                     )
-                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}{'_vs_'.join(traces_name).replace(' ', '')}"
+                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}"
                     y_label = "Watts"
                     y_source = aggregated_watt
                 else:
                     graph_type_title = (
                         f"Scaling {graph_type}: {bench.get_title_engine_name()}"
                     )
-                    outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}{'_vs_'.join(traces_name).replace(' ', '')}"
+                    outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}"
                     y_source = aggregated_perfs
 
                 title = (

@@ -181,7 +181,7 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                         "",
                         y_label,
                         outdir,
-                        f"{max_perf_type}_{outfile}{graph_type}_{clean_perf}_{'_vs_'.join(traces_name).replace(' ', '')}",
+                        f"{max_perf_type}_{outfile}{graph_type}_{clean_perf}",
                     )
 
                     # zorder=3 ensure the graph with be on top of the grid
