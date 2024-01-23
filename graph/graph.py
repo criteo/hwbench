@@ -114,6 +114,9 @@ class Graph:
             self.ax2.set_ylim(None, ymin=0, ymax=self.y2_max, emit=True, auto=True)
             self.ax2.yaxis.set_major_formatter(FuncFormatter(self.human_format))
             self.fig.tight_layout()  # otherwise the right y-label is slightly clipped
+            self.ax2.yaxis.set_major_locator(
+                matplotlib.ticker.LinearLocator(len(self.ax.get_yticks()) - 2)
+            )
         else:
             # Bar graphs do not need legend, let the caller disable it
             if legend:
