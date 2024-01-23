@@ -134,6 +134,8 @@ class Graph:
             self.ax.xaxis.set_minor_locator(
                 MultipleLocator(x_minor_locator),
             )
+        else:
+            self.ax.xaxis.set_minor_locator(AutoMinorLocator())
 
         self.ax.yaxis.set_major_formatter(FuncFormatter(self.human_format))
         self.prepare_grid()
@@ -154,9 +156,6 @@ class Graph:
         return f"{num:.2f}{unit}"
 
     def prepare_grid(self):
-        self.ax.xaxis.set_minor_locator(AutoMinorLocator())
-        plt.minorticks_on()
-
         self.ax.grid(which="major", linewidth=1)
         self.ax.grid(which="minor", linewidth=0.2, linestyle="dashed")
 

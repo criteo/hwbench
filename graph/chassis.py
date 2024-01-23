@@ -143,10 +143,10 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             )
 
         graph.prepare_axes(
-            30,
-            15,
+            3 * bench.get_time_interval(),
+            bench.get_time_interval(),
             (None, 50, 25),
-            points_to_plot=len(next(iter(sum_serie_to_plot))),
+            points_to_plot=len(sum_serie_to_plot[next(iter(sum_serie_to_plot))]),
             interval=bench.get_time_interval(),
         )
         graph.render()
