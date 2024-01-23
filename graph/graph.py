@@ -219,6 +219,7 @@ def generic_graph(
     unit = bench.get_metric_unit(component_type)
     title = (
         f'{item_title} during "{bench.get_bench_name()}" benchmark job\n'
+        f"{args.title}\n"
         f"\n Stressor: "
     )
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
