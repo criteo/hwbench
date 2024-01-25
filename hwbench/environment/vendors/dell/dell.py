@@ -15,7 +15,7 @@ class IDRAC(BMC):
         self, thermals: dict[str, dict[str, Temperature]] = {}
     ) -> dict[str, dict[str, Temperature]]:
         for t in self.get_thermal().get("Temperatures"):
-            if t["ReadingCelsius"] <= 0:
+            if t["ReadingCelsius"] is None or t["ReadingCelsius"] <= 0:
                 continue
             name = t["Name"].split("Temp")[0].strip()
             pc = t["PhysicalContext"]
