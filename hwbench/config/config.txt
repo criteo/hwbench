@@ -88,6 +88,12 @@ stressor_range_scaling:
            special keywords:
                 list: items in stressor_range list are considered separately
 
+sync_start:
+    role: defines the method to sync the first benchmark start
+    value: time, none (default)
+    unit: text
+    note: 'time' means the start time will be synced over the next minute
+
 thermal_start:
     role : defines when the jobs are authorized to start
     value: list: <item>:<temp_in_celsius>, <item2>:<temp_in_celsius>

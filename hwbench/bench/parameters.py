@@ -20,6 +20,7 @@ class BenchmarkParameters:
         monitoring_config: str,
         monitoring: Monitoring,
         skip_method: str,
+        sync_start: str,
     ):
         self.out_dir = out_dir
         self.job_name = job_name
@@ -33,6 +34,7 @@ class BenchmarkParameters:
         self.monitoring_config = monitoring_config
         self.monitoring = monitoring
         self.skip_method = skip_method
+        self.sync_start = sync_start
 
     def get_pinned_cpu(self):
         if self.pinned_cpu == "none":
@@ -62,6 +64,9 @@ class BenchmarkParameters:
 
     def get_skip_method(self) -> str:
         return self.skip_method
+
+    def get_sync_start(self) -> str:
+        return self.sync_start
 
     def set_result_format(self, format):
         """Set the default result content to be padded with performance results."""

@@ -1,3 +1,5 @@
+import datetime
+import time
 from datetime import timedelta
 from typing import Optional
 from ..utils import helpers as h
@@ -166,6 +168,7 @@ class Benchmarks:
                         monitoring_config,
                         self.monitoring,
                         self.config.get_skip_method(job),
+                        self.config.get_sync_start(job),
                     )
                     benchmark = Benchmark(
                         self.count_benchmarks(), engine_module, parameters
@@ -184,6 +187,7 @@ class Benchmarks:
                     monitoring_config,
                     self.monitoring,
                     self.config.get_skip_method(job),
+                    self.config.get_sync_start(job),
                 )
                 benchmark = Benchmark(
                     self.count_benchmarks(), engine_module, parameters
@@ -220,8 +224,8 @@ class Benchmarks:
 
     def run(self):
         results = {}
-        time = str(timedelta(seconds=self.runtime())).split(":")
-        duration = f"{time[0]}h {time[1]}m {time[2]}s"
+        t = str(timedelta(seconds=self.runtime())).split(":")
+        duration = f"{t[0]}h {t[1]}m {t[2]}s"
         print(
             f"hwbench: {self.count_jobs()} jobs, \
 {self.count_benchmarks()} benchmarks, \
@@ -229,6 +233,18 @@ ETA {duration}"
         )
         # Run every benchmark of the list
         for benchmark in self.get_benchmarks():
+            bench_name = benchmark.get_parameters().get_name()
+            # This benchmark requires to be synced on a time based
+            if benchmark.get_parameters().get_sync_start() == "time":
+                time_to_sync_secs, _ = h.time_to_next_sync()
+                print(
+                    f"hwbench: [{bench_name}]: sync_start=time requested, waiting {time_to_sync_secs} seconds"
+                )
+                time.sleep(time_to_sync_secs)
+                print(
+                    f"hwbench: [{bench_name}]: started at {datetime.datetime.utcnow()}"
+                )
+
             # Save each benchmark result
             results[
                 "{}_{}".format(

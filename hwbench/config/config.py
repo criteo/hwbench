@@ -28,6 +28,7 @@ class Config:
             "hosting_cpu_cores_scaling": "iterate",
             "engine_module_parameter_base": "",
             "skip_method": "bypass",
+            "sync_start": "none",
         }
         self.config = configparser.RawConfigParser(
             default_section="global", defaults=default_parameters
@@ -66,6 +67,7 @@ class Config:
             "thermal_start",
             "fans_start",
             "skip_method",
+            "sync_start",
         ]
 
     def get_directive(self, section_name, directive) -> str:
@@ -212,6 +214,10 @@ class Config:
     def get_skip_method(self, section_name) -> str:
         """Return the skipping method of a section."""
         return self.get_directive(section_name, "skip_method")
+
+    def get_sync_start(self, section_name) -> str:
+        """Return the sync_start method of a section."""
+        return self.get_directive(section_name, "sync_start")
 
     def is_valid_keyword(self, keyword) -> bool:
         """Return if a keyword is valid"""

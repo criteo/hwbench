@@ -70,6 +70,7 @@ class TestParse(unittest.TestCase):
                         "none",
                         None,
                         "bypass",
+                        "none",
                     )
                     module = engine_module(engine, prefix)
 
@@ -171,6 +172,7 @@ class TestParse(unittest.TestCase):
                 "none",
                 None,
                 "bypass",
+                "none",
             )
 
             # Instantiate test, it should not fail
