@@ -54,13 +54,16 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             if component in [PowerCategories.SERVER, PowerCategories.SERVERINCHASSIS]:
                 # so let's add all server's value from each trace
                 for trace in args.traces:
-                    server_power = (
-                        trace.bench(bench_name)
-                        .get_single_metric(
-                            Metrics.POWER_CONSUMPTION, PowerContext.BMC, component
-                        )
-                        .get_mean()[sample]
+                    pc = trace.bench(bench_name).get_single_metric(
+                        Metrics.POWER_CONSUMPTION, PowerContext.BMC, component
                     )
+                    if sample >= len(pc.get_mean()):
+                        print(
+                            f"Warning: {trace.get_name()}/{bench_name}: Missing sample {sample}, considering 0 watts."
+                        )
+                        server_power = 0
+                    else:
+                        server_power = pc.get_mean()[sample]
 
                     if trace.get_name() not in server_serie:
                         server_serie[trace.get_name()] = []
