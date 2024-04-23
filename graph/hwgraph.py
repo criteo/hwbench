@@ -328,7 +328,7 @@ power_metric : the name of a power metric, from the monitoring, to be used for '
     )
     parser_list.set_defaults(func=list_metrics_in_trace)
 
-    args = parser.parse_args()
+    args = parser.parse_args(args=None if len(sys.argv) > 1 else ["--help"])
 
     # Call the appropriate sub command
     args.func(args)
