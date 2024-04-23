@@ -5,7 +5,7 @@ all:
 UPDATE_DEPS_ENV = .env-deps
 LINT_ENV = .env-lint
 
-SOURCES = ./hwbench setup.py
+SOURCES = hwbench setup.py csv graph
 
 update_env:
 	python3 -m venv $(UPDATE_DEPS_ENV)
@@ -33,4 +33,4 @@ bundle: $(LINT_ENV)
 	env PYTHON=python3 ./$(LINT_ENV)/bin/tox -e bundle
 
 format: $(LINT_ENV)
-	./$(LINT_ENV)/bin/black $(SOURCES)
+	./$(LINT_ENV)/bin/ruff format $(SOURCES)

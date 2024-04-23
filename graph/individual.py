@@ -205,9 +205,9 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                         if max_workers[perf][trace_nb] < 0:
                             bar_labels[trace_nb] += "\nbenchmark skipped"
                         else:
-                            bar_labels[
-                                trace_nb
-                            ] += f"\n{max_workers[perf][trace_nb]} workers"
+                            bar_labels[trace_nb] += (
+                                f"\n{max_workers[perf][trace_nb]} workers"
+                            )
                     graph.get_ax().axes.xaxis.set_ticks(traces_name)
                     graph.get_ax().set_xticklabels(bar_labels)
 
