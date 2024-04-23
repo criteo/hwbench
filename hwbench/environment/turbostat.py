@@ -70,9 +70,9 @@ class Turbostat:
         for cores in range(self.get_cores_count()):
             # If we have CoreWatt, let's report them
             if self.has(CPUSTATS.CORE_WATTS):
-                self.power_metrics[str(PowerContext.CPU)][
-                    f"Core_{cores}"
-                ] = MonitorMetric(f"Core_{cores}", "Watts")
+                self.power_metrics[str(PowerContext.CPU)][f"Core_{cores}"] = (
+                    MonitorMetric(f"Core_{cores}", "Watts")
+                )
             self.freq_metrics[str(CPUContext.CPU)][f"Core_{cores}"] = MonitorMetric(
                 f"Core_{cores}", "Mhz"
             )
