@@ -30,13 +30,18 @@ def valid_trace_file(trace_arg: str) -> Trace:
             f"{trace_arg} does not match 'filename:logical_name:power_metric' syntax"
         )
 
-    trace = Trace(
-        match.group("filename"),
-        match.group("logical_name"),
-        match.group("power_metric"),
-    )
-    trace.validate()
-    return trace
+    try:
+        trace = Trace(
+            match.group("filename"),
+            match.group("logical_name"),
+            match.group("power_metric"),
+        )
+        trace.validate()
+        return trace
+    except BaseException as e:
+        # Print validation failure and pass it on
+        print(f"Validation failure: {e}")
+        raise e
 
 
 def list_metrics_in_trace(args: argparse.Namespace):
