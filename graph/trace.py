@@ -416,7 +416,7 @@ class Trace:
             first_bench.get_monitoring_metric_by_name(
                 Metrics.POWER_CONSUMPTION, self.metric_name
             )
-        except KeyError:
+        except (KeyError, ValueError):
             fatal(
                 f"{self.filename}: Cannot find {self.metric_name} in power consumption metrics.\
                     \nUse the list toplevel subcommand to detect possible values."
