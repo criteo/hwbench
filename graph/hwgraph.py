@@ -277,7 +277,8 @@ json_file    : a results.json output file from hwbench
 logical_name : a name to represent the trace in the graph
                if omitted, it will be replaced by the system serial number
                'CPU' magic keyword implicit the use of CPU model as logical_name but must be unique over all trace files.
-power_metric : the name of a power metric, from the monitoring, to be used for 'watts' and 'perf per watt' graphs.
+power_metric : the name of a power metric, from the monitoring, to be used for 'watts' and 'perf per watt' graphs; for example CPU.package or BMC.ServerInChassis.
+               In order to know exeactly what metric names you can use for a given trace, use the "list" toplevel subcommand.
 """,
         required=True,
     )

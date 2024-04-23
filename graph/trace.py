@@ -419,7 +419,7 @@ class Trace:
         except KeyError:
             fatal(
                 f"{self.filename}: Cannot find {self.metric_name} in power consumption metrics.\
-                    \nUse --list-metrics to detect possible values."
+                    \nUse the list toplevel subcommand to detect possible values."
             )
 
     def list_power_metrics(self):
