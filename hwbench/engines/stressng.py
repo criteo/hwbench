@@ -219,7 +219,9 @@ class StressNG(ExternalBench):
             # because we might not have run the version command.
             return ["echo", "skipped benchmark"]
         if not self.version_compatible():
-            print("WARNING: skipping benchmark, needs stress-ng >= 0.17.04")
+            print(
+                f"WARNING: skipping benchmark {self.name}, needs stress-ng >= 0.17.04"
+            )
             self.skip = True
             return ["echo", "skipped benchmark"]
         return None
