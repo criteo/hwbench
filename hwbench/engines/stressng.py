@@ -214,6 +214,10 @@ class StressNG(ExternalBench):
         return engine.version_major() >= 17 and engine.version_minor() >= 4
 
     def need_skip_because_version(self):
+        if self.skip:
+            # we already skipped this benchmark, we can't know the reason anymore
+            # because we might not have run the version command.
+            return ["echo", "skipped benchmark"]
         if not self.version_compatible():
             print("WARNING: skipping benchmark, needs stress-ng >= 0.17.04")
             self.skip = True
