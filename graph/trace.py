@@ -68,9 +68,9 @@ class Bench:
         m = self.get_monitoring()
         if m:
             for metric in m.keys():
-                if metric in MonitoringMetadata:
+                if metric in MonitoringMetadata.list_str():
                     self.metrics[metric] = m[metric]
-                elif metric in Metrics:
+                elif metric in Metrics.list_str():
                     self.metrics[metric] = {}
                     for component_family in m[metric].keys():
                         self.metrics[metric][component_family] = {}
