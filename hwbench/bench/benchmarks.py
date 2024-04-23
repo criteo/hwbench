@@ -74,6 +74,18 @@ class Benchmarks:
             if len(hosting_cpu_cores) == 1:
                 hosting_cpu_cores_scaling = "iterate"
 
+            if (
+                hosting_cpu_cores_scaling == "none"
+                and isinstance(hosting_cpu_cores, list)
+                and len(hosting_cpu_cores) > 0
+                and isinstance(hosting_cpu_cores[0], list)
+            ):
+                h.fatal(
+                    "Impossible to have multiple cpu cores lists in hosting_cpu_cores: "
+                    f"{hosting_cpu_cores} ; with hosting_cpu_cores_scaling "
+                    "strategy 'none'"
+                )
+
             # if there is a single stressor, the scaling must be plus_1
             if len(stressor_range) == 1:
                 stressor_range_scaling = "plus_1"

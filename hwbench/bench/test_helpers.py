@@ -53,3 +53,20 @@ class TestHelpers_CPUSTORAGE(tbc.TestCommon):
                 len(self.get_bench_parameters(job).get_pinned_cpu())
                 == logical_cores[job]
             )
+
+
+class TestHelpersImpossible(tbc.TestCommon):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.load_mocked_hardware(
+            cpucores="./tests/parsing/cpu_cores/v2321",
+            cpuinfo="./tests/parsing/cpu_info/v2321",
+            numa="./tests/parsing/numa/8domainsllc",
+        )
+        self.load_benches("./config/helpers_fail.conf")
+
+    def test_helpers_impossible(self):
+        """Testing impossible helper usecase."""
+
+        with self.assertRaises(SystemExit):
+            self.parse_config()
