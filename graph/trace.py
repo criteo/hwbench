@@ -417,20 +417,30 @@ class Trace:
                 Metrics.POWER_CONSUMPTION, self.metric_name
             )
         except (KeyError, ValueError):
+            try:
+                metrics = " ".join(self._list_power_metrics())
+            except BaseException as e:
+                metrics = f"none detected: {e}"
             fatal(
                 f"{self.filename}: Cannot find {self.metric_name} in power consumption metrics.\
-                    \nUse the list toplevel subcommand to detect possible values."
+                        \nUse the list toplevel subcommand to detect possible values: {metrics}"
             )
 
-    def list_power_metrics(self):
+    def _list_power_metrics(self) -> list[str]:
         first_bench = self.first_bench()
         first_bench.load_monitoring()
-        print("List of power metrics:")
+        power_metrics = []
         for name, value in first_bench.get_monitoring_metric(
             Metrics.POWER_CONSUMPTION
         ).items():
             for v in value:
-                print(f"{name}.{v}")
+                power_metrics.append(f"{name}.{v}")
+        return power_metrics
+
+    def list_power_metrics(self):
+        print("List of power metrics:")
+        for metric in self._list_power_metrics():
+            print(metric)
 
     def get_filename(self) -> str:
         """Return the filename associated to this Trace object."""
