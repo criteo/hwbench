@@ -28,6 +28,7 @@ setuptools.setup(
     entry_points={
         "console_scripts": [
             "hwbench =  hwbench.hwbench:main",
+            "hwgraph =  graph.hwgraph:main",
         ],
     },
     packages=setuptools.find_packages(),
