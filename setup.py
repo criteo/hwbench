@@ -20,7 +20,7 @@ meta["install_requires"] = [line for line in meta["requirements"] if "://" not i
 
 setuptools.setup(
     name="hwbench",
-    version="0.0.1",
+    version="0.1.0",
     install_requires=meta["install_requires"],
     python_requires="~=3.9",
     dependency_links=[],
