@@ -5,6 +5,7 @@ pytest-subtests
 tox
 mock
 ruff
+setuptools
 types-cachetools
 typing-extensions
 wheel
