@@ -27,3 +27,6 @@ jobs:
     - name: Makefile check
       run: |
         make check
+    - name: Makefile bundle to build pex
+      run: |
+        make bundle
