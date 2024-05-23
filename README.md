@@ -55,3 +55,17 @@ If a single output file is provided, **hwgraph** plots for each benchmark :
 If multiple output files are passed as arguments, and only if they were generated with the same script file, **hwgraph** will compare for each benchmark the performance metrics.
 
 For more details, see the specific documentation.
+
+# Requirements
+## Mandatory
+- python >= 3.9
+- turbostat >= 2022.07.28
+- numactl
+- dmidecode
+- util-linux >= 2.32
+- lspci
+- rpm
+
+## Optional
+- ipmitool
+- ilorest (for HPE servers)
