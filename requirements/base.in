@@ -2,3 +2,4 @@ cachetools
 numpy
 matplotlib
 redfish
+pycairo
