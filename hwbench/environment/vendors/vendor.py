@@ -2,6 +2,7 @@ import configparser
 import cachetools.func
 import json
 import logging
+import os
 import pathlib
 import redfish  # type: ignore
 from abc import ABC, abstractmethod
@@ -21,7 +22,7 @@ class BMC(External):
     def __init__(self, out_dir: pathlib.Path, vendor):
         super().__init__(out_dir)
         self.bmc = {}  # type: dict[str, str]
-        self.config_file: configparser.ConfigParser
+        self.monitoring_config_file: configparser.ConfigParser
         self.redfish_obj = None
         self.vendor = vendor
         self.logged = False
@@ -64,22 +65,29 @@ class BMC(External):
         return ip
 
     def connect_redfish(self):
-        """Connect to the bmc using Redfish."""
-        self.config_file = configparser.ConfigParser(allow_no_value=True)
-        self.config_file.read("config.cfg")
+        """Connect to the BMC using Redfish."""
+        if not self.vendor.get_monitoring_config_filename():
+            h.fatal("Missing monitoring configuration file, please use -m option.")
+
+        if not os.path.isfile(self.vendor.get_monitoring_config_filename()):
+            h.fatal(
+                f"Monitoring configuration option ({self.vendor.get_monitoring_config_filename()}) is not a file or does not exists."
+            )
+        self.monitoring_config_file = configparser.ConfigParser(allow_no_value=True)
+        self.monitoring_config_file.read(self.vendor.get_monitoring_config_filename())
         section_name = ""
         sections = [self.vendor.name(), "default"]
         for section in sections:
-            if section in self.config_file.sections():
+            if section in self.monitoring_config_file.sections():
                 section_name = section
                 break
         if not section_name:
             h.fatal(
-                f"Cannot find any section of  {sections} in monitoring configuration file"
+                f"Cannot find any section of {sections} in monitoring configuration file"
             )
 
-        bmc_username = self.config_file.get(section_name, "username")
-        bmc_password = self.config_file.get(section_name, "password")
+        bmc_username = self.monitoring_config_file.get(section_name, "username")
+        bmc_password = self.monitoring_config_file.get(section_name, "password")
         server_url = self.get_ip()
         try:
             if "https://" not in server_url:
@@ -187,10 +195,11 @@ class BMC(External):
 
 
 class Vendor(ABC):
-    def __init__(self, out_dir, dmi):
+    def __init__(self, out_dir, dmi, monitoring_config_filename):
         self.out_dir = out_dir
         self.dmi = dmi
         self.bmc: BMC = None
+        self.monitoring_config_filename = monitoring_config_filename
 
     @abstractmethod
     def detect(self) -> bool:
@@ -208,13 +217,14 @@ class Vendor(ABC):
     def name(self) -> str:
         pass
 
+    def get_monitoring_config_filename(self):
+        return self.monitoring_config_filename
+
     def prepare(self):
         """If the vendor needs some specific code to init itself."""
         if not self.bmc:
             self.bmc = BMC(self.out_dir, self)
             self.bmc.run()
-        # This part will be generic called by the vendors
-        self.bmc.connect_redfish()
 
     def get_bmc(self) -> BMC:
         """Return the BMC object"""

@@ -16,7 +16,7 @@ path = pathlib.Path("")
 
 class TestGenericHpe(TestVendors):
     def __init__(self, path: str, *args, **kwargs):
-        super().__init__(Hpe("", None), *args, **kwargs)
+        super().__init__(Hpe("", None, None), *args, **kwargs)
         self.path = path
 
     def setUp(self):

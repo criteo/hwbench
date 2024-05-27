@@ -157,6 +157,7 @@ class Benchmarks:
 
         # If job needs monitoring, let's create it
         if monitoring_config != "none" and not self.monitoring:
+            self.hardware.vendor.get_bmc().connect_redfish()
             self.monitoring = Monitoring(self.out_dir, self.jobs_config, self.hardware)
 
         # For each stressor, add a benchmark object to the list

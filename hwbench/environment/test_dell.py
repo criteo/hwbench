@@ -16,7 +16,7 @@ path = pathlib.Path("")
 
 class TestDell(TestVendors):
     def __init__(self, *args, **kwargs):
-        super().__init__(Dell("", None), *args, **kwargs)
+        super().__init__(Dell("", None, None), *args, **kwargs)
         self.path = "tests/vendors/Dell/C6615/"
 
     def setUp(self):

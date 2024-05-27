@@ -29,7 +29,7 @@ def main():
 
     tuning_setup.Tuning(tuning_out_dir).apply()
     env = env_soft.Environment(out_dir)
-    hw = env_hw.Hardware(out_dir)
+    hw = env_hw.Hardware(out_dir, args.monitoring_config)
 
     benches = benchmarks.Benchmarks(out_dir, config.Config(args.jobs_config, hw), hw)
     benches.parse_jobs_config()
@@ -66,6 +66,11 @@ def parse_options():
         "--jobs-config",
         help="Specify the file containing jobs to runs",
         required=True,
+    )
+    parser.add_argument(
+        "-m",
+        "--monitoring-config",
+        help="Specify the file containing the credentials to monitor the BMC",
     )
     return parser.parse_args()
 

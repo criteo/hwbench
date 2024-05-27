@@ -126,11 +126,12 @@ class ILO(BMC):
 
 
 class Hpe(Vendor):
-    def __init__(self, out_dir, dmi):
+    def __init__(self, out_dir, dmi, monitoring_config_filename):
         self.out_dir = out_dir
         self.dmi = dmi
         self.bmc: ILO = None
         self.ilo = None
+        self.monitoring_config_filename = monitoring_config_filename
 
     def detect(self) -> bool:
         return self.dmi.info("sys_vendor") == "HPE"
