@@ -15,7 +15,7 @@ class TestNuma(tbc.TestCommon):
         self.NUMA7 = list(range(56, 64)) + list(range(120, 128))
         self.NUMA07 = list(range(0, self.hw.get_cpu().get_logical_cores_count()))
         self.load_benches("./config/numa.conf")
-        self.parse_config()
+        self.parse_jobs_config()
 
     def test_quadrant(self):
         """Check quadrant syntax."""
@@ -33,7 +33,9 @@ class TestNuma(tbc.TestCommon):
             "invalid_quadrant",
             "alpha_quadrant",
         ]:
-            self.should_be_fatal(self.get_config().get_hosting_cpu_cores, test_name)
+            self.should_be_fatal(
+                self.get_jobs_config().get_hosting_cpu_cores, test_name
+            )
 
     def test_numa(self):
         """Check numa syntax"""
@@ -41,7 +43,7 @@ class TestNuma(tbc.TestCommon):
         assert self.hw.get_cpu().get_vendor() == "AuthenticAMD"
         assert self.hw.get_cpu().get_numa_domains_count() == 8
         assert self.hw.get_cpu().get_quadrants_count() == 4
-        assert self.get_config().get_hosting_cpu_cores("numa_nodes") == [
+        assert self.get_jobs_config().get_hosting_cpu_cores("numa_nodes") == [
             self.NUMA0,
             self.NUMA1,
             self.NUMA7,
@@ -62,4 +64,6 @@ class TestNuma(tbc.TestCommon):
             "invalid_numa_nodes",
             "alpha_numa_nodes",
         ]:
-            self.should_be_fatal(self.get_config().get_hosting_cpu_cores, test_name)
+            self.should_be_fatal(
+                self.get_jobs_config().get_hosting_cpu_cores, test_name
+            )

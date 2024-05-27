@@ -31,13 +31,13 @@ def main():
     env = env_soft.Environment(out_dir)
     hw = env_hw.Hardware(out_dir)
 
-    benches = benchmarks.Benchmarks(out_dir, config.Config(args.config, hw), hw)
-    benches.parse_config()
+    benches = benchmarks.Benchmarks(out_dir, config.Config(args.jobs_config, hw), hw)
+    benches.parse_jobs_config()
 
     results = benches.run()
     benches.dump()
 
-    out = format_output(env.dump(), hw.dump(), results, benches.config)
+    out = format_output(env.dump(), hw.dump(), results, benches.jobs_config)
 
     write_output(out_dir, out)
 
@@ -62,7 +62,10 @@ def parse_options():
         description="Criteo Hardware Benchmarking tool",
     )
     parser.add_argument(
-        "-c", "--config", help="Specify the config file to load", required=True
+        "-j",
+        "--jobs-config",
+        help="Specify the file containing jobs to runs",
+        required=True,
     )
     return parser.parse_args()
 

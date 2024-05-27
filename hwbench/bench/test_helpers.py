@@ -10,7 +10,7 @@ class TestHelpers(tbc.TestCommon):
             numa="./tests/parsing/numa/8domainsllc",
         )
         self.load_benches("./config/helpers.conf")
-        self.parse_config()
+        self.parse_jobs_config()
 
     def test_helpers(self):
         """Testing helper functions."""
@@ -37,7 +37,7 @@ class TestHelpers_CPUSTORAGE(tbc.TestCommon):
             numa="./tests/parsing/numa/2domains",
         )
         self.load_benches("./config/helpers.conf")
-        self.parse_config()
+        self.parse_jobs_config()
 
     def test_helpers(self):
         """Testing helper functions."""
@@ -69,4 +69,4 @@ class TestHelpersImpossible(tbc.TestCommon):
         """Testing impossible helper usecase."""
 
         with self.assertRaises(SystemExit):
-            self.parse_config()
+            self.parse_jobs_config()

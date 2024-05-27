@@ -13,10 +13,10 @@ from ..utils import helpers as h
 
 
 class Config:
-    def __init__(self, config_file: str, hardware: env_hw.Hardware):
-        self.config_file = config_file
-        if not os.path.isfile(self.config_file):
-            h.fatal(f"File '{self.config_file}' does not exists.")
+    def __init__(self, jobs_file: str, hardware: env_hw.Hardware):
+        self.jobs_file = jobs_file
+        if not os.path.isfile(self.jobs_file):
+            h.fatal(f"File '{self.jobs_file}' does not exists.")
 
         # Ensure default options from the configuration file
         default_parameters = {
@@ -30,26 +30,26 @@ class Config:
             "skip_method": "bypass",
             "sync_start": "none",
         }
-        self.config = configparser.RawConfigParser(
+        self.jobs_config = configparser.RawConfigParser(
             default_section="global", defaults=default_parameters
         )
         self.hardware = hardware
-        self.config.read(self.config_file)
+        self.jobs_config.read(self.jobs_file)
 
     def to_dict(self) -> dict:
         output_dict = dict()
-        for section in self.config.sections():
-            items = self.config.items(section)
+        for section in self.jobs_config.sections():
+            items = self.jobs_config.items(section)
             output_dict[section] = dict(items)
         return output_dict
 
     def get_sections(self) -> list[str]:
         """Return all sections of a config file."""
-        return self.config.sections()
+        return self.jobs_config.sections()
 
     def get_section(self, section_name) -> configparser.SectionProxy:
         """Return one section of a config file"""
-        return self.config[section_name]
+        return self.jobs_config[section_name]
 
     def get_valid_keywords(self) -> list[str]:
         """Return the list of valid keywords."""
@@ -245,7 +245,7 @@ class Config:
 
     def get_config(self) -> configparser.RawConfigParser:
         """Return the configuration object."""
-        return self.config
+        return self.jobs_config
 
     def parse_range(self, input: str) -> list[Any]:
         """A function to parse the range syntax from a configuration directive."""

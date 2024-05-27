@@ -56,6 +56,10 @@ If multiple output files are passed as arguments, and only if they were generate
 
 For more details, see the specific documentation.
 
+# Examples
+Running the **simple.conf** job:
+<code>python3 -m hwbench.hwbench -j configs/simple.conf</code>
+
 # Requirements
 ## Mandatory
 - python >= 3.9

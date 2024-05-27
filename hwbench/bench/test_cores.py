@@ -10,7 +10,7 @@ class TestCores(tbc.TestCommon):
             numa="./tests/parsing/numa/8domainsllc",
         )
         self.load_benches("./config/cores.conf")
-        self.parse_config()
+        self.parse_jobs_config()
 
     def test_cores(self):
         """Check cores syntax."""
@@ -18,7 +18,7 @@ class TestCores(tbc.TestCommon):
         CPU1 = [1, 65]
         CPU0_1 = sorted(CPU0 + CPU1)
         CPU0_7 = list(range(0, 8)) + list(range(64, 72))
-        assert self.get_config().get_hosting_cpu_cores("cores") == [
+        assert self.get_jobs_config().get_hosting_cpu_cores("cores") == [
             CPU0,
             CPU1,
             CPU0_7,
@@ -35,4 +35,6 @@ class TestCores(tbc.TestCommon):
             "invalid_cpu_core",
             "alpha_cpu_core",
         ]:
-            self.should_be_fatal(self.get_config().get_hosting_cpu_cores, test_name)
+            self.should_be_fatal(
+                self.get_jobs_config().get_hosting_cpu_cores, test_name
+            )

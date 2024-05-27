@@ -45,10 +45,10 @@ class TestCommon(unittest.TestCase):
         cpu = MockCPU(".", fake_cpuinfo, fake_cpucores, fake_numa)
         self.hw = MockHardware(cpu=cpu)
 
-    def load_benches(self, config_file: str):
-        """Turn config_file into benchmarks"""
-        self.config = config.Config(config_file, self.hw)
-        self.benches = benchmarks.Benchmarks(".", self.config, self.hw)
+    def load_benches(self, jobs_config_file: str):
+        """Turn jobs_config_file into benchmarks"""
+        self.jobs_config = config.Config(jobs_config_file, self.hw)
+        self.benches = benchmarks.Benchmarks(".", self.jobs_config, self.hw)
 
     def get_bench_parameters(self, index):
         """Return the benchmark parameters."""
@@ -57,16 +57,16 @@ class TestCommon(unittest.TestCase):
     def get_benches(self):
         return self.benches
 
-    def parse_config(self, validate_parameters=True):
+    def parse_jobs_config(self, validate_parameters=True):
         # We need to mock turbostat when parsing config with monitoring
         # We mock the run() command to get a constant output
         with patch("hwbench.environment.turbostat.Turbostat.run") as ts:
             with open("tests/parsing/turbostat/run", "r") as f:
                 ts.return_value = ast.literal_eval(f.read())
-                return self.benches.parse_config(validate_parameters)
+                return self.benches.parse_jobs_config(validate_parameters)
 
-    def get_config(self) -> config.Config:
-        return self.config
+    def get_jobs_config(self) -> config.Config:
+        return self.jobs_config
 
     def bench_name(self, index) -> str:
         """Return the benchmark name"""
@@ -86,7 +86,7 @@ class TestCommon(unittest.TestCase):
             func(*args)
 
     def assert_job(self, index, name, engine_module, engine_module_parameter=None):
-        """Assert if a benchmark does not match the config file description."""
+        """Assert if a benchmark does not match the jobs_config file description."""
         # If not engine_module_parameter set, let's consider the engine_module
         if not engine_module_parameter:
             engine_module_parameter = engine_module

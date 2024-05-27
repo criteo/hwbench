@@ -23,7 +23,7 @@ class TestParse(tbc.TestCommon):
                 numa="./tests/parsing/numa/8domainsllc",
             )
             self.load_benches("./config/sample.ini")
-            self.parse_config()
+            self.parse_jobs_config()
 
     def test_parsing(self):
         assert self.benches.count_benchmarks() == 287
@@ -84,7 +84,7 @@ class TestParse(tbc.TestCommon):
 
     def test_monitoring(self):
         """Test if at least one benchmark needs monitoring."""
-        # This config file needs monitoring
+        # This jobs_config file needs monitoring
         assert self.benches.need_monitoring()
         monitoring = self.benches.get_monitoring()
 
@@ -105,9 +105,9 @@ class TestParse(tbc.TestCommon):
                 .split(b":", 1)
             )
             self.load_benches("./config/stream.ini")
-            assert self.get_config().get_config().getint("global", "runtime") == 5
-            self.get_config().get_config().set("global", "runtime", "2")
+            assert self.get_jobs_config().get_config().getint("global", "runtime") == 5
+            self.get_jobs_config().get_config().set("global", "runtime", "2")
             with self.assertRaises(SystemExit):
-                self.parse_config()
-            # This config file doesn't need monitoring
+                self.parse_jobs_config()
+            # This jobs_config file doesn't need monitoring
             assert self.benches.need_monitoring() is False
