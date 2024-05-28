@@ -52,6 +52,7 @@ class Hardware(BaseHardware):
         return {
             "dmi": self.dmi.dump(),
             "cpu": self.cpu.dump(),
+            "bmc": self.vendor.get_bmc().dump(),
         }
 
     def cpu_flags(self) -> list[str]:

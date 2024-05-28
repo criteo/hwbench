@@ -64,6 +64,14 @@ class BMC(External):
 
         return ip
 
+    def get_driver_name(self) -> str:
+        """Return the BMC driver name"""
+        return type(self).__name__
+
+    def dump(self) -> dict[str, str]:
+        """Return the dump of the BMC"""
+        return {"driver": self.get_driver_name()}
+
     def connect_redfish(self):
         """Connect to the BMC using Redfish."""
         if not self.vendor.get_monitoring_config_filename():
