@@ -60,10 +60,12 @@ class TestCommon(unittest.TestCase):
     def parse_jobs_config(self, validate_parameters=True):
         # We need to mock turbostat when parsing config with monitoring
         # We mock the run() command to get a constant output
-        with patch("hwbench.environment.turbostat.Turbostat.run") as ts:
-            with open("tests/parsing/turbostat/run", "r") as f:
-                ts.return_value = ast.literal_eval(f.read())
-                return self.benches.parse_jobs_config(validate_parameters)
+        with patch("hwbench.utils.helpers.is_binary_available") as iba:
+            iba.return_value = True
+            with patch("hwbench.environment.turbostat.Turbostat.run") as ts:
+                with open("tests/parsing/turbostat/run", "r") as f:
+                    ts.return_value = ast.literal_eval(f.read())
+                    return self.benches.parse_jobs_config(validate_parameters)
 
     def get_jobs_config(self) -> config.Config:
         return self.jobs_config

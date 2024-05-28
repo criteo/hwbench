@@ -3,6 +3,7 @@ import pathlib
 from typing import Optional
 
 from ..utils.external import External
+from ..utils.helpers import fatal
 from .parameters import BenchmarkParameters
 
 
@@ -47,6 +48,12 @@ class EngineBase(External):
         self.engine_name = name
         self.binary = binary
         self.modules = modules
+        # FIXME: If the import is done at the file level, the mocking is lost here
+        # So I'm importing is_binary_available just before the call :/
+        from ..utils.helpers import is_binary_available
+
+        if not is_binary_available(self.binary):
+            fatal(f"Engine {name} requires '{binary}' binary, please install it.")
 
     def get_binary(self) -> str:
         return self.binary
