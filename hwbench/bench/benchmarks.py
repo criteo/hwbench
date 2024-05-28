@@ -12,8 +12,8 @@ from ..environment.hardware import BaseHardware
 class Benchmarks:
     """A class to list and execute benchmarks to run."""
 
-    def __init__(self, out_dir, config, hardware: BaseHardware):
-        self.config = config
+    def __init__(self, out_dir, jobs_config, hardware: BaseHardware):
+        self.jobs_config = jobs_config
         self.out_dir = out_dir
         self.benchs: list[Benchmark] = []
         self.hardware = hardware
@@ -22,37 +22,37 @@ class Benchmarks:
     def get_engine(self, job):
         """Return the engine of a particular job."""
         # get the engine name
-        engine_name = self.config.get_engine(job)
+        engine_name = self.jobs_config.get_engine(job)
         try:
             # Are we able to instantiate a python object matching the engine name ?
-            engine = self.config.load_engine(self.config.get_engine(job))
+            engine = self.jobs_config.load_engine(self.jobs_config.get_engine(job))
         except ModuleNotFoundError:
             h.fatal(f'Unknown "{engine_name}" engine')
 
         # extract the engine module associated to the engine
-        engine_module_name = self.config.get_engine_module(job)
+        engine_module_name = self.jobs_config.get_engine_module(job)
         if not engine_module_name:
             emn = engine_module_name
             h.fatal(f'Unknown "{emn}" engine_module for engine "{engine_name}"')
 
         return engine_name, engine.get_module(engine_module_name)
 
-    def get_config(self):
-        """Return the config."""
-        return self.config
+    def get_jobs_config(self):
+        """Return the jobs_config."""
+        return self.jobs_config
 
-    def parse_config(self, validate_parameters=True):
-        """Parse the configuration file to create a list of benchmarks to run."""
+    def parse_jobs_config(self, validate_parameters=True):
+        """Parse the jobs configuration file to create a list of benchmarks to run."""
         # Ensure the configuration file has a valid syntax
-        self.config.validate_sections()
+        self.jobs_config.validate_sections()
 
-        # For each job in the config file
-        for job in self.config.get_sections():
+        # For each job in the jobs_config file
+        for job in self.jobs_config.get_sections():
             # Get the engine for this job
             engine_name, engine_module = self.get_engine(job)
 
             # extract the engine module parameter
-            engine_module_parameter = self.config.get_engine_module_parameter(job)
+            engine_module_parameter = self.jobs_config.get_engine_module_parameter(job)
 
             for emp in engine_module_parameter:
                 if emp not in engine_module.get_module_parameters(
@@ -63,11 +63,13 @@ class Benchmarks:
                     )
 
             # extract job's parameters
-            stressor_range = self.config.get_stressor_range(job)
-            stressor_range_scaling = self.config.get_stressor_range_scaling(job)
-            hosting_cpu_cores_raw = self.config.get_hosting_cpu_cores(job)
+            stressor_range = self.jobs_config.get_stressor_range(job)
+            stressor_range_scaling = self.jobs_config.get_stressor_range_scaling(job)
+            hosting_cpu_cores_raw = self.jobs_config.get_hosting_cpu_cores(job)
             hosting_cpu_cores = hosting_cpu_cores_raw.copy()
-            hosting_cpu_cores_scaling = self.config.get_hosting_cpu_cores_scaling(job)
+            hosting_cpu_cores_scaling = self.jobs_config.get_hosting_cpu_cores_scaling(
+                job
+            )
 
             # Let's set the default values
             # If a single hosting_cpu_cores is set, the default scaling is iterate
@@ -139,7 +141,7 @@ class Benchmarks:
         """Iterate on engine module parameters to schedule benchmarks."""
         # Detecting stressor range scaling mode
         if stressor_range_scaling == "plus_1":
-            for emp in self.config.get_engine_module_parameter(job):
+            for emp in self.jobs_config.get_engine_module_parameter(job):
                 self.__schedule_benchmark(job, pinned_cpu, emp, validate_parameters)
         else:
             srs = stressor_range_scaling
@@ -149,16 +151,17 @@ class Benchmarks:
         self, job, pinned_cpu, engine_module_parameter, validate_parameters: bool
     ):
         """Schedule benchmark."""
-        runtime = self.config.get_runtime(job)
+        runtime = self.jobs_config.get_runtime(job)
         monitoring_config = self.get_monitoring_config(job)
         _, engine_module = self.get_engine(job)
 
         # If job needs monitoring, let's create it
         if monitoring_config != "none" and not self.monitoring:
-            self.monitoring = Monitoring(self.out_dir, self.config, self.hardware)
+            self.hardware.vendor.get_bmc().connect_redfish()
+            self.monitoring = Monitoring(self.out_dir, self.jobs_config, self.hardware)
 
         # For each stressor, add a benchmark object to the list
-        for stressor_count in self.config.get_stressor_range(job):
+        for stressor_count in self.jobs_config.get_stressor_range(job):
             if stressor_count == "auto":
                 if pinned_cpu == "none":
                     h.fatal("stressor_range=auto but no pinned cpu")
@@ -175,12 +178,12 @@ class Benchmarks:
                         pinned_cpu,
                         runtime,
                         individual_emp,
-                        self.config.get_engine_module_parameter_base(job),
+                        self.jobs_config.get_engine_module_parameter_base(job),
                         self.hardware,
                         monitoring_config,
                         self.monitoring,
-                        self.config.get_skip_method(job),
-                        self.config.get_sync_start(job),
+                        self.jobs_config.get_skip_method(job),
+                        self.jobs_config.get_sync_start(job),
                     )
                     benchmark = Benchmark(
                         self.count_benchmarks(), engine_module, parameters
@@ -194,12 +197,12 @@ class Benchmarks:
                     pinned_cpu,
                     runtime,
                     engine_module_parameter,
-                    self.config.get_engine_module_parameter_base(job),
+                    self.jobs_config.get_engine_module_parameter_base(job),
                     self.hardware,
                     monitoring_config,
                     self.monitoring,
-                    self.config.get_skip_method(job),
-                    self.config.get_sync_start(job),
+                    self.jobs_config.get_skip_method(job),
+                    self.jobs_config.get_sync_start(job),
                 )
                 benchmark = Benchmark(
                     self.count_benchmarks(), engine_module, parameters
@@ -215,8 +218,8 @@ class Benchmarks:
         return len(self.benchs)
 
     def count_jobs(self) -> int:
-        """Return the number of jobs defined in the configuration file."""
-        return len(self.config.get_sections())
+        """Return the number of jobs defined in the jobs_configuration file."""
+        return len(self.jobs_config.get_sections())
 
     def get_benchmarks(self) -> list[Benchmark]:
         return self.benchs
@@ -300,7 +303,7 @@ ETA {duration}"
 
     def get_monitoring_config(self, bench: Benchmark) -> str:
         """Return the monitoring configuration"""
-        return self.config.get_monitor(bench)
+        return self.jobs_config.get_monitor(bench)
 
     def need_monitoring(self):
         """Return if at least one bench requires monitoring"""

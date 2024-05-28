@@ -37,10 +37,10 @@ class BaseHardware(BaseEnvironment):
 
 
 class Hardware(BaseHardware):
-    def __init__(self, out_dir: pathlib.Path):
+    def __init__(self, out_dir: pathlib.Path, monitoring_config):
         super().__init__(out_dir)
         self.dmi = DmiSys(out_dir)
-        self.vendor = first_matching_vendor(out_dir, self.dmi)
+        self.vendor = first_matching_vendor(out_dir, self.dmi, monitoring_config)
         self.vendor.save_bios_config()
         self.vendor.save_bmc_config()
         Lspci(out_dir).run()

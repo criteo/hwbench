@@ -10,7 +10,7 @@ class TestSpike(tbc.TestCommon):
             numa="./tests/parsing/numa/8domainsllc",
         )
         self.load_benches("./config/spike.conf")
-        self.parse_config()
+        self.parse_jobs_config()
         self.QUADRANT0 = list(range(0, 16)) + list(range(64, 80))
         self.QUADRANT1 = list(range(16, 32)) + list(range(80, 96))
         self.ALL = list(range(0, 128))
@@ -34,7 +34,7 @@ class TestSpike(tbc.TestCommon):
         # Testing broken syntax that must fail
         # Testing quadrants
         self.load_benches("./config/spike_weirds.conf")
-        self.parse_config(validate_parameters=False)
+        self.parse_jobs_config(validate_parameters=False)
 
         self.should_be_fatal(self.benches.benchs[0].validate_parameters)
         self.should_be_fatal(self.benches.benchs[1].validate_parameters)

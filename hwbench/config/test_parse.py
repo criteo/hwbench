@@ -20,7 +20,7 @@ class TestParseConfig(tbc.TestCommon):
 
     def test_sections_name(self):
         """Check if sections names are properly detected."""
-        sections = self.get_config().get_sections()
+        sections = self.get_jobs_config().get_sections()
         assert sections == [
             "check_1_core_int8_perf",
             "check_1_core_int8_float_perf",
@@ -47,7 +47,7 @@ class TestParseConfig(tbc.TestCommon):
                     .read_bytes()
                     .split(b":", 1)
                 )
-                self.get_config().validate_sections()
+                self.get_jobs_config().validate_sections()
         except Exception as exc:
             assert False, f"'validate_sections' detected a syntax error {exc}"
 
@@ -63,7 +63,7 @@ class TestParseConfig(tbc.TestCommon):
             )
             self.load_benches("./config/sample_weirds.conf")
             assert (
-                self.get_config().get_config().getint("noglobalruntime", "runtime")
+                self.get_jobs_config().get_config().getint("noglobalruntime", "runtime")
                 == 60
             )
 
@@ -76,16 +76,16 @@ class TestParseConfig(tbc.TestCommon):
                 "unknown_engine_module_parameter",
                 "unknown_monitoring",
             ]:
-                self.should_be_fatal(self.get_config().validate_section, section)
+                self.should_be_fatal(self.get_jobs_config().validate_section, section)
 
     def test_range_list_input(self):
         """Check if parsing the range syntax is valid."""
-        assert self.get_config().parse_range("1") == [1]
-        assert self.get_config().parse_range("1,3,5") == [1, 3, 5]
-        assert self.get_config().parse_range("1-5") == [1, 2, 3, 4, 5]
-        assert self.get_config().parse_range("1-2,5-6") == [1, 2, 5, 6]
-        assert self.get_config().parse_range("int8,float") == ["int8", "float"]
-        assert self.get_config().parse_range("1-3 4-5") == [[1, 2, 3], [4, 5]]
-        assert self.get_config().parse_range("1,32 2,33") == [[1, 32], [2, 33]]
+        assert self.get_jobs_config().parse_range("1") == [1]
+        assert self.get_jobs_config().parse_range("1,3,5") == [1, 3, 5]
+        assert self.get_jobs_config().parse_range("1-5") == [1, 2, 3, 4, 5]
+        assert self.get_jobs_config().parse_range("1-2,5-6") == [1, 2, 5, 6]
+        assert self.get_jobs_config().parse_range("int8,float") == ["int8", "float"]
+        assert self.get_jobs_config().parse_range("1-3 4-5") == [[1, 2, 3], [4, 5]]
+        assert self.get_jobs_config().parse_range("1,32 2,33") == [[1, 32], [2, 33]]
         with self.assertRaises(SystemExit):
-            self.get_config().parse_range("bad,range,bad-range")
+            self.get_jobs_config().parse_range("bad,range,bad-range")

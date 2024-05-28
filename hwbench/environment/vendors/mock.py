@@ -42,11 +42,15 @@ class MockedBMC(BMC):
         power_supplies[str(PowerContext.BMC)] = {"PS1 status": Power("PS1", 125.0)}
         return power_supplies
 
+    def connect_redfish(self):
+        pass
+
 
 class MockVendor(Vendor):
-    def __init__(self, out_dir, dmi):
+    def __init__(self, out_dir, dmi, monitoring_config_filename=None):
         self.out_dir = out_dir
         self.dmi = dmi
+        self.monitoring_config_filename = monitoring_config_filename
         self.bmc = MockedBMC(self.out_dir, self)
 
     def detect(self) -> bool:

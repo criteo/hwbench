@@ -30,7 +30,8 @@ The current version of hwbench supports 3 different engines.
 Benchmark performance metrics are extracted and saved for later analysis.
 
 ### Collects server's environment
-If the server is equipped with a [BMC](https://en.wikipedia.org/wiki/Intelligent_Platform_Management_Interface#Baseboard_management_controller), hwbench will collect environmental metrics and associate them with the final results for later analysis.
+If the server is equipped with a [BMC](https://en.wikipedia.org/wiki/Intelligent_Platform_Management_Interface#Baseboard_management_controller),
+and only if the monitoring feature is enabled, hwbench will collect environmental metrics and associate them with the final results for later analysis.
 
 This release supports Dell and HPE servers and collects:
 - Thermal sensors
@@ -55,6 +56,10 @@ If a single output file is provided, **hwgraph** plots for each benchmark :
 If multiple output files are passed as arguments, and only if they were generated with the same script file, **hwgraph** will compare for each benchmark the performance metrics.
 
 For more details, see the specific documentation.
+
+# Examples
+Running the **simple.conf** job:
+<code>python3 -m hwbench.hwbench -j configs/simple.conf -m monitoring.cfg</code>
 
 # Requirements
 ## Mandatory
