@@ -59,10 +59,6 @@ class Monitoring:
         """Preparing the monitoring"""
         v = self.vendor
         bmc = self.vendor.get_bmc()
-        # Let's be sure the monitoring is functional by
-        # - checking the BMC is actually connected to the network
-        if bmc.get_ip() == "0.0.0.0":
-            h.fatal("BMC has no IP, monitoring will not be possible")
         print(
             f"Starting monitoring for {v.name()} vendor with {bmc.get_driver_name()} driver @ {bmc.get_ip()}"
         )
