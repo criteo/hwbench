@@ -72,7 +72,7 @@ class Turbostat:
             fatal("Missing turbostat binary, please install it.")
 
         self.process = subprocess.Popen(
-            ["turbostat", "-v"],
+            ["turbostat", "--version"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             env=english_env,
@@ -151,14 +151,14 @@ class Turbostat:
             "-c",
             f"{self.hardware.get_cpu().get_logical_cores_count()-1}",
             "turbostat",
-            "-c",
+            "--cpu",
             "core",
-            "-q",
+            "--quiet",
             "--interval",
             str(interval),
-            "-n",
+            "--num_iterations",
             "1",
-            "-s",
+            "--show",
         ]
         sensors = ""
         for sensor in CPUSTATS:
