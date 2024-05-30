@@ -225,9 +225,17 @@ class Turbostat:
             items = line.split()
             core_nb = items[int(self.__get_field_position(CPUSTATS.CPU))]
             if self.has(CPUSTATS.CORE_WATTS):
-                self.power_metrics[str(PowerContext.CPU)][f"Core_{core_nb}"].add(
-                    float(items[int(self.__get_field_position(CPUSTATS.CORE_WATTS))])
-                )
+                try:
+                    self.power_metrics[str(PowerContext.CPU)][f"Core_{core_nb}"].add(
+                        float(
+                            items[int(self.__get_field_position(CPUSTATS.CORE_WATTS))]
+                        )
+                    )
+                except IndexError:
+                    # Some processors reports the corewatt in the header but not for all cores ...
+                    # So let's ignore if the metrics does not exist for this core
+                    pass
+
             self.freq_metrics[str(CPUContext.CPU)][f"Core_{core_nb}"].add(
                 float(items[int(self.__get_field_position(CPUSTATS.BUSY_MHZ))])
             )
