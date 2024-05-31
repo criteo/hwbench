@@ -2,6 +2,7 @@ import os
 import pathlib
 import subprocess
 from abc import abstractmethod, ABC
+from .helpers import fatal
 
 
 class External(ABC):
@@ -39,24 +40,27 @@ class External(ABC):
         """Returns the output of parse_cmd (a json-able type)"""
         english_env = os.environ.copy()
         english_env["LC_ALL"] = "C"
-        if self.run_cmd_version():
-            ver = subprocess.run(
-                self.run_cmd_version(),
+        try:
+            if self.run_cmd_version():
+                ver = subprocess.run(
+                    self.run_cmd_version(),
+                    capture_output=True,
+                    cwd=self.out_dir,
+                    env=english_env,
+                    stdin=subprocess.DEVNULL,
+                )
+                self._write_output("version-stdout", ver.stdout)
+                self._write_output("version-stderr", ver.stderr)
+                self.parse_version(ver.stdout, ver.stderr)
+            out = subprocess.run(
+                self.run_cmd(),
                 capture_output=True,
                 cwd=self.out_dir,
                 env=english_env,
                 stdin=subprocess.DEVNULL,
             )
-            self._write_output("version-stdout", ver.stdout)
-            self._write_output("version-stderr", ver.stderr)
-            self.parse_version(ver.stdout, ver.stderr)
-        out = subprocess.run(
-            self.run_cmd(),
-            capture_output=True,
-            cwd=self.out_dir,
-            env=english_env,
-            stdin=subprocess.DEVNULL,
-        )
+        except FileNotFoundError as e:
+            fatal(f"Missing {e.filename} binary, please install it.")
         # save outputs
 
         self._write_output("stdout", out.stdout)

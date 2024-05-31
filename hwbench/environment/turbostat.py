@@ -1,8 +1,11 @@
 import os
+import re
 import subprocess
 from enum import Enum
+from packaging.version import Version
 from ..environment.hardware import BaseHardware
 from ..bench.monitoring_structs import MonitorMetric, CPUContext, PowerContext
+from ..utils.helpers import is_binary_available, fatal
 
 CORE = "core"
 PACKAGE = "package"
@@ -48,6 +51,7 @@ class Turbostat:
             CPUSTATS.CORE_WATTS,
             CPUSTATS.PACKAGE_WATTS,
         }
+        self.min_release = Version("2022.04.16")
         self.header = ""
         self.freq_metrics = freq_metrics
         self.power_metrics = power_metrics
@@ -55,8 +59,40 @@ class Turbostat:
         self.process: subprocess.Popen[bytes] = None  # type: ignore[assignment]
         self.freq_metrics[str(CPUContext.CPU)] = {}  # type: ignore[no-redef]
         self.power_metrics[str(PowerContext.CPU)] = {}  # type: ignore[no-redef]
+
         # Let's make a first quick run to detect system
+        self.check_version()
         self.pre_run()
+
+    def check_version(self):
+        english_env = os.environ.copy()
+        english_env["LC_ALL"] = "C"
+
+        if not is_binary_available("turbostat"):
+            fatal("Missing turbostat binary, please install it.")
+
+        self.process = subprocess.Popen(
+            ["turbostat", "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=english_env,
+            stdin=subprocess.DEVNULL,
+        )
+        # turbostat version 2022.04.16 - Len Brown <lenb@kernel.org>
+        match = re.search(
+            r"turbostat version (?P<version>[0-9]+\.[0-9]+\.[0-9]+).*",
+            str(self.get_process_output()),
+        )
+
+        current_version = Version(match.group("version"))
+        if not match:
+            fatal("Monitoring/turbostat: Cannot detect turbostat version")
+
+        print(f"Monitoring/turbostat: Detected release {current_version}")
+        if current_version < self.min_release:
+            fatal(
+                f"Monitoring/turbostat: minimal expected release is {self.min_release}"
+            )
 
     def reset_metrics(self, power_metrics=None):
         if power_metrics is not None:
@@ -115,14 +151,14 @@ class Turbostat:
             "-c",
             f"{self.hardware.get_cpu().get_logical_cores_count()-1}",
             "turbostat",
-            "-c",
+            "--cpu",
             "core",
-            "-q",
+            "--quiet",
             "--interval",
             str(interval),
-            "-n",
+            "--num_iterations",
             "1",
-            "-s",
+            "--show",
         ]
         sensors = ""
         for sensor in CPUSTATS:
@@ -189,9 +225,17 @@ class Turbostat:
             items = line.split()
             core_nb = items[int(self.__get_field_position(CPUSTATS.CPU))]
             if self.has(CPUSTATS.CORE_WATTS):
-                self.power_metrics[str(PowerContext.CPU)][f"Core_{core_nb}"].add(
-                    float(items[int(self.__get_field_position(CPUSTATS.CORE_WATTS))])
-                )
+                try:
+                    self.power_metrics[str(PowerContext.CPU)][f"Core_{core_nb}"].add(
+                        float(
+                            items[int(self.__get_field_position(CPUSTATS.CORE_WATTS))]
+                        )
+                    )
+                except IndexError:
+                    # Some processors reports the corewatt in the header but not for all cores ...
+                    # So let's ignore if the metrics does not exist for this core
+                    pass
+
             self.freq_metrics[str(CPUContext.CPU)][f"Core_{core_nb}"].add(
                 float(items[int(self.__get_field_position(CPUSTATS.BUSY_MHZ))])
             )

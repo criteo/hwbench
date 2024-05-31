@@ -15,6 +15,9 @@ class IOScheduler:
             for dirname in dirnames:
                 diskdir = pathlib.Path(rootpath) / dirname
                 file = diskdir / "queue/scheduler"
+                # Some block devices like zram do not have scheduler
+                if not os.path.isfile(file):
+                    continue
                 previous = file.read_text(encoding="utf-8").rstrip()
                 # see https://docs.kernel.org/block/switching-sched.html
                 # for deeper explanation

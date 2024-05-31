@@ -22,13 +22,17 @@ from .stressng import (
 def mock_engine(version: str) -> StressNG:
     # We need to patch list_module_parameters() function
     # to avoid considering the local stress-ng binary
-    with patch("hwbench.engines.stressng.EngineModuleCpu.list_module_parameters") as p:
-        p.return_value = (
-            pathlib.Path(f"./tests/parsing/stressngmethods/{version}/stdout")
-            .read_bytes()
-            .split(b":", 1)
-        )
-        return StressNG()
+    with patch("hwbench.utils.helpers.is_binary_available") as iba:
+        iba.return_value = True
+        with patch(
+            "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
+        ) as p:
+            p.return_value = (
+                pathlib.Path(f"./tests/parsing/stressngmethods/{version}/stdout")
+                .read_bytes()
+                .split(b":", 1)
+            )
+            return StressNG()
 
 
 class TestParse(unittest.TestCase):

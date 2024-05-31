@@ -65,7 +65,7 @@ Running the **simple.conf** job:
 ## Mandatory
 - python >= 3.9
 - [python dependencies](./requirements/base.in)
-- turbostat >= 2022.07.28
+- turbostat >= 2022.04.16
 - numactl
 - dmidecode
 - util-linux >= 2.32

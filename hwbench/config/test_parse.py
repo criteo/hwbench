@@ -47,7 +47,9 @@ class TestParseConfig(tbc.TestCommon):
                     .read_bytes()
                     .split(b":", 1)
                 )
-                self.get_jobs_config().validate_sections()
+                with patch("hwbench.utils.helpers.is_binary_available") as iba:
+                    iba.return_value = True
+                    self.get_jobs_config().validate_sections()
         except Exception as exc:
             assert False, f"'validate_sections' detected a syntax error {exc}"
 

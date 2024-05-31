@@ -2,6 +2,7 @@ import datetime
 import logging
 import sys
 from datetime import timedelta
+from shutil import which
 from typing import NoReturn
 
 
@@ -24,3 +25,8 @@ def time_to_next_sync(safe_start=True):
     # Let's bump to the next minute o'clock
     next_sync += timedelta(seconds=60 - next_sync.second)
     return (next_sync - now).total_seconds(), next_sync
+
+
+def is_binary_available(binary_name: str) -> bool:
+    """A function to check if a binary is available"""
+    return which(binary_name) is not None
