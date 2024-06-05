@@ -1,7 +1,9 @@
+from typing import cast
 from ...bench.monitoring_structs import (
     FanContext,
     MonitorMetric,
     Power,
+    PowerCategories,
     PowerContext,
     Temperature,
     ThermalContext,
@@ -17,29 +19,58 @@ class MockedBMC(BMC):
         self, thermals: dict[str, dict[str, Temperature]] = {}
     ) -> dict[str, dict[str, Temperature]]:
         # Let's add a faked thermal metric
-        thermals[str(ThermalContext.CPU)] = {"CPU1": Temperature("CPU1", 40)}
+        name = "CPU1"
+
+        super().add_monitoring_value(
+            cast(dict[str, dict[str, MonitorMetric]], thermals),
+            ThermalContext.CPU,
+            Temperature(name),
+            name,
+            40,
+        )
         return thermals
 
     def read_fans(
         self, fans: dict[str, dict[str, MonitorMetric]] = {}
     ) -> dict[str, dict[str, MonitorMetric]]:
         # Let's add a faked fans metric
-        fans[str(FanContext.FAN)] = {"Fan1": MonitorMetric("Fan1", "RPM", 40)}
+        name = "Fan1"
+        super().add_monitoring_value(
+            cast(dict[str, dict[str, MonitorMetric]], fans),
+            FanContext.FAN,
+            MonitorMetric(name, "RPM"),
+            name,
+            40,
+        )
         return fans
 
     def read_power_consumption(
         self, power_consumption: dict[str, dict[str, Power]] = {}
     ) -> dict[str, dict[str, Power]]:
         # Let's add a faked power metric
-        power_consumption[str(PowerContext.BMC)] = {"Chassis": Power("Chassis", 125.0)}
+        name = str(PowerCategories.CHASSIS)
+        super().add_monitoring_value(
+            cast(dict[str, dict[str, MonitorMetric]], power_consumption),
+            PowerContext.BMC,
+            Power(name),
+            name,
+            125.0,
+        )
         return power_consumption
 
     def read_power_supplies(
         self, power_supplies: dict[str, dict[str, Power]] = {}
     ) -> dict[str, dict[str, Power]]:
         # Let's add a faked power supplies
-
-        power_supplies[str(PowerContext.BMC)] = {"PS1 status": Power("PS1", 125.0)}
+        status = "PS1 status"
+        name = "PS1"
+        super().add_monitoring_value(
+            cast(dict[str, dict[str, MonitorMetric]], power_supplies),
+            PowerContext.BMC,
+            Power(name),
+            status,
+            125,
+        )
         return power_supplies
 
     def connect_redfish(self):

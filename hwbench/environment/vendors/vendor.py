@@ -6,6 +6,7 @@ import os
 import pathlib
 import redfish  # type: ignore
 from abc import ABC, abstractmethod
+from typing import Any
 from ...utils import helpers as h
 from ...utils.external import External
 from ...bench.monitoring_structs import (
@@ -30,6 +31,22 @@ class BMC(External):
     def __del__(self):
         if self.logged:
             self.redfish_obj.logout()
+
+    def add_monitoring_value(
+        self,
+        monitoring_struct: dict[str, dict[str, MonitorMetric]],
+        context: Any,
+        metric: MonitorMetric,
+        name: str,
+        value: float,
+    ) -> dict[str, dict[str, MonitorMetric]]:
+        """This function add a new <value> in the monitoring data structure."""
+        if str(context) not in monitoring_struct:
+            monitoring_struct[str(context)] = {}
+        if name not in monitoring_struct[str(context)]:
+            monitoring_struct[str(context)][name] = metric
+        monitoring_struct[str(context)][name].add(value)
+        return monitoring_struct
 
     def run_cmd(self) -> list[str]:
         return ["ipmitool", "lan", "print"]

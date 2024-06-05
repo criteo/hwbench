@@ -1,4 +1,6 @@
+from typing import cast
 from ....bench.monitoring_structs import (
+    MonitorMetric,
     Power,
     PowerCategories as PowerCat,
     PowerContext,
@@ -19,11 +21,13 @@ class IDRAC(BMC):
                 continue
             name = t["Name"].split("Temp")[0].strip()
             pc = t["PhysicalContext"]
-            if pc not in thermals:
-                thermals[pc] = {}
-            if t["Name"] not in thermals[pc]:
-                thermals[pc][t["Name"]] = Temperature(name)
-            thermals[pc][t["Name"]].add(t["ReadingCelsius"])
+            super().add_monitoring_value(
+                cast(dict[str, dict[str, MonitorMetric]], thermals),
+                pc,
+                Temperature(name),
+                t["Name"],
+                t["ReadingCelsius"],
+            )
         return thermals
 
     def get_power(self):
@@ -43,28 +47,25 @@ class IDRAC(BMC):
             # ServerPwr.1.SCViewSledPwr is computed from other metrics
             # It includes the SLED power consumption + a mathematical portion of the chassis consumption
             # It's computed like : ServerPwr.1.SCViewSledPwr = PowerConsumedWatts + 'SC-BMC.1.ChassisInfraPower / nb_servers'
-            if (
-                str(PowerCat.SERVERINCHASSIS)
-                not in power_consumption[str(PowerContext.BMC)]
-            ):
-                power_consumption[str(PowerContext.BMC)][
-                    str(PowerCat.SERVERINCHASSIS)
-                ] = Power(str(PowerCat.SERVERINCHASSIS))
-            power_consumption[str(PowerContext.BMC)][str(PowerCat.SERVERINCHASSIS)].add(
-                oem_system["Attributes"]["ServerPwr.1.SCViewSledPwr"]
+            name = str(PowerCat.SERVERINCHASSIS)
+            super().add_monitoring_value(
+                cast(dict[str, dict[str, MonitorMetric]], power_consumption),
+                PowerContext.BMC,
+                Power(name),
+                name,
+                oem_system["Attributes"]["ServerPwr.1.SCViewSledPwr"],
             )
+
         if "SC-BMC.1.ChassisInfraPower" in oem_system["Attributes"]:
             # SC-BMC.1.ChassisInfraPower reports the power consumption of the chassis infrastructure,
             # not counting the SLEDs
-            if (
-                str(PowerCat.INFRASTRUCTURE)
-                not in power_consumption[str(PowerContext.BMC)]
-            ):
-                power_consumption[str(PowerContext.BMC)][
-                    str(PowerCat.INFRASTRUCTURE)
-                ] = Power(str(PowerCat.INFRASTRUCTURE))
-            power_consumption[str(PowerContext.BMC)][str(PowerCat.INFRASTRUCTURE)].add(
-                oem_system["Attributes"]["SC-BMC.1.ChassisInfraPower"]
+            name = str(PowerCat.INFRASTRUCTURE)
+            super().add_monitoring_value(
+                cast(dict[str, dict[str, MonitorMetric]], power_consumption),
+                PowerContext.BMC,
+                Power(name),
+                name,
+                oem_system["Attributes"]["SC-BMC.1.ChassisInfraPower"],
             )
 
         # Let's add the sum of the power supplies to get the inlet power consumption
