@@ -31,6 +31,22 @@ class BMC(External):
         if self.logged:
             self.redfish_obj.logout()
 
+    def add_monitoring_value(
+        self,
+        monitoring_struct: dict[str, dict[str, MonitorMetric]],
+        context: any,
+        metric: MonitorMetric,
+        name: str,
+        value: any,
+    ) -> dict[str, dict[str, MonitorMetric]]:
+        """This function add a new <value> in the monitoring data structure."""
+        if str(context) not in monitoring_struct:
+            monitoring_struct[str(context)] = {}
+        if name not in monitoring_struct[str(context)]:
+            monitoring_struct[str(context)][name] = metric
+        monitoring_struct[str(context)][name].add(value)
+        return monitoring_struct
+
     def run_cmd(self) -> list[str]:
         return ["ipmitool", "lan", "print"]
 

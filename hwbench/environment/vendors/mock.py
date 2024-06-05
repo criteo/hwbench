@@ -19,12 +19,9 @@ class MockedBMC(BMC):
     ) -> dict[str, dict[str, Temperature]]:
         # Let's add a faked thermal metric
         name = "CPU1"
-        if str(ThermalContext.CPU) not in thermals:
-            thermals[str(ThermalContext.CPU)] = {}
-        if name not in thermals[str(ThermalContext.CPU)]:
-            thermals[str(ThermalContext.CPU)][name] = Temperature(name)
-
-        thermals[str(ThermalContext.CPU)][name].add(40)
+        super().add_monitoring_value(
+            thermals, ThermalContext.CPU, Temperature(name), name, 40
+        )
         return thermals
 
     def read_fans(
@@ -32,12 +29,9 @@ class MockedBMC(BMC):
     ) -> dict[str, dict[str, MonitorMetric]]:
         # Let's add a faked fans metric
         name = "Fan1"
-        if str(FanContext.FAN) not in fans:
-            fans[str(FanContext.FAN)] = {}
-        if name not in fans[str(FanContext.FAN)]:
-            fans[str(FanContext.FAN)][name] = MonitorMetric(name, "RPM")
-
-        fans[str(FanContext.FAN)][name].add(40)
+        super().add_monitoring_value(
+            fans, FanContext.FAN, MonitorMetric(name, "RPM"), name, 40
+        )
         return fans
 
     def read_power_consumption(
@@ -45,15 +39,8 @@ class MockedBMC(BMC):
     ) -> dict[str, dict[str, Power]]:
         # Let's add a faked power metric
         name = str(PowerCategories.CHASSIS)
-        if str(PowerContext.BMC) not in power_consumption:
-            power_consumption[str(PowerContext.BMC)] = {}
-        if name not in power_consumption[str(PowerContext.BMC)]:
-            power_consumption[str(PowerContext.BMC)][name] = Power(
-                str(PowerCategories.CHASSIS)
-            )
-
-        power_consumption[str(PowerContext.BMC)][str(PowerCategories.CHASSIS)].add(
-            125.0
+        super().add_monitoring_value(
+            power_consumption, PowerContext.BMC, Power(name), name, 125.0
         )
         return power_consumption
 
@@ -63,11 +50,9 @@ class MockedBMC(BMC):
         # Let's add a faked power supplies
         status = "PS1 status"
         name = "PS1"
-        if str(PowerContext.BMC) not in power_supplies:
-            power_supplies[str(PowerContext.BMC)] = {}
-        if status not in power_supplies[str(PowerContext.BMC)]:
-            power_supplies[str(PowerContext.BMC)][status] = Power(name)
-        power_supplies[str(PowerContext.BMC)][status].add(125)
+        super().add_monitoring_value(
+            power_supplies, PowerContext.BMC, Power(name), status, 125
+        )
         return power_supplies
 
     def connect_redfish(self):
