@@ -5,6 +5,7 @@ import dataclasses
 import json
 import os
 import pathlib
+import platform
 import time
 
 from .bench import benchmarks
@@ -12,6 +13,7 @@ from .bench.monitoring_structs import MonitorMetric
 from .config import config
 from .environment import software as env_soft
 from .environment import hardware as env_hw
+from packaging.version import Version
 from .utils import helpers as h
 from .tuning import setup as tuning_setup
 from .utils.hwlogging import init_logging
@@ -20,6 +22,13 @@ from .utils.hwlogging import init_logging
 def main():
     if not is_root():
         h.fatal("hwbench is not running as effective uid 0.")
+
+    # Let's ensure no one is running below the expected python release
+    min_python_release = "3.9"
+    if Version(platform.python_version()) < Version(min_python_release):
+        h.fatal(
+            f"Current python version {platform.python_version()} is below minimal supported release : {min_python_release}"
+        )
 
     out_dir, tuning_out_dir = create_output_directory()
     args = parse_options()
