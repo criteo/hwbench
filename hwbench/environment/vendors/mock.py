@@ -15,6 +15,10 @@ class MockedBMC(BMC):
     def get_ip(self) -> str:
         return "1.2.3.4"
 
+    def detect(self):
+        self.firmware_version = "1.0.0"
+        self.model = "MockedBMC"
+
     def read_thermals(
         self, thermals: dict[str, dict[str, Temperature]] = {}
     ) -> dict[str, dict[str, Temperature]]:
