@@ -63,7 +63,7 @@ class TestVendors(unittest.TestCase):
         # Vendors will override this function to add their specifics
         # Once done, they will this helper
         self.install_patch(
-            "hwbench.environment.vendors.vendor.BMC.connect_redfish",
+            "hwbench.environment.vendors.bmc.BMC.connect_redfish",
             PATCH_TYPES.RETURN_VALUE,
             None,
         )
