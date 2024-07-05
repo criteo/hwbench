@@ -2,6 +2,7 @@ import configparser
 import os
 from abc import ABC, abstractmethod
 from .bmc import BMC
+from .pdu import PDU
 from ...utils import helpers as h
 
 
@@ -10,6 +11,7 @@ class Vendor(ABC):
         self.out_dir = out_dir
         self.dmi = dmi
         self.bmc: BMC = None
+        self.pdus: list[PDU] = []
         self.monitoring_config_filename = monitoring_config_filename
 
     @abstractmethod
@@ -31,15 +33,42 @@ class Vendor(ABC):
     def get_monitoring_config_filename(self):
         return self.monitoring_config_filename
 
+    def _load_vendor(self, directory: str, vendor: str):
+        """Load the vendors/<vendor_name>/check module."""
+        from importlib import import_module
+        from importlib.util import find_spec
+
+        vendor_modulename = f"hwbench.environment.vendors.{directory}.{vendor}"
+        if not find_spec(vendor_modulename):
+            h.fatal("cannot_find vendor module {}".format(vendor_modulename))
+
+        return import_module(vendor_modulename)
+
     def prepare(self):
         """If the vendor needs some specific code to init itself."""
         if not self.bmc:
             self.bmc = BMC(self.out_dir, self, self.find_monitoring_sections("BMC"))
             self.bmc.run()
+        if not self.pdus:
+            pdu_sections = self.find_monitoring_sections("PDU")
+            for pdu_section in pdu_sections:
+                pdu_driver_name = self.monitoring_config_file.get(
+                    pdu_section, "driver", fallback=""
+                )
+                if not pdu_driver_name:
+                    h.fatal("PDU configuration requires a driver.")
+                pdu_driver = self._load_vendor("pdus", pdu_driver_name.lower()).init(
+                    self, pdu_section
+                )
+                self.pdus.append(pdu_driver)
 
     def get_bmc(self) -> BMC:
         """Return the BMC object"""
         return self.bmc
+
+    def get_pdus(self) -> list[PDU]:
+        """Return a list of PDUs object"""
+        return self.pdus
 
     def find_monitoring_sections(
         self, section_type: str, sections_list=[], max_sections=0

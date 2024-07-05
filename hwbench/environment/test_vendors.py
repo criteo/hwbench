@@ -67,6 +67,11 @@ class TestVendors(unittest.TestCase):
             PATCH_TYPES.RETURN_VALUE,
             None,
         )
+        self.install_patch(
+            "hwbench.environment.vendors.vendor.Vendor.find_monitoring_sections",
+            PATCH_TYPES.RETURN_VALUE,
+            [],
+        )
         self.get_vendor().prepare()
 
     # tearDown is called at the end of the test

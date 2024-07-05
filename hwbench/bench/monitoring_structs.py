@@ -150,6 +150,7 @@ class CPUContext(Enum):
 
 class PowerContext(Enum):
     BMC = "BMC"
+    PDU = "PDU"
     CPU = "CPU"
 
     def __str__(self) -> str:
@@ -166,6 +167,7 @@ class PowerCategories(Enum):
     INFRASTRUCTURE = "Infrastructure"  # = Chassis - servers (fans, pdb, ..)
     SERVERINCHASSIS = "ServerInChassis"  # One server + its part of the chassis
     SERVER = "Server"  # One server
+    PDU = "Pdu"
 
     def __str__(self) -> str:
         return str(self.value)

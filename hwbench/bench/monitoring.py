@@ -59,6 +59,7 @@ class Monitoring:
         """Preparing the monitoring"""
         v = self.vendor
         bmc = self.vendor.get_bmc()
+        pdus = self.vendor.get_pdus()
 
         def check_monitoring(source: str, metric: Metrics):
             data = self.get_metric(metric)
@@ -83,8 +84,13 @@ class Monitoring:
             check_monitoring("turbostat", Metrics.FREQ)
 
         print(
-            f"Monitoring/BMC: initialize {v.name()} vendor with {bmc.get_driver_name()} driver @ {bmc.get_url()}"
+            f"Monitoring/BMC: initialize {v.name()} vendor with {bmc.get_driver_name()} {bmc.get_detect_string()}"
         )
+
+        for pdu in pdus:
+            print(
+                f"Monitoring/PDU: initialize {pdu.get_name()} with {pdu.get_driver_name()} {pdu.get_detect_string()}"
+            )
 
         # - checking if the bmc monitoring works
         # These calls will also initialize the datastructures out of the monitoring loop
@@ -104,6 +110,12 @@ class Monitoring:
         )
         check_monitoring("BMC", Metrics.POWER_SUPPLIES)
 
+        # - checking if pdu monitoring works
+        if pdus:
+            for pdu in pdus:
+                pdu.read_power_consumption(self.get_metric(Metrics.POWER_CONSUMPTION))
+            check_monitoring("PDU", Metrics.POWER_CONSUMPTION)
+
     def __monitor_bmc(self):
         """Monitor the bmc metrics"""
         self.vendor.get_bmc().read_thermals(self.get_metric(Metrics.THERMAL))
@@ -114,6 +126,11 @@ class Monitoring:
         self.vendor.get_bmc().read_power_supplies(
             self.get_metric(Metrics.POWER_SUPPLIES)
         )
+
+    def __monitor_pdus(self):
+        """Monitor the PDU metrics"""
+        for pdu in self.vendor.get_pdus():
+            pdu.read_power_consumption(self.get_metric(Metrics.POWER_CONSUMPTION))
 
     def __compact(self):
         """Compute statistics"""
@@ -158,6 +175,7 @@ class Monitoring:
         self.metrics[str(MonitoringMetadata.ITERATION_TIME)] = frequency * precision
         self.metrics[str(Metrics.MONITOR)] = {
             "BMC": {"Polling": MonitorMetric("Polling", "ms")},
+            "PDU": {"Polling": MonitorMetric("Polling", "ms")},
             "CPU": {"Polling": MonitorMetric("Polling", "ms")},
         }
         # When will we hit "duration" ?
@@ -187,14 +205,23 @@ class Monitoring:
 
             start_bmc = self.get_monotonic_clock()
             self.__monitor_bmc()
-            end_bmc = self.get_monotonic_clock()
+            end_monitoring = self.get_monotonic_clock()
             # Let's monitor the time spent at monitoring the BMC
             self.get_metric(Metrics.MONITOR)["BMC"]["Polling"].add(
-                (end_bmc - start_bmc) * 1e-6
+                (end_monitoring - start_bmc) * 1e-6
             )
 
+            if self.vendor.get_pdus():
+                start_pdu = self.get_monotonic_clock()
+                self.__monitor_pdus()
+                end_monitoring = self.get_monotonic_clock()
+                # Let's monitor the time spent at monitoring the PDUs
+                self.get_metric(Metrics.MONITOR)["PDU"]["Polling"].add(
+                    (end_monitoring - start_pdu) * 1e-6
+                )
+
             # We compute the time spent since we started this iteration
-            monitoring_duration = end_bmc - start_time
+            monitoring_duration = end_monitoring - start_time
 
             # Based on the time passed, let's compute the amount of sleep time
             # to keep in sync with the expected precision
@@ -202,7 +229,7 @@ class Monitoring:
             sleep_time = sleep_time_ns / 1e9
 
             # If the the current time + sleep_time is above the total duration (we accept up to 500ms overdue)
-            if (end_bmc + monitoring_duration + sleep_time_ns) > (
+            if (end_monitoring + monitoring_duration + sleep_time_ns) > (
                 end_of_run + 0.5 * 1e9
             ):
                 # We can stop the monitoring, no more measures will be done

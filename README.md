@@ -40,7 +40,13 @@ This release supports Dell and HPE servers and collects:
 
 This feature uses [Redfish](https://www.dmtf.org/standards/redfish) protocol with both generic and OEM-specific endpoints.
 
-For more details and usage, see the specific documentation.
+If the server is connected to a [PDU](https://en.wikipedia.org/wiki/Power_distribution_unit), and only if the monitoring feature is enabled,
+hwbench can collect power metrics from it.
+
+This release supports the following brands:
+ - Raritan
+
+For more details and usage, see the specific [documentation](./documentation/monitoring.md)
 
 # How can results be analyzed?
 **hwgraph** tool, bundled in the same repository, generates graphs from **hwbench** output files.

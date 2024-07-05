@@ -14,10 +14,45 @@ class MonitoringDevice:
         self.vendor = vendor
         self.redfish_obj = None
         self.logged = False
+        self.firmware_version = ""
+        self.model = ""
+        self.serialnumber = ""
 
     def __del__(self):
         if self.logged:
             self.redfish_obj.logout()
+
+    def get_firmware_version(self):
+        return self.firmware_version
+
+    def get_model(self):
+        return self.model
+
+    def get_serialnumber(self):
+        return self.serialnumber
+
+    def get_url(self):
+        return self.vendor.monitoring_config_file.get(
+            self.pdu_section, "url", fallback=""
+        )
+
+    def detect(self):
+        """Detect monitoring device"""
+        self.firmware_version = ""
+        self.model = ""
+        self.serialnumber = ""
+
+    def get_detect_string(self):
+        details = f"driver @ {self.get_url()} "
+        if self.get_model():
+            details += f"Model: '{self.get_model()}' "
+
+        if self.get_firmware_version():
+            details += f"FW: '{self.get_firmware_version()}' "
+
+        if self.get_serialnumber():
+            details += f"Serial: '{self.get_serialnumber()}' "
+        return details.strip()
 
     def add_monitoring_value(
         self,
@@ -41,11 +76,19 @@ class MonitoringDevice:
 
     def dump(self) -> dict[str, str]:
         """Return the dump of the drive"""
-        return {"driver": self.get_driver_name()}
+        dump = {"driver": self.get_driver_name()}
+        if self.firmware_version:
+            dump["firmware_version"] = self.firmware_version
+        if self.model:
+            dump["model"] = self.model
+        if self.serialnumber:
+            dump["serial_number"] = self.serialnumber
+        if self.get_url():
+            dump["url"] = self.get_url()
+        return dump
 
     def connect_redfish(self, username: str, password: str, device_url: str):
         """Connect to the device using Redfish."""
-
         try:
             if not device_url.startswith("https://"):
                 h.fatal("redfish url '{device_url}' must be an https url")
