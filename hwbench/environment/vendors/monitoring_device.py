@@ -47,8 +47,8 @@ class MonitoringDevice:
         """Connect to the device using Redfish."""
 
         try:
-            if "https://" not in device_url:
-                device_url = "https://{}".format(device_url)
+            if not device_url.startswith("https://"):
+                h.fatal("redfish url '{device_url}' must be an https url")
             self.redfish_obj = redfish.redfish_client(
                 base_url=device_url,
                 username=username,

@@ -83,7 +83,7 @@ class Monitoring:
             check_monitoring("turbostat", Metrics.FREQ)
 
         print(
-            f"Monitoring/BMC: initialize {v.name()} vendor with {bmc.get_driver_name()} driver @ {bmc.get_ip()}"
+            f"Monitoring/BMC: initialize {v.name()} vendor with {bmc.get_driver_name()} driver @ {bmc.get_url()}"
         )
 
         # - checking if the bmc monitoring works

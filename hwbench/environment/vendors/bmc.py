@@ -17,6 +17,13 @@ class BMC(MonitoringDevice, External):
         MonitoringDevice.__init__(self, vendor)
         External.__init__(self, out_dir)
         self.bmc = {}  # type: dict[str, str]
+        self.bmc_section = None
+
+        # For testing purposes, vendor can be None
+        if self.vendor:
+            bmc_sections = vendor.find_monitoring_sections("BMC")
+            if bmc_sections:
+                self.bmc_section = bmc_sections[0]
 
     def run_cmd(self) -> list[str]:
         return ["ipmitool", "lan", "print"]
@@ -42,14 +49,23 @@ class BMC(MonitoringDevice, External):
     def name(self) -> str:
         return "ipmitool-lan-print"
 
-    def get_ip(self) -> str:
-        """Extract the BMC IP."""
-        try:
-            ip = self.bmc["IP Address"]
-        except KeyError:
-            h.fatal("Cannot detect BMC ip")
+    def get_url(self) -> str:
+        """Extract the BMC url."""
+        # For testing purposes, vendor can be None
+        if self.vendor:
+            # If the configuration file provides and url, let's use it
+            url = self.vendor.monitoring_config_file.get(
+                self.bmc_section, "url", fallback=""
+            )
+            if url:
+                return url
 
-        return ip
+        # If no url provided, let's use the ipmi address
+
+        try:
+            return f"https://{self.bmc['IP Address']}"
+        except KeyError:
+            h.fatal("Cannot detect BMC url")
 
     def connect_redfish(self):
         """Connect to the BMC using Redfish."""
@@ -63,7 +79,7 @@ class BMC(MonitoringDevice, External):
 
         bmc_username = self.vendor.monitoring_config_file.get(sections[0], "username")
         bmc_password = self.vendor.monitoring_config_file.get(sections[0], "password")
-        return super().connect_redfish(bmc_username, bmc_password, self.get_ip())
+        return super().connect_redfish(bmc_username, bmc_password, self.get_url())
 
     def get_thermal(self):
         return {}
