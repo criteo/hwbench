@@ -21,10 +21,11 @@ class PerformancePowerProfile:
         )
 
     def run(self) -> None:
+        log = tunninglog()
         if self.skip_tuning:
+            log.info("skip PerformancePowerProfile as no cpu governor detected")
             return
         pattern = re.compile("cpu[0-9]+")
-        log = tunninglog()
         for rootpath, dirnames, filenames in os.walk("/sys/devices/system/cpu"):
             for dirname in dirnames:
                 if pattern.match(dirname):
