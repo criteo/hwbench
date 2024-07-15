@@ -49,11 +49,15 @@ class Hardware(BaseHardware):
         External_Simple(self.out_dir, ["ipmitool", "sdr"], "ipmitool-sdr")
 
     def dump(self) -> dict[str, Optional[str | int] | dict]:
-        return {
+        dump = {
             "dmi": self.dmi.dump(),
             "cpu": self.cpu.dump(),
             "bmc": self.vendor.get_bmc().dump(),
+            "pdu": {},
         }
+        for pdu in self.vendor.get_pdus():
+            dump["pdu"][pdu.get_name()] = pdu.dump()
+        return dump
 
     def cpu_flags(self) -> list[str]:
         return self.cpu.get_flags()

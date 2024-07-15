@@ -90,7 +90,7 @@ def compare_traces(args) -> None:
 def graph_monitoring_metrics(args, trace: Trace, bench_name: str, output_dir) -> int:
     rendered_graphs = 0
     bench = trace.bench(bench_name)
-    for metric_name in ["BMC", "CPU"]:
+    for metric_name in ["BMC", "CPU", "PDU"]:
         metrics = bench.get_component(Metrics.MONITOR, metric_name)
         if metrics:
             for metric in metrics:
@@ -134,6 +134,28 @@ def graph_cpu(args, trace: Trace, bench_name: str, output_dir) -> int:
     for graph_name in cpu_graphs:
         # Let's render the performance, perf_per_temp, perf_per_watt graphs
         for metric, filter in cpu_graphs[graph_name].items():
+            for second_axis in [None, Metrics.THERMAL, Metrics.POWER_CONSUMPTION]:
+                rendered_graphs += generic_graph(
+                    args,
+                    output_dir,
+                    bench,
+                    metric,
+                    graph_name,
+                    second_axis,
+                    filter=filter,
+                )
+
+    return rendered_graphs
+
+
+def graph_pdu(args, trace: Trace, bench_name: str, output_dir) -> int:
+    rendered_graphs = 0
+    bench = trace.bench(bench_name)
+    pdu_graphs = {}
+    pdu_graphs["PDU power reporting"] = {Metrics.POWER_CONSUMPTION: "PDU"}
+    for graph_name in pdu_graphs:
+        # Let's render the performance, perf_per_temp, perf_per_watt graphs
+        for metric, filter in pdu_graphs[graph_name].items():
             for second_axis in [None, Metrics.THERMAL, Metrics.POWER_CONSUMPTION]:
                 rendered_graphs += generic_graph(
                     args,
@@ -219,6 +241,7 @@ def graph_environment(args, output_dir) -> int:
             )
             rendered_graphs += graph_fans(args, trace, bench_name, output_dir)
             rendered_graphs += graph_cpu(args, trace, bench_name, output_dir)
+            rendered_graphs += graph_pdu(args, trace, bench_name, output_dir)
             rendered_graphs += graph_thermal(args, trace, bench_name, output_dir)
 
     return rendered_graphs

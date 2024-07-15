@@ -133,8 +133,9 @@ class ILOREST:
             return get
         return json.loads(get)
 
-    def get_ip(self):
+    def get_bmc_ipv4(self):
         """Return the BMC IPV4 address"""
+        # If no url provided in the configuration file, let's detect it via ilorest
         bmc_netconfig = self.list(
             select="ethernetinterface", filter="id=1", to_json=True
         )
@@ -144,5 +145,3 @@ class ILOREST:
                     ipv4 = nc.get("IPv4Addresses")
                     if ipv4:
                         return ipv4[0].get("Address")
-
-        h.fatal("Cannot detect BMC ip")

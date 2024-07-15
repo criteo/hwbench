@@ -11,6 +11,7 @@ from ....bench.monitoring_structs import (
 )
 from ..vendor import Vendor, BMC
 from .ilorest import Ilorest, IlorestServerclone, ILOREST
+from ....utils import helpers as h
 
 
 class ILO(BMC):
@@ -18,8 +19,19 @@ class ILO(BMC):
         super().__init__(out_dir, vendor)
         self.ilo = ilo
 
-    def get_ip(self) -> str:
-        return self.ilo.get_ip()
+    def get_url(self) -> str:
+        # If the configuration file provides and url, let's use it
+        url = self.vendor.monitoring_config_file.get(
+            self.bmc_section, "url", fallback=""
+        )
+        if url:
+            return url
+
+        ipv4 = self.ilo.get_bmc_ipv4()
+        if ipv4:
+            return f"https://{ipv4}"
+
+        h.fatal("Cannot detect BMC url")
 
     def get_thermal(self):
         return self.get_redfish_url("/redfish/v1/Chassis/1/Thermal")
@@ -139,11 +151,9 @@ class ILO(BMC):
 
 class Hpe(Vendor):
     def __init__(self, out_dir, dmi, monitoring_config_filename):
-        self.out_dir = out_dir
-        self.dmi = dmi
+        super().__init__(out_dir, dmi, monitoring_config_filename)
         self.bmc: ILO = None
         self.ilo = None
-        self.monitoring_config_filename = monitoring_config_filename
 
     def detect(self) -> bool:
         return self.dmi.info("sys_vendor") == "HPE"

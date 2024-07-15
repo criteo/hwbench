@@ -259,4 +259,4 @@ class TestParseCPU(object):
         stdout = (d / "stdout").read_bytes()
         stderr = (d / "stderr").read_bytes()
         test_target.parse_cmd(stdout, stderr)
-        assert test_target.get_ip() == "10.168.97.137"
+        assert test_target.get_url() == "https://10.168.97.137"

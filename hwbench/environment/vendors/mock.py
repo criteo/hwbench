@@ -12,8 +12,12 @@ from .vendor import Vendor, BMC
 
 
 class MockedBMC(BMC):
-    def get_ip(self) -> str:
-        return "1.2.3.4"
+    def get_url(self) -> str:
+        return "https://1.2.3.4"
+
+    def detect(self):
+        self.firmware_version = "1.0.0"
+        self.model = "MockedBMC"
 
     def read_thermals(
         self, thermals: dict[str, dict[str, Temperature]] = {}
@@ -78,10 +82,10 @@ class MockedBMC(BMC):
 
 
 class MockVendor(Vendor):
-    def __init__(self, out_dir, dmi, monitoring_config_filename=None):
-        self.out_dir = out_dir
-        self.dmi = dmi
-        self.monitoring_config_filename = monitoring_config_filename
+    def __init__(
+        self, out_dir, dmi, monitoring_config_filename="tests/mocked_monitoring.cfg"
+    ):
+        super().__init__(out_dir, dmi, monitoring_config_filename)
         self.bmc = MockedBMC(self.out_dir, self)
 
     def detect(self) -> bool:
