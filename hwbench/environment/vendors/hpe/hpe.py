@@ -146,7 +146,9 @@ class ILO(BMC):
         return power_consumption
 
     def get_oem_chassis(self):
-        return self.get_redfish_url("/redfish/v1/Chassis/enclosurechassis/")
+        return self.get_redfish_url(
+            "/redfish/v1/Chassis/enclosurechassis/", log_failure=False
+        )
 
 
 class Hpe(Vendor):

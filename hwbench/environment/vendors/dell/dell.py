@@ -43,7 +43,8 @@ class IDRAC(BMC):
 
     def get_oem_system(self):
         oem = self.get_redfish_url(
-            "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/DellAttributes/System.Embedded.1"
+            "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/DellAttributes/System.Embedded.1",
+            log_failure=False,
         )
         # If not System.Embedded, let's use the default attributes
         if "Attributes" not in oem:
