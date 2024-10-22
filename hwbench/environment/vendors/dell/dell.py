@@ -21,6 +21,13 @@ class IDRAC(BMC):
                 continue
             name = t["Name"].split("Temp")[0].strip()
             pc = t["PhysicalContext"]
+
+            # Adding quirks on some models
+            if pc is None:
+                # On Gen14, some PhysicalContext are not provided, let's workaround that.
+                if "Inlet" in name:
+                    pc = "Intake"
+
             super().add_monitoring_value(
                 cast(dict[str, dict[str, MonitorMetric]], thermals),
                 pc,
