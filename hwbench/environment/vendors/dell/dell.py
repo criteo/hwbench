@@ -7,6 +7,7 @@ from ....bench.monitoring_structs import (
     Temperature,
 )
 from ..vendor import Vendor, BMC
+from ....utils import helpers as h
 
 
 class IDRAC(BMC):
@@ -41,9 +42,17 @@ class IDRAC(BMC):
         return self.get_redfish_url("/redfish/v1/Chassis/System.Embedded.1/Power")
 
     def get_oem_system(self):
-        return self.get_redfish_url(
+        oem = self.get_redfish_url(
             "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/DellAttributes/System.Embedded.1"
         )
+        # If not System.Embedded, let's use the default attributes
+        if "Attributes" not in oem:
+            oem = self.get_redfish_url(
+                "/redfish/v1/Managers/iDRAC.Embedded.1/Attributes"
+            )
+            if "Attributes" not in oem:
+                h.fatal("Cannot find Dell OEM metrics, please fill a bug.")
+        return oem
 
     def read_power_consumption(
         self, power_consumption: dict[str, dict[str, Power]] = {}
