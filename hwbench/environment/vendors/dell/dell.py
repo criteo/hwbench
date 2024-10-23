@@ -7,6 +7,7 @@ from ....bench.monitoring_structs import (
     Temperature,
 )
 from ..vendor import Vendor, BMC
+from ....utils import helpers as h
 
 
 class IDRAC(BMC):
@@ -21,6 +22,13 @@ class IDRAC(BMC):
                 continue
             name = t["Name"].split("Temp")[0].strip()
             pc = t["PhysicalContext"]
+
+            # Adding quirks on some models
+            if pc is None:
+                # On Gen14, some PhysicalContext are not provided, let's workaround that.
+                if "Inlet" in name:
+                    pc = "Intake"
+
             super().add_monitoring_value(
                 cast(dict[str, dict[str, MonitorMetric]], thermals),
                 pc,
@@ -34,9 +42,18 @@ class IDRAC(BMC):
         return self.get_redfish_url("/redfish/v1/Chassis/System.Embedded.1/Power")
 
     def get_oem_system(self):
-        return self.get_redfish_url(
-            "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/DellAttributes/System.Embedded.1"
+        oem = self.get_redfish_url(
+            "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/DellAttributes/System.Embedded.1",
+            log_failure=False,
         )
+        # If not System.Embedded, let's use the default attributes
+        if "Attributes" not in oem:
+            oem = self.get_redfish_url(
+                "/redfish/v1/Managers/iDRAC.Embedded.1/Attributes"
+            )
+            if "Attributes" not in oem:
+                h.fatal("Cannot find Dell OEM metrics, please fill a bug.")
+        return oem
 
     def read_power_consumption(
         self, power_consumption: dict[str, dict[str, Power]] = {}

@@ -113,7 +113,7 @@ class MonitoringDevice:
             h.fatal(type(exception))
 
     @cachetools.func.ttl_cache(maxsize=128, ttl=1.5)
-    def get_redfish_url(self, url):
+    def get_redfish_url(self, url, log_failure=True):
         """Return the content of a Redfish url."""
         # The same url can be called several times like read_thermals() and read_fans() consuming the same redfish endpoint.
         # To avoid multiplicating identical redfish calls, a ttl cache is implemented to avoid multiple redfish calls in a row.
@@ -124,7 +124,8 @@ class MonitoringDevice:
             # It will be up to the caller to see there is no answer and process this
             # {'error': {'code': 'iLO.0.10.ExtendedInfo', 'message': 'See @Message.ExtendedInfo for more information.', '@Message.ExtendedInfo': [{'MessageArgs': ['/redfish/v1/Chassis/enclosurechassis/'], 'MessageId': 'Base.1.4.ResourceMissingAtURI'}]}}
             if redfish and "error" in redfish:
-                logging.error(f"Parsing redfish url {url} failed : {redfish}")
+                if log_failure:
+                    logging.error(f"Parsing redfish url {url} failed : {redfish}")
                 return {}
             return redfish
         except redfish.rest.v1.RetriesExhaustedError:
