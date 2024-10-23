@@ -192,8 +192,8 @@ class Monitoring:
             start_time = self.get_monotonic_clock()
             if self.turbostat:
                 # Turbostat will run for the whole duration of this loop
-                # We just retract a 2/10th of second to ensure it will not overdue
-                self.turbostat.run(interval=(precision - 0.2))
+                # We just retract a 5/10th of second to ensure it will not overdue
+                self.turbostat.run(interval=(precision - 0.5))
                 # Let's monitor the time spent at monitoring the CPU
                 self.get_metric(Metrics.MONITOR)["CPU"]["Polling"].add(
                     (self.get_monotonic_clock() - start_time) * 1e-6
