@@ -140,6 +140,11 @@ class ILOREST:
             select="ethernetinterface", filter="id=1", to_json=True
         )
         if bmc_netconfig:
+            # On multi-node chassis, the ethernetinterface is a list
+            # On single-node chassis, the ethernetinterface is a dict
+            # Let's ensure we always have a list for get a single parsing.
+            if isinstance(bmc_netconfig, dict):
+                bmc_netconfig = [bmc_netconfig]
             for nc in bmc_netconfig:
                 if "Manager Dedicated Network Interface" in nc.get("Name"):
                     ipv4 = nc.get("IPv4Addresses")
