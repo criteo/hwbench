@@ -62,7 +62,7 @@ def create_output_directory() -> tuple[pathlib.Path, pathlib.Path]:
     tuning_out_dir = out_dir / "tuning"
     tuning_out_dir.mkdir()
 
-    return out_dir, tuning_out_dir
+    return out_dir.absolute(), tuning_out_dir.absolute()
 
 
 def parse_options():
