@@ -82,7 +82,7 @@ class Bench:
                                 mm = Temperature(measure, original_measure["unit"])
                             else:
                                 mm = MonitorMetric(measure, original_measure["unit"])
-                            mm.load_from_dict(original_measure)
+                            mm.load_from_dict(original_measure, measure)
                             self.metrics[metric][component_family][measure] = mm
                 else:
                     fatal(f"Unexpected {metric} in monitoring")

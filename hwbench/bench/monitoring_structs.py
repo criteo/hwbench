@@ -26,7 +26,8 @@ class MonitorMetric:
             # If a value is given, let's add it
             self.add(self.value)
 
-    def load_from_dict(self, input: dict):
+    def load_from_dict(self, input: dict, full_name: str):
+        self.full_name = full_name
         self.name = str(input.get("name"))
         self.unit = str(input.get("unit"))
         self.mean = input.get("mean")  # type: ignore[assignment]
@@ -34,6 +35,12 @@ class MonitorMetric:
         self.max = input.get("max")  # type: ignore[assignment]
         self.stdev = input.get("stdev")  # type: ignore[assignment]
         self.samples = input.get("samples")  # type: ignore[assignment]
+
+    def get_full_name(self):
+        """Return the metric full name"""
+        if self.full_name:
+            return self.full_name
+        return self.name
 
     def get_name(self):
         """Return the metric name"""

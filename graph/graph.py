@@ -260,9 +260,9 @@ def generic_graph(
         time_serie.append(time)
         # Collect all components mean value
         for component in components:
-            if component.get_name() not in data_serie:
-                data_serie[component.get_name()] = []
-            data_serie[component.get_name()].append(component.get_mean()[sample])
+            if component.get_full_name() not in data_serie:
+                data_serie[component.get_full_name()] = []
+            data_serie[component.get_full_name()].append(component.get_mean()[sample])
 
         if second_axis:
             for _, entry in bench.get_monitoring_metric(second_axis).items():
@@ -291,8 +291,8 @@ def generic_graph(
             graph.get_ax2().plot(x_serie, y2_serie, "", label=data2_item, marker="o")
 
     for component in components:
-        y_serie = np.array(data_serie[component.get_name()])[order]
-        graph.get_ax().plot(x_serie, y_serie, "", label=component.get_name())
+        y_serie = np.array(data_serie[component.get_full_name()])[order]
+        graph.get_ax().plot(x_serie, y_serie, "", label=component.get_full_name())
 
     graph.prepare_axes(
         30,
