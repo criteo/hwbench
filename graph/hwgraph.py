@@ -350,6 +350,13 @@ power_metric : the name of a power metric, from the monitoring, to be used for '
         action="store_true",
         help="Enable verbose mode",
     )
+
+    parser_graph.add_argument(
+        "--ignore-missing-datapoint",
+        choices=["zero", "last"],
+        default="",
+        help="Replace a missing datapoint instead of stopping the rendering. Could be by a zero or the last known value.",
+    )
     parser_graph.set_defaults(func=render_traces)
 
     parser_list = subparsers.add_parser(
