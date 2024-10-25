@@ -17,7 +17,7 @@ def init_matplotlib(args):
         fatal(f"Cannot load matplotlib backend engine {args.engine}")
 
 
-GRAPH_TYPES = ["perf", "perf_watt", "watts"]
+GRAPH_TYPES = ["perf", "perf_watt", "watts", "cpu_clock"]
 
 
 class Graph:

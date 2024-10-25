@@ -25,6 +25,8 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
         aggregated_perfs_watt = {}  # type: dict[str, dict[str, Any]]
         aggregated_watt = {}  # type: dict[str, dict[str, Any]]
         aggregated_watt_err = {}  # type: dict[str, dict[str, Any]]
+        aggregated_cpu_clock = {}  # type: dict[str, dict[str, Any]]
+        aggregated_cpu_clock_err = {}  # type: dict[str, dict[str, Any]]
         workers = {}  # type: dict[str, list]
         logical_core_per_worker = []
         perf_list, unit = benches[emp]["metrics"]
@@ -41,6 +43,8 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 aggregated_perfs_watt[perf] = {}
                 aggregated_watt[perf] = {}
                 aggregated_watt_err[perf] = {}
+                aggregated_cpu_clock[perf] = {}
+                aggregated_cpu_clock_err[perf] = {}
             # For every trace file given at the command line
             for trace in args.traces:
                 workers[trace.get_name()] = []
@@ -63,6 +67,8 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                         aggregated_perfs_watt[perf][trace.get_name()] = []
                         aggregated_watt[perf][trace.get_name()] = []
                         aggregated_watt_err[perf][trace.get_name()] = []
+                        aggregated_cpu_clock[perf][trace.get_name()] = []
+                        aggregated_cpu_clock_err[perf][trace.get_name()] = []
 
                     bench.add_perf(
                         perf,
@@ -70,6 +76,8 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                         perf_watt=aggregated_perfs_watt[perf][trace.get_name()],
                         watt=aggregated_watt[perf][trace.get_name()],
                         watt_err=aggregated_watt_err[perf][trace.get_name()],
+                        cpu_clock=aggregated_cpu_clock[perf][trace.get_name()],
+                        cpu_clock_err=aggregated_cpu_clock_err[perf][trace.get_name()],
                     )
 
         # Let's render all graphs types
@@ -94,6 +102,13 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                     outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}"
                     y_label = "Watts"
                     y_source = aggregated_watt
+                elif "cpu_clock" in graph_type:
+                    graph_type_title = (
+                        f"Scaling {graph_type}: {args.traces[0].get_metric_name()}"
+                    )
+                    outfile = f"scaling_cpu_clock_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}"
+                    y_label = "Mhz"
+                    y_source = aggregated_cpu_clock
                 else:
                     graph_type_title = (
                         f"Scaling {graph_type}: {bench.get_title_engine_name()}"
@@ -159,6 +174,16 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                             x_serie,
                             y_serie,
                             yerr=np.array(aggregated_watt_err[perf][trace_name]).T,
+                            ecolor=e_color,
+                            color=color_name,
+                            capsize=4,
+                            label=trace_name,
+                        )
+                    elif y_source == aggregated_cpu_clock:
+                        graph.get_ax().errorbar(
+                            x_serie,
+                            y_serie,
+                            yerr=np.array(aggregated_cpu_clock_err[perf][trace_name]).T,
                             ecolor=e_color,
                             color=color_name,
                             capsize=4,
