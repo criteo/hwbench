@@ -195,7 +195,7 @@ def graph_environment(args, output_dir) -> int:
     if chassis:
         all_chassis = [t.get_chassis_serial() == chassis for t in args.traces]
         # if all traces are from the same chassis, let's enable the same_chassis feature
-        if all_chassis.count(True) == len(args.traces):
+        if all_chassis.count(True) == len(args.traces) and len(args.traces) > 1:
             print(
                 f"environment: All traces are from the same chassis ({chassis}), enabling --same-chassis feature"
             )
