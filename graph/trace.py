@@ -82,7 +82,7 @@ class Bench:
                                 mm = Temperature(measure, original_measure["unit"])
                             else:
                                 mm = MonitorMetric(measure, original_measure["unit"])
-                            mm.load_from_dict(original_measure)
+                            mm.load_from_dict(original_measure, measure)
                             self.metrics[metric][component_family][measure] = mm
                 else:
                     fatal(f"Unexpected {metric} in monitoring")
@@ -232,6 +232,8 @@ class Bench:
         perf_watt=None,
         watt=None,
         watt_err=None,
+        cpu_clock=None,
+        cpu_clock_err=None,
         index=None,
     ) -> None:
         """Extract performance and power efficiency"""
@@ -316,6 +318,41 @@ class Bench:
                         watt_err.append(metric)
                     else:
                         watt_err[index] = metric
+
+            if cpu_clock is not None:
+                mm = self.get_monitoring_metric(Metrics.FREQ)
+                mean_values = []
+                min_values = []
+                max_values = []
+
+                for freq_metric in mm:
+                    if freq_metric != "CPU":
+                        continue
+                    # We have to compute metrics of all systems cores
+                    for core in mm[freq_metric]:
+                        # MIN of min ?
+                        # Mean of mean ?
+                        # Max of max ?
+                        min_values.append(min(mm[freq_metric][core].get_min()))
+                        mean_values.append(mean(mm[freq_metric][core].get_mean()))
+                        max_values.append(max(mm[freq_metric][core].get_max()))
+                    min_value = min(min_values)
+                    mean_value = mean(mean_values)
+                    max_value = max(max_values)
+
+                if index is None:
+                    cpu_clock.append(mean_value)
+                else:
+                    cpu_clock[index] = mean_value
+
+                # If we want to keep the error distribution to plot error bars
+                if cpu_clock_err is not None:
+                    metric = (mean_value - min_value, max_value - mean_value)
+                    if index is None:
+                        cpu_clock_err.append(metric)
+                    else:
+                        cpu_clock_err[index] = metric
+
         except ValueError:
             fatal(f"No {perf} found in {self.get_bench_name()}")
 

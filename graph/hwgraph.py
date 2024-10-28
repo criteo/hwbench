@@ -94,14 +94,20 @@ def graph_monitoring_metrics(args, trace: Trace, bench_name: str, output_dir) ->
         metrics = bench.get_component(Metrics.MONITOR, metric_name)
         if metrics:
             for metric in metrics:
-                rendered_graphs += yerr_graph(
-                    args,
-                    output_dir,
-                    bench,
-                    Metrics.MONITOR,
-                    metrics[metric],
-                    prefix=f"{metric_name}.",
-                )
+                # If a metric has no measure, let's ignore it
+                if len(metrics[metric].get_samples()) == 0:
+                    print(
+                        f"{bench_name}: No samples found in {metric_name}.{metric}, ignoring metric."
+                    )
+                else:
+                    rendered_graphs += yerr_graph(
+                        args,
+                        output_dir,
+                        bench,
+                        Metrics.MONITOR,
+                        metrics[metric],
+                        prefix=f"{metric_name}.",
+                    )
 
     return rendered_graphs
 
@@ -343,6 +349,13 @@ power_metric : the name of a power metric, from the monitoring, to be used for '
         "--verbose",
         action="store_true",
         help="Enable verbose mode",
+    )
+
+    parser_graph.add_argument(
+        "--ignore-missing-datapoint",
+        choices=["zero", "last"],
+        default="",
+        help="Replace a missing datapoint instead of stopping the rendering. Could be by a zero or the last known value.",
     )
     parser_graph.set_defaults(func=render_traces)
 

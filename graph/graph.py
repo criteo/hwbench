@@ -17,7 +17,7 @@ def init_matplotlib(args):
         fatal(f"Cannot load matplotlib backend engine {args.engine}")
 
 
-GRAPH_TYPES = ["perf", "perf_watt", "watts"]
+GRAPH_TYPES = ["perf", "perf_watt", "watts", "cpu_clock"]
 
 
 class Graph:
@@ -260,9 +260,32 @@ def generic_graph(
         time_serie.append(time)
         # Collect all components mean value
         for component in components:
-            if component.get_name() not in data_serie:
-                data_serie[component.get_name()] = []
-            data_serie[component.get_name()].append(component.get_mean()[sample])
+            if component.get_full_name() not in data_serie:
+                data_serie[component.get_full_name()] = []
+            # If we are missing some datapoints ....
+            if len(component.get_mean()) <= sample:
+                # If the user didn't explictely agreed to be replaced by 0, let's be fatal
+                if not args.ignore_missing_datapoint:
+                    fatal(
+                        f"{trace.get_name()}/{bench.get_bench_name()}: {component.get_full_name()} is missing the {sample+1}th data point.\
+ Use --ignore-missing-datapoint to ignore this case. Generated graphs will be partially incorrect."
+                    )
+                else:
+                    # User is fine with a missing data to be replaced.
+                    # Let's do that so we can render things properly.
+
+                    # Let's pick the last known value
+                    if args.ignore_missing_datapoint == "last":
+                        data_serie[component.get_full_name()].append(
+                            component.get_mean()[-1]
+                        )
+                    else:
+                        # Replace it by a zero
+                        data_serie[component.get_full_name()].append(0)
+            else:
+                data_serie[component.get_full_name()].append(
+                    component.get_mean()[sample]
+                )
 
         if second_axis:
             for _, entry in bench.get_monitoring_metric(second_axis).items():
@@ -291,8 +314,8 @@ def generic_graph(
             graph.get_ax2().plot(x_serie, y2_serie, "", label=data2_item, marker="o")
 
     for component in components:
-        y_serie = np.array(data_serie[component.get_name()])[order]
-        graph.get_ax().plot(x_serie, y_serie, "", label=component.get_name())
+        y_serie = np.array(data_serie[component.get_full_name()])[order]
+        graph.get_ax().plot(x_serie, y_serie, "", label=component.get_full_name())
 
     graph.prepare_axes(
         30,

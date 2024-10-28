@@ -1,5 +1,7 @@
+import logging
 import pathlib
 import re
+from functools import cache
 from typing import cast
 
 from ....bench.monitoring_structs import (
@@ -84,6 +86,10 @@ class ILO(BMC):
     def get_power(self):
         return self.get_redfish_url("/redfish/v1/Chassis/1/Power/")
 
+    @cache
+    def __warn_psu(self, psu_number, message):
+        logging.error(f"PSU {psu_number}: {message}")
+
     def read_power_supplies(
         self, power_supplies: dict[str, dict[str, Power]] = {}
     ) -> dict[str, dict[str, Power]]:
@@ -91,17 +97,34 @@ class ILO(BMC):
         if str(PowerContext.BMC) not in power_supplies:
             power_supplies[str(PowerContext.BMC)] = {}  # type: ignore[no-redef]
         for psu in self.get_power().get("PowerSupplies"):
-            # Both PSUs are named the same (HpeServerPowerSupply)
+            psu_position = str(psu["Oem"]["Hpe"]["BayNumber"])
+            # All PSUs are named the same (HpeServerPowerSupply)
             # Let's update it to have a unique name
-            name = psu["Name"] + str(psu["Oem"]["Hpe"]["BayNumber"])
-            psu_name = "PS" + str(psu["Oem"]["Hpe"]["BayNumber"])
-            super().add_monitoring_value(
-                cast(dict[str, dict[str, MonitorMetric]], power_supplies),
-                PowerContext.BMC,
-                Power(psu_name),
-                name,
-                psu["Oem"]["Hpe"]["AveragePowerOutputWatts"],
-            )
+            psu_status = psu.get("Status")
+            if psu_status:
+                psu_state = psu_status.get("State")
+                if psu_state:
+                    # We only consider healthy PSU
+                    if str(psu_state).lower() == "enabled":
+                        name = psu["Name"] + psu_position
+                        psu_name = "PS" + psu_position
+                        super().add_monitoring_value(
+                            cast(dict[str, dict[str, MonitorMetric]], power_supplies),
+                            PowerContext.BMC,
+                            Power(psu_name),
+                            name,
+                            psu["Oem"]["Hpe"]["AveragePowerOutputWatts"],
+                        )
+                    else:
+                        # Let's inform the user the PSU is reported as non healthy
+                        self.__warn_psu(
+                            psu_position,
+                            f'marked as {psu_state} in {psu_status.get("Health")} state',
+                        )
+                    continue
+
+            # Let's inform the user that no status was found, maybe a parsing or fw issue ?
+            self.__warn_psu(psu_position, "no status or state found !")
 
         return power_supplies
 
@@ -145,10 +168,22 @@ class ILO(BMC):
             )
         return power_consumption
 
-    def get_oem_chassis(self):
-        return self.get_redfish_url(
-            "/redfish/v1/Chassis/enclosurechassis/", log_failure=False
+    @cache
+    def is_multinode_chassis(self) -> bool:
+        return (
+            True
+            if self.get_redfish_url(
+                "/redfish/v1/Chassis/enclosurechassis/", log_failure=False
+            )
+            else False
         )
+
+    def get_oem_chassis(self):
+        if self.is_multinode_chassis():
+            return self.get_redfish_url(
+                "/redfish/v1/Chassis/enclosurechassis/", log_failure=False
+            )
+        return {}
 
 
 class Hpe(Vendor):

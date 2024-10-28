@@ -11,6 +11,8 @@ from ....utils import helpers as h
 
 
 class IDRAC(BMC):
+    oem_endpoint = ""
+
     def get_thermal(self):
         return self.get_redfish_url("/redfish/v1/Chassis/System.Embedded.1/Thermal")
 
@@ -42,17 +44,27 @@ class IDRAC(BMC):
         return self.get_redfish_url("/redfish/v1/Chassis/System.Embedded.1/Power")
 
     def get_oem_system(self):
+        # If we already found the proper endpoint, let's reuse it.
+        if self.oem_endpoint:
+            return self.get_redfish_url(
+                self.oem_endpoint,
+                log_failure=False,
+            )
+
+        new_oem_endpoint = "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/DellAttributes/System.Embedded.1"
         oem = self.get_redfish_url(
-            "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/DellAttributes/System.Embedded.1",
+            new_oem_endpoint,
             log_failure=False,
         )
         # If not System.Embedded, let's use the default attributes
         if "Attributes" not in oem:
-            oem = self.get_redfish_url(
-                "/redfish/v1/Managers/iDRAC.Embedded.1/Attributes"
-            )
+            new_oem_endpoint = "/redfish/v1/Managers/iDRAC.Embedded.1/Attributes"
+            oem = self.get_redfish_url(new_oem_endpoint)
             if "Attributes" not in oem:
                 h.fatal("Cannot find Dell OEM metrics, please fill a bug.")
+
+        # Let's save the endpoint to avoid trying all of them at every run
+        self.oem_endpoint = new_oem_endpoint
         return oem
 
     def read_power_consumption(
