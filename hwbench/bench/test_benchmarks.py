@@ -12,17 +12,18 @@ class TestParse(tbc.TestCommon):
         with patch(
             "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
         ) as p:
+            print(pathlib.Path("."))
             p.return_value = (
-                pathlib.Path("./tests/parsing/stressngmethods/v17/stdout")
+                pathlib.Path("hwbench/tests/parsing/stressngmethods/v17/stdout")
                 .read_bytes()
                 .split(b":", 1)
             )
             self.load_mocked_hardware(
-                cpucores="./tests/parsing/cpu_cores/v2321",
-                cpuinfo="./tests/parsing/cpu_info/v2321",
-                numa="./tests/parsing/numa/8domainsllc",
+                cpucores="hwbench/tests/parsing/cpu_cores/v2321",
+                cpuinfo="hwbench/tests/parsing/cpu_info/v2321",
+                numa="hwbench/tests/parsing/numa/8domainsllc",
             )
-            self.load_benches("./config/sample.ini")
+            self.load_benches("./hwbench/config/sample.ini")
             self.parse_jobs_config()
 
     def test_parsing(self):
@@ -100,11 +101,11 @@ class TestParse(tbc.TestCommon):
             "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
         ) as p:
             p.return_value = (
-                pathlib.Path("./tests/parsing/stressngmethods/v17/stdout")
+                pathlib.Path("./hwbench/tests/parsing/stressngmethods/v17/stdout")
                 .read_bytes()
                 .split(b":", 1)
             )
-            self.load_benches("./config/stream.ini")
+            self.load_benches("./hwbench/config/stream.ini")
             assert self.get_jobs_config().get_config().getint("global", "runtime") == 5
             self.get_jobs_config().get_config().set("global", "runtime", "2")
             with self.assertRaises(SystemExit):

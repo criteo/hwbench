@@ -11,12 +11,12 @@ class TestParseConfig(tbc.TestCommon):
             "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
         ) as p:
             p.return_value = (
-                pathlib.Path("./tests/parsing/stressngmethods/v17/stdout")
+                pathlib.Path("./hwbench/tests/parsing/stressngmethods/v17/stdout")
                 .read_bytes()
                 .split(b":", 1)
             )
             self.hw = MockHardware()
-            self.load_benches("./config/sample.ini")
+            self.load_benches("./hwbench/config/sample.ini")
 
     def test_sections_name(self):
         """Check if sections names are properly detected."""
@@ -43,7 +43,7 @@ class TestParseConfig(tbc.TestCommon):
                 "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
             ) as p:
                 p.return_value = (
-                    pathlib.Path("./tests/parsing/stressngmethods/v17/stdout")
+                    pathlib.Path("./hwbench/tests/parsing/stressngmethods/v17/stdout")
                     .read_bytes()
                     .split(b":", 1)
                 )
@@ -59,11 +59,11 @@ class TestParseConfig(tbc.TestCommon):
             "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
         ) as p:
             p.return_value = (
-                pathlib.Path("./tests/parsing/stressngmethods/v17/stdout")
+                pathlib.Path("./hwbench/tests/parsing/stressngmethods/v17/stdout")
                 .read_bytes()
                 .split(b":", 1)
             )
-            self.load_benches("./config/sample_weirds.conf")
+            self.load_benches("./hwbench/config/sample_weirds.conf")
             assert (
                 self.get_jobs_config().get_config().getint("noglobalruntime", "runtime")
                 == 60

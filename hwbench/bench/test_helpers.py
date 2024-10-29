@@ -5,11 +5,11 @@ class TestHelpers(tbc.TestCommon):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.load_mocked_hardware(
-            cpucores="./tests/parsing/cpu_cores/v2321",
-            cpuinfo="./tests/parsing/cpu_info/v2321",
-            numa="./tests/parsing/numa/8domainsllc",
+            cpucores="./hwbench/tests/parsing/cpu_cores/v2321",
+            cpuinfo="./hwbench/tests/parsing/cpu_info/v2321",
+            numa="./hwbench/tests/parsing/numa/8domainsllc",
         )
-        self.load_benches("./config/helpers.conf")
+        self.load_benches("./hwbench/config/helpers.conf")
         self.parse_jobs_config()
 
     def test_helpers(self):
@@ -32,11 +32,11 @@ class TestHelpers_CPUSTORAGE(tbc.TestCommon):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.load_mocked_hardware(
-            cpucores="./tests/parsing/cpu_cores/cpustorage",
-            cpuinfo="./tests/parsing/cpu_info/cpustorage",
-            numa="./tests/parsing/numa/2domains",
+            cpucores="./hwbench/tests/parsing/cpu_cores/cpustorage",
+            cpuinfo="./hwbench/tests/parsing/cpu_info/cpustorage",
+            numa="./hwbench/tests/parsing/numa/2domains",
         )
-        self.load_benches("./config/helpers.conf")
+        self.load_benches("./hwbench/config/helpers.conf")
         self.parse_jobs_config()
 
     def test_helpers(self):
@@ -59,11 +59,11 @@ class TestHelpersImpossible(tbc.TestCommon):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.load_mocked_hardware(
-            cpucores="./tests/parsing/cpu_cores/v2321",
-            cpuinfo="./tests/parsing/cpu_info/v2321",
-            numa="./tests/parsing/numa/8domainsllc",
+            cpucores="./hwbench/tests/parsing/cpu_cores/v2321",
+            cpuinfo="./hwbench/tests/parsing/cpu_info/v2321",
+            numa="./hwbench/tests/parsing/numa/8domainsllc",
         )
-        self.load_benches("./config/helpers_fail.conf")
+        self.load_benches("./hwbench/config/helpers_fail.conf")
 
     def test_helpers_impossible(self):
         """Testing impossible helper usecase."""
