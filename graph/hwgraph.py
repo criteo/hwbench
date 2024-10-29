@@ -5,18 +5,25 @@ import re
 import sys
 from typing import Any  # noqa: F401
 
-from graph.common import fatal
-from graph.graph import init_matplotlib, generic_graph, yerr_graph
-from graph.individual import individual_graph
-from graph.scaling import scaling_graph
-from graph.chassis import graph_chassis
-from graph.trace import Trace
-from hwbench.bench.monitoring_structs import (
-    FanContext,
-    PowerCategories,
-    PowerContext,
-    Metrics,
-)
+try:
+    from graph.common import fatal
+    from graph.graph import init_matplotlib, generic_graph, yerr_graph
+    from graph.individual import individual_graph
+    from graph.scaling import scaling_graph
+    from graph.chassis import graph_chassis
+    from graph.trace import Trace
+    from hwbench.bench.monitoring_structs import (
+        FanContext,
+        PowerCategories,
+        PowerContext,
+        Metrics,
+    )
+except ImportError as exc:
+    print(exc)
+    print(
+        'Could not start hwgraph: did you make sure to also install the "graph" optional dependencies using `uv sync --extra graph` or `pip install hwbench[graph]`?'
+    )
+    sys.exit(1)
 
 
 def valid_trace_file(trace_arg: str) -> Trace:

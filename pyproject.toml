@@ -12,11 +12,7 @@ requires-python = ">=3.9"
 dependencies = [
   "cachetools",
   "redfish",
-  "packaging",
-  "numpy",
-  "matplotlib>3.5.0",
-  "pillow>=11.0.0",
-  "pycairo",
+  "packaging"
 ]
 
 [project.urls]
@@ -37,4 +33,12 @@ dev = [
     "ruff>=0.7.1",
     "types-cachetools>=5.5.0.20240820",
     "uv>=0.4.27"
+]
+
+[project.optional-dependencies]
+graph = [
+  "numpy",
+  "matplotlib>3.5.0",
+  "pillow>=11.0.0",
+  "pycairo",
 ]

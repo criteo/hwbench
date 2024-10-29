@@ -100,6 +100,8 @@ We do not (yet, coming at some point) provide a PyPi package. However, installat
 2. Make sure that you have all the requirements above already installed on your system
 3. Install a recent version of `uv` on your system: we require a version above 0.4.27, so you can just do a `pip install uv` on your system to install the latest release. If you are on Ubuntu or another Debian-derivative, you may receive an error and need to follow the guide on [uv's official website](https://docs.astral.sh/uv/getting-started/installation/).
 4. Run `uv sync` in the repository.
+> [!WARNING]
+> If you want to also include the dependencies for the plotting, run `uv sync --extra graph` instead!
 5. Have fun running `uv run hwbench` (as root) and `uv run hwgraph`!
 
 ---
