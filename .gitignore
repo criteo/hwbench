@@ -1,8 +1,11 @@
-# ignore misc build/test files
-.env-lint
+# ignore uv venv
+.venv
+
+# ignore standard cache folders
+.*_cache
+
+# ignore built files
 *.pyc
-.ruff-cache
+dist
+
 hwbench-out-*
-hwbench.egg-info
-.coverage
-junit-python*.xml

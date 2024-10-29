@@ -63,14 +63,18 @@ If multiple output files are passed as arguments, and only if they were generate
 
 For more details, see the specific documentation.
 
-# Examples
-Running the **simple.conf** job:
-<code>python3 -m hwbench.hwbench -j configs/simple.conf -m monitoring.cfg</code>
+---
 
-# Requirements
-## Mandatory
+# Installation
+
+You will first need the following packages on your machine, depending on what you want to run:
+1. The "main" tool: `hwbench`; you will install this on your server, or the machine you want to analyse
+2. The "graphing" tool: `hwgraph`; this is the part used to parse `hwbench`'s output that will create those nice graphs for you to analyse and compare the runs!
+You can install both of them on the server, but `hwgraph` requires some graphics library not always convenient to install in reduced environments.
+
+### Requirements to run hwbench
+#### Mandatory
 - python >= 3.9
-- [python dependencies](./requirements/base.in)
 - turbostat >= 2022.04.16
 - numactl
 - dmidecode
@@ -78,7 +82,28 @@ Running the **simple.conf** job:
 - lspci
 - rpm
 
-## Optional
+#### Optional
 - ipmitool
 - ilorest (for HPE servers)
 - stress-ng >= 0.17.04
+
+### Requirements to run hwgraph
+#### Mandatory
+- python >= 3.9
+- Headers for Cairo (`cairo-devel` on RHEL-based or `libcairo2-dev` for Debian-based)
+- Python 3 headers for your current interpreter (`python3-devel` on RHEL-based or `python3-dev` for Debian-based)
+
+
+## Actual installation
+We do not (yet, coming at some point) provide a PyPi package. However, installation is almost just as simple:
+1. Clone the repository
+2. Make sure that you have all the requirements above already installed on your system
+3. Install a recent version of `uv` on your system: we require a version above 0.4.27, so you can just do a `pip install uv` on your system to install the latest release. If you are on Ubuntu or another Debian-derivative, you may receive an error and need to follow the guide on [uv's official website](https://docs.astral.sh/uv/getting-started/installation/).
+4. Run `uv sync` in the repository.
+5. Have fun running `uv run hwbench` (as root) and `uv run hwgraph`!
+
+---
+
+# Examples
+Running the **simple.conf** job:
+<code>python3 -m hwbench.hwbench -j configs/simple.conf -m monitoring.cfg</code>

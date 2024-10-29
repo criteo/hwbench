@@ -24,10 +24,14 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: ${{ env.PR_FETCH_DEPTH }}
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v3
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
         with:
-          python-version: ${{ matrix.python-version }}
+          version: "0.4.28"
+          enable-cache: true
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Test every commit in the PR for Python ${{ matrix.python-version }}
         run: |
@@ -35,5 +39,8 @@ jobs:
           for commit in $COMMITS; do
             git checkout $commit || exit 1
             git show --no-patch --format='Testing commit %h %s'
-            make check || exit 1
+            make sync_deps check_ci bundle || exit 1
           done
+
+      - name: Minimize uv cache
+        run: uv cache prune --ci
