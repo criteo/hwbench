@@ -5,16 +5,16 @@ class TestNuma(tbc.TestCommon):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.load_mocked_hardware(
-            cpucores="./tests/parsing/cpu_cores/v2321",
-            cpuinfo="./tests/parsing/cpu_info/v2321",
-            numa="./tests/parsing/numa/8domainsllc",
+            cpucores="./hwbench/tests/parsing/cpu_cores/v2321",
+            cpuinfo="./hwbench/tests/parsing/cpu_info/v2321",
+            numa="./hwbench/tests/parsing/numa/8domainsllc",
         )
         self.NUMA0 = list(range(0, 8)) + list(range(64, 72))
         self.NUMA1 = list(range(8, 16)) + list(range(72, 80))
         self.NUMA0_1 = sorted(self.NUMA0 + self.NUMA1)
         self.NUMA7 = list(range(56, 64)) + list(range(120, 128))
         self.NUMA07 = list(range(0, self.hw.get_cpu().get_logical_cores_count()))
-        self.load_benches("./config/numa.conf")
+        self.load_benches("./hwbench/config/numa.conf")
         self.parse_jobs_config()
 
     def test_quadrant(self):
@@ -28,7 +28,7 @@ class TestNuma(tbc.TestCommon):
 
         # Testing broken syntax that must fail
         # Testing quadrants
-        self.load_benches("./config/sample_weirds.conf")
+        self.load_benches("./hwbench/config/sample_weirds.conf")
         for test_name in [
             "invalid_quadrant",
             "alpha_quadrant",
@@ -59,7 +59,7 @@ class TestNuma(tbc.TestCommon):
 
         # Testing broken syntax that must fail
         # Testing quadrants
-        self.load_benches("./config/sample_weirds.conf")
+        self.load_benches("./hwbench/config/sample_weirds.conf")
         for test_name in [
             "invalid_numa_nodes",
             "alpha_numa_nodes",

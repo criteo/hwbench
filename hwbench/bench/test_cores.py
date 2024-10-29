@@ -5,11 +5,11 @@ class TestCores(tbc.TestCommon):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.load_mocked_hardware(
-            cpucores="./tests/parsing/cpu_cores/v2321",
-            cpuinfo="./tests/parsing/cpu_info/v2321",
-            numa="./tests/parsing/numa/8domainsllc",
+            cpucores="./hwbench/tests/parsing/cpu_cores/v2321",
+            cpuinfo="./hwbench/tests/parsing/cpu_info/v2321",
+            numa="./hwbench/tests/parsing/numa/8domainsllc",
         )
-        self.load_benches("./config/cores.conf")
+        self.load_benches("./hwbench/config/cores.conf")
         self.parse_jobs_config()
 
     def test_cores(self):
@@ -30,7 +30,7 @@ class TestCores(tbc.TestCommon):
         assert self.get_bench_parameters(3).get_pinned_cpu() == CPU0_1
 
         # Testing broken syntax that must fail
-        self.load_benches("./config/sample_weirds.conf")
+        self.load_benches("./hwbench/config/sample_weirds.conf")
         for test_name in [
             "invalid_cpu_core",
             "alpha_cpu_core",

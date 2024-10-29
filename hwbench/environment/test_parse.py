@@ -12,7 +12,7 @@ path = pathlib.Path("")
 
 class TestParseCPU(object):
     def test_ami_aptio(self):
-        d = pathlib.Path("./tests/parsing/ami_aptio/v5")
+        d = pathlib.Path("./hwbench/tests/parsing/ami_aptio/v5")
         print(f"parsing test {d.name}")
         test_target = amd.Ami_Aptio(path)
         ver_stdout = (d / "version-stdout").read_bytes()
@@ -22,8 +22,8 @@ class TestParseCPU(object):
 
     def test_parsing_cpuinfo(self):
         for d in [
-            pathlib.Path("./tests/parsing/cpu_info/v2321"),
-            pathlib.Path("./tests/parsing/cpu_info/cpustorage"),
+            pathlib.Path("./hwbench/tests/parsing/cpu_info/v2321"),
+            pathlib.Path("./hwbench/tests/parsing/cpu_info/cpustorage"),
         ]:
             print(f"parsing test {d.name}")
             test_target = cpu_info.CPU_INFO(path)
@@ -49,7 +49,7 @@ class TestParseCPU(object):
             assert test_target.get_vendor() == output["Vendor ID"]
 
     def test_parsing_cpu_cores(self):
-        d = pathlib.Path("./tests/parsing/cpu_cores/v2321")
+        d = pathlib.Path("./hwbench/tests/parsing/cpu_cores/v2321")
         print(f"parsing test {d.name}")
         test_target = cpu_cores.CPU_CORES(path)
 
@@ -202,7 +202,7 @@ class TestParseCPU(object):
         assert test_target.get_peer_sibling(64) == 0
 
     def test_parsing_numa_1_domain(self):
-        d = pathlib.Path("./tests/parsing/numa/1domain")
+        d = pathlib.Path("./hwbench/tests/parsing/numa/1domain")
         print(f"parsing test {d.name}")
         test_target = numa.NUMA(path)
 
@@ -214,7 +214,7 @@ class TestParseCPU(object):
         assert len(test_target.get_cores(0)) == 128
 
     def test_parsing_numa_2_domains(self):
-        d = pathlib.Path("./tests/parsing/numa/2domains")
+        d = pathlib.Path("./hwbench/tests/parsing/numa/2domains")
         print(f"parsing test {d.name}")
         test_target = numa.NUMA(path)
 
@@ -227,7 +227,7 @@ class TestParseCPU(object):
         assert len(test_target.get_cores(1)) == 36
 
     def test_parsing_numa_4_domains(self):
-        d = pathlib.Path("./tests/parsing/numa/4domains")
+        d = pathlib.Path("./hwbench/tests/parsing/numa/4domains")
         print(f"parsing test {d.name}")
         test_target = numa.NUMA(path)
 
@@ -240,7 +240,7 @@ class TestParseCPU(object):
             assert len(test_target.get_cores(domain)) == 16
 
     def test_parsing_numa_8_domains_with_llc(self):
-        d = pathlib.Path("./tests/parsing/numa/8domainsllc")
+        d = pathlib.Path("./hwbench/tests/parsing/numa/8domainsllc")
         print(f"parsing test {d.name}")
         test_target = numa.NUMA(path)
 
@@ -253,7 +253,7 @@ class TestParseCPU(object):
             assert len(test_target.get_cores(domain)) == 16
 
     def test_ipmitool_parsing(self):
-        d = pathlib.Path("./tests/parsing/ipmitool/1818")
+        d = pathlib.Path("./hwbench/tests/parsing/ipmitool/1818")
         print(f"parsing test {d.name}")
         test_target = BMC(path, None)
         stdout = (d / "stdout").read_bytes()

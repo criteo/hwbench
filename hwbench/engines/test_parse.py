@@ -28,7 +28,9 @@ def mock_engine(version: str) -> StressNG:
             "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
         ) as p:
             p.return_value = (
-                pathlib.Path(f"./tests/parsing/stressngmethods/{version}/stdout")
+                pathlib.Path(
+                    f"./hwbench/tests/parsing/stressngmethods/{version}/stdout"
+                )
                 .read_bytes()
                 .split(b":", 1)
             )
@@ -37,7 +39,7 @@ def mock_engine(version: str) -> StressNG:
 
 class TestParse(unittest.TestCase):
     def test_engine_parsing_version(self):
-        test_dir = pathlib.Path("./tests/parsing/stressng")
+        test_dir = pathlib.Path("./hwbench/tests/parsing/stressng")
         for d in test_dir.iterdir():
             test_target = mock_engine("v17")
             if not d.is_dir():
@@ -54,7 +56,7 @@ class TestParse(unittest.TestCase):
             (StressNGStream, EngineModuleStream, "stressng-stream", 0, engine_v17),
             (StressNGMemrate, EngineModuleMemrate, "stressng-memrate", 128, engine_v17),
         ]:
-            test_dir = pathlib.Path(f"./tests/parsing/{prefix}")
+            test_dir = pathlib.Path(f"./hwbench/tests/parsing/{prefix}")
             for d in test_dir.iterdir():
                 if not d.is_dir():
                     continue
@@ -95,7 +97,7 @@ class TestParse(unittest.TestCase):
                     assert output == json.loads((d / "output").read_bytes())
 
     def test_stressng_methods(self):
-        test_dir = pathlib.Path("./tests/parsing/stressngmethods")
+        test_dir = pathlib.Path("./hwbench/tests/parsing/stressngmethods")
         for d in test_dir.iterdir():
             if not d.is_dir():
                 continue

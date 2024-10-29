@@ -65,7 +65,7 @@ class TestCommon(unittest.TestCase):
             with patch("hwbench.environment.turbostat.Turbostat.check_version") as cv:
                 cv.return_value = True
                 with patch("hwbench.environment.turbostat.Turbostat.run") as ts:
-                    with open("tests/parsing/turbostat/run", "r") as f:
+                    with open("hwbench/tests/parsing/turbostat/run", "r") as f:
                         ts.return_value = ast.literal_eval(f.read())
                         return self.benches.parse_jobs_config(validate_parameters)
 
