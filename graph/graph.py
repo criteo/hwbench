@@ -1,4 +1,6 @@
+from typing import Optional
 import matplotlib
+from matplotlib.pylab import Axes
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter, AutoMinorLocator, MultipleLocator
@@ -32,7 +34,7 @@ class Graph:
         square=False,
         show_source_file=None,
     ) -> None:
-        self.ax2 = None
+        self.ax2: Optional[Axes] = None
         self.args = args
         self.fig, self.ax = plt.subplots()
         self.dpi = 100
