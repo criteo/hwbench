@@ -37,6 +37,12 @@ class BenchmarkParameters:
         self.skip_method = skip_method
         self.sync_start = sync_start
 
+    def get_benchmark(self):
+        return self.benchmark
+
+    def set_benchmark(self, benchmark):
+        self.benchmark = benchmark
+
     def get_pinned_cpu(self):
         if self.pinned_cpu == "none":
             return ""
