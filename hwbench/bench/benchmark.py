@@ -140,7 +140,7 @@ class ExternalBench(External):
             monitoring = "(M)"
         print(
             "[{}] {}/{}/{}{}: {:3d} stressor{} for {}s{}".format(
-                p.get_name(),
+                p.get_name_with_position(),
                 self.engine_module.get_engine().get_name(),
                 self.engine_module.get_name(),
                 p.get_engine_module_parameter(),
