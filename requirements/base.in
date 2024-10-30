@@ -1,6 +1,0 @@
-cachetools
-numpy
-matplotlib>=3.9.2
-redfish
-pycairo
-packaging

@@ -1,36 +1,37 @@
 all:
 
-.PHONY: update_deps clean check format
+.PHONY: update_deps update_lock sync_deps clean check check_ci bundle format
 
-UPDATE_DEPS_ENV = .env-deps
-LINT_ENV = .env-lint
+SOURCES = hwbench csv graph
 
-SOURCES = hwbench setup.py csv graph
+update_deps:
+	uv sync -U
 
-update_env:
-	python3 -m venv $(UPDATE_DEPS_ENV)
-	./$(UPDATE_DEPS_ENV)/bin/pip install --upgrade --quiet pip-tools
+update_lock:
+	uv lock
 
-update_deps: update_env
-	./$(UPDATE_DEPS_ENV)/bin/pip-compile --upgrade --output-file=requirements/base.txt requirements/base.in
-	./$(UPDATE_DEPS_ENV)/bin/pip-compile --upgrade --output-file=requirements/test.txt requirements/test.in
-
-regen_hashes: update_env
-	./$(UPDATE_DEPS_ENV)/bin/pip-compile --output-file=requirements/base.txt requirements/base.in
-	./$(UPDATE_DEPS_ENV)/bin/pip-compile --output-file=requirements/test.txt requirements/test.in
+sync_deps:
+	uv sync --all-extras --dev
 
 clean:
-	rm -fr $(UPDATE_DEPS_ENV) $(LINT_ENV)
+	uv venv
 
-$(LINT_ENV):
-	python3 -m venv $(LINT_ENV)
-	./$(LINT_ENV)/bin/pip install -r requirements/test.txt
+check:
+	@uv lock --locked || echo "Your lock file should change because you probably added a dependency or bump the minimal Python version. Please run `uv lock`"
+	uv tool run ruff format --diff $(SOURCES)
+	uv tool run ruff check $(SOURCES)
+	uv run mypy $(SOURCES)
+	uv run pytest $(SOURCES)
 
-check: $(LINT_ENV)
-	env PYTHON=python3 ./$(LINT_ENV)/bin/tox
+check_ci:
+	@uv lock --locked || echo "Your lock file should change because you probably added a dependency or bump the minimal Python version, but this is not allowed in the CI. Please run `uv lock`"
+	uv tool run ruff format --diff $(SOURCES)
+	uv tool run ruff check --output-format=github $(SOURCES)
+	uv run mypy $(SOURCES)
+	uv run pytest $(SOURCES)
 
-bundle: $(LINT_ENV)
-	env PYTHON=python3 ./$(LINT_ENV)/bin/tox -e bundle
+bundle:
+	uv build
 
-format: $(LINT_ENV)
-	./$(LINT_ENV)/bin/ruff format $(SOURCES)
+format:
+	uv tool run ruff format $(SOURCES)
