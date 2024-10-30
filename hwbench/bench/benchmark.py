@@ -125,7 +125,7 @@ class ExternalBench(External):
         if self.parameters.get_monitoring():
             monitoring = "(M)"
         print(
-            f"[{p.get_name()}] {self.engine_module.get_engine().get_name()}/"
+            f"[{p.get_name_with_position()}] {self.engine_module.get_engine().get_name()}/"
             f"{self.engine_module.get_name()}/{p.get_engine_module_parameter()}{monitoring}: "
             f"{p.get_engine_instances_count():3d} stressor{cpu_location} for {p.get_runtime()}s{status}"
         )
