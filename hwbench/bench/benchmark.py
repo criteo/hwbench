@@ -20,6 +20,7 @@ class Benchmark:
         self.job_number = job_number
         self.enginemodule = enginemodule
         self.parameters = parameters
+        self.parameters.set_benchmark(self)
 
     def get_enginemodule(self) -> EngineModuleBase:
         return self.enginemodule
