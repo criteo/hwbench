@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "hwbench"
 authors = [{name = "Erwan Velu", email = "e.velu@criteo.com"}, {name = "Anisse Astier", email = "a.astier@criteo.com"}, {name = "Aurélien Rougemont", email="a.rougemont@criteo.com"}]
 description = "hwbench is a benchmark orchestrator to automate the low-level testing of servers"
-version = "0.1.0"
+version = "0.2.0"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
