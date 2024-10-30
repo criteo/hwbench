@@ -51,6 +51,11 @@ class BenchmarkParameters:
     def get_name(self) -> str:
         return self.job_name
 
+    def get_name_with_position(self) -> str:
+        if not self.benchmark:
+            return self.get_name()
+        return f"{self.get_name()}_{self.benchmark.get_job_number()}"
+
     def get_engine_instances_count(self) -> int:
         return self.engine_instances
 

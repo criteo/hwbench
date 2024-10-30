@@ -244,7 +244,7 @@ ETA {duration}"
                 print(f"hwbench: [{bench_name}]: started at {datetime.datetime.utcnow()}")
 
             # Save each benchmark result
-            results[f"{benchmark.get_parameters().get_name()}_{benchmark.get_job_number()}"] = benchmark.run()
+            results[benchmark.get_parameters().get_name_with_position()] = benchmark.run()
         return results
 
     def dump(self):
@@ -253,7 +253,7 @@ ETA {duration}"
                 engine = bench.get_enginemodule().get_engine()
                 em = bench.get_enginemodule()
                 param = bench.get_parameters()
-                print(f"[{param.get_name()}_{bench.get_job_number()}]", file=f)
+                print(f"[{param.get_name_with_position()}]", file=f)
                 print(f"runtime={param.get_runtime()}", file=f)
                 print(f"monitoring={param.get_monitoring_config()}", file=f)
                 print(f"engine={engine.get_name()}", file=f)
