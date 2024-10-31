@@ -6,11 +6,10 @@ from unittest.mock import patch
 from ..bench.parameters import BenchmarkParameters
 from ..environment.mock import MockHardware
 from .stressng import Engine as StressNG
+from .stressng_qsort import EngineModuleQsort, StressNGQsort
 from .stressng import (
-    StressNGQsort,
     StressNGMemrate,
     StressNGStream,
-    EngineModuleQsort,
     EngineModuleMemrate,
     EngineModuleStream,
     EngineModuleVNNI,
