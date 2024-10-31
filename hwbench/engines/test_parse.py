@@ -9,11 +9,7 @@ from .stressng import Engine as StressNG
 from .stressng_qsort import EngineModuleQsort, StressNGQsort
 from .stressng_memrate import EngineModuleMemrate, StressNGMemrate
 from .stressng_stream import EngineModuleStream, StressNGStream
-from .stressng import (
-    EngineModuleVNNI,
-    StressNGVNNIMethods,
-    StressNGVNNI,
-)
+from .stressng_vnni import EngineModuleVNNI, StressNGVNNIMethods, StressNGVNNI
 
 
 def mock_engine(version: str) -> StressNG:
