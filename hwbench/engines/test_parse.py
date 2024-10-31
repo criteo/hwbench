@@ -8,9 +8,8 @@ from ..environment.mock import MockHardware
 from .stressng import Engine as StressNG
 from .stressng_qsort import EngineModuleQsort, StressNGQsort
 from .stressng_memrate import EngineModuleMemrate, StressNGMemrate
+from .stressng_stream import EngineModuleStream, StressNGStream
 from .stressng import (
-    StressNGStream,
-    EngineModuleStream,
     EngineModuleVNNI,
     StressNGVNNIMethods,
     StressNGVNNI,
