@@ -60,7 +60,10 @@ class CPU_INFO(External):
         return int(self._mandatory_spec("Model"))
 
     def get_model_name(self) -> str:
-        return self._mandatory_spec("Model name")
+        try:
+            return self._mandatory_spec("Model name")
+        except ValueError as _:
+            return self._mandatory_spec("BIOS Model name")
 
     def get_stepping(self) -> int:
         return int(self._mandatory_spec("Stepping"))
