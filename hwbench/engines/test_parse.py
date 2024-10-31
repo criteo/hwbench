@@ -7,10 +7,9 @@ from ..bench.parameters import BenchmarkParameters
 from ..environment.mock import MockHardware
 from .stressng import Engine as StressNG
 from .stressng_qsort import EngineModuleQsort, StressNGQsort
+from .stressng_memrate import EngineModuleMemrate, StressNGMemrate
 from .stressng import (
-    StressNGMemrate,
     StressNGStream,
-    EngineModuleMemrate,
     EngineModuleStream,
     EngineModuleVNNI,
     StressNGVNNIMethods,
