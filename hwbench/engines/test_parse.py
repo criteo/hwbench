@@ -25,7 +25,7 @@ def mock_engine(version: str) -> StressNG:
     with patch("hwbench.utils.helpers.is_binary_available") as iba:
         iba.return_value = True
         with patch(
-            "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
+            "hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters"
         ) as p:
             p.return_value = (
                 pathlib.Path(

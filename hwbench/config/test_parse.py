@@ -8,7 +8,7 @@ class TestParseConfig(tbc.TestCommon):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         with patch(
-            "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
+            "hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters"
         ) as p:
             p.return_value = (
                 pathlib.Path("./hwbench/tests/parsing/stressngmethods/v17/stdout")
@@ -40,7 +40,7 @@ class TestParseConfig(tbc.TestCommon):
             # We need to patch list_module_parameters() function
             # to avoid considering the local stress-ng binary
             with patch(
-                "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
+                "hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters"
             ) as p:
                 p.return_value = (
                     pathlib.Path("./hwbench/tests/parsing/stressngmethods/v17/stdout")
@@ -56,7 +56,7 @@ class TestParseConfig(tbc.TestCommon):
     def test_defaults(self):
         """Check if default values are properly set."""
         with patch(
-            "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
+            "hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters"
         ) as p:
             p.return_value = (
                 pathlib.Path("./hwbench/tests/parsing/stressngmethods/v17/stdout")
