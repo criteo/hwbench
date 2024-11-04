@@ -6,17 +6,10 @@ from unittest.mock import patch
 from ..bench.parameters import BenchmarkParameters
 from ..environment.mock import MockHardware
 from .stressng import Engine as StressNG
-from .stressng import (
-    StressNGQsort,
-    StressNGMemrate,
-    StressNGStream,
-    EngineModuleQsort,
-    EngineModuleMemrate,
-    EngineModuleStream,
-    EngineModuleVNNI,
-    StressNGVNNIMethods,
-    StressNGVNNI,
-)
+from .stressng_qsort import EngineModuleQsort, StressNGQsort
+from .stressng_memrate import EngineModuleMemrate, StressNGMemrate
+from .stressng_stream import EngineModuleStream, StressNGStream
+from .stressng_vnni import EngineModuleVNNI, StressNGVNNIMethods, StressNGVNNI
 
 
 def mock_engine(version: str) -> StressNG:
@@ -25,7 +18,7 @@ def mock_engine(version: str) -> StressNG:
     with patch("hwbench.utils.helpers.is_binary_available") as iba:
         iba.return_value = True
         with patch(
-            "hwbench.engines.stressng.EngineModuleCpu.list_module_parameters"
+            "hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters"
         ) as p:
             p.return_value = (
                 pathlib.Path(
