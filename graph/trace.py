@@ -201,7 +201,7 @@ class Bench:
         em = self.engine_module()
         # Preparing the performance metric to graph
         if self.engine() not in ["stressng", "sleep"]:
-            fatal(f"Unsupported {em} engine")
+            fatal(f"Unsupported {self.engine()} engine")
         if self.engine() == "stressng":
             if em in ["cpu", "qsort", "vnni"]:
                 perf_list = ["bogo ops/s"]
