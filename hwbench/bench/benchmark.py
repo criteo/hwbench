@@ -124,7 +124,9 @@ class ExternalBench(External):
             if isinstance(p.get_pinned_cpu(), (int, str)):
                 cpu_location = " on CPU {:3d}".format(p.get_pinned_cpu())
             elif isinstance(p.get_pinned_cpu(), list):
-                cpu_location = " on CPU {}".format(str(p.get_pinned_cpu()))
+                cpu_location = " on CPU {}".format(
+                    h.cpu_list_to_range(p.get_pinned_cpu())
+                )
             else:
                 h.fatal(
                     "Unsupported get_pinned_cpu() format :{}".format(
