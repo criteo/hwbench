@@ -52,6 +52,8 @@ class ILOREST:
     logged = False
 
     def __init__(self):
+        if not h.is_binary_available("ilorest"):
+            h.fatal("HPE vendor requires 'ilorest' tool, please install it.")
         self.login()
 
     def __del__(self):
