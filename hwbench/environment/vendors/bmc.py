@@ -121,9 +121,13 @@ class BMC(MonitoringDevice, External):
                 str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER))
             }  # type: ignore[no-redef]
 
-        power_consumption[str(PowerContext.BMC)][str(PowerCategories.SERVER)].add(
-            self.get_power().get("PowerControl")[0]["PowerConsumedWatts"]
-        )
+        power = self.get_power().get("PowerControl", [{"PowerConsumedWatts": None}])[0][
+            "PowerConsumedWatts"
+        ]
+        if power:
+            power_consumption[str(PowerContext.BMC)][str(PowerCategories.SERVER)].add(
+                power
+            )
         return power_consumption
 
     def read_power_supplies(
