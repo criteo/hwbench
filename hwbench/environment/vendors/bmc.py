@@ -98,7 +98,7 @@ class BMC(MonitoringDevice, External):
         # Generic for now, could be override by vendors
         if str(FanContext.FAN) not in fans:
             fans[str(FanContext.FAN)] = {}  # type: ignore[no-redef]
-        for f in self.get_thermal().get("Fans"):
+        for f in self.get_thermal().get("Fans", []):
             name = f["Name"]
             if name not in fans[str(FanContext.FAN)]:
                 fans[str(FanContext.FAN)][name] = MonitorMetric(
@@ -133,7 +133,7 @@ class BMC(MonitoringDevice, External):
         # Generic for now, could be override by vendors
         if str(PowerContext.BMC) not in power_supplies:
             power_supplies[str(PowerContext.BMC)] = {}  # type: ignore[no-redef]
-        for psu in self.get_power().get("PowerSupplies"):
+        for psu in self.get_power().get("PowerSupplies", []):
             psu_name = psu["Name"].split()[0]
             if psu["Name"] not in power_supplies[str(PowerContext.BMC)]:
                 power_supplies[str(PowerContext.BMC)][psu["Name"]] = Power(psu_name)
