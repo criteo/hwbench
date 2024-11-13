@@ -3,9 +3,9 @@ import pathlib
 from .amd.amd import Amd
 from .dell.dell import Dell
 from .hpe.hpe import Hpe
+from .generic import GenericVendor
 
 from .vendor import Vendor
-from .mock import MockVendor
 from ..dmi import DmiSys
 
 
@@ -13,6 +13,8 @@ VENDOR_LIST = [
     Dell,
     Hpe,
     Amd,
+    # This one always detects the hardware and should be kept at the end
+    GenericVendor,
 ]
 
 
@@ -25,4 +27,4 @@ def first_matching_vendor(
             # If the vendor matched, it may need to prepare some stuff
             v.prepare()
             return v
-    return MockVendor(out_dir, dmi)
+    assert False, "Unreachable: the GenericVendor should have been selected"
