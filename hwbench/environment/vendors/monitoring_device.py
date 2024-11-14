@@ -20,7 +20,12 @@ class MonitoringDevice:
 
     def __del__(self):
         if self.logged:
-            self.redfish_obj.logout()
+            try:
+                self.redfish_obj.logout()
+            except redfish.rest.v1.RetriesExhaustedError:
+                logging.warning(
+                    "Cannot logout from redfish monitoring device, ignoring."
+                )
 
     def get_firmware_version(self):
         return self.firmware_version

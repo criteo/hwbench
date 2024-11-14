@@ -1,4 +1,7 @@
+import functools
+import os.path
 import pathlib
+from typing import cast
 from .monitoring_device import MonitoringDevice
 from ...utils import helpers as h
 from ...utils.external import External
@@ -81,15 +84,90 @@ class BMC(MonitoringDevice, External):
         bmc_password = self.vendor.monitoring_config_file.get(sections[0], "password")
         return super().connect_redfish(bmc_username, bmc_password, self.get_url())
 
-    def get_thermal(self):
-        return {}
+    @functools.cache
+    def _get_chassis(self) -> list[str]:
+        # List all available Chassis item URLs
+        chlist = self.get_redfish_url("/redfish/v1/Chassis")
+        chassis = []
+        if (
+            isinstance(chlist, dict)
+            and "Members" in chlist
+            and isinstance(chlist["Members"], list)
+        ):
+            for member in chlist["Members"]:
+                if "@odata.id" in member and isinstance(member["@odata.id"], str):
+                    chassis.append(member["@odata.id"])
+        return chassis
+
+    def _chassis_item_url(self, chassis, name: str) -> str:
+        if isinstance(chassis, dict) and name in chassis:
+            item = chassis[name]
+            if (
+                isinstance(item, dict)
+                and "@odata.id" in item
+                and isinstance(item["@odata.id"], str)
+            ):
+                return item["@odata.id"]
+        return ""
+
+    @functools.cache
+    def _get_chassis_thermals(self) -> dict[str, str]:
+        # Auto-detect all "Chassis" Thermal URIs
+        thermals = {}
+        for chassis_url in self._get_chassis():
+            chassis = self.get_redfish_url(chassis_url)
+            chassis_name = os.path.basename(chassis_url.rstrip("/"))
+            url = self._chassis_item_url(chassis, "Thermal")
+            if url:
+                thermals[chassis_name] = url
+        return thermals
+
+    @functools.cache
+    def _get_chassis_powers(self) -> dict[str, str]:
+        # Auto-detect all "Chassis" Power URIs
+        powers = {}
+        for chassis_url in self._get_chassis():
+            chassis = self.get_redfish_url(chassis_url)
+            chassis_name = os.path.basename(chassis_url.rstrip("/"))
+            url = self._chassis_item_url(chassis, "Power")
+            if url:
+                powers[chassis_name] = url
+        return powers
+
+    def _get_thermals(self) -> dict[str, dict]:
+        thermals = {}
+        for chassis, thermal_url in self._get_chassis_thermals().items():
+            thermals[chassis] = self.get_redfish_url(thermal_url)
+        return thermals
+
+    def get_thermal(self) -> dict:
+        th = self._get_thermals()
+        if len(th) == 1:
+            return next(iter(th.values()))  # return only element
+        return {}  # return nothing if there are more than 1 elements
 
     def read_thermals(
         self, thermals: dict[str, dict[str, Temperature]] = {}
     ) -> dict[str, dict[str, Temperature]]:
         """Return thermals from server"""
-        # To be implemented by vendors
-        return {}
+        th = self._get_thermals()
+        for chassis, thermal in th.items():
+            prefix = ""
+            if len(thermals) > 1:
+                prefix = chassis + "-"
+            for t in thermal.get("Temperatures", []):
+                if t["ReadingCelsius"] is None or t["ReadingCelsius"] <= 0:
+                    continue
+                name = prefix + t["Name"].split("Temp")[0].strip()
+
+                super().add_monitoring_value(
+                    cast(dict[str, dict[str, MonitorMetric]], thermals),
+                    t["PhysicalContext"],
+                    Temperature(name),
+                    t["Name"],
+                    t["ReadingCelsius"],
+                )
+        return thermals
 
     def read_fans(
         self, fans: dict[str, dict[str, MonitorMetric]] = {}
@@ -98,7 +176,7 @@ class BMC(MonitoringDevice, External):
         # Generic for now, could be override by vendors
         if str(FanContext.FAN) not in fans:
             fans[str(FanContext.FAN)] = {}  # type: ignore[no-redef]
-        for f in self.get_thermal().get("Fans"):
+        for f in self.get_thermal().get("Fans", []):
             name = f["Name"]
             if name not in fans[str(FanContext.FAN)]:
                 fans[str(FanContext.FAN)][name] = MonitorMetric(
@@ -107,9 +185,18 @@ class BMC(MonitoringDevice, External):
             fans[str(FanContext.FAN)][name].add(f["Reading"])
         return fans
 
+    def _get_powers(self) -> dict[str, dict]:
+        powers = {}
+        for chassis, thermal_url in self._get_chassis_powers().items():
+            powers[chassis] = self.get_redfish_url(thermal_url)
+        return powers
+
     def get_power(self):
         """Return the power metrics."""
-        return {}
+        th = self._get_powers()
+        if len(th) == 1:
+            return next(iter(th.values()))  # return only element
+        return {}  # return nothing if there are more than 1 elements
 
     def read_power_consumption(
         self, power_consumption: dict[str, dict[str, Power]] = {}
@@ -121,9 +208,13 @@ class BMC(MonitoringDevice, External):
                 str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER))
             }  # type: ignore[no-redef]
 
-        power_consumption[str(PowerContext.BMC)][str(PowerCategories.SERVER)].add(
-            self.get_power().get("PowerControl")[0]["PowerConsumedWatts"]
-        )
+        power = self.get_power().get("PowerControl", [{"PowerConsumedWatts": None}])[0][
+            "PowerConsumedWatts"
+        ]
+        if power:
+            power_consumption[str(PowerContext.BMC)][str(PowerCategories.SERVER)].add(
+                power
+            )
         return power_consumption
 
     def read_power_supplies(
@@ -133,7 +224,7 @@ class BMC(MonitoringDevice, External):
         # Generic for now, could be override by vendors
         if str(PowerContext.BMC) not in power_supplies:
             power_supplies[str(PowerContext.BMC)] = {}  # type: ignore[no-redef]
-        for psu in self.get_power().get("PowerSupplies"):
+        for psu in self.get_power().get("PowerSupplies", []):
             psu_name = psu["Name"].split()[0]
             if psu["Name"] not in power_supplies[str(PowerContext.BMC)]:
                 power_supplies[str(PowerContext.BMC)][psu["Name"]] = Power(psu_name)
