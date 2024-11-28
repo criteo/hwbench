@@ -31,7 +31,7 @@ def main():
     if not is_root():
         h.fatal("hwbench is not running as effective uid 0.")
 
-    out_dir, tuning_out_dir = create_output_directory()
+    out_dir, tuning_out_dir = create_output_directory(args.output_directory)
 
     # configure logging
     init_logging(tuning_out_dir / "hwbench-tuning.log")
@@ -56,8 +56,12 @@ def is_root():
     return os.geteuid() == 0
 
 
-def create_output_directory() -> tuple[pathlib.Path, pathlib.Path]:
-    out_dir = pathlib.Path(f"hwbench-out-{time.strftime('%Y%m%d%H%M%S')}")
+def create_output_directory(directory) -> tuple[pathlib.Path, pathlib.Path]:
+    out_dir = pathlib.Path(directory or f"hwbench-out-{time.strftime('%Y%m%d%H%M%S')}")
+    if out_dir.exists():
+        h.fatal(
+            f"Directory {out_dir} already exists, please give a non-existent directory."
+        )
     out_dir.mkdir()
     tuning_out_dir = out_dir / "tuning"
     tuning_out_dir.mkdir()
@@ -81,6 +85,11 @@ def parse_options():
         "-m",
         "--monitoring-config",
         help="Specify the file containing the credentials to monitor the BMC",
+    )
+    parser.add_argument(
+        "-o",
+        "--output-directory",
+        help="Specify the directory used to put all results and collected information",
     )
     return parser.parse_args()
 
