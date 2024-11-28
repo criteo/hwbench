@@ -20,9 +20,6 @@ from .utils.hwlogging import init_logging
 
 
 def main():
-    if not is_root():
-        h.fatal("hwbench is not running as effective uid 0.")
-
     # Let's ensure no one is running below the expected python release
     min_python_release = "3.9"
     if Version(platform.python_version()) < Version(min_python_release):
@@ -30,8 +27,11 @@ def main():
             f"Current python version {platform.python_version()} is below minimal supported release : {min_python_release}"
         )
 
-    out_dir, tuning_out_dir = create_output_directory()
     args = parse_options()
+    if not is_root():
+        h.fatal("hwbench is not running as effective uid 0.")
+
+    out_dir, tuning_out_dir = create_output_directory()
 
     # configure logging
     init_logging(tuning_out_dir / "hwbench-tuning.log")
@@ -69,6 +69,7 @@ def parse_options():
     parser = argparse.ArgumentParser(
         prog="hwbench",
         description="Criteo Hardware Benchmarking tool",
+        epilog="Note that hwbench needs to run as root, for many reasons: system-wide tuning, local IPMI link to the BMC, x86 performance with turbostat, devices access with fio, etc.",
     )
     parser.add_argument(
         "-j",
