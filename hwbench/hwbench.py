@@ -36,7 +36,7 @@ def main():
     # configure logging
     init_logging(tuning_out_dir / "hwbench-tuning.log")
 
-    tuning_setup.Tuning(tuning_out_dir).apply()
+    tuning_setup.Tuning(tuning_out_dir).apply(args.tuning)
     env = env_soft.Environment(out_dir)
     hw = env_hw.Hardware(out_dir, args.monitoring_config)
 
@@ -90,6 +90,12 @@ def parse_options():
         "-o",
         "--output-directory",
         help="Specify the directory used to put all results and collected information",
+    )
+    parser.add_argument(
+        "--tuning",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable or disable tuning: this is useful when you want to test the system as-is.",
     )
     return parser.parse_args()
 

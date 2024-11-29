@@ -3,13 +3,17 @@ from .power_profile import PerformancePowerProfile
 from .scheduler import MQDeadlineIOScheduler
 from .turbo_boost import IntelTurboBoost, TurboBoost
 from ..utils.external import External_Simple
+from ..utils.hwlogging import tunninglog
 
 
 class Tuning:
     def __init__(self, out_dir):
         self.out_dir = out_dir
 
-    def apply(self):
+    def apply(self, apply_tuning: bool):
+        if not apply_tuning:
+            tunninglog().info("Tunning has been disabled on the hwbench command line")
+            return
         External_Simple(self.out_dir, ["sync"])
         SysctlDropCaches(self.out_dir).run()
         PerformancePowerProfile(self.out_dir).run()
