@@ -21,7 +21,7 @@ class PerformancePowerProfile:
             log.info("skip PerformancePowerProfile as no cpu governor detected")
             return
         pattern = re.compile("cpu[0-9]+")
-        for rootpath, dirnames, filenames in os.walk("/sys/devices/system/cpu"):
+        for rootpath, dirnames, _filenames in os.walk("/sys/devices/system/cpu"):
             for dirname in dirnames:
                 if pattern.match(dirname):
                     file = pathlib.Path(rootpath).joinpath(dirname, "cpufreq", "scaling_governor")

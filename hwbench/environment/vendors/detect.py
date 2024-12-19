@@ -23,4 +23,4 @@ def first_matching_vendor(out_dir: pathlib.Path, dmi: DmiSys, monitoring_config_
             # If the vendor matched, it may need to prepare some stuff
             v.prepare()
             return v
-    assert False, "Unreachable: the GenericVendor should have been selected"
+    raise AssertionError("Unreachable: the GenericVendor should have been selected")

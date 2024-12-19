@@ -35,9 +35,13 @@ class Turbostat:
     def __init__(
         self,
         hardware: BaseHardware,
-        freq_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] = {},
-        power_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] = {},
+        freq_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] = None,
+        power_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] = None,
     ):
+        if power_metrics is None:
+            power_metrics = {}
+        if freq_metrics is None:
+            freq_metrics = {}
         self.__output = None
         self.cores_count = 0
         self.sensor_list = {
