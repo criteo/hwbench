@@ -19,7 +19,9 @@ class IDRAC(BMC):
     def get_thermal(self):
         return self.get_redfish_url("/redfish/v1/Chassis/System.Embedded.1/Thermal")
 
-    def read_thermals(self, thermals: dict[str, dict[str, Temperature]] = None) -> dict[str, dict[str, Temperature]]:
+    def read_thermals(
+        self, thermals: dict[str, dict[str, Temperature]] | None = None
+    ) -> dict[str, dict[str, Temperature]]:
         if thermals is None:
             thermals = {}
         for t in self.get_thermal().get("Temperatures"):
@@ -70,7 +72,7 @@ class IDRAC(BMC):
         self.oem_endpoint = new_oem_endpoint
         return oem
 
-    def read_power_consumption(self, power_consumption: dict[str, dict[str, Power]] = None):
+    def read_power_consumption(self, power_consumption: dict[str, dict[str, Power]] | None = None):
         if power_consumption is None:
             power_consumption = {}
         power_consumption = super().read_power_consumption(power_consumption)

@@ -41,7 +41,7 @@ class EngineModuleBase(abc.ABC):
 
 
 class EngineBase(External):
-    def __init__(self, name: str, binary: str, modules: dict[str, EngineModuleBase] = None):
+    def __init__(self, name: str, binary: str, modules: dict[str, EngineModuleBase] | None = None):
         if modules is None:
             modules = {}
         External.__init__(self, pathlib.Path(""))
