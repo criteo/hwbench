@@ -1,7 +1,6 @@
 import datetime
 import time
 from datetime import timedelta
-from typing import Optional
 
 from ..environment.hardware import BaseHardware
 from ..utils import helpers as h
@@ -242,7 +241,7 @@ ETA {duration}"
                 print(f"hwbench: [{bench_name}]: started at {datetime.datetime.utcnow()}")
 
             # Save each benchmark result
-            results["{}_{}".format(benchmark.get_parameters().get_name(), benchmark.get_job_number())] = benchmark.run()
+            results[f"{benchmark.get_parameters().get_name()}_{benchmark.get_job_number()}"] = benchmark.run()
         return results
 
     def dump(self):
@@ -272,7 +271,7 @@ ETA {duration}"
                 print(f"cmdline={' '.join(em.run_cmd(param))}", file=f)
                 print("", file=f)
 
-    def get_monitoring(self) -> Optional[Monitoring]:
+    def get_monitoring(self) -> Monitoring | None:
         """Return the monitoring object"""
         return self.monitoring
 

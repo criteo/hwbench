@@ -123,7 +123,7 @@ class Monitoring:
             # Do not compact metadata
             if metric_name in MonitoringMetadata.list_str():
                 continue
-            for _, component in metric_type.items():
+            for component in metric_type.values():
                 for metric_name, metric in component.items():
                     metric.compact()
 

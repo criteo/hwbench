@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pathlib
 from abc import abstractmethod
-from typing import Optional
 
 from ..utils.external import External_Simple
 from .base import BaseEnvironment
@@ -49,7 +48,7 @@ class Hardware(BaseHardware):
         DmidecodeRaw(out_dir).run()
         External_Simple(self.out_dir, ["ipmitool", "sdr"], "ipmitool-sdr")
 
-    def dump(self) -> dict[str, Optional[str | int] | dict]:
+    def dump(self) -> dict[str, str | int | None | dict]:
         dump = {
             "dmi": self.dmi.dump(),
             "cpu": self.cpu.dump(),

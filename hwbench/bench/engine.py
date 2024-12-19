@@ -1,6 +1,5 @@
 import abc
 import pathlib
-from typing import Optional
 
 from ..utils.external import External
 from ..utils.helpers import fatal
@@ -71,7 +70,7 @@ class EngineBase(External):
     def get_modules(self) -> dict[str, EngineModuleBase]:
         return self.modules
 
-    def get_module(self, module_name: str) -> Optional[EngineModuleBase]:
+    def get_module(self, module_name: str) -> EngineModuleBase | None:
         return self.modules.get(module_name)
 
     def module_exists(self, module_name) -> bool:
