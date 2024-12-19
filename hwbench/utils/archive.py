@@ -11,7 +11,7 @@ def create_tar_from_directory(dir: str, tarfilename: pathlib.Path) -> None:
     following the symlinks."""
     # may raise tarfile.ReadError if tarfilename is not a tar file
     tarfd = tarfile.open(tarfilename, "x")
-    for rootpath, dirnames, filenames in os.walk(dir):
+    for rootpath, _dirnames, filenames in os.walk(dir):
         for filename in filenames:
             file = pathlib.Path(rootpath) / filename
             try:

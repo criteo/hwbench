@@ -101,7 +101,7 @@ class Benchmarks:
                     h.fatal("hosting_cpu_cores is not module hosting_cpu_cores_scaling !")
                 pinned_cpu = []
                 while len(hosting_cpu_cores):
-                    for step in range(steps):
+                    for _step in range(steps):
                         for cpu in hosting_cpu_cores.pop():
                             pinned_cpu.append(cpu)
                     self.__schedule_benchmarks(
@@ -111,7 +111,7 @@ class Benchmarks:
                         validate_parameters,
                     )
             elif hosting_cpu_cores_scaling == "iterate":
-                for iteration in range(len(hosting_cpu_cores)):
+                for _iteration in range(len(hosting_cpu_cores)):
                     # Pick the last CPU of the list
                     pinned_cpu = hosting_cpu_cores.pop()
                     self.__schedule_benchmarks(job, stressor_range_scaling, pinned_cpu, validate_parameters)

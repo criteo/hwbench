@@ -134,7 +134,9 @@ class Spike(ExternalBench):
         )
         return sum([fan.get_values()[-1] for _, fan in raw_fans.items()])
 
-    def __spawn_stressor(self, additional_args=[], wait_stressor=False):
+    def __spawn_stressor(self, additional_args=None, wait_stressor=False):
+        if additional_args is None:
+            additional_args = []
         args = [
             self.engine_module.engine.get_binary(),
             "-c",

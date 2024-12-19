@@ -44,7 +44,7 @@ class TestParseConfig(tbc.TestCommon):
                     iba.return_value = True
                     self.get_jobs_config().validate_sections()
         except Exception as exc:
-            assert False, f"'validate_sections' detected a syntax error {exc}"
+            raise AssertionError(f"'validate_sections' detected a syntax error {exc}")
 
     def test_defaults(self):
         """Check if default values are properly set."""
