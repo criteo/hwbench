@@ -1,12 +1,14 @@
-import cachetools.func
 import json
 import logging
+from typing import Any
+
+import cachetools.func
 import redfish  # type: ignore
-from ...utils import helpers as h
+
 from ...bench.monitoring_structs import (
     MonitorMetric,
 )
-from typing import Any
+from ...utils import helpers as h
 
 
 class MonitoringDevice:
@@ -23,9 +25,7 @@ class MonitoringDevice:
             try:
                 self.redfish_obj.logout()
             except redfish.rest.v1.RetriesExhaustedError:
-                logging.warning(
-                    "Cannot logout from redfish monitoring device, ignoring."
-                )
+                logging.warning("Cannot logout from redfish monitoring device, ignoring.")
 
     def get_firmware_version(self):
         return self.firmware_version
@@ -37,9 +37,7 @@ class MonitoringDevice:
         return self.serialnumber
 
     def get_url(self):
-        return self.vendor.monitoring_config_file.get(
-            self.pdu_section, "url", fallback=""
-        )
+        return self.vendor.monitoring_config_file.get(self.pdu_section, "url", fallback="")
 
     def detect(self):
         """Detect monitoring device"""
@@ -107,13 +105,13 @@ class MonitoringDevice:
             self.redfish_obj.login()
             self.logged = True
         except json.decoder.JSONDecodeError:
-            h.fatal("JSONDecodeError on {}".format(device_url))
+            h.fatal(f"JSONDecodeError on {device_url}")
         except redfish.rest.v1.RetriesExhaustedError:
-            h.fatal("RetriesExhaustedError on {}".format(device_url))
+            h.fatal(f"RetriesExhaustedError on {device_url}")
         except redfish.rest.v1.BadRequestError:
-            h.fatal("BadRequestError on {}".format(device_url))
+            h.fatal(f"BadRequestError on {device_url}")
         except redfish.rest.v1.InvalidCredentialsError:
-            h.fatal("Invalid credentials for {}".format(device_url))
+            h.fatal(f"Invalid credentials for {device_url}")
         except Exception as exception:
             h.fatal(type(exception))
 

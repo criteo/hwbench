@@ -1,20 +1,18 @@
-import os
 import json
+import os
 import pathlib
 
-from .base import BaseEnvironment
-from .packages import RpmList
 from ..utils.archive import copy_file, create_tar_from_directory
 from ..utils.external import External_Simple
+from .base import BaseEnvironment
+from .packages import RpmList
 
 
 class Environment(BaseEnvironment):
     def __init__(self, out_dir: pathlib.Path):
         self.out_dir = out_dir
 
-        (self.out_dir / "kernel-info.json").write_text(
-            json.dumps(self.kernel_version())
-        )
+        (self.out_dir / "kernel-info.json").write_text(json.dumps(self.kernel_version()))
         (self.out_dir / "cmdline").write_bytes(self.kernel_cmdline())
 
         copy_file("/proc/config.gz", str(self.out_dir))

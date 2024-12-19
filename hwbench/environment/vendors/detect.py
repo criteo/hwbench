@@ -1,13 +1,11 @@
 import pathlib
 
+from ..dmi import DmiSys
 from .amd.amd import Amd
 from .dell.dell import Dell
-from .hpe.hpe import Hpe
 from .generic import GenericVendor
-
+from .hpe.hpe import Hpe
 from .vendor import Vendor
-from ..dmi import DmiSys
-
 
 VENDOR_LIST = [
     Dell,
@@ -18,13 +16,11 @@ VENDOR_LIST = [
 ]
 
 
-def first_matching_vendor(
-    out_dir: pathlib.Path, dmi: DmiSys, monitoring_config_filename
-) -> Vendor:
+def first_matching_vendor(out_dir: pathlib.Path, dmi: DmiSys, monitoring_config_filename) -> Vendor:
     for vendor in VENDOR_LIST:
         v = vendor(out_dir, dmi, monitoring_config_filename)  # type: ignore
         if v.detect():
             # If the vendor matched, it may need to prepare some stuff
             v.prepare()
             return v
-    assert False, "Unreachable: the GenericVendor should have been selected"
+    raise AssertionError("Unreachable: the GenericVendor should have been selected")

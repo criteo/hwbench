@@ -1,9 +1,8 @@
 import re
-from typing import Optional
 
-from ..bench.parameters import BenchmarkParameters
-from ..bench.engine import EngineBase, EngineModuleBase
 from ..bench.benchmark import ExternalBench
+from ..bench.engine import EngineBase, EngineModuleBase
+from ..bench.parameters import BenchmarkParameters
 from ..utils import helpers as h
 
 
@@ -16,10 +15,7 @@ class EngineModulePinnable(EngineModuleBase):
             pinned = [pinned]
         for cpu in pinned:
             if params.get_hw().logical_core_count() <= int(cpu):
-                return (
-                    f"Cannot pin on core #{cpu} we only have "
-                    f"{params.get_hw().logical_core_count()} cores"
-                )
+                return f"Cannot pin on core #{cpu} we only have " f"{params.get_hw().logical_core_count()} cores"
         return ""
 
 
@@ -28,8 +24,8 @@ class Engine(EngineBase):
 
     def __init__(self):
         from .stressng_cpu import EngineModuleCpu
-        from .stressng_qsort import EngineModuleQsort
         from .stressng_memrate import EngineModuleMemrate
+        from .stressng_qsort import EngineModuleQsort
         from .stressng_stream import EngineModuleStream
         from .stressng_vnni import EngineModuleVNNI
 
@@ -64,7 +60,7 @@ class Engine(EngineBase):
             return int(self.version.split(b".")[2])
         return 0
 
-    def get_version(self) -> Optional[str]:
+    def get_version(self) -> str | None:
         if self.version:
             return self.version.decode("utf-8")
         return None
@@ -76,9 +72,7 @@ class Engine(EngineBase):
 class StressNG(ExternalBench):
     """The StressNG base class for stressors."""
 
-    def __init__(
-        self, engine_module: EngineModuleBase, parameters: BenchmarkParameters
-    ):
+    def __init__(self, engine_module: EngineModuleBase, parameters: BenchmarkParameters):
         ExternalBench.__init__(self, engine_module, parameters)
         self.stressor_name = parameters.get_engine_module_parameter()
         self.engine_module = engine_module
@@ -94,9 +88,7 @@ class StressNG(ExternalBench):
             # because we might not have run the version command.
             return ["echo", "skipped benchmark"]
         if not self.version_compatible():
-            print(
-                f"WARNING: skipping benchmark {self.name}, needs stress-ng >= 0.17.04"
-            )
+            print(f"WARNING: skipping benchmark {self.name}, needs stress-ng >= 0.17.04")
             self.skip = True
             return ["echo", "skipped benchmark"]
         return None

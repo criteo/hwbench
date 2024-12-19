@@ -1,5 +1,6 @@
 import json
 import subprocess
+
 from ....utils import helpers as h
 from ....utils.external import External
 
@@ -86,18 +87,18 @@ class ILOREST:
         # We cannot login because of CreateLimitReachedForResource
         # Let's reset the bmc and retry
         if return_code == 32:
-            h.fatal("Cannot login to local ilo, return_code = {}".format(return_code))
+            h.fatal(f"Cannot login to local ilo, return_code = {return_code}")
         elif return_code == 64:
             h.fatal("Cannot login to local ilo", details="BMC is missing")
         elif return_code == 0:
             self.logged = True
             return True
         else:
-            h.fatal("Cannot login to local ilo, return_code = {}".format(return_code))
+            h.fatal(f"Cannot login to local ilo, return_code = {return_code}")
 
     def raw_get(self, endpoint, to_json=False):
         """Perform a raw get."""
-        command = "rawget /redfish/v1{}".format(endpoint)
+        command = f"rawget /redfish/v1{endpoint}"
         return_code, rawget = self.__ilorest(command)
         if return_code != 0:
             raise subprocess.CalledProcessError(returncode=return_code, cmd=command)
@@ -107,11 +108,11 @@ class ILOREST:
 
     def get(self, endpoint, select=None, filter=None, to_json=False):
         """Perform a get."""
-        command = "get {}".format(endpoint)
+        command = f"get {endpoint}"
         if select:
-            command += " --select {}".format(select)
+            command += f" --select {select}"
         if filter:
-            command += ' --filter "{}"'.format(filter)
+            command += f' --filter "{filter}"'
         command += " -j"
         return_code, get = self.__ilorest(command)
         if return_code != 0:
@@ -124,9 +125,9 @@ class ILOREST:
         """Perform a get."""
         command = "list "
         if select:
-            command += " --select {}".format(select)
+            command += f" --select {select}"
         if filter:
-            command += ' --filter "{}"'.format(filter)
+            command += f' --filter "{filter}"'
         command += " -j"
         return_code, get = self.__ilorest(command)
         if return_code != 0:
@@ -138,9 +139,7 @@ class ILOREST:
     def get_bmc_ipv4(self):
         """Return the BMC IPV4 address"""
         # If no url provided in the configuration file, let's detect it via ilorest
-        bmc_netconfig = self.list(
-            select="ethernetinterface", filter="id=1", to_json=True
-        )
+        bmc_netconfig = self.list(select="ethernetinterface", filter="id=1", to_json=True)
         if bmc_netconfig:
             # On multi-node chassis, the ethernetinterface is a list
             # On single-node chassis, the ethernetinterface is a dict
