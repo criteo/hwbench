@@ -59,9 +59,7 @@ def is_root():
 def create_output_directory(directory) -> tuple[pathlib.Path, pathlib.Path]:
     out_dir = pathlib.Path(directory or f"hwbench-out-{time.strftime('%Y%m%d%H%M%S')}")
     if out_dir.exists():
-        h.fatal(
-            f"Directory {out_dir} already exists, please give a non-existent directory."
-        )
+        h.fatal(f"Directory {out_dir} already exists, please give a non-existent directory.")
     out_dir.mkdir()
     tuning_out_dir = out_dir / "tuning"
     tuning_out_dir.mkdir()

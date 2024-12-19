@@ -29,13 +29,9 @@ except ImportError as exc:
 def valid_trace_file(trace_arg: str) -> Trace:
     """Custom argparse type to decode and validate the trace files"""
 
-    match = re.search(
-        r"(?P<filename>.*):(?P<logical_name>.*):(?P<power_metric>.*)", trace_arg
-    )
+    match = re.search(r"(?P<filename>.*):(?P<logical_name>.*):(?P<power_metric>.*)", trace_arg)
     if not match:
-        raise argparse.ArgumentTypeError(
-            f"{trace_arg} does not match 'filename:logical_name:power_metric' syntax"
-        )
+        raise argparse.ArgumentTypeError(f"{trace_arg} does not match 'filename:logical_name:power_metric' syntax")
 
     try:
         trace = Trace(
@@ -83,13 +79,9 @@ def compare_traces(args) -> None:
         if args.traces[0].get_original_config() != trace.get_original_config():
             # If a trace is not having the same configuration file,
             # It's impossible to compare & graph the results.
-            fatal(
-                f"{trace.filename} is not having the same configuration file as previous traces"
-            )
+            fatal(f"{trace.filename} is not having the same configuration file as previous traces")
         if trace.get_name() in names:
-            fatal(
-                f"{trace.filename} is using '{trace.get_name()}' as logical_name while it's already in use"
-            )
+            fatal(f"{trace.filename} is using '{trace.get_name()}' as logical_name while it's already in use")
         else:
             names.append(trace.get_name())
 
@@ -103,9 +95,7 @@ def graph_monitoring_metrics(args, trace: Trace, bench_name: str, output_dir) ->
             for metric in metrics:
                 # If a metric has no measure, let's ignore it
                 if len(metrics[metric].get_samples()) == 0:
-                    print(
-                        f"{bench_name}: No samples found in {metric_name}.{metric}, ignoring metric."
-                    )
+                    print(f"{bench_name}: No samples found in {metric_name}.{metric}, ignoring metric.")
                 else:
                     rendered_graphs += yerr_graph(
                         args,
@@ -127,9 +117,7 @@ def graph_fans(args, trace: Trace, bench_name: str, output_dir) -> int:
         print(f"{bench_name}: no fans")
         return rendered_graphs
     for second_axis in [Metrics.THERMAL, Metrics.POWER_CONSUMPTION]:
-        rendered_graphs += generic_graph(
-            args, output_dir, bench, Metrics.FANS, "Fans speed", second_axis
-        )
+        rendered_graphs += generic_graph(args, output_dir, bench, Metrics.FANS, "Fans speed", second_axis)
 
     for fan in fans:
         rendered_graphs += yerr_graph(args, output_dir, bench, Metrics.FANS, fans[fan])
@@ -185,9 +173,7 @@ def graph_pdu(args, trace: Trace, bench_name: str, output_dir) -> int:
 
 def graph_thermal(args, trace: Trace, bench_name: str, output_dir) -> int:
     rendered_graphs = 0
-    rendered_graphs += generic_graph(
-        args, output_dir, trace.bench(bench_name), Metrics.THERMAL, str(Metrics.THERMAL)
-    )
+    rendered_graphs += generic_graph(args, output_dir, trace.bench(bench_name), Metrics.THERMAL, str(Metrics.THERMAL))
     return rendered_graphs
 
 
@@ -203,9 +189,7 @@ def graph_environment(args, output_dir) -> int:
         all_chassis = [t.get_chassis_serial() == chassis for t in args.traces]
         # if all traces are from the same chassis, let's enable the same_chassis feature
         if all_chassis.count(True) == len(args.traces) and len(args.traces) > 1:
-            print(
-                f"environment: All traces are from the same chassis ({chassis}), enabling --same-chassis feature"
-            )
+            print(f"environment: All traces are from the same chassis ({chassis}), enabling --same-chassis feature")
             args.same_chassis = True
 
     if args.same_chassis:
@@ -230,9 +214,7 @@ def graph_environment(args, output_dir) -> int:
                     except KeyError:
                         return f"environment: missing '{metric}' monitoric metric in {trace.get_filename()}, disabling same-enclosure print"
             else:
-                return (
-                    "environment: server are not unique, disabling same-chassis print"
-                )
+                return "environment: server are not unique, disabling same-chassis print"
             return ""
 
         error_message = valid_traces(args)
@@ -245,13 +227,9 @@ def graph_environment(args, output_dir) -> int:
     for trace in args.traces:
         output_dir.joinpath(f"{trace.get_name()}").mkdir(parents=True, exist_ok=True)
         benches = trace.bench_list()
-        print(
-            f"environment: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})"
-        )
+        print(f"environment: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})")
         for bench_name in sorted(benches):
-            rendered_graphs += graph_monitoring_metrics(
-                args, trace, bench_name, output_dir
-            )
+            rendered_graphs += graph_monitoring_metrics(args, trace, bench_name, output_dir)
             rendered_graphs += graph_fans(args, trace, bench_name, output_dir)
             rendered_graphs += graph_cpu(args, trace, bench_name, output_dir)
             rendered_graphs += graph_pdu(args, trace, bench_name, output_dir)
@@ -300,9 +278,7 @@ def main():
     )
     subparsers = parser.add_subparsers(help="hwgraph sub-commands")
 
-    parser_graph = subparsers.add_parser(
-        "graph", help="Generate graphs from trace files"
-    )
+    parser_graph = subparsers.add_parser("graph", help="Generate graphs from trace files")
     parser_graph.add_argument(
         "--traces",
         type=valid_trace_file,
@@ -318,15 +294,9 @@ power_metric : the name of a power metric, from the monitoring, to be used for '
 """,
         required=True,
     )
-    parser_graph.add_argument(
-        "--no-env", help="Disable environmental graphs", action="store_false"
-    )
-    parser_graph.add_argument(
-        "--no-scaling", help="Disable scaling graphs", action="store_false"
-    )
-    parser_graph.add_argument(
-        "--no-individual", help="Disable individual graphs", action="store_false"
-    )
+    parser_graph.add_argument("--no-env", help="Disable environmental graphs", action="store_false")
+    parser_graph.add_argument("--no-scaling", help="Disable scaling graphs", action="store_false")
+    parser_graph.add_argument("--no-individual", help="Disable individual graphs", action="store_false")
     parser_graph.add_argument("--title", help="Title of the graph")
     parser_graph.add_argument("--dpi", help="Graph dpi", type=int, default="72")
     parser_graph.add_argument("--width", help="Graph width", type=int, default="1920")
@@ -344,9 +314,7 @@ power_metric : the name of a power metric, from the monitoring, to be used for '
         choices=["pgf", "svg", "agg", "cairo"],
         default="cairo",
     )
-    parser_graph.add_argument(
-        "--outdir", help="Name of the output directory", required=True
-    )
+    parser_graph.add_argument("--outdir", help="Name of the output directory", required=True)
     parser_graph.add_argument(
         "--same-chassis",
         help="All traces are from the same chassis",
@@ -366,9 +334,7 @@ power_metric : the name of a power metric, from the monitoring, to be used for '
     )
     parser_graph.set_defaults(func=render_traces)
 
-    parser_list = subparsers.add_parser(
-        "list", help="list monitoring metrics from a trace file"
-    )
+    parser_list = subparsers.add_parser("list", help="list monitoring metrics from a trace file")
     parser_list.add_argument(
         "--trace",
         type=str,

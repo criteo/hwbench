@@ -16,9 +16,7 @@ path = pathlib.Path("")
 
 class TestGenericHpe(TestVendors):
     def __init__(self, path: str, *args, **kwargs):
-        super().__init__(
-            Hpe("", None, "hwbench/tests/mocked_monitoring.cfg"), *args, **kwargs
-        )
+        super().__init__(Hpe("", None, "hwbench/tests/mocked_monitoring.cfg"), *args, **kwargs)
         self.path = path
 
     def setUp(self):
@@ -93,9 +91,7 @@ class TestHpeAp2K(TestGenericHpe):
         expected_output[str(PowerContext.BMC)] = {
             str(PowerCategories.CHASSIS): Power(str(PowerCategories.CHASSIS), 315),
             str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER), 75),
-            str(PowerCategories.SERVERINCHASSIS): Power(
-                str(PowerCategories.SERVERINCHASSIS), 116
-            ),
+            str(PowerCategories.SERVERINCHASSIS): Power(str(PowerCategories.SERVERINCHASSIS), 116),
         }
 
         super().generic_power_consumption_test(expected_output)
@@ -116,9 +112,7 @@ class TestHpeDL380(TestGenericHpe):
 
     def test_thermal(self):
         expected_output = self.generic_thermal_output()
-        expected_output[str(ThermalContext.INTAKE)] = {
-            "01-Inlet Ambient": Temperature("Inlet", 24)
-        }
+        expected_output[str(ThermalContext.INTAKE)] = {"01-Inlet Ambient": Temperature("Inlet", 24)}
         expected_output[str(ThermalContext.CPU)] = {
             "02-CPU 1": Temperature("CPU1", 40),
             "03-CPU 2": Temperature("CPU2", 40),

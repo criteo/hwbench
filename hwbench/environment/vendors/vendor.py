@@ -52,14 +52,10 @@ class Vendor(ABC):
         if not self.pdus:
             pdu_sections = self.find_monitoring_sections("PDU")
             for pdu_section in pdu_sections:
-                pdu_driver_name = self.monitoring_config_file.get(
-                    pdu_section, "driver", fallback=""
-                )
+                pdu_driver_name = self.monitoring_config_file.get(pdu_section, "driver", fallback="")
                 if not pdu_driver_name:
                     h.fatal("PDU configuration requires a driver.")
-                pdu_driver = self._load_vendor("pdus", pdu_driver_name.lower()).init(
-                    self, pdu_section
-                )
+                pdu_driver = self._load_vendor("pdus", pdu_driver_name.lower()).init(self, pdu_section)
                 self.pdus.append(pdu_driver)
 
     def get_bmc(self) -> BMC:
@@ -70,9 +66,7 @@ class Vendor(ABC):
         """Return a list of PDUs object"""
         return self.pdus
 
-    def find_monitoring_sections(
-        self, section_type: str, sections_list=[], max_sections=0
-    ):
+    def find_monitoring_sections(self, section_type: str, sections_list=[], max_sections=0):
         """Return sections of section_type from the monitoring configuration file"""
         sections = []
         if not self.get_monitoring_config_filename():
@@ -91,10 +85,7 @@ class Vendor(ABC):
 
         for section in sections_list:
             if section in self.monitoring_config_file.sections():
-                if (
-                    self.monitoring_config_file.get(section, "type", fallback="")
-                    != section_type
-                ):
+                if self.monitoring_config_file.get(section, "type", fallback="") != section_type:
                     continue
                 sections.append(section)
                 if len(sections) == max_sections:

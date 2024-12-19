@@ -116,9 +116,7 @@ class Graph:
             self.ax2.set_ylim(None, ymin=0, ymax=self.y2_max, emit=True, auto=True)
             self.ax2.yaxis.set_major_formatter(FuncFormatter(self.human_format))
             self.fig.tight_layout()  # otherwise the right y-label is slightly clipped
-            self.ax2.yaxis.set_major_locator(
-                matplotlib.ticker.LinearLocator(len(self.ax.get_yticks()) - 2)
-            )
+            self.ax2.yaxis.set_major_locator(matplotlib.ticker.LinearLocator(len(self.ax.get_yticks()) - 2))
         else:
             # Bar graphs do not need legend, let the caller disable it
             if legend:
@@ -222,11 +220,7 @@ def generic_graph(
 
     samples_count = bench.get_samples_count()
     unit = bench.get_metric_unit(component_type)
-    title = (
-        f'{item_title} during "{bench.get_bench_name()}" benchmark job\n'
-        f"{args.title}\n"
-        f"\n Stressor: "
-    )
+    title = f'{item_title} during "{bench.get_bench_name()}" benchmark job\n' f"{args.title}\n" f"\n Stressor: "
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
     title += f"\n{bench.get_system_title()}"
     graph = Graph(
@@ -234,9 +228,7 @@ def generic_graph(
         title,
         "Time [seconds]",
         unit,
-        output_dir.joinpath(
-            f"{trace.get_name()}/{bench.get_bench_name()}/{str(component_type)}"
-        ),
+        output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{str(component_type)}"),
         outfile,
         show_source_file=trace,
     )
@@ -278,16 +270,12 @@ def generic_graph(
 
                     # Let's pick the last known value
                     if args.ignore_missing_datapoint == "last":
-                        data_serie[component.get_full_name()].append(
-                            component.get_mean()[-1]
-                        )
+                        data_serie[component.get_full_name()].append(component.get_mean()[-1])
                     else:
                         # Replace it by a zero
                         data_serie[component.get_full_name()].append(0)
             else:
-                data_serie[component.get_full_name()].append(
-                    component.get_mean()[sample]
-                )
+                data_serie[component.get_full_name()].append(component.get_mean()[sample])
 
         if second_axis:
             for _, entry in bench.get_monitoring_metric(second_axis).items():
@@ -376,10 +364,7 @@ def yerr_graph(
         )
         data_serie[MEAN].append(mean_value)
 
-    title = (
-        f'{prefix}{component.get_name()} during "{bench.get_bench_name()}" benchmark job\n'
-        f"\n Stressor: "
-    )
+    title = f'{prefix}{component.get_name()} during "{bench.get_bench_name()}" benchmark job\n' f"\n Stressor: "
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
     title += f"\n{bench.get_system_title()}"
 
@@ -388,9 +373,7 @@ def yerr_graph(
         title,
         "Time [seconds]",
         unit,
-        output_dir.joinpath(
-            f"{trace.get_name()}/{bench.get_bench_name()}/{str(component_type)}"
-        ),
+        output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{str(component_type)}"),
         f"{prefix}{component.get_name()}",
         show_source_file=trace,
     )

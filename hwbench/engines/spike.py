@@ -69,9 +69,7 @@ class Engine(EngineBase):
 class Spike(ExternalBench):
     """The Spike stressor."""
 
-    def __init__(
-        self, engine_module: EngineModuleBase, parameters: BenchmarkParameters
-    ):
+    def __init__(self, engine_module: EngineModuleBase, parameters: BenchmarkParameters):
         ExternalBench.__init__(self, engine_module, parameters)
         self.parameters = parameters
         self.engine_module = engine_module
@@ -110,9 +108,7 @@ class Spike(ExternalBench):
                 h.fatal("No cycle detected, check low and high values")
 
             if runtime % self.cycle > 0:
-                h.fatal(
-                    f"Cycles ({self.cycle}s) are not modulo the runtime ({runtime}s)"
-                )
+                h.fatal(f"Cycles ({self.cycle}s) are not modulo the runtime ({runtime}s)")
 
     def run_cmd(self) -> list[str]:
         # Let's build the command line to run the tool
@@ -133,10 +129,7 @@ class Spike(ExternalBench):
 
     def get_fans_speed(self):
         raw_fans = (
-            self.parameters.get_monitoring()
-            .vendor.get_bmc()
-            .read_fans()
-            .get(str(monitoring_structs.FanContext.FAN))
+            self.parameters.get_monitoring().vendor.get_bmc().read_fans().get(str(monitoring_structs.FanContext.FAN))
         )
         return sum([fan.get_values()[-1] for _, fan in raw_fans.items()])
 
@@ -182,9 +175,7 @@ class Spike(ExternalBench):
         calibration_fans = []
         auto_cycle = 11
         calibration_duration = 3 * auto_cycle
-        print(
-            f"[{self.parameters.get_name()}: calibrating fans for {calibration_duration}s to detect low speed"
-        )
+        print(f"[{self.parameters.get_name()}: calibrating fans for {calibration_duration}s to detect low speed")
         for _ in range(0, calibration_duration):
             calibration_fans.append(self.get_fans_speed())
             time.sleep(1)
@@ -216,9 +207,7 @@ class Spike(ExternalBench):
                     wait_high_fans_speed = False
                     stressor.kill()
                     stressor = None
-                    print(
-                        f"High: reached {current_fan_ratio:.2f}% with fans={fans_speed}"
-                    )
+                    print(f"High: reached {current_fan_ratio:.2f}% with fans={fans_speed}")
                     # Let's reset the cycle start for the low_fan_speed
                     cycle_start = self.get_monotonic_clock()
             else:
@@ -226,9 +215,7 @@ class Spike(ExternalBench):
                 if fans_speed < (initial_low_fans_speed * 1.01):
                     # We reached the initial fan speed ~1%, we can prepare the next load cycle
                     time_to_reach_low.append(self.get_monotonic_clock() - cycle_start)
-                    print(
-                        f"Low: reached {current_fan_ratio:.2f}% with fans={fans_speed}"
-                    )
+                    print(f"Low: reached {current_fan_ratio:.2f}% with fans={fans_speed}")
                     wait_high_fans_speed = True
 
             # Time-keeper:

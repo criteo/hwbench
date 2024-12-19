@@ -130,21 +130,13 @@ class TestVendors(unittest.TestCase):
                     assert False, "Metrics do not match"
 
     def generic_thermal_test(self, expected_output):
-        return self.generic_test(
-            expected_output, self.get_vendor().get_bmc().read_thermals({})
-        )
+        return self.generic_test(expected_output, self.get_vendor().get_bmc().read_thermals({}))
 
     def generic_fan_test(self, expected_output):
-        return self.generic_test(
-            expected_output, self.get_vendor().get_bmc().read_fans({})
-        )
+        return self.generic_test(expected_output, self.get_vendor().get_bmc().read_fans({}))
 
     def generic_power_consumption_test(self, expected_output):
-        return self.generic_test(
-            expected_output, self.get_vendor().get_bmc().read_power_consumption({})
-        )
+        return self.generic_test(expected_output, self.get_vendor().get_bmc().read_power_consumption({}))
 
     def generic_power_supplies_test(self, expected_output):
-        return self.generic_test(
-            expected_output, self.get_vendor().get_bmc().read_power_supplies({})
-        )
+        return self.generic_test(expected_output, self.get_vendor().get_bmc().read_power_supplies({}))

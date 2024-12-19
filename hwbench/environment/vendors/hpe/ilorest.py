@@ -138,9 +138,7 @@ class ILOREST:
     def get_bmc_ipv4(self):
         """Return the BMC IPV4 address"""
         # If no url provided in the configuration file, let's detect it via ilorest
-        bmc_netconfig = self.list(
-            select="ethernetinterface", filter="id=1", to_json=True
-        )
+        bmc_netconfig = self.list(select="ethernetinterface", filter="id=1", to_json=True)
         if bmc_netconfig:
             # On multi-node chassis, the ethernetinterface is a list
             # On single-node chassis, the ethernetinterface is a dict

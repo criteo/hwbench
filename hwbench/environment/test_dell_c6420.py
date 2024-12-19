@@ -21,9 +21,7 @@ class TestDell6420(TestDell):
 
     def test_thermal(self):
         expected_output = self.generic_thermal_output()
-        expected_output[str(ThermalContext.INTAKE)] = {
-            "Inlet Temp": Temperature("Inlet", 32)
-        }
+        expected_output[str(ThermalContext.INTAKE)] = {"Inlet Temp": Temperature("Inlet", 32)}
         expected_output[str(ThermalContext.CPU)] = {
             "CPU1 Temp": Temperature("CPU1", 37),
             "CPU2 Temp": Temperature("CPU2", 34),

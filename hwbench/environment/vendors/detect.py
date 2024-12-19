@@ -18,9 +18,7 @@ VENDOR_LIST = [
 ]
 
 
-def first_matching_vendor(
-    out_dir: pathlib.Path, dmi: DmiSys, monitoring_config_filename
-) -> Vendor:
+def first_matching_vendor(out_dir: pathlib.Path, dmi: DmiSys, monitoring_config_filename) -> Vendor:
     for vendor in VENDOR_LIST:
         v = vendor(out_dir, dmi, monitoring_config_filename)  # type: ignore
         if v.detect():

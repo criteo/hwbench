@@ -23,9 +23,7 @@ class ILO(BMC):
 
     def get_url(self) -> str:
         # If the configuration file provides and url, let's use it
-        url = self.vendor.monitoring_config_file.get(
-            self.bmc_section, "url", fallback=""
-        )
+        url = self.vendor.monitoring_config_file.get(self.bmc_section, "url", fallback="")
         if url:
             return url
 
@@ -38,9 +36,7 @@ class ILO(BMC):
     def get_thermal(self):
         return self.get_redfish_url("/redfish/v1/Chassis/1/Thermal")
 
-    def read_thermals(
-        self, thermals: dict[str, dict[str, Temperature]] = {}
-    ) -> dict[str, dict[str, Temperature]]:
+    def read_thermals(self, thermals: dict[str, dict[str, Temperature]] = {}) -> dict[str, dict[str, Temperature]]:
         for t in self.get_thermal().get("Temperatures"):
             if t["ReadingCelsius"] <= 0:
                 continue
@@ -90,9 +86,7 @@ class ILO(BMC):
     def __warn_psu(self, psu_number, message):
         logging.error(f"PSU {psu_number}: {message}")
 
-    def read_power_supplies(
-        self, power_supplies: dict[str, dict[str, Power]] = {}
-    ) -> dict[str, dict[str, Power]]:
+    def read_power_supplies(self, power_supplies: dict[str, dict[str, Power]] = {}) -> dict[str, dict[str, Power]]:
         """Return power supplies power from server"""
         if str(PowerContext.BMC) not in power_supplies:
             power_supplies[str(PowerContext.BMC)] = {}  # type: ignore[no-redef]
@@ -128,9 +122,7 @@ class ILO(BMC):
 
         return power_supplies
 
-    def read_power_consumption(
-        self, power_consumption: dict[str, dict[str, Power]] = {}
-    ):
+    def read_power_consumption(self, power_consumption: dict[str, dict[str, Power]] = {}):
         oem_chassis = self.get_oem_chassis()
 
         # If server is not in a chassis, the default parsing is good
@@ -170,19 +162,11 @@ class ILO(BMC):
 
     @cache
     def is_multinode_chassis(self) -> bool:
-        return (
-            True
-            if self.get_redfish_url(
-                "/redfish/v1/Chassis/enclosurechassis/", log_failure=False
-            )
-            else False
-        )
+        return True if self.get_redfish_url("/redfish/v1/Chassis/enclosurechassis/", log_failure=False) else False
 
     def get_oem_chassis(self):
         if self.is_multinode_chassis():
-            return self.get_redfish_url(
-                "/redfish/v1/Chassis/enclosurechassis/", log_failure=False
-            )
+            return self.get_redfish_url("/redfish/v1/Chassis/enclosurechassis/", log_failure=False)
         return {}
 
 

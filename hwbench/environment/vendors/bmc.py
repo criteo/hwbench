@@ -36,9 +36,7 @@ class BMC(MonitoringDevice, External):
             if b": " in row:
                 key, value = row.split(b": ", 1)
                 if key.strip():
-                    self.bmc[key.strip().decode("utf-8")] = value.strip().decode(
-                        "utf-8"
-                    )
+                    self.bmc[key.strip().decode("utf-8")] = value.strip().decode("utf-8")
         return self.bmc
 
     def run_cmd_version(self) -> list[str]:
@@ -57,9 +55,7 @@ class BMC(MonitoringDevice, External):
         # For testing purposes, vendor can be None
         if self.vendor:
             # If the configuration file provides and url, let's use it
-            url = self.vendor.monitoring_config_file.get(
-                self.bmc_section, "url", fallback=""
-            )
+            url = self.vendor.monitoring_config_file.get(self.bmc_section, "url", fallback="")
             if url:
                 return url
 
@@ -72,13 +68,9 @@ class BMC(MonitoringDevice, External):
 
     def connect_redfish(self):
         """Connect to the BMC using Redfish."""
-        sections = self.vendor.find_monitoring_sections(
-            "BMC", [self.vendor.name(), "default"], max_sections=1
-        )
+        sections = self.vendor.find_monitoring_sections("BMC", [self.vendor.name(), "default"], max_sections=1)
         if not sections:
-            h.fatal(
-                "Cannot find any valid BMC entry of the monitoring configuration file"
-            )
+            h.fatal("Cannot find any valid BMC entry of the monitoring configuration file")
 
         bmc_username = self.vendor.monitoring_config_file.get(sections[0], "username")
         bmc_password = self.vendor.monitoring_config_file.get(sections[0], "password")
@@ -89,11 +81,7 @@ class BMC(MonitoringDevice, External):
         # List all available Chassis item URLs
         chlist = self.get_redfish_url("/redfish/v1/Chassis")
         chassis = []
-        if (
-            isinstance(chlist, dict)
-            and "Members" in chlist
-            and isinstance(chlist["Members"], list)
-        ):
+        if isinstance(chlist, dict) and "Members" in chlist and isinstance(chlist["Members"], list):
             for member in chlist["Members"]:
                 if "@odata.id" in member and isinstance(member["@odata.id"], str):
                     chassis.append(member["@odata.id"])
@@ -102,11 +90,7 @@ class BMC(MonitoringDevice, External):
     def _chassis_item_url(self, chassis, name: str) -> str:
         if isinstance(chassis, dict) and name in chassis:
             item = chassis[name]
-            if (
-                isinstance(item, dict)
-                and "@odata.id" in item
-                and isinstance(item["@odata.id"], str)
-            ):
+            if isinstance(item, dict) and "@odata.id" in item and isinstance(item["@odata.id"], str):
                 return item["@odata.id"]
         return ""
 
@@ -146,9 +130,7 @@ class BMC(MonitoringDevice, External):
             return next(iter(th.values()))  # return only element
         return {}  # return nothing if there are more than 1 elements
 
-    def read_thermals(
-        self, thermals: dict[str, dict[str, Temperature]] = {}
-    ) -> dict[str, dict[str, Temperature]]:
+    def read_thermals(self, thermals: dict[str, dict[str, Temperature]] = {}) -> dict[str, dict[str, Temperature]]:
         """Return thermals from server"""
         th = self._get_thermals()
         for chassis, thermal in th.items():
@@ -169,9 +151,7 @@ class BMC(MonitoringDevice, External):
                 )
         return thermals
 
-    def read_fans(
-        self, fans: dict[str, dict[str, MonitorMetric]] = {}
-    ) -> dict[str, dict[str, MonitorMetric]]:
+    def read_fans(self, fans: dict[str, dict[str, MonitorMetric]] = {}) -> dict[str, dict[str, MonitorMetric]]:
         """Return fans from server"""
         # Generic for now, could be override by vendors
         if str(FanContext.FAN) not in fans:
@@ -179,9 +159,7 @@ class BMC(MonitoringDevice, External):
         for f in self.get_thermal().get("Fans", []):
             name = f["Name"]
             if name not in fans[str(FanContext.FAN)]:
-                fans[str(FanContext.FAN)][name] = MonitorMetric(
-                    f["Name"], f["ReadingUnits"]
-                )
+                fans[str(FanContext.FAN)][name] = MonitorMetric(f["Name"], f["ReadingUnits"])
             fans[str(FanContext.FAN)][name].add(f["Reading"])
         return fans
 
@@ -204,22 +182,14 @@ class BMC(MonitoringDevice, External):
         """Return power consumption from server"""
         # Generic for now, could be override by vendors
         if str(PowerContext.BMC) not in power_consumption:
-            power_consumption[str(PowerContext.BMC)] = {
-                str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER))
-            }  # type: ignore[no-redef]
+            power_consumption[str(PowerContext.BMC)] = {str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER))}  # type: ignore[no-redef]
 
-        power = self.get_power().get("PowerControl", [{"PowerConsumedWatts": None}])[0][
-            "PowerConsumedWatts"
-        ]
+        power = self.get_power().get("PowerControl", [{"PowerConsumedWatts": None}])[0]["PowerConsumedWatts"]
         if power:
-            power_consumption[str(PowerContext.BMC)][str(PowerCategories.SERVER)].add(
-                power
-            )
+            power_consumption[str(PowerContext.BMC)][str(PowerCategories.SERVER)].add(power)
         return power_consumption
 
-    def read_power_supplies(
-        self, power_supplies: dict[str, dict[str, Power]] = {}
-    ) -> dict[str, dict[str, Power]]:
+    def read_power_supplies(self, power_supplies: dict[str, dict[str, Power]] = {}) -> dict[str, dict[str, Power]]:
         """Return power supplies power from server"""
         # Generic for now, could be override by vendors
         if str(PowerContext.BMC) not in power_supplies:
@@ -228,9 +198,7 @@ class BMC(MonitoringDevice, External):
             psu_name = psu["Name"].split()[0]
             if psu["Name"] not in power_supplies[str(PowerContext.BMC)]:
                 power_supplies[str(PowerContext.BMC)][psu["Name"]] = Power(psu_name)
-            power_supplies[str(PowerContext.BMC)][psu["Name"]].add(
-                psu["PowerInputWatts"]
-            )
+            power_supplies[str(PowerContext.BMC)][psu["Name"]].add(psu["PowerInputWatts"])
         return power_supplies
 
     def detect(self):

@@ -57,9 +57,7 @@ class Engine(EngineBase):
 class Sleep(ExternalBench):
     """The Sleep stressor."""
 
-    def __init__(
-        self, engine_module: EngineModuleBase, parameters: BenchmarkParameters
-    ):
+    def __init__(self, engine_module: EngineModuleBase, parameters: BenchmarkParameters):
         ExternalBench.__init__(self, engine_module, parameters)
         self.stressor_name = parameters.get_engine_module_parameter()
         self.engine_module = engine_module
@@ -76,9 +74,7 @@ class Sleep(ExternalBench):
 
     def parse_cmd(self, stdout: bytes, stderr: bytes):
         # Add the score to the global output
-        return self.parameters.get_result_format() | {
-            "bogo ops/s": self.parameters.get_runtime()
-        }
+        return self.parameters.get_result_format() | {"bogo ops/s": self.parameters.get_runtime()}
 
     @property
     def name(self) -> str:

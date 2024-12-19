@@ -117,9 +117,7 @@ class EngineModuleVNNI(EngineModulePinnable):
 
 
 class StressNGVNNI(StressNG):
-    def __init__(
-        self, engine_module: EngineModuleVNNI, parameters: BenchmarkParameters
-    ):
+    def __init__(self, engine_module: EngineModuleVNNI, parameters: BenchmarkParameters):
         super().__init__(engine_module, parameters)
         self.method = parameters.get_engine_module_parameter()
         self.methods = engine_module.methods

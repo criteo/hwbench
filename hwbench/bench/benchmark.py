@@ -50,10 +50,7 @@ class Benchmark:
         p = self.get_parameters()
         error = e.validate_module_parameters(p)
         if error:
-            h.fatal(
-                f"Unsupported parameter for {e.get_engine().get_name()}/"
-                f"{e.get_name()}: {error}"
-            )
+            h.fatal(f"Unsupported parameter for {e.get_engine().get_name()}/" f"{e.get_name()}: {error}")
 
     def run(self):
         e = self.get_enginemodule()
@@ -69,9 +66,7 @@ class Benchmark:
 
 
 class ExternalBench(External):
-    def __init__(
-        self, engine_module: EngineModuleBase, parameters: BenchmarkParameters
-    ):
+    def __init__(self, engine_module: EngineModuleBase, parameters: BenchmarkParameters):
         super().__init__(parameters.out_dir)
         self.monitoring = False
         if parameters.get_monitoring_config() == "all":
@@ -85,9 +80,7 @@ class ExternalBench(External):
         # Let's pin the CPU if needed
         if self.parameters.get_pinned_cpu():
             if isinstance(self.parameters.get_pinned_cpu(), list):
-                cpu_list = ",".join(
-                    [str(cpu) for cpu in self.parameters.get_pinned_cpu()]
-                )
+                cpu_list = ",".join([str(cpu) for cpu in self.parameters.get_pinned_cpu()])
                 args.insert(0, f"{cpu_list}")
             else:
                 args.insert(0, f"{self.parameters.get_pinned_cpu()}")
@@ -115,24 +108,16 @@ class ExternalBench(External):
         if self.monitoring and not self.fully_skipped_job():
             # Start the monitoring in background
             # It runs the same amount of time as the benchmark
-            self.parameters.get_monitoring().monitor(
-                2, 5, self.parameters.get_runtime()
-            )
+            self.parameters.get_monitoring().monitor(2, 5, self.parameters.get_runtime())
         p = self.parameters
         cpu_location = ""
         if p.get_pinned_cpu():
             if isinstance(p.get_pinned_cpu(), (int, str)):
                 cpu_location = " on CPU {:3d}".format(p.get_pinned_cpu())
             elif isinstance(p.get_pinned_cpu(), list):
-                cpu_location = " on CPU [{}]".format(
-                    h.cpu_list_to_range(p.get_pinned_cpu())
-                )
+                cpu_location = " on CPU [{}]".format(h.cpu_list_to_range(p.get_pinned_cpu()))
             else:
-                h.fatal(
-                    "Unsupported get_pinned_cpu() format :{}".format(
-                        type(p.get_pinned_cpu())
-                    )
-                )
+                h.fatal("Unsupported get_pinned_cpu() format :{}".format(type(p.get_pinned_cpu())))
 
         monitoring = ""
         if self.parameters.get_monitoring():
