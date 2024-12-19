@@ -1,13 +1,14 @@
 import ast
 import errno
-import pathlib
 import os
+import pathlib
 import unittest
 from enum import Enum
-from unittest.mock import patch
 from typing import Any  # noqa: F401
-from .vendors.vendor import Vendor
+from unittest.mock import patch
+
 from ..bench.monitoring_structs import FanContext, PowerContext, ThermalContext
+from .vendors.vendor import Vendor
 
 path = pathlib.Path("")
 

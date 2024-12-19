@@ -1,4 +1,4 @@
-from .vendor import Vendor, BMC
+from .vendor import BMC, Vendor
 
 
 class GenericVendor(Vendor):

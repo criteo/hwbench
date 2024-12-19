@@ -1,5 +1,5 @@
 import re
-from typing import Optional, Any
+from typing import Any, Optional
 
 from ..bench.parameters import BenchmarkParameters
 from .stressng import EngineBase, EngineModulePinnable, StressNG

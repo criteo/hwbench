@@ -1,6 +1,6 @@
-from ..bench.parameters import BenchmarkParameters
-from ..bench.engine import EngineBase, EngineModuleBase
 from ..bench.benchmark import ExternalBench
+from ..bench.engine import EngineBase, EngineModuleBase
+from ..bench.parameters import BenchmarkParameters
 
 
 class EngineModuleSleep(EngineModuleBase):

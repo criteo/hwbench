@@ -2,10 +2,12 @@ import os
 import re
 import subprocess
 from enum import Enum
+
 from packaging.version import Version
+
+from ..bench.monitoring_structs import CPUContext, MonitorMetric, PowerContext
 from ..environment.hardware import BaseHardware
-from ..bench.monitoring_structs import MonitorMetric, CPUContext, PowerContext
-from ..utils.helpers import is_binary_available, fatal
+from ..utils.helpers import fatal, is_binary_available
 
 CORE = "core"
 PACKAGE = "package"

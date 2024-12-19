@@ -1,7 +1,8 @@
 import os
 import pathlib
 import subprocess
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
+
 from .helpers import fatal
 
 

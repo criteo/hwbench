@@ -1,9 +1,11 @@
 from typing import Optional
+
 import matplotlib
-from matplotlib.pylab import Axes
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.ticker import FuncFormatter, AutoMinorLocator, MultipleLocator
+from matplotlib.pylab import Axes
+from matplotlib.ticker import AutoMinorLocator, FuncFormatter, MultipleLocator
+
 from graph.common import fatal
 from graph.trace import Bench
 from hwbench.bench.monitoring_structs import Metrics, MonitorMetric

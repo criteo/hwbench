@@ -1,13 +1,11 @@
 import pathlib
 
+from ..dmi import DmiSys
 from .amd.amd import Amd
 from .dell.dell import Dell
-from .hpe.hpe import Hpe
 from .generic import GenericVendor
-
+from .hpe.hpe import Hpe
 from .vendor import Vendor
-from ..dmi import DmiSys
-
 
 VENDOR_LIST = [
     Dell,

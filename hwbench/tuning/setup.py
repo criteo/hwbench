@@ -1,9 +1,9 @@
+from ..utils.external import External_Simple
+from ..utils.hwlogging import tunninglog
 from .drop_caches import SysctlDropCaches
 from .power_profile import PerformancePowerProfile
 from .scheduler import MQDeadlineIOScheduler
 from .turbo_boost import IntelTurboBoost, TurboBoost
-from ..utils.external import External_Simple
-from ..utils.hwlogging import tunninglog
 
 
 class Tuning:

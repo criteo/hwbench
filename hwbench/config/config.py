@@ -6,10 +6,10 @@ import os
 import re
 from typing import Any
 
-from . import config_syntax
 from ..bench.engine import EngineBase
 from ..environment import hardware as env_hw
 from ..utils import helpers as h
+from . import config_syntax
 
 
 class Config:

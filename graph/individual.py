@@ -1,7 +1,9 @@
+from typing import Any  # noqa: F401
+
 import matplotlib.pyplot as plt
 import numpy as np
-from typing import Any  # noqa: F401
-from graph.graph import Graph, GRAPH_TYPES
+
+from graph.graph import GRAPH_TYPES, Graph
 
 
 def individual_graph(args, output_dir, job: str, traces_name: list) -> int:

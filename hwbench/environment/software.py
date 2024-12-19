@@ -1,11 +1,11 @@
-import os
 import json
+import os
 import pathlib
 
-from .base import BaseEnvironment
-from .packages import RpmList
 from ..utils.archive import copy_file, create_tar_from_directory
 from ..utils.external import External_Simple
+from .base import BaseEnvironment
+from .packages import RpmList
 
 
 class Environment(BaseEnvironment):

@@ -2,17 +2,18 @@ import functools
 import os.path
 import pathlib
 from typing import cast
-from .monitoring_device import MonitoringDevice
-from ...utils import helpers as h
-from ...utils.external import External
+
 from ...bench.monitoring_structs import (
     FanContext,
+    MonitorMetric,
     Power,
     PowerCategories,
     PowerContext,
-    MonitorMetric,
     Temperature,
 )
+from ...utils import helpers as h
+from ...utils.external import External
+from .monitoring_device import MonitoringDevice
 
 
 class BMC(MonitoringDevice, External):
