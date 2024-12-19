@@ -35,8 +35,8 @@ class Turbostat:
     def __init__(
         self,
         hardware: BaseHardware,
-        freq_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] = None,
-        power_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] = None,
+        freq_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] | None = None,
+        power_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] | None = None,
     ):
         if power_metrics is None:
             power_metrics = {}

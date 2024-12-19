@@ -20,7 +20,9 @@ class MockedBMC(BMC):
         self.firmware_version = "1.0.0"
         self.model = "MockedBMC"
 
-    def read_thermals(self, thermals: dict[str, dict[str, Temperature]] = None) -> dict[str, dict[str, Temperature]]:
+    def read_thermals(
+        self, thermals: dict[str, dict[str, Temperature]] | None = None
+    ) -> dict[str, dict[str, Temperature]]:
         # Let's add a faked thermal metric
         if thermals is None:
             thermals = {}
@@ -35,7 +37,7 @@ class MockedBMC(BMC):
         )
         return thermals
 
-    def read_fans(self, fans: dict[str, dict[str, MonitorMetric]] = None) -> dict[str, dict[str, MonitorMetric]]:
+    def read_fans(self, fans: dict[str, dict[str, MonitorMetric]] | None = None) -> dict[str, dict[str, MonitorMetric]]:
         # Let's add a faked fans metric
         if fans is None:
             fans = {}
@@ -50,7 +52,7 @@ class MockedBMC(BMC):
         return fans
 
     def read_power_consumption(
-        self, power_consumption: dict[str, dict[str, Power]] = None
+        self, power_consumption: dict[str, dict[str, Power]] | None = None
     ) -> dict[str, dict[str, Power]]:
         # Let's add a faked power metric
         if power_consumption is None:
@@ -65,7 +67,9 @@ class MockedBMC(BMC):
         )
         return power_consumption
 
-    def read_power_supplies(self, power_supplies: dict[str, dict[str, Power]] = None) -> dict[str, dict[str, Power]]:
+    def read_power_supplies(
+        self, power_supplies: dict[str, dict[str, Power]] | None = None
+    ) -> dict[str, dict[str, Power]]:
         # Let's add a faked power supplies
         if power_supplies is None:
             power_supplies = {}

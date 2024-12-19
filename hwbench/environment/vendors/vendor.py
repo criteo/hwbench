@@ -67,7 +67,7 @@ class Vendor(ABC):
         """Return a list of PDUs object"""
         return self.pdus
 
-    def find_monitoring_sections(self, section_type: str, sections_list=None, max_sections=0):
+    def find_monitoring_sections(self, section_type: str, sections_list: list | None, max_sections=0):
         """Return sections of section_type from the monitoring configuration file"""
         if sections_list is None:
             sections_list = []

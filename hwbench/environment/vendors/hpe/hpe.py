@@ -38,7 +38,9 @@ class ILO(BMC):
     def get_thermal(self):
         return self.get_redfish_url("/redfish/v1/Chassis/1/Thermal")
 
-    def read_thermals(self, thermals: dict[str, dict[str, Temperature]] = None) -> dict[str, dict[str, Temperature]]:
+    def read_thermals(
+        self, thermals: dict[str, dict[str, Temperature]] | None = None
+    ) -> dict[str, dict[str, Temperature]]:
         if thermals is None:
             thermals = {}
         for t in self.get_thermal().get("Temperatures"):
@@ -90,7 +92,9 @@ class ILO(BMC):
     def __warn_psu(self, psu_number, message):
         logging.error(f"PSU {psu_number}: {message}")
 
-    def read_power_supplies(self, power_supplies: dict[str, dict[str, Power]] = None) -> dict[str, dict[str, Power]]:
+    def read_power_supplies(
+        self, power_supplies: dict[str, dict[str, Power]] | None = None
+    ) -> dict[str, dict[str, Power]]:
         """Return power supplies power from server"""
         if power_supplies is None:
             power_supplies = {}
@@ -128,7 +132,7 @@ class ILO(BMC):
 
         return power_supplies
 
-    def read_power_consumption(self, power_consumption: dict[str, dict[str, Power]] = None):
+    def read_power_consumption(self, power_consumption: dict[str, dict[str, Power]] | None = None):
         if power_consumption is None:
             power_consumption = {}
         oem_chassis = self.get_oem_chassis()

@@ -3,7 +3,7 @@ from .vendors.mock import MockVendor
 
 
 class MockHardware(Hardware):
-    def __init__(self, flags: list[str] = None, cores: int = 0, cpu=None):
+    def __init__(self, flags: list[str] | None = None, cores: int = 0, cpu=None):
         if flags is None:
             flags = []
         self.cpu = cpu

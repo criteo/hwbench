@@ -38,7 +38,7 @@ class PDU(MonitoringDevice):
         return {}
 
     def read_power_consumption(
-        self, power_consumption: dict[str, dict[str, Power]] = None
+        self, power_consumption: dict[str, dict[str, Power]] | None = None
     ) -> dict[str, dict[str, Power]]:
         """Return power consumption from server"""
         # Generic for now, could be override by vendors

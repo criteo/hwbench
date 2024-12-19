@@ -131,7 +131,9 @@ class BMC(MonitoringDevice, External):
             return next(iter(th.values()))  # return only element
         return {}  # return nothing if there are more than 1 elements
 
-    def read_thermals(self, thermals: dict[str, dict[str, Temperature]] = None) -> dict[str, dict[str, Temperature]]:
+    def read_thermals(
+        self, thermals: dict[str, dict[str, Temperature]] | None = None
+    ) -> dict[str, dict[str, Temperature]]:
         """Return thermals from server"""
         if thermals is None:
             thermals = {}
@@ -154,7 +156,7 @@ class BMC(MonitoringDevice, External):
                 )
         return thermals
 
-    def read_fans(self, fans: dict[str, dict[str, MonitorMetric]] = None) -> dict[str, dict[str, MonitorMetric]]:
+    def read_fans(self, fans: dict[str, dict[str, MonitorMetric]] | None = None) -> dict[str, dict[str, MonitorMetric]]:
         """Return fans from server"""
         # Generic for now, could be override by vendors
         if fans is None:
@@ -182,7 +184,7 @@ class BMC(MonitoringDevice, External):
         return {}  # return nothing if there are more than 1 elements
 
     def read_power_consumption(
-        self, power_consumption: dict[str, dict[str, Power]] = None
+        self, power_consumption: dict[str, dict[str, Power]] | None = None
     ) -> dict[str, dict[str, Power]]:
         """Return power consumption from server"""
         # Generic for now, could be override by vendors
@@ -196,7 +198,9 @@ class BMC(MonitoringDevice, External):
             power_consumption[str(PowerContext.BMC)][str(PowerCategories.SERVER)].add(power)
         return power_consumption
 
-    def read_power_supplies(self, power_supplies: dict[str, dict[str, Power]] = None) -> dict[str, dict[str, Power]]:
+    def read_power_supplies(
+        self, power_supplies: dict[str, dict[str, Power]] | None = None
+    ) -> dict[str, dict[str, Power]]:
         """Return power supplies power from server"""
         # Generic for now, could be override by vendors
         if power_supplies is None:

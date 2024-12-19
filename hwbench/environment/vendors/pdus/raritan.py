@@ -31,7 +31,7 @@ class Raritan(PDU):
             return self.get_redfish_url(f"/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/{self.outlet}/")
 
     def read_power_consumption(
-        self, power_consumption: dict[str, dict[str, Power]] = None
+        self, power_consumption: dict[str, dict[str, Power]] | None = None
     ) -> dict[str, dict[str, Power]]:
         """Return power consumption from pdu"""
         if power_consumption is None:
