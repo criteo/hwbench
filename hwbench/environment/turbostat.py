@@ -90,28 +90,20 @@ class Turbostat:
 
         print(f"Monitoring/turbostat: Detected release {current_version}")
         if current_version < self.min_release:
-            fatal(
-                f"Monitoring/turbostat: minimal expected release is {self.min_release}"
-            )
+            fatal(f"Monitoring/turbostat: minimal expected release is {self.min_release}")
 
     def reset_metrics(self, power_metrics=None):
         if power_metrics is not None:
             self.power_metrics = power_metrics
         if str(PowerContext.CPU) not in self.power_metrics:
             self.power_metrics[str(PowerContext.CPU)] = {}
-        self.power_metrics[str(PowerContext.CPU)][PACKAGE] = MonitorMetric(
-            PACKAGE, "Watts"
-        )
+        self.power_metrics[str(PowerContext.CPU)][PACKAGE] = MonitorMetric(PACKAGE, "Watts")
 
         for cores in range(self.get_cores_count()):
             # If we have CoreWatt, let's report them
             if self.has(CPUSTATS.CORE_WATTS):
-                self.power_metrics[str(PowerContext.CPU)][f"Core_{cores}"] = (
-                    MonitorMetric(f"Core_{cores}", "Watts")
-                )
-            self.freq_metrics[str(CPUContext.CPU)][f"Core_{cores}"] = MonitorMetric(
-                f"Core_{cores}", "Mhz"
-            )
+                self.power_metrics[str(PowerContext.CPU)][f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Watts")
+            self.freq_metrics[str(CPUContext.CPU)][f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Mhz")
         return self.freq_metrics, self.power_metrics
 
     def has(self, metric) -> bool:
@@ -215,9 +207,7 @@ class Turbostat:
         self.__set_column_header(self.__output[0])
 
         # Collecting the overall packages power consumption
-        self.power_metrics[str(PowerContext.CPU)][PACKAGE].add(
-            self.get_global_packages_power()
-        )
+        self.power_metrics[str(PowerContext.CPU)][PACKAGE].add(self.get_global_packages_power())
         # self.__results[PACKAGE].add(self.get_global_packages_power())
 
         # We skip the header and then extract all cores informations
@@ -227,9 +217,7 @@ class Turbostat:
             if self.has(CPUSTATS.CORE_WATTS):
                 try:
                     self.power_metrics[str(PowerContext.CPU)][f"Core_{core_nb}"].add(
-                        float(
-                            items[int(self.__get_field_position(CPUSTATS.CORE_WATTS))]
-                        )
+                        float(items[int(self.__get_field_position(CPUSTATS.CORE_WATTS))])
                     )
                 except IndexError:
                     # Some processors reports the corewatt in the header but not for all cores ...
@@ -293,9 +281,7 @@ class Turbostat:
         # We ignore the two header lines and jumps to the core itself
         header_size = 2  # lines
         line = self.get_output()[core_nb + header_size]
-        results = self.get_output_fields(
-            line, [self.__get_field_position(CPUSTATS.CPU)] + infos
-        )
+        results = self.get_output_fields(line, [self.__get_field_position(CPUSTATS.CPU)] + infos)
         if int(results[0]) == core_nb:
             return results[1:]
         return None

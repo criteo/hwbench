@@ -17,9 +17,7 @@ class NUMA(External):
             # node 0 cpus: 0 1 2 3 4 5 6 7 32 33 34 35 36 37 38 39
             match = re.search(r"node (?P<node>[0-9]+) cpus: (?P<cpus>.*)", line)
             if match:
-                self.numa_domains[int(match.group("node"))] = [
-                    int(cpu) for cpu in match.group("cpus").split()
-                ]
+                self.numa_domains[int(match.group("node"))] = [int(cpu) for cpu in match.group("cpus").split()]
             # node   0   1   2   3   4   5   6   7
             #  0:  10  11  12  12  12  12  12  12
             #  1:  11  10  12  12  12  12  12  12

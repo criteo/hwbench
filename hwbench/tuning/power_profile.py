@@ -11,10 +11,7 @@ class PerformancePowerProfile:
         self.skip_tuning = False
 
         current_governor = (
-            pathlib.Path("/sys/devices/system/cpu/cpuidle/current_governor")
-            .read_text("ascii")
-            .strip()
-            .split()
+            pathlib.Path("/sys/devices/system/cpu/cpuidle/current_governor").read_text("ascii").strip().split()
         )
         self.skip_tuning |= current_governor == "menu"
 
@@ -27,14 +24,10 @@ class PerformancePowerProfile:
         for rootpath, dirnames, filenames in os.walk("/sys/devices/system/cpu"):
             for dirname in dirnames:
                 if pattern.match(dirname):
-                    file = pathlib.Path(rootpath).joinpath(
-                        dirname, "cpufreq", "scaling_governor"
-                    )
+                    file = pathlib.Path(rootpath).joinpath(dirname, "cpufreq", "scaling_governor")
                     # Ignore this tuning if no scaling_governor available
                     if not file.exists():
-                        log.info(
-                            f"skip PerformancePowerProfile for {dirname} as no scaling governor detected"
-                        )
+                        log.info(f"skip PerformancePowerProfile for {dirname} as no scaling governor detected")
                         continue
                     previous = file.read_text(encoding="utf-8").rstrip()
                     # please read https://www.kernel.org/doc/html/latest/admin-guide/pm/cpufreq.html

@@ -47,8 +47,6 @@ class CustomJsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         super().format(record)
-        output = {
-            k: v for k, v in record.__dict__.items() if k not in self.dropped_keys
-        }
+        output = {k: v for k, v in record.__dict__.items() if k not in self.dropped_keys}
         output["timestamp"] = strftime(DATEFMT, gmtime(record.created))
         return json.dumps(output)

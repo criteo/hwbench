@@ -17,15 +17,9 @@ def mock_engine(version: str) -> StressNG:
     # to avoid considering the local stress-ng binary
     with patch("hwbench.utils.helpers.is_binary_available") as iba:
         iba.return_value = True
-        with patch(
-            "hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters"
-        ) as p:
+        with patch("hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters") as p:
             p.return_value = (
-                pathlib.Path(
-                    f"./hwbench/tests/parsing/stressngmethods/{version}/stdout"
-                )
-                .read_bytes()
-                .split(b":", 1)
+                pathlib.Path(f"./hwbench/tests/parsing/stressngmethods/{version}/stdout").read_bytes().split(b":", 1)
             )
             return StressNG()
 

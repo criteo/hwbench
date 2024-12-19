@@ -14,9 +14,7 @@ class DmiSys:
     def __init__(self, out_dir: pathlib.Path):
         self.out_dir = out_dir
         self.tarfilename = self.out_dir.joinpath(self.ARCH_DMI)
-        create_tar_from_directory(
-            self.SYS_DMI, pathlib.Path(self.tarfilename.as_posix())
-        )
+        create_tar_from_directory(self.SYS_DMI, pathlib.Path(self.tarfilename.as_posix()))
 
     @staticmethod
     def bytes_to_dmi_info(payload: Optional[bytes]) -> Optional[str]:
@@ -25,9 +23,7 @@ class DmiSys:
         return payload.decode("utf-8", "strict").replace("\n", "")
 
     @staticmethod
-    def extract_dmi_payload(
-        tarfile: pathlib.Path, file: str, root_path=SYS_DMI
-    ) -> Optional[bytes]:
+    def extract_dmi_payload(tarfile: pathlib.Path, file: str, root_path=SYS_DMI) -> Optional[bytes]:
         return extract_file_from_tar(tarfile.as_posix(), os.path.join(root_path, file))
 
     def info(self, name: str) -> Optional[str]:

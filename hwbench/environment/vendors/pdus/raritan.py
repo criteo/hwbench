@@ -10,9 +10,7 @@ def init(vendor, pdu_section):
 class Raritan(PDU):
     def __init__(self, vendor, pdu_section):
         super().__init__(vendor, pdu_section)
-        self.outletgroup = self.vendor.monitoring_config_file.get(
-            self.pdu_section, "outletgroup", fallback=""
-        )
+        self.outletgroup = self.vendor.monitoring_config_file.get(self.pdu_section, "outletgroup", fallback="")
         if not self.outlet and not self.outletgroup:
             h.fatal("PDU/Raritan: An outlet or an outletgroup must be defined.")
 
@@ -28,20 +26,14 @@ class Raritan(PDU):
 
     def get_power(self):
         if self.outletgroup:
-            return self.get_redfish_url(
-                f"/redfish/v1/PowerEquipment/RackPDUs/1/OutletGroups/{self.outletgroup}/"
-            )
+            return self.get_redfish_url(f"/redfish/v1/PowerEquipment/RackPDUs/1/OutletGroups/{self.outletgroup}/")
         else:
-            return self.get_redfish_url(
-                f"/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/{self.outlet}/"
-            )
+            return self.get_redfish_url(f"/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/{self.outlet}/")
 
     def read_power_consumption(
         self, power_consumption: dict[str, dict[str, Power]] = {}
     ) -> dict[str, dict[str, Power]]:
         """Return power consumption from pdu"""
         power_consumption = super().read_power_consumption(power_consumption)
-        power_consumption[str(PowerContext.PDU)][self.get_name()].add(
-            self.get_power().get("PowerWatts")["Reading"]
-        )
+        power_consumption[str(PowerContext.PDU)][self.get_name()].add(self.get_power().get("PowerWatts")["Reading"])
         return power_consumption

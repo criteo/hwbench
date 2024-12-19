@@ -55,21 +55,15 @@ class Benchmarks:
             engine_module_parameter = self.jobs_config.get_engine_module_parameter(job)
 
             for emp in engine_module_parameter:
-                if emp not in engine_module.get_module_parameters(
-                    special_keywords=True
-                ):
-                    h.fatal(
-                        f'Unknown "{emp}" engine_module_parameter for "{engine_name}"'
-                    )
+                if emp not in engine_module.get_module_parameters(special_keywords=True):
+                    h.fatal(f'Unknown "{emp}" engine_module_parameter for "{engine_name}"')
 
             # extract job's parameters
             stressor_range = self.jobs_config.get_stressor_range(job)
             stressor_range_scaling = self.jobs_config.get_stressor_range_scaling(job)
             hosting_cpu_cores_raw = self.jobs_config.get_hosting_cpu_cores(job)
             hosting_cpu_cores = hosting_cpu_cores_raw.copy()
-            hosting_cpu_cores_scaling = self.jobs_config.get_hosting_cpu_cores_scaling(
-                job
-            )
+            hosting_cpu_cores_scaling = self.jobs_config.get_hosting_cpu_cores_scaling(job)
 
             # Let's set the default values
             # If a single hosting_cpu_cores is set, the default scaling is iterate
@@ -103,9 +97,7 @@ class Benchmarks:
                 # a strict modulo of the requested steps
                 # That would lead to an unbalanced benchmark configuration
                 if len(hosting_cpu_cores) % steps != 0:
-                    h.fatal(
-                        "hosting_cpu_cores is not module hosting_cpu_cores_scaling !"
-                    )
+                    h.fatal("hosting_cpu_cores is not module hosting_cpu_cores_scaling !")
                 pinned_cpu = []
                 while len(hosting_cpu_cores):
                     for step in range(steps):
@@ -121,9 +113,7 @@ class Benchmarks:
                 for iteration in range(len(hosting_cpu_cores)):
                     # Pick the last CPU of the list
                     pinned_cpu = hosting_cpu_cores.pop()
-                    self.__schedule_benchmarks(
-                        job, stressor_range_scaling, pinned_cpu, validate_parameters
-                    )
+                    self.__schedule_benchmarks(job, stressor_range_scaling, pinned_cpu, validate_parameters)
             elif hosting_cpu_cores_scaling == "none":
                 self.__schedule_benchmarks(
                     job,
@@ -135,9 +125,7 @@ class Benchmarks:
                 hccs = hosting_cpu_cores_scaling
                 h.fatal(f"Unsupported hosting_cpu_cores_scaling : {hccs}")
 
-    def __schedule_benchmarks(
-        self, job, stressor_range_scaling, pinned_cpu, validate_parameters: bool
-    ):
+    def __schedule_benchmarks(self, job, stressor_range_scaling, pinned_cpu, validate_parameters: bool):
         """Iterate on engine module parameters to schedule benchmarks."""
         # Detecting stressor range scaling mode
         if stressor_range_scaling == "plus_1":
@@ -147,9 +135,7 @@ class Benchmarks:
             srs = stressor_range_scaling
             h.fatal(f"Unsupported stressor_range_scaling : {srs}")
 
-    def __schedule_benchmark(
-        self, job, pinned_cpu, engine_module_parameter, validate_parameters: bool
-    ):
+    def __schedule_benchmark(self, job, pinned_cpu, engine_module_parameter, validate_parameters: bool):
         """Schedule benchmark."""
         runtime = self.jobs_config.get_runtime(job)
         monitoring_config = self.get_monitoring_config(job)
@@ -189,9 +175,7 @@ class Benchmarks:
                         self.jobs_config.get_skip_method(job),
                         self.jobs_config.get_sync_start(job),
                     )
-                    benchmark = Benchmark(
-                        self.count_benchmarks(), engine_module, parameters
-                    )
+                    benchmark = Benchmark(self.count_benchmarks(), engine_module, parameters)
                     self.add_benchmark(benchmark, validate_parameters)
             else:
                 parameters = BenchmarkParameters(
@@ -208,9 +192,7 @@ class Benchmarks:
                     self.jobs_config.get_skip_method(job),
                     self.jobs_config.get_sync_start(job),
                 )
-                benchmark = Benchmark(
-                    self.count_benchmarks(), engine_module, parameters
-                )
+                benchmark = Benchmark(self.count_benchmarks(), engine_module, parameters)
                 self.add_benchmark(benchmark, validate_parameters)
 
     def add_benchmark(self, benchmark: Benchmark, validate_parameters: bool):
@@ -235,9 +217,7 @@ class Benchmarks:
                 benchmark.get_parameters().get_runtime()
                 for benchmark in self.get_benchmarks()
                 # Only count benchmarks that are not fully skipped
-                if not benchmark.get_enginemodule().fully_skipped_job(
-                    benchmark.get_parameters()
-                )
+                if not benchmark.get_enginemodule().fully_skipped_job(benchmark.get_parameters())
             ]
         )
 
@@ -256,20 +236,12 @@ ETA {duration}"
             # This benchmark requires to be synced on a time based
             if benchmark.get_parameters().get_sync_start() == "time":
                 time_to_sync_secs, _ = h.time_to_next_sync()
-                print(
-                    f"hwbench: [{bench_name}]: sync_start=time requested, waiting {time_to_sync_secs} seconds"
-                )
+                print(f"hwbench: [{bench_name}]: sync_start=time requested, waiting {time_to_sync_secs} seconds")
                 time.sleep(time_to_sync_secs)
-                print(
-                    f"hwbench: [{bench_name}]: started at {datetime.datetime.utcnow()}"
-                )
+                print(f"hwbench: [{bench_name}]: started at {datetime.datetime.utcnow()}")
 
             # Save each benchmark result
-            results[
-                "{}_{}".format(
-                    benchmark.get_parameters().get_name(), benchmark.get_job_number()
-                )
-            ] = benchmark.run()
+            results["{}_{}".format(benchmark.get_parameters().get_name(), benchmark.get_job_number())] = benchmark.run()
         return results
 
     def dump(self):
@@ -295,9 +267,7 @@ ETA {duration}"
                 )
                 if param.get_pinned_cpu():
                     print(f"pinned_cpu={param.get_pinned_cpu()}", file=f)
-                print(
-                    f"stressor_instances={param.get_engine_instances_count()}", file=f
-                )
+                print(f"stressor_instances={param.get_engine_instances_count()}", file=f)
                 print(f"cmdline={' '.join(em.run_cmd(param))}", file=f)
                 print("", file=f)
 

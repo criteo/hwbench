@@ -23,9 +23,7 @@ class MonitoringDevice:
             try:
                 self.redfish_obj.logout()
             except redfish.rest.v1.RetriesExhaustedError:
-                logging.warning(
-                    "Cannot logout from redfish monitoring device, ignoring."
-                )
+                logging.warning("Cannot logout from redfish monitoring device, ignoring.")
 
     def get_firmware_version(self):
         return self.firmware_version
@@ -37,9 +35,7 @@ class MonitoringDevice:
         return self.serialnumber
 
     def get_url(self):
-        return self.vendor.monitoring_config_file.get(
-            self.pdu_section, "url", fallback=""
-        )
+        return self.vendor.monitoring_config_file.get(self.pdu_section, "url", fallback="")
 
     def detect(self):
         """Detect monitoring device"""

@@ -79,9 +79,7 @@ def validate_hosting_cpu_cores(config, section_name, value) -> str:
             ressources = re.findall(r"(quadrant|numa|core)([0-9-,]+)", value.lower())
             if ressources:
                 for ressource in ressources:
-                    value = value.lower().replace(
-                        f"{ressource[0]}{ressource[1]}", "", 1
-                    )
+                    value = value.lower().replace(f"{ressource[0]}{ressource[1]}", "", 1)
             for helper in ["all", "simple"]:
                 ressources = re.findall(rf"{helper}", value.lower())
                 if ressources:

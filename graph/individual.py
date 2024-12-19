@@ -54,9 +54,7 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                         # If the worker count is not known yet, let's init all structures with as much zeros as the number of traces
                         # This will be the default value in case of the host doesn't have performance results
                         aggregated_perfs[perf][bench.workers()] = [0] * len(traces_name)
-                        aggregated_perfs_watt[perf][bench.workers()] = [0] * len(
-                            traces_name
-                        )
+                        aggregated_perfs_watt[perf][bench.workers()] = [0] * len(traces_name)
                         aggregated_watt[perf][bench.workers()] = [0] * len(traces_name)
                     bench.add_perf(
                         perf,
@@ -71,12 +69,8 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                     temp_max_perf = aggregated_perfs[perf][bench.workers()][index]
                     if temp_max_perf > max_perf[perf][index]:
                         max_perf[perf][index] = temp_max_perf
-                        max_perfs_watt[perf][index] = aggregated_perfs_watt[perf][
-                            bench.workers()
-                        ][index]
-                        max_watt[perf][index] = aggregated_watt[perf][bench.workers()][
-                            index
-                        ]
+                        max_perfs_watt[perf][index] = aggregated_perfs_watt[perf][bench.workers()][index]
+                        max_watt[perf][index] = aggregated_watt[perf][bench.workers()][index]
                         max_workers[perf][index] = bench.workers()
 
                 index = index + 1
@@ -107,17 +101,13 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                     y_source = aggregated_perfs_watt
                     y_max = max_perfs_watt
                 elif graph_type == "watts":
-                    graph_type_title = (
-                        f"Individual {graph_type}: {args.traces[0].get_metric_name()}"
-                    )
+                    graph_type_title = f"Individual {graph_type}: {args.traces[0].get_metric_name()}"
                     graph_type_title += ": Lower is better"
                     y_label = "Watts"
                     y_source = aggregated_watt
                     y_max = max_watt
                 else:
-                    graph_type_title = (
-                        f"Individual {graph_type}: {bench.get_title_engine_name()}"
-                    )
+                    graph_type_title = f"Individual {graph_type}: {bench.get_title_engine_name()}"
                     graph_type_title += ": Bigger is better"
                     y_source = aggregated_perfs
                     y_max = max_perf
@@ -158,18 +148,13 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                 # Concept is to show what every product reached as a maximum perf and plot them together
                 # This way we have on a single graph showing the max of 32 cores vs a 48 cores vs a 64 cores.
                 for max_perf_type in ["max_perf_total", "max_perf_per_core"]:
-                    title = (
-                        f'{args.title}\n\n{graph_type_title} during "{job}" benchmark\n'
-                    )
+                    title = f'{args.title}\n\n{graph_type_title} during "{job}" benchmark\n'
                     if max_perf_type == "max_perf_per_core":
                         title += f"\nPer core maximum performance during {bench.duration()} seconds"
                         y_max_per_core = [0] * len(y_max[perf])
                         # Let's compute the performance per physical core
                         for ymax_nb in range(len(y_max[perf])):
-                            y_max_per_core[ymax_nb] = (
-                                y_max[perf][ymax_nb]
-                                / args.traces[ymax_nb].get_physical_cores()
-                            )
+                            y_max_per_core[ymax_nb] = y_max[perf][ymax_nb] / args.traces[ymax_nb].get_physical_cores()
                         y_serie = np.array(y_max_per_core)
                     else:
                         title += f"\nProduct maximum performance during {bench.duration()} seconds"
@@ -205,9 +190,7 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                         if max_workers[perf][trace_nb] < 0:
                             bar_labels[trace_nb] += "\nbenchmark skipped"
                         else:
-                            bar_labels[trace_nb] += (
-                                f"\n{max_workers[perf][trace_nb]} workers"
-                            )
+                            bar_labels[trace_nb] += f"\n{max_workers[perf][trace_nb]} workers"
                     graph.get_ax().axes.xaxis.set_ticks(traces_name)
                     graph.get_ax().set_xticklabels(bar_labels)
 

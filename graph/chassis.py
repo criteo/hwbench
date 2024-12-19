@@ -15,10 +15,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
     bench = args.traces[0].bench(bench_name)
     base_outfile = f"{bench_name} {bench.workers()}x{bench.engine()}_{bench.engine_module()}_{bench.engine_module_parameter()}_chassis"
     y_label = "Watts"
-    title = (
-        f'{args.title}\n\nChassis power consumption during "{bench_name}" benchmark\n'
-        f"\n{bench.title()}"
-    )
+    title = f"{args.title}\n\nChassis power consumption during {bench_name} benchmark\n\n{bench.title()}"
 
     def get_marker(category: PowerCategories) -> str:
         if category == PowerCategories.SERVER:
@@ -38,9 +35,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
         # Collect all components mean value
         for component in PowerCategories.list():
             # Not all components are available on every system
-            if component not in bench.get_component(
-                Metrics.POWER_CONSUMPTION, PowerContext.BMC
-            ):
+            if component not in bench.get_component(Metrics.POWER_CONSUMPTION, PowerContext.BMC):
                 continue
 
             if str(component) not in sum_serie:
@@ -83,9 +78,9 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             else:
                 # These are shared metrics on the chassis, so picking one from the first bench
                 # should be enough to get the chassis metric, no need to iterate on traces.
-                value = bench.get_single_metric(
-                    Metrics.POWER_CONSUMPTION, PowerContext.BMC, component
-                ).get_mean()[sample]
+                value = bench.get_single_metric(Metrics.POWER_CONSUMPTION, PowerContext.BMC, component).get_mean()[
+                    sample
+                ]
                 sum_serie[str(component)].append(value)
                 sum_serie_in_chassis[str(component)].append(value)
 
@@ -131,9 +126,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             curve_label = str(component)
             if component in [PowerCategories.SERVER, PowerCategories.SERVERINCHASSIS]:
                 curve_label = f"sum of {str(component)}"
-            graph.get_ax().plot(
-                x_serie, y_serie, "", label=curve_label, marker=get_marker(component)
-            )
+            graph.get_ax().plot(x_serie, y_serie, "", label=curve_label, marker=get_marker(component))
 
         for trace in args.traces:
             y_serie = np.array(serie[trace.get_name()])[order]

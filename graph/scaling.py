@@ -15,9 +15,7 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
     # the metrics we need to plot
     benches = args.traces[0].get_benches_by_job_per_emp(job)
     if args.verbose:
-        print(
-            f"Scaling: working on job '{job}' : {len(benches.keys())} engine_module_parameter to render"
-        )
+        print(f"Scaling: working on job '{job}' : {len(benches.keys())} engine_module_parameter to render")
     # For all subjobs sharing the same engine module parameter
     # i.e int128
     for emp in benches.keys():
@@ -91,38 +89,29 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 y_label = unit
                 outdir = temp_outdir.joinpath(graph_type)
                 if "perf_watt" in graph_type:
-                    graph_type_title = f"Scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
+                    graph_type_title = (
+                        f"Scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
+                    )
                     y_label = f"{unit} per Watt"
                     outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}"
                     y_source = aggregated_perfs_watt
                 elif "watts" in graph_type:
-                    graph_type_title = (
-                        f"Scaling {graph_type}: {args.traces[0].get_metric_name()}"
-                    )
+                    graph_type_title = f"Scaling {graph_type}: {args.traces[0].get_metric_name()}"
                     outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}"
                     y_label = "Watts"
                     y_source = aggregated_watt
                 elif "cpu_clock" in graph_type:
-                    graph_type_title = (
-                        f"Scaling {graph_type}: {args.traces[0].get_metric_name()}"
-                    )
+                    graph_type_title = f"Scaling {graph_type}: {args.traces[0].get_metric_name()}"
                     outfile = f"scaling_cpu_clock_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}"
                     y_label = "Mhz"
                     y_source = aggregated_cpu_clock
                 else:
-                    graph_type_title = (
-                        f"Scaling {graph_type}: {bench.get_title_engine_name()}"
-                    )
+                    graph_type_title = f"Scaling {graph_type}: {bench.get_title_engine_name()}"
                     outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}"
                     y_source = aggregated_perfs
 
-                title = (
-                    f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job\n'
-                    f"\n Stressor: "
-                )
-                title += (
-                    f"{bench.get_title_engine_name()} for {bench.duration()} seconds"
-                )
+                title = f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job\n' f"\n Stressor: "
+                title += f"{bench.get_title_engine_name()} for {bench.duration()} seconds"
                 xlabel = "Workers"
                 # If we have a constent ratio between cores & workers, let's report them under the Xaxis
                 if stdev(logical_core_per_worker) == 0:
@@ -160,9 +149,7 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 # Traces are not ordered by growing cpu cores count
                 # We need to prepare the x_serie to be sorted this way
                 # The y_serie depends on the graph type
-                for trace_name, color_name, e_color in zip(
-                    aggregated_perfs[perf], colors, cycle(e_colors)
-                ):
+                for trace_name, color_name, e_color in zip(aggregated_perfs[perf], colors, cycle(e_colors)):
                     # Each trace can have different numbers of workers based on the hardware setup
                     # So let's consider the list of x values per trace.
                     order = np.argsort(workers[trace_name])

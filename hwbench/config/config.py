@@ -30,9 +30,7 @@ class Config:
             "skip_method": "bypass",
             "sync_start": "none",
         }
-        self.jobs_config = configparser.RawConfigParser(
-            default_section="global", defaults=default_parameters
-        )
+        self.jobs_config = configparser.RawConfigParser(default_section="global", defaults=default_parameters)
         self.hardware = hardware
         self.jobs_config.read(self.jobs_file)
 
@@ -88,9 +86,7 @@ class Config:
 
     def load_engine(self, engine_name) -> EngineBase:
         """Return the engine from <engine_name> type."""
-        module = importlib.import_module(
-            "..engines.{}".format(engine_name), package="hwbench.engines"
-        )
+        module = importlib.import_module("..engines.{}".format(engine_name), package="hwbench.engines")
         return module.Engine()
 
     def get_engine_module(self, section_name) -> str:
@@ -106,9 +102,7 @@ class Config:
         """Return the engine module parameter name of a section."""
         # If no engine_module_parameter is defined, considering the engine_module name
         try:
-            engine_module_parameter = self.get_directive(
-                section_name, "engine_module_parameter"
-            )
+            engine_module_parameter = self.get_directive(section_name, "engine_module_parameter")
         except KeyError:
             engine_module_parameter = self.get_engine_module(section_name)
         return self.parse_range(engine_module_parameter)
@@ -137,9 +131,7 @@ class Config:
 
         def get_cores_from_domain(domain):
             """Return the core list for a particular numa domain name"""
-            core_list = self.hardware.get_cpu().get_logical_cores_in_numa_domain(
-                int(domain)
-            )
+            core_list = self.hardware.get_cpu().get_logical_cores_in_numa_domain(int(domain))
             if not core_list:
                 h.fatal(f"NUMA domain {domain} does not exists")
             return core_list
@@ -160,9 +152,7 @@ class Config:
         # Let's replace 'all' special keyword if any
         all = re.findall("all", hcc)
         if all:
-            hcc = hcc.replace(
-                "all", f"0-{self.hardware.get_cpu().get_logical_cores_count()-1}"
-            )
+            hcc = hcc.replace("all", f"0-{self.hardware.get_cpu().get_logical_cores_count()-1}")
 
         # Let's replace helpers if any
         helpers = re.findall("simple", hcc)
@@ -171,9 +161,7 @@ class Config:
                 helper_module = importlib.import_module(  # noqa: F841
                     ".config_helpers", package="hwbench.config"
                 )
-                hcc = hcc.replace(
-                    helper, eval(f"helper_module.{helper}")(self.hardware), 1
-                )
+                hcc = hcc.replace(helper, eval(f"helper_module.{helper}")(self.hardware), 1)
 
         # If the hcc has some numa domains, lets expand them.
         # Let's search if there is any numa keyword
@@ -237,9 +225,7 @@ class Config:
             # It will validate the syntax of this particular function.
             # An invalid syntax is fatal and halts the program
             validate_function = getattr(config_syntax, "validate_{}".format(directive))
-            message = validate_function(
-                self, section_name, self.get_section(section_name)[directive]
-            )
+            message = validate_function(self, section_name, self.get_section(section_name)[directive])
             if message:
                 h.fatal(f"Job {section_name}: keyword {directive} : {message}")
 
