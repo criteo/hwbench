@@ -1,15 +1,16 @@
 from __future__ import annotations
+
 import pathlib
 from abc import abstractmethod
 from typing import Optional
 
+from ..utils.external import External_Simple
 from .base import BaseEnvironment
+from .cpu import CPU
+from .dmi import DmidecodeRaw, DmiSys
+from .lspci import Lspci, LspciBin
 from .vendors.detect import first_matching_vendor
 from .vendors.vendor import Vendor
-from .cpu import CPU
-from .dmi import DmiSys, DmidecodeRaw
-from .lspci import Lspci, LspciBin
-from ..utils.external import External_Simple
 
 
 # This is the interface of Hardware

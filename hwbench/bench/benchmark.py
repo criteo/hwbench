@@ -1,10 +1,10 @@
 import time
 from typing import Any
 
-from .parameters import BenchmarkParameters
-from .engine import EngineModuleBase
 from ..utils import helpers as h
 from ..utils.external import External
+from .engine import EngineModuleBase
+from .parameters import BenchmarkParameters
 
 
 class Benchmark:

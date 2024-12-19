@@ -2,6 +2,7 @@ import json
 import pathlib
 from statistics import mean
 from typing import Any  # noqa: F401
+
 from graph.common import fatal
 from hwbench.bench.monitoring_structs import (
     Metrics,

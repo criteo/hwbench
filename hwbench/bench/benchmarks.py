@@ -2,11 +2,12 @@ import datetime
 import time
 from datetime import timedelta
 from typing import Optional
+
+from ..environment.hardware import BaseHardware
 from ..utils import helpers as h
 from .benchmark import Benchmark
 from .monitoring import Monitoring
 from .parameters import BenchmarkParameters
-from ..environment.hardware import BaseHardware
 
 
 class Benchmarks:

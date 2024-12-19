@@ -1,4 +1,5 @@
 import numpy as np
+
 from graph.graph import Graph
 from hwbench.bench.monitoring_structs import Metrics, PowerCategories, PowerContext
 

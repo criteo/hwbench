@@ -1,7 +1,8 @@
 import pathlib
 from unittest.mock import patch
-from ..environment.mock import MockHardware
+
 from ..bench import test_benchmarks_common as tbc
+from ..environment.mock import MockHardware
 
 
 class TestParseConfig(tbc.TestCommon):
