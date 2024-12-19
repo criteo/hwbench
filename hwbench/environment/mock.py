@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 from .hardware import Hardware
 from .vendors.mock import MockVendor
 
 
 class MockHardware(Hardware):
-    def __init__(self, flags: list[str] = [], cores: int = 0, cpu=None):
+    def __init__(self, flags: list[str] | None = None, cores: int = 0, cpu=None):
+        if flags is None:
+            flags = []
         self.cpu = cpu
         self.flags = flags
         self.cores = cores

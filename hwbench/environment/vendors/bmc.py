@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 import os.path
 import pathlib
@@ -131,8 +133,12 @@ class BMC(MonitoringDevice, External):
             return next(iter(th.values()))  # return only element
         return {}  # return nothing if there are more than 1 elements
 
-    def read_thermals(self, thermals: dict[str, dict[str, Temperature]] = {}) -> dict[str, dict[str, Temperature]]:
+    def read_thermals(
+        self, thermals: dict[str, dict[str, Temperature]] | None = None
+    ) -> dict[str, dict[str, Temperature]]:
         """Return thermals from server"""
+        if thermals is None:
+            thermals = {}
         th = self._get_thermals()
         for chassis, thermal in th.items():
             prefix = ""
@@ -152,9 +158,11 @@ class BMC(MonitoringDevice, External):
                 )
         return thermals
 
-    def read_fans(self, fans: dict[str, dict[str, MonitorMetric]] = {}) -> dict[str, dict[str, MonitorMetric]]:
+    def read_fans(self, fans: dict[str, dict[str, MonitorMetric]] | None = None) -> dict[str, dict[str, MonitorMetric]]:
         """Return fans from server"""
         # Generic for now, could be override by vendors
+        if fans is None:
+            fans = {}
         if str(FanContext.FAN) not in fans:
             fans[str(FanContext.FAN)] = {}  # type: ignore[no-redef]
         for f in self.get_thermal().get("Fans", []):
@@ -178,10 +186,12 @@ class BMC(MonitoringDevice, External):
         return {}  # return nothing if there are more than 1 elements
 
     def read_power_consumption(
-        self, power_consumption: dict[str, dict[str, Power]] = {}
+        self, power_consumption: dict[str, dict[str, Power]] | None = None
     ) -> dict[str, dict[str, Power]]:
         """Return power consumption from server"""
         # Generic for now, could be override by vendors
+        if power_consumption is None:
+            power_consumption = {}
         if str(PowerContext.BMC) not in power_consumption:
             power_consumption[str(PowerContext.BMC)] = {str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER))}  # type: ignore[no-redef]
 
@@ -190,9 +200,13 @@ class BMC(MonitoringDevice, External):
             power_consumption[str(PowerContext.BMC)][str(PowerCategories.SERVER)].add(power)
         return power_consumption
 
-    def read_power_supplies(self, power_supplies: dict[str, dict[str, Power]] = {}) -> dict[str, dict[str, Power]]:
+    def read_power_supplies(
+        self, power_supplies: dict[str, dict[str, Power]] | None = None
+    ) -> dict[str, dict[str, Power]]:
         """Return power supplies power from server"""
         # Generic for now, could be override by vendors
+        if power_supplies is None:
+            power_supplies = {}
         if str(PowerContext.BMC) not in power_supplies:
             power_supplies[str(PowerContext.BMC)] = {}  # type: ignore[no-redef]
         for psu in self.get_power().get("PowerSupplies", []):

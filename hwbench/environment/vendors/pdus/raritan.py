@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from ....bench.monitoring_structs import Power, PowerContext
 from ....utils import helpers as h
 from ..pdu import PDU
@@ -31,9 +33,11 @@ class Raritan(PDU):
             return self.get_redfish_url(f"/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/{self.outlet}/")
 
     def read_power_consumption(
-        self, power_consumption: dict[str, dict[str, Power]] = {}
+        self, power_consumption: dict[str, dict[str, Power]] | None = None
     ) -> dict[str, dict[str, Power]]:
         """Return power consumption from pdu"""
+        if power_consumption is None:
+            power_consumption = {}
         power_consumption = super().read_power_consumption(power_consumption)
         power_consumption[str(PowerContext.PDU)][self.get_name()].add(self.get_power().get("PowerWatts")["Reading"])
         return power_consumption

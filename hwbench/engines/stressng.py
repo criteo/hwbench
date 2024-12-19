@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import re
-from typing import Optional
 
 from ..bench.benchmark import ExternalBench
 from ..bench.engine import EngineBase, EngineModuleBase
@@ -61,7 +62,7 @@ class Engine(EngineBase):
             return int(self.version.split(b".")[2])
         return 0
 
-    def get_version(self) -> Optional[str]:
+    def get_version(self) -> str | None:
         if self.version:
             return self.version.decode("utf-8")
         return None

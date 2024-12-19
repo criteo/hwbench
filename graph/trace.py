@@ -132,7 +132,7 @@ class Bench:
     def get_all_metrics(self, metric_type: Metrics, filter=None) -> list[MonitorMetric]:
         """Return all metrics of a given type."""
         metrics = []
-        for _, metric in self.get_monitoring_metric(metric_type).items():
+        for metric in self.get_monitoring_metric(metric_type).values():
             for component_name, component in metric.items():
                 if not filter:
                     metrics.append(component)
@@ -349,7 +349,7 @@ class Bench:
         power = 0
         if psus:
             power = [0] * len(psus[next(iter(psus))].get_samples())
-            for _, psu in psus.items():
+            for psu in psus.values():
                 count = 0
                 for value in psu.get_mean():
                     power[count] = power[count] + value

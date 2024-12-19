@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import pathlib
-from typing import Optional
 
 from ..utils.external import External
 
@@ -81,7 +82,7 @@ class CPU_CORES(External):
                     return self.get_cores(socket, core)
         return []
 
-    def get_peer_sibling(self, logical_cpu) -> Optional[int]:
+    def get_peer_sibling(self, logical_cpu) -> int | None:
         """Return sibling of a logical core."""
         # Let's find the associated core/ht of a given logical_cpu
         for core in self.get_peer_siblings(logical_cpu):

@@ -86,7 +86,7 @@ class Config:
 
     def load_engine(self, engine_name) -> EngineBase:
         """Return the engine from <engine_name> type."""
-        module = importlib.import_module("..engines.{}".format(engine_name), package="hwbench.engines")
+        module = importlib.import_module(f"..engines.{engine_name}", package="hwbench.engines")
         return module.Engine()
 
     def get_engine_module(self, section_name) -> str:
@@ -220,11 +220,11 @@ class Config:
         """Validate <section_name> section of a config file."""
         for directive in self.get_section(section_name):
             if not self.is_valid_keyword(directive):
-                h.fatal("job {}: invalid keyword {}".format(section_name, directive))
+                h.fatal(f"job {section_name}: invalid keyword {directive}")
             # Execute the validations_<function> from config_syntax file
             # It will validate the syntax of this particular function.
             # An invalid syntax is fatal and halts the program
-            validate_function = getattr(config_syntax, "validate_{}".format(directive))
+            validate_function = getattr(config_syntax, f"validate_{directive}")
             message = validate_function(self, section_name, self.get_section(section_name)[directive])
             if message:
                 h.fatal(f"Job {section_name}: keyword {directive} : {message}")

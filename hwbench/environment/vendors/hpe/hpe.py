@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import pathlib
 import re
@@ -38,7 +40,11 @@ class ILO(BMC):
     def get_thermal(self):
         return self.get_redfish_url("/redfish/v1/Chassis/1/Thermal")
 
-    def read_thermals(self, thermals: dict[str, dict[str, Temperature]] = {}) -> dict[str, dict[str, Temperature]]:
+    def read_thermals(
+        self, thermals: dict[str, dict[str, Temperature]] | None = None
+    ) -> dict[str, dict[str, Temperature]]:
+        if thermals is None:
+            thermals = {}
         for t in self.get_thermal().get("Temperatures"):
             if t["ReadingCelsius"] <= 0:
                 continue
@@ -88,8 +94,12 @@ class ILO(BMC):
     def __warn_psu(self, psu_number, message):
         logging.error(f"PSU {psu_number}: {message}")
 
-    def read_power_supplies(self, power_supplies: dict[str, dict[str, Power]] = {}) -> dict[str, dict[str, Power]]:
+    def read_power_supplies(
+        self, power_supplies: dict[str, dict[str, Power]] | None = None
+    ) -> dict[str, dict[str, Power]]:
         """Return power supplies power from server"""
+        if power_supplies is None:
+            power_supplies = {}
         if str(PowerContext.BMC) not in power_supplies:
             power_supplies[str(PowerContext.BMC)] = {}  # type: ignore[no-redef]
         for psu in self.get_power().get("PowerSupplies"):
@@ -124,7 +134,9 @@ class ILO(BMC):
 
         return power_supplies
 
-    def read_power_consumption(self, power_consumption: dict[str, dict[str, Power]] = {}):
+    def read_power_consumption(self, power_consumption: dict[str, dict[str, Power]] | None = None):
+        if power_consumption is None:
+            power_consumption = {}
         oem_chassis = self.get_oem_chassis()
 
         # If server is not in a chassis, the default parsing is good

@@ -1,7 +1,6 @@
-from ...bench.monitoring_structs import (
-    Power,
-    PowerContext,
-)
+from __future__ import annotations
+
+from ...bench.monitoring_structs import Power, PowerContext
 from ...utils import helpers as h
 from .monitoring_device import MonitoringDevice
 
@@ -38,10 +37,12 @@ class PDU(MonitoringDevice):
         return {}
 
     def read_power_consumption(
-        self, power_consumption: dict[str, dict[str, Power]] = {}
+        self, power_consumption: dict[str, dict[str, Power]] | None = None
     ) -> dict[str, dict[str, Power]]:
         """Return power consumption from server"""
         # Generic for now, could be override by vendors
+        if power_consumption is None:
+            power_consumption = {}
         if str(PowerContext.PDU) not in power_consumption:
             power_consumption[str(PowerContext.PDU)] = {}  # type: ignore[no-redef]
 

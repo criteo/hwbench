@@ -105,13 +105,13 @@ class MonitoringDevice:
             self.redfish_obj.login()
             self.logged = True
         except json.decoder.JSONDecodeError:
-            h.fatal("JSONDecodeError on {}".format(device_url))
+            h.fatal(f"JSONDecodeError on {device_url}")
         except redfish.rest.v1.RetriesExhaustedError:
-            h.fatal("RetriesExhaustedError on {}".format(device_url))
+            h.fatal(f"RetriesExhaustedError on {device_url}")
         except redfish.rest.v1.BadRequestError:
-            h.fatal("BadRequestError on {}".format(device_url))
+            h.fatal(f"BadRequestError on {device_url}")
         except redfish.rest.v1.InvalidCredentialsError:
-            h.fatal("Invalid credentials for {}".format(device_url))
+            h.fatal(f"Invalid credentials for {device_url}")
         except Exception as exception:
             h.fatal(type(exception))
 
