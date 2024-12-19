@@ -1,15 +1,15 @@
-import pathlib
 import json
+import pathlib
 import unittest
 from unittest.mock import patch
 
 from ..bench.parameters import BenchmarkParameters
 from ..environment.mock import MockHardware
 from .stressng import Engine as StressNG
-from .stressng_qsort import EngineModuleQsort, StressNGQsort
 from .stressng_memrate import EngineModuleMemrate, StressNGMemrate
+from .stressng_qsort import EngineModuleQsort, StressNGQsort
 from .stressng_stream import EngineModuleStream, StressNGStream
-from .stressng_vnni import EngineModuleVNNI, StressNGVNNIMethods, StressNGVNNI
+from .stressng_vnni import EngineModuleVNNI, StressNGVNNI, StressNGVNNIMethods
 
 
 def mock_engine(version: str) -> StressNG:

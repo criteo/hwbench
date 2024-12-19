@@ -1,12 +1,14 @@
-import cachetools.func
 import json
 import logging
+from typing import Any
+
+import cachetools.func
 import redfish  # type: ignore
-from ...utils import helpers as h
+
 from ...bench.monitoring_structs import (
     MonitorMetric,
 )
-from typing import Any
+from ...utils import helpers as h
 
 
 class MonitoringDevice:

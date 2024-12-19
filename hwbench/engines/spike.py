@@ -3,10 +3,11 @@ import re
 import subprocess
 import time
 from statistics import mean
-from ..bench.parameters import BenchmarkParameters
-from ..bench.engine import EngineBase, EngineModuleBase
-from ..bench.benchmark import ExternalBench
+
 from ..bench import monitoring_structs
+from ..bench.benchmark import ExternalBench
+from ..bench.engine import EngineBase, EngineModuleBase
+from ..bench.parameters import BenchmarkParameters
 from ..utils import helpers as h
 
 

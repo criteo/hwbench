@@ -1,9 +1,9 @@
 import re
 from typing import Optional
 
-from ..bench.parameters import BenchmarkParameters
-from ..bench.engine import EngineBase, EngineModuleBase
 from ..bench.benchmark import ExternalBench
+from ..bench.engine import EngineBase, EngineModuleBase
+from ..bench.parameters import BenchmarkParameters
 from ..utils import helpers as h
 
 
@@ -25,8 +25,8 @@ class Engine(EngineBase):
 
     def __init__(self):
         from .stressng_cpu import EngineModuleCpu
-        from .stressng_qsort import EngineModuleQsort
         from .stressng_memrate import EngineModuleMemrate
+        from .stressng_qsort import EngineModuleQsort
         from .stressng_stream import EngineModuleStream
         from .stressng_vnni import EngineModuleVNNI
 

@@ -1,4 +1,5 @@
 from typing import cast
+
 from ...bench.monitoring_structs import (
     FanContext,
     MonitorMetric,
@@ -8,7 +9,7 @@ from ...bench.monitoring_structs import (
     Temperature,
     ThermalContext,
 )
-from .vendor import Vendor, BMC
+from .vendor import BMC, Vendor
 
 
 class MockedBMC(BMC):

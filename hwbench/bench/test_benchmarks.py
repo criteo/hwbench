@@ -1,5 +1,6 @@
 import pathlib
 from unittest.mock import patch
+
 from . import test_benchmarks_common as tbc
 from .monitoring_structs import Metrics
 

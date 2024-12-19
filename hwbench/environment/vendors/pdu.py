@@ -1,9 +1,9 @@
-from .monitoring_device import MonitoringDevice
-from ...utils import helpers as h
 from ...bench.monitoring_structs import (
     Power,
     PowerContext,
 )
+from ...utils import helpers as h
+from .monitoring_device import MonitoringDevice
 
 
 class PDU(MonitoringDevice):

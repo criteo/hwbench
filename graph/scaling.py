@@ -1,8 +1,10 @@
-import numpy as np
 from itertools import cycle
 from statistics import stdev
 from typing import Any  # noqa: F401
-from graph.graph import Graph, GRAPH_TYPES
+
+import numpy as np
+
+from graph.graph import GRAPH_TYPES, Graph
 
 
 def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:

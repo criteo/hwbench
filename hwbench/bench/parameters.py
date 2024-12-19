@@ -1,7 +1,7 @@
 import pathlib
 
-from .monitoring import Monitoring
 from ..environment.hardware import BaseHardware
+from .monitoring import Monitoring
 
 
 class BenchmarkParameters:

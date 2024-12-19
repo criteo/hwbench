@@ -1,7 +1,7 @@
 from typing import Optional
 
-from .cpu_info import CPU_INFO
 from .cpu_cores import CPU_CORES
+from .cpu_info import CPU_INFO
 from .numa import NUMA
 
 
