@@ -1,10 +1,11 @@
 import time
-from typing import Any
 from threading import Thread
+from typing import Any
+
 from ..environment.hardware import BaseHardware
 from ..environment.turbostat import Turbostat
 from ..utils import helpers as h
-from .monitoring_structs import Metrics, MonitorMetric, MonitoringMetadata
+from .monitoring_structs import Metrics, MonitoringMetadata, MonitorMetric
 
 
 class ThreadWithReturnValue(Thread):

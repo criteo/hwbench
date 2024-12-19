@@ -8,14 +8,15 @@ import pathlib
 import platform
 import time
 
+from packaging.version import Version
+
 from .bench import benchmarks
 from .bench.monitoring_structs import MonitorMetric
 from .config import config
-from .environment import software as env_soft
 from .environment import hardware as env_hw
-from packaging.version import Version
-from .utils import helpers as h
+from .environment import software as env_soft
 from .tuning import setup as tuning_setup
+from .utils import helpers as h
 from .utils.hwlogging import init_logging
 
 

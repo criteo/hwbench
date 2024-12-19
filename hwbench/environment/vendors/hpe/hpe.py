@@ -7,13 +7,15 @@ from typing import cast
 from ....bench.monitoring_structs import (
     MonitorMetric,
     Power,
-    PowerCategories as PowerCat,
     PowerContext,
     Temperature,
 )
-from ..vendor import Vendor, BMC
-from .ilorest import Ilorest, IlorestServerclone, ILOREST
+from ....bench.monitoring_structs import (
+    PowerCategories as PowerCat,
+)
 from ....utils import helpers as h
+from ..vendor import BMC, Vendor
+from .ilorest import ILOREST, Ilorest, IlorestServerclone
 
 
 class ILO(BMC):

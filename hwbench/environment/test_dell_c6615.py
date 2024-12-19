@@ -1,6 +1,5 @@
 import pathlib
-from .vendors.dell.dell import Dell
-from .test_dell import TestDell
+
 from ..bench.monitoring_structs import (
     FanContext,
     MonitorMetric,
@@ -10,6 +9,8 @@ from ..bench.monitoring_structs import (
     Temperature,
     ThermalContext,
 )
+from .test_dell import TestDell
+from .vendors.dell.dell import Dell
 
 path = pathlib.Path("")
 

@@ -1,7 +1,6 @@
 import json
 import logging
 import pathlib
-
 from time import gmtime, strftime
 
 DATEFMT = "%Y/%m/%dT%H:%M:%SZ"

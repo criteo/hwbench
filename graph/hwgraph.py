@@ -6,17 +6,17 @@ import sys
 from typing import Any  # noqa: F401
 
 try:
+    from graph.chassis import graph_chassis
     from graph.common import fatal
-    from graph.graph import init_matplotlib, generic_graph, yerr_graph
+    from graph.graph import generic_graph, init_matplotlib, yerr_graph
     from graph.individual import individual_graph
     from graph.scaling import scaling_graph
-    from graph.chassis import graph_chassis
     from graph.trace import Trace
     from hwbench.bench.monitoring_structs import (
         FanContext,
+        Metrics,
         PowerCategories,
         PowerContext,
-        Metrics,
     )
 except ImportError as exc:
     print(exc)

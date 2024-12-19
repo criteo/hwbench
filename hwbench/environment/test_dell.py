@@ -1,5 +1,6 @@
 import pathlib
-from .test_vendors import TestVendors, PATCH_TYPES
+
+from .test_vendors import PATCH_TYPES, TestVendors
 
 path = pathlib.Path("")
 

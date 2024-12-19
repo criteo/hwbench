@@ -1,13 +1,16 @@
 from typing import cast
+
 from ....bench.monitoring_structs import (
     MonitorMetric,
     Power,
-    PowerCategories as PowerCat,
     PowerContext,
     Temperature,
 )
-from ..vendor import Vendor, BMC
+from ....bench.monitoring_structs import (
+    PowerCategories as PowerCat,
+)
 from ....utils import helpers as h
+from ..vendor import BMC, Vendor
 
 
 class IDRAC(BMC):
