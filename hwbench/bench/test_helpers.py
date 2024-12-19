@@ -22,10 +22,7 @@ class TestHelpers(tbc.TestCommon):
         assert self.get_benches().count_benchmarks() == 9
         for job in range(0, 9):
             assert self.bench_name(job) == "simple"
-            assert (
-                len(self.get_bench_parameters(job).get_pinned_cpu())
-                == logical_cores[job]
-            )
+            assert len(self.get_bench_parameters(job).get_pinned_cpu()) == logical_cores[job]
 
 
 class TestHelpers_CPUSTORAGE(tbc.TestCommon):
@@ -49,10 +46,7 @@ class TestHelpers_CPUSTORAGE(tbc.TestCommon):
         assert self.get_benches().count_benchmarks() == 9
         for job in range(0, 8):
             assert self.bench_name(job) == "simple"
-            assert (
-                len(self.get_bench_parameters(job).get_pinned_cpu())
-                == logical_cores[job]
-            )
+            assert len(self.get_bench_parameters(job).get_pinned_cpu()) == logical_cores[job]
 
 
 class TestHelpersImpossible(tbc.TestCommon):

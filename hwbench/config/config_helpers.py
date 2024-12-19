@@ -20,10 +20,7 @@ def simple(hardware: env_hw.BaseHardware) -> str:
         core_count.append(hardware.get_cpu().get_physical_cores_count())
 
     # In case of multiple sockets, let's ensure we test a full socket during the scaling
-    cores_per_socket = int(
-        hardware.get_cpu().get_physical_cores_count()
-        / hardware.get_cpu().get_sockets_count()
-    )
+    cores_per_socket = int(hardware.get_cpu().get_physical_cores_count() / hardware.get_cpu().get_sockets_count())
     if cores_per_socket not in core_count:
         core_count.append(cores_per_socket)
 

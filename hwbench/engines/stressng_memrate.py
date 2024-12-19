@@ -60,9 +60,7 @@ class StressNGMemrate(StressNG):
         if self.skip:
             return self.parameters.get_result_format() | self.empty_result()
         summary_parse = re.compile(r"memrate .*")
-        summary_parse_perf = re.compile(
-            r"memrate .* (?P<speed>[0-9\.]+) (?P<test>[a-z0-9]+) MB per sec .*$"
-        )
+        summary_parse_perf = re.compile(r"memrate .* (?P<speed>[0-9\.]+) (?P<test>[a-z0-9]+) MB per sec .*$")
         out = (stdout or stderr).splitlines()
 
         summary = [str(line) for line in out if summary_parse.search(str(line))]
@@ -79,8 +77,7 @@ class StressNGMemrate(StressNG):
                 test = r["test"]
                 ret[test] = {
                     "avg_speed": float(r["speed"]),
-                    "sum_speed": float(r["speed"])
-                    * self.parameters.get_engine_instances_count(),
+                    "sum_speed": float(r["speed"]) * self.parameters.get_engine_instances_count(),
                 }  # type: ignore[assignment]
         return ret | self.parameters.get_result_format()
 

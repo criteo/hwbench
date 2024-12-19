@@ -19,9 +19,7 @@ class MockedBMC(BMC):
         self.firmware_version = "1.0.0"
         self.model = "MockedBMC"
 
-    def read_thermals(
-        self, thermals: dict[str, dict[str, Temperature]] = {}
-    ) -> dict[str, dict[str, Temperature]]:
+    def read_thermals(self, thermals: dict[str, dict[str, Temperature]] = {}) -> dict[str, dict[str, Temperature]]:
         # Let's add a faked thermal metric
         name = "CPU1"
 
@@ -34,9 +32,7 @@ class MockedBMC(BMC):
         )
         return thermals
 
-    def read_fans(
-        self, fans: dict[str, dict[str, MonitorMetric]] = {}
-    ) -> dict[str, dict[str, MonitorMetric]]:
+    def read_fans(self, fans: dict[str, dict[str, MonitorMetric]] = {}) -> dict[str, dict[str, MonitorMetric]]:
         # Let's add a faked fans metric
         name = "Fan1"
         super().add_monitoring_value(
@@ -62,9 +58,7 @@ class MockedBMC(BMC):
         )
         return power_consumption
 
-    def read_power_supplies(
-        self, power_supplies: dict[str, dict[str, Power]] = {}
-    ) -> dict[str, dict[str, Power]]:
+    def read_power_supplies(self, power_supplies: dict[str, dict[str, Power]] = {}) -> dict[str, dict[str, Power]]:
         # Let's add a faked power supplies
         status = "PS1 status"
         name = "PS1"

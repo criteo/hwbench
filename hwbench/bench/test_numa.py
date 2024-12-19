@@ -33,9 +33,7 @@ class TestNuma(tbc.TestCommon):
             "invalid_quadrant",
             "alpha_quadrant",
         ]:
-            self.should_be_fatal(
-                self.get_jobs_config().get_hosting_cpu_cores, test_name
-            )
+            self.should_be_fatal(self.get_jobs_config().get_hosting_cpu_cores, test_name)
 
     def test_numa(self):
         """Check numa syntax"""
@@ -64,6 +62,4 @@ class TestNuma(tbc.TestCommon):
             "invalid_numa_nodes",
             "alpha_numa_nodes",
         ]:
-            self.should_be_fatal(
-                self.get_jobs_config().get_hosting_cpu_cores, test_name
-            )
+            self.should_be_fatal(self.get_jobs_config().get_hosting_cpu_cores, test_name)
