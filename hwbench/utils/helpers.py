@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import datetime
 import logging
 import sys
 from datetime import timedelta
 from shutil import which
-from typing import NoReturn, Optional
+from typing import NoReturn
 
 
 def fatal(message) -> NoReturn:
@@ -42,7 +44,7 @@ def cpu_list_to_range(cpu_list: list[int]) -> str:
     """
     cpu_list.sort()
     output: list[str] = []
-    previous_entry: Optional[int] = cpu_list[0]
+    previous_entry: int | None = cpu_list[0]
 
     for i in range(1, len(cpu_list)):
         current_entry = cpu_list[i]

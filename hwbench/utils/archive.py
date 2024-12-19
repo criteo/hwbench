@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 import errno
 import io
 import os
 import pathlib
 import tarfile
-from typing import Optional
 
 
 def create_tar_from_directory(dir: str, tarfilename: pathlib.Path) -> None:
@@ -11,7 +12,7 @@ def create_tar_from_directory(dir: str, tarfilename: pathlib.Path) -> None:
     following the symlinks."""
     # may raise tarfile.ReadError if tarfilename is not a tar file
     tarfd = tarfile.open(tarfilename, "x")
-    for rootpath, dirnames, filenames in os.walk(dir):
+    for rootpath, _dirnames, filenames in os.walk(dir):
         for filename in filenames:
             file = pathlib.Path(rootpath) / filename
             try:
@@ -27,7 +28,7 @@ def create_tar_from_directory(dir: str, tarfilename: pathlib.Path) -> None:
     return None
 
 
-def extract_file_from_tar(tarfilename: str, filename: str) -> Optional[bytes]:
+def extract_file_from_tar(tarfilename: str, filename: str) -> bytes | None:
     """return a specific file in a tar archive as bytes if
     the file exists."""
     # may raise tarfile.ReadError if tarfilename is not a tar file

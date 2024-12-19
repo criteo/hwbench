@@ -8,7 +8,7 @@ from .vendors.vendor import BMC
 path = pathlib.Path("")
 
 
-class TestParseCPU(object):
+class TestParseCPU:
     def test_ami_aptio(self):
         d = pathlib.Path("./hwbench/tests/parsing/ami_aptio/v5")
         print(f"parsing test {d.name}")

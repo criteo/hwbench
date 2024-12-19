@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import pathlib
-from typing import Optional
 
 from ..utils.archive import create_tar_from_directory, extract_file_from_tar
 from ..utils.external import External
@@ -18,19 +17,19 @@ class DmiSys:
         create_tar_from_directory(self.SYS_DMI, pathlib.Path(self.tarfilename.as_posix()))
 
     @staticmethod
-    def bytes_to_dmi_info(payload: Optional[bytes]) -> Optional[str]:
+    def bytes_to_dmi_info(payload: bytes | None) -> str | None:
         if payload is None:
             return None
         return payload.decode("utf-8", "strict").replace("\n", "")
 
     @staticmethod
-    def extract_dmi_payload(tarfile: pathlib.Path, file: str, root_path=SYS_DMI) -> Optional[bytes]:
+    def extract_dmi_payload(tarfile: pathlib.Path, file: str, root_path=SYS_DMI) -> bytes | None:
         return extract_file_from_tar(tarfile.as_posix(), os.path.join(root_path, file))
 
-    def info(self, name: str) -> Optional[str]:
+    def info(self, name: str) -> str | None:
         return self.bytes_to_dmi_info(self.extract_dmi_payload(self.tarfilename, name))
 
-    def dump(self) -> dict[str, Optional[str | int] | dict]:
+    def dump(self) -> dict[str, str | int | None | dict]:
         return {
             "vendor": self.info("sys_vendor"),
             "product": self.info("product_name"),

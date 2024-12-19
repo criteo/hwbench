@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import configparser
 import os
 from abc import ABC, abstractmethod
@@ -41,7 +43,7 @@ class Vendor(ABC):
 
         vendor_modulename = f"hwbench.environment.vendors.{directory}.{vendor}"
         if not find_spec(vendor_modulename):
-            h.fatal("cannot_find vendor module {}".format(vendor_modulename))
+            h.fatal(f"cannot_find vendor module {vendor_modulename}")
 
         return import_module(vendor_modulename)
 
@@ -67,8 +69,10 @@ class Vendor(ABC):
         """Return a list of PDUs object"""
         return self.pdus
 
-    def find_monitoring_sections(self, section_type: str, sections_list=[], max_sections=0):
+    def find_monitoring_sections(self, section_type: str, sections_list: list | None = None, max_sections=0):
         """Return sections of section_type from the monitoring configuration file"""
+        if sections_list is None:
+            sections_list = []
         sections = []
         if not self.get_monitoring_config_filename():
             h.fatal("Missing monitoring configuration file, please use -m option.")

@@ -1,4 +1,4 @@
-from typing import Optional
+from __future__ import annotations
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -36,7 +36,7 @@ class Graph:
         square=False,
         show_source_file=None,
     ) -> None:
-        self.ax2: Optional[Axes] = None
+        self.ax2: Axes | None = None
         self.args = args
         self.fig, self.ax = plt.subplots()
         self.dpi = 100

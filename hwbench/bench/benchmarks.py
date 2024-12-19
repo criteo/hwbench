@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import datetime
 import time
 from datetime import timedelta
-from typing import Optional
 
 from ..environment.hardware import BaseHardware
 from ..utils import helpers as h
@@ -101,7 +102,7 @@ class Benchmarks:
                     h.fatal("hosting_cpu_cores is not module hosting_cpu_cores_scaling !")
                 pinned_cpu = []
                 while len(hosting_cpu_cores):
-                    for step in range(steps):
+                    for _step in range(steps):
                         for cpu in hosting_cpu_cores.pop():
                             pinned_cpu.append(cpu)
                     self.__schedule_benchmarks(
@@ -111,7 +112,7 @@ class Benchmarks:
                         validate_parameters,
                     )
             elif hosting_cpu_cores_scaling == "iterate":
-                for iteration in range(len(hosting_cpu_cores)):
+                for _iteration in range(len(hosting_cpu_cores)):
                     # Pick the last CPU of the list
                     pinned_cpu = hosting_cpu_cores.pop()
                     self.__schedule_benchmarks(job, stressor_range_scaling, pinned_cpu, validate_parameters)
@@ -242,7 +243,7 @@ ETA {duration}"
                 print(f"hwbench: [{bench_name}]: started at {datetime.datetime.utcnow()}")
 
             # Save each benchmark result
-            results["{}_{}".format(benchmark.get_parameters().get_name(), benchmark.get_job_number())] = benchmark.run()
+            results[f"{benchmark.get_parameters().get_name()}_{benchmark.get_job_number()}"] = benchmark.run()
         return results
 
     def dump(self):
@@ -272,7 +273,7 @@ ETA {duration}"
                 print(f"cmdline={' '.join(em.run_cmd(param))}", file=f)
                 print("", file=f)
 
-    def get_monitoring(self) -> Optional[Monitoring]:
+    def get_monitoring(self) -> Monitoring | None:
         """Return the monitoring object"""
         return self.monitoring
 

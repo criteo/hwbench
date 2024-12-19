@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import re
-from typing import Any, Optional
+from typing import Any
 
 from ..bench.parameters import BenchmarkParameters
 from .stressng import EngineBase, EngineModulePinnable, StressNG
@@ -23,7 +25,7 @@ class StressNGStream(StressNG):
             str(self.parameters.get_engine_instances_count()),
         ]
 
-        self.stream_l3_size: Optional[int] = None
+        self.stream_l3_size: int | None = None
         if self.stream_l3_size is not None:
             ret.extend(["--stream-l3-size", str(self.stream_l3_size)])
         return ret

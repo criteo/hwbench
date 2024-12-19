@@ -1,4 +1,4 @@
-from typing import Optional
+from __future__ import annotations
 
 from .cpu_cores import CPU_CORES
 from .cpu_info import CPU_INFO
@@ -54,7 +54,7 @@ class CPU:
         """Return the list of logical cores running on the same physical core."""
         return self.cpu_cores.get_peer_siblings(logical_cpu)
 
-    def get_peer_sibling(self, logical_cpu) -> Optional[int]:
+    def get_peer_sibling(self, logical_cpu) -> int | None:
         """Return sibling of a logical core."""
         return self.cpu_cores.get_peer_sibling(logical_cpu)
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import re
 import subprocess
@@ -35,9 +37,13 @@ class Turbostat:
     def __init__(
         self,
         hardware: BaseHardware,
-        freq_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] = {},
-        power_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] = {},
+        freq_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] | None = None,
+        power_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] | None = None,
     ):
+        if power_metrics is None:
+            power_metrics = {}
+        if freq_metrics is None:
+            freq_metrics = {}
         self.__output = None
         self.cores_count = 0
         self.sensor_list = {
