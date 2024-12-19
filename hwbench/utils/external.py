@@ -89,7 +89,7 @@ class External_Simple(External):
         return self.cmd_list
 
     def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
-        return bytes()
+        return b""
 
     def parse_cmd(self, stdout: bytes, stderr: bytes):
         return {}

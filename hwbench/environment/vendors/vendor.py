@@ -41,7 +41,7 @@ class Vendor(ABC):
 
         vendor_modulename = f"hwbench.environment.vendors.{directory}.{vendor}"
         if not find_spec(vendor_modulename):
-            h.fatal("cannot_find vendor module {}".format(vendor_modulename))
+            h.fatal(f"cannot_find vendor module {vendor_modulename}")
 
         return import_module(vendor_modulename)
 

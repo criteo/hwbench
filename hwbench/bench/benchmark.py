@@ -112,28 +112,20 @@ class ExternalBench(External):
         p = self.parameters
         cpu_location = ""
         if p.get_pinned_cpu():
-            if isinstance(p.get_pinned_cpu(), (int, str)):
-                cpu_location = " on CPU {:3d}".format(p.get_pinned_cpu())
+            if isinstance(p.get_pinned_cpu(), int | str):
+                cpu_location = f" on CPU {p.get_pinned_cpu():3d}"
             elif isinstance(p.get_pinned_cpu(), list):
-                cpu_location = " on CPU [{}]".format(h.cpu_list_to_range(p.get_pinned_cpu()))
+                cpu_location = f" on CPU [{h.cpu_list_to_range(p.get_pinned_cpu())}]"
             else:
-                h.fatal("Unsupported get_pinned_cpu() format :{}".format(type(p.get_pinned_cpu())))
+                h.fatal(f"Unsupported get_pinned_cpu() format :{type(p.get_pinned_cpu())}")
 
         monitoring = ""
         if self.parameters.get_monitoring():
             monitoring = "(M)"
         print(
-            "[{}] {}/{}/{}{}: {:3d} stressor{} for {}s{}".format(
-                p.get_name(),
-                self.engine_module.get_engine().get_name(),
-                self.engine_module.get_name(),
-                p.get_engine_module_parameter(),
-                monitoring,
-                p.get_engine_instances_count(),
-                cpu_location,
-                p.get_runtime(),
-                status,
-            )
+            f"[{p.get_name()}] {self.engine_module.get_engine().get_name()}/"
+            f"{self.engine_module.get_name()}/{p.get_engine_module_parameter()}{monitoring}: "
+            f"{p.get_engine_instances_count():3d} stressor{cpu_location} for {p.get_runtime()}s{status}"
         )
 
     def post_run(self, run):

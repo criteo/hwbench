@@ -3,7 +3,6 @@ import io
 import os
 import pathlib
 import tarfile
-from typing import Optional
 
 
 def create_tar_from_directory(dir: str, tarfilename: pathlib.Path) -> None:
@@ -27,7 +26,7 @@ def create_tar_from_directory(dir: str, tarfilename: pathlib.Path) -> None:
     return None
 
 
-def extract_file_from_tar(tarfilename: str, filename: str) -> Optional[bytes]:
+def extract_file_from_tar(tarfilename: str, filename: str) -> bytes | None:
     """return a specific file in a tar archive as bytes if
     the file exists."""
     # may raise tarfile.ReadError if tarfilename is not a tar file

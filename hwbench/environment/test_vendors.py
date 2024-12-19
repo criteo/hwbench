@@ -83,7 +83,7 @@ class TestVendors(unittest.TestCase):
     def sample(self, name):
         """Return the samples for this test."""
         output = None
-        file = open(self.__get_samples_file_name(name), "r")
+        file = open(self.__get_samples_file_name(name))
         output = file.readlines()
         # If the file is empty but json output is requested, let's return an empty string
         if not len(output):
