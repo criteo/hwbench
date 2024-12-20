@@ -298,7 +298,24 @@ def generic_graph(
                         continue
                     if sensor not in data2_serie:
                         data2_serie[sensor] = []
-                    data2_serie[sensor].append(measure.get_mean()[sample])
+                    if len(measure.get_mean()) <= sample:
+                        # If the user didn't explictely agreed to be replaced by 0, let's be fatal
+                        if not args.ignore_missing_datapoint:
+                            fatal(
+                                f"{trace.get_name()}/{bench.get_bench_name()}: second axis of {sensor}: {measure.get_full_name()} is missing the {sample+1}th data point.\
+         Use --ignore-missing-datapoint to ignore this case. Generated graphs will be partially incorrect."
+                            )
+                        else:
+                            # User is fine with a missing data to be replaced.
+                            # Let's do that so we can render things properly.
+                            if args.ignore_missing_datapoint == "last":
+                                # Let's pick the last known value
+                                data2_serie[sensor].append(measure.get_mean()[-1])
+                            else:
+                                # Replace it by a zero
+                                data2_serie[sensor].append(0)
+                    else:  # the actual data
+                        data2_serie[sensor].append(measure.get_mean()[sample])
             # If we are plotting the power consumption, having the PSUs would be useful to compare with.
             if second_axis == Metrics.POWER_CONSUMPTION:
                 psus = bench.get_psu_power()

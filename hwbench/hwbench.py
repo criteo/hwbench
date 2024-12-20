@@ -20,9 +20,6 @@ from .utils.hwlogging import init_logging
 
 
 def main():
-    if not is_root():
-        h.fatal("hwbench is not running as effective uid 0.")
-
     # Let's ensure no one is running below the expected python release
     min_python_release = "3.9"
     if Version(platform.python_version()) < Version(min_python_release):
@@ -30,13 +27,16 @@ def main():
             f"Current python version {platform.python_version()} is below minimal supported release : {min_python_release}"
         )
 
-    out_dir, tuning_out_dir = create_output_directory()
     args = parse_options()
+    if not is_root():
+        h.fatal("hwbench is not running as effective uid 0.")
+
+    out_dir, tuning_out_dir = create_output_directory(args.output_directory)
 
     # configure logging
     init_logging(tuning_out_dir / "hwbench-tuning.log")
 
-    tuning_setup.Tuning(tuning_out_dir).apply()
+    tuning_setup.Tuning(tuning_out_dir).apply(args.tuning)
     env = env_soft.Environment(out_dir)
     hw = env_hw.Hardware(out_dir, args.monitoring_config)
 
@@ -56,8 +56,12 @@ def is_root():
     return os.geteuid() == 0
 
 
-def create_output_directory() -> tuple[pathlib.Path, pathlib.Path]:
-    out_dir = pathlib.Path(f"hwbench-out-{time.strftime('%Y%m%d%H%M%S')}")
+def create_output_directory(directory) -> tuple[pathlib.Path, pathlib.Path]:
+    out_dir = pathlib.Path(directory or f"hwbench-out-{time.strftime('%Y%m%d%H%M%S')}")
+    if out_dir.exists():
+        h.fatal(
+            f"Directory {out_dir} already exists, please give a non-existent directory."
+        )
     out_dir.mkdir()
     tuning_out_dir = out_dir / "tuning"
     tuning_out_dir.mkdir()
@@ -69,6 +73,7 @@ def parse_options():
     parser = argparse.ArgumentParser(
         prog="hwbench",
         description="Criteo Hardware Benchmarking tool",
+        epilog="Note that hwbench needs to run as root, for many reasons: system-wide tuning, local IPMI link to the BMC, x86 performance with turbostat, devices access with fio, etc.",
     )
     parser.add_argument(
         "-j",
@@ -80,6 +85,17 @@ def parse_options():
         "-m",
         "--monitoring-config",
         help="Specify the file containing the credentials to monitor the BMC",
+    )
+    parser.add_argument(
+        "-o",
+        "--output-directory",
+        help="Specify the directory used to put all results and collected information",
+    )
+    parser.add_argument(
+        "--tuning",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable or disable tuning: this is useful when you want to test the system as-is.",
     )
     return parser.parse_args()
 
