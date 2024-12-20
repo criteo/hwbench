@@ -2,6 +2,7 @@ import json
 import pathlib
 from statistics import mean
 from typing import Any  # noqa: F401
+
 from graph.common import fatal
 from hwbench.bench.monitoring_structs import (
     Metrics,
@@ -88,15 +89,11 @@ class Bench:
                     fatal(f"Unexpected {metric} in monitoring")
         return self.metrics
 
-    def get_monitoring_metric(
-        self, metric: Metrics
-    ) -> dict[str, dict[str, MonitorMetric]]:
+    def get_monitoring_metric(self, metric: Metrics) -> dict[str, dict[str, MonitorMetric]]:
         """Return one monitoring metric."""
         return self.metrics[str(metric)]
 
-    def get_monitoring_metric_by_name(
-        self, metric: Metrics, metric_name: str
-    ) -> MonitorMetric:
+    def get_monitoring_metric_by_name(self, metric: Metrics, metric_name: str) -> MonitorMetric:
         """Return one monitoring metric."""
         component, measure = metric_name.split(".")
         return self.metrics[str(metric)][component][measure]
@@ -112,14 +109,10 @@ class Bench:
             return 110, 10, 5
         return None, None, None
 
-    def get_component(
-        self, metric_type: Metrics, component: Any
-    ) -> dict[str, MonitorMetric]:
+    def get_component(self, metric_type: Metrics, component: Any) -> dict[str, MonitorMetric]:
         return self.get_monitoring_metric(metric_type)[str(component)]
 
-    def get_single_metric(
-        self, metric_type: Metrics, component: Any, metric: Any
-    ) -> MonitorMetric:
+    def get_single_metric(self, metric_type: Metrics, component: Any, metric: Any) -> MonitorMetric:
         return self.get_component(metric_type, component)[str(metric)]
 
     def get_samples_count(self):
@@ -139,7 +132,7 @@ class Bench:
     def get_all_metrics(self, metric_type: Metrics, filter=None) -> list[MonitorMetric]:
         """Return all metrics of a given type."""
         metrics = []
-        for _, metric in self.get_monitoring_metric(metric_type).items():
+        for metric in self.get_monitoring_metric(metric_type).values():
             for component_name, component in metric.items():
                 if not filter:
                     metrics.append(component)
@@ -160,14 +153,8 @@ class Bench:
         d = self.get_trace().get_dmi()
         c = self.get_trace().get_cpu()
         k = self.get_trace().get_kernel()
-        title = (
-            f"System: {d['serial']} {d['product']} Bios "
-            f"v{d['bios']['version']} Linux Kernel {k['release']}"
-        )
-        title += (
-            f"\nProcessor: {c['model']} with {c['physical_cores']} cores "
-            f"and {c['numa_domains']} NUMA domains"
-        )
+        title = f"System: {d['serial']} {d['product']} Bios " f"v{d['bios']['version']} Linux Kernel {k['release']}"
+        title += f"\nProcessor: {c['model']} with {c['physical_cores']} cores " f"and {c['numa_domains']} NUMA domains"
         return title
 
     def job_name(self) -> str:
@@ -265,9 +252,7 @@ class Bench:
                     else:
                         traces_perf[index] = value
                 except TypeError:
-                    fatal(
-                        f"{self.trace.get_name()}/{self.get_bench_name()}: unable to find metric {metric_name}"
-                    )
+                    fatal(f"{self.trace.get_name()}/{self.get_bench_name()}: unable to find metric {metric_name}")
 
             # If we want to keep the perf/watt ratio, let's compute it
             if perf_watt is not None:
@@ -364,7 +349,7 @@ class Bench:
         power = 0
         if psus:
             power = [0] * len(psus[next(iter(psus))].get_samples())
-            for _, psu in psus.items():
+            for psu in psus.values():
                 count = 0
                 for value in psu.get_mean():
                     power[count] = power[count] + value
@@ -450,9 +435,7 @@ class Trace:
             fatal(f"{self.filename}: Cannot find power consumption metrics")
 
         try:
-            first_bench.get_monitoring_metric_by_name(
-                Metrics.POWER_CONSUMPTION, self.metric_name
-            )
+            first_bench.get_monitoring_metric_by_name(Metrics.POWER_CONSUMPTION, self.metric_name)
         except (KeyError, ValueError):
             try:
                 metrics = " ".join(self._list_power_metrics())
@@ -467,9 +450,7 @@ class Trace:
         first_bench = self.first_bench()
         first_bench.load_monitoring()
         power_metrics = []
-        for name, value in first_bench.get_monitoring_metric(
-            Metrics.POWER_CONSUMPTION
-        ).items():
+        for name, value in first_bench.get_monitoring_metric(Metrics.POWER_CONSUMPTION).items():
             for v in value:
                 power_metrics.append(f"{name}.{v}")
         return power_metrics
@@ -504,11 +485,7 @@ class Trace:
 
     def get_sanitized_cpu_model(self):
         return (
-            self.get_cpu()["model"]
-            .split("@", 1)[0]
-            .replace("(R)", "")
-            .replace("Processor", "")
-            .replace("CPU", "")
+            self.get_cpu()["model"].split("@", 1)[0].replace("(R)", "").replace("Processor", "").replace("CPU", "")
         ).strip()
 
     def get_sockets_count(self):
@@ -555,11 +532,7 @@ class Trace:
     def get_benches_by_job(self, job: str) -> list[Bench]:
         """Return the list of benches linked to job 'job'"""
         # We only keep keep jobs liked to the searched job
-        return [
-            self.bench(bench_name)
-            for bench_name in self.bench_list()
-            if self.bench(bench_name).job_name() == job
-        ]
+        return [self.bench(bench_name) for bench_name in self.bench_list() if self.bench(bench_name).job_name() == job]
 
     def get_benches_by_job_per_emp(self, job: str) -> dict:
         """Return benches linked to job 'job' sorted by engine module parameter"""

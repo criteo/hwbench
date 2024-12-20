@@ -1,7 +1,7 @@
 from __future__ import annotations
+
 import pathlib
-from abc import abstractmethod, ABC
-from typing import Optional
+from abc import ABC, abstractmethod
 
 
 # This is the interface of Environment
@@ -12,5 +12,5 @@ class BaseEnvironment(ABC):
         pass
 
     @abstractmethod
-    def dump(self) -> dict[str, Optional[str | int] | dict]:
+    def dump(self) -> dict[str, str | int | None | dict]:
         return {}

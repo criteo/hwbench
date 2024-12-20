@@ -11,7 +11,7 @@ class IOScheduler:
 
     def run(self):
         log = tunninglog()
-        for rootpath, dirnames, filenames in os.walk("/sys/block"):
+        for rootpath, dirnames, _filenames in os.walk("/sys/block"):
             for dirname in dirnames:
                 diskdir = pathlib.Path(rootpath) / dirname
                 file = diskdir / "queue/scheduler"

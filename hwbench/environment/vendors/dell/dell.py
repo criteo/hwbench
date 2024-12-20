@@ -1,13 +1,16 @@
 from typing import cast
+
 from ....bench.monitoring_structs import (
     MonitorMetric,
     Power,
-    PowerCategories as PowerCat,
     PowerContext,
     Temperature,
 )
-from ..vendor import Vendor, BMC
+from ....bench.monitoring_structs import (
+    PowerCategories as PowerCat,
+)
 from ....utils import helpers as h
+from ..vendor import BMC, Vendor
 
 
 class IDRAC(BMC):
@@ -17,8 +20,10 @@ class IDRAC(BMC):
         return self.get_redfish_url("/redfish/v1/Chassis/System.Embedded.1/Thermal")
 
     def read_thermals(
-        self, thermals: dict[str, dict[str, Temperature]] = {}
+        self, thermals: dict[str, dict[str, Temperature]] | None = None
     ) -> dict[str, dict[str, Temperature]]:
+        if thermals is None:
+            thermals = {}
         for t in self.get_thermal().get("Temperatures"):
             if t["ReadingCelsius"] is None or t["ReadingCelsius"] <= 0:
                 continue
@@ -67,9 +72,9 @@ class IDRAC(BMC):
         self.oem_endpoint = new_oem_endpoint
         return oem
 
-    def read_power_consumption(
-        self, power_consumption: dict[str, dict[str, Power]] = {}
-    ):
+    def read_power_consumption(self, power_consumption: dict[str, dict[str, Power]] | None = None):
+        if power_consumption is None:
+            power_consumption = {}
         power_consumption = super().read_power_consumption(power_consumption)
         oem_system = self.get_oem_system()
         if "ServerPwr.1.SCViewSledPwr" in oem_system["Attributes"]:
@@ -100,19 +105,10 @@ class IDRAC(BMC):
         # Let's add the sum of the power supplies to get the inlet power consumption
         # It will be compared at some point with the PDU reporting.
         if str(PowerCat.CHASSIS) not in power_consumption[str(PowerContext.BMC)]:
-            power_consumption[str(PowerContext.BMC)][str(PowerCat.CHASSIS)] = Power(
-                str(PowerCat.CHASSIS)
-            )
+            power_consumption[str(PowerContext.BMC)][str(PowerCat.CHASSIS)] = Power(str(PowerCat.CHASSIS))
         psus = super().read_power_supplies()
         power_consumption[str(PowerContext.BMC)][str(PowerCat.CHASSIS)].add(
-            float(
-                sum(
-                    [
-                        psu.get_values()[-1]
-                        for _, psu in psus[str(PowerContext.BMC)].items()
-                    ]
-                )
-            )
+            float(sum([psu.get_values()[-1] for _, psu in psus[str(PowerContext.BMC)].items()]))
         )
 
         return power_consumption

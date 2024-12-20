@@ -1,16 +1,14 @@
-import pathlib
 import json
+import pathlib
 
-from . import cpu_cores
-from . import cpu_info
-from . import numa
-from .vendors.vendor import BMC
+from . import cpu_cores, cpu_info, numa
 from .vendors.amd import amd
+from .vendors.vendor import BMC
 
 path = pathlib.Path("")
 
 
-class TestParseCPU(object):
+class TestParseCPU:
     def test_ami_aptio(self):
         d = pathlib.Path("./hwbench/tests/parsing/ami_aptio/v5")
         print(f"parsing test {d.name}")

@@ -1,19 +1,16 @@
 import pathlib
 from unittest.mock import patch
-from ..environment.mock import MockHardware
+
 from ..bench import test_benchmarks_common as tbc
+from ..environment.mock import MockHardware
 
 
 class TestParseConfig(tbc.TestCommon):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        with patch(
-            "hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters"
-        ) as p:
+        with patch("hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters") as p:
             p.return_value = (
-                pathlib.Path("./hwbench/tests/parsing/stressngmethods/v17/stdout")
-                .read_bytes()
-                .split(b":", 1)
+                pathlib.Path("./hwbench/tests/parsing/stressngmethods/v17/stdout").read_bytes().split(b":", 1)
             )
             self.hw = MockHardware()
             self.load_benches("./hwbench/config/sample.ini")
@@ -39,35 +36,24 @@ class TestParseConfig(tbc.TestCommon):
         try:
             # We need to patch list_module_parameters() function
             # to avoid considering the local stress-ng binary
-            with patch(
-                "hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters"
-            ) as p:
+            with patch("hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters") as p:
                 p.return_value = (
-                    pathlib.Path("./hwbench/tests/parsing/stressngmethods/v17/stdout")
-                    .read_bytes()
-                    .split(b":", 1)
+                    pathlib.Path("./hwbench/tests/parsing/stressngmethods/v17/stdout").read_bytes().split(b":", 1)
                 )
                 with patch("hwbench.utils.helpers.is_binary_available") as iba:
                     iba.return_value = True
                     self.get_jobs_config().validate_sections()
         except Exception as exc:
-            assert False, f"'validate_sections' detected a syntax error {exc}"
+            raise AssertionError(f"'validate_sections' detected a syntax error {exc}")
 
     def test_defaults(self):
         """Check if default values are properly set."""
-        with patch(
-            "hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters"
-        ) as p:
+        with patch("hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters") as p:
             p.return_value = (
-                pathlib.Path("./hwbench/tests/parsing/stressngmethods/v17/stdout")
-                .read_bytes()
-                .split(b":", 1)
+                pathlib.Path("./hwbench/tests/parsing/stressngmethods/v17/stdout").read_bytes().split(b":", 1)
             )
             self.load_benches("./hwbench/config/sample_weirds.conf")
-            assert (
-                self.get_jobs_config().get_config().getint("noglobalruntime", "runtime")
-                == 60
-            )
+            assert self.get_jobs_config().get_config().getint("noglobalruntime", "runtime") == 60
 
             # Now let's check an invalid syntax stop the tool
             for section in [
