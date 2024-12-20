@@ -44,12 +44,5 @@ graph = [
 ]
 
 [tool.ruff]
-target-version = 'py311'
+target-version = 'py39'
 line-length = 120
-
-[tool.ruff.lint]
-# See complete list : https://docs.astral.sh/ruff/rules/
-select = [
-    "F",     # pyflakes
-    "I",     # isort
-]
