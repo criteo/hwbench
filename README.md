@@ -26,6 +26,7 @@ The current version of hwbench supports 3 different engines.
 - [stress-ng](https://github.com/ColinIanKing/stress-ng): no need to present this very popular low-level benchmarking tool
 - spike: a custom engine used to make fans spike. Very useful to study the cooling strategy of a server.
 - sleep: a stupid sleep call used to observe how the system is behaving in idle mode
+- [fio](https://github.com/axboe/fio): a flexible storage benchmarking tool, see [documentation](./documentation/fio.md)
 
 Benchmark performance metrics are extracted and saved for later analysis.
 
