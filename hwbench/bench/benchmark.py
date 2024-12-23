@@ -19,6 +19,7 @@ class Benchmark:
         self.job_number = job_number
         self.enginemodule = enginemodule
         self.parameters = parameters
+        self.parameters.benchmark = self
 
     def get_enginemodule(self) -> EngineModuleBase:
         return self.enginemodule
@@ -122,9 +123,9 @@ class ExternalBench(External):
         cpu_location = ""
         if p.get_pinned_cpu():
             if isinstance(p.get_pinned_cpu(), (int, str)):
-                cpu_location = " on CPU {:3d}".format(p.get_pinned_cpu())
+                cpu_location = " pinned on CPU {:3d}".format(p.get_pinned_cpu())
             elif isinstance(p.get_pinned_cpu(), list):
-                cpu_location = " on CPU [{}]".format(
+                cpu_location = " pinned on CPU [{}]".format(
                     h.cpu_list_to_range(p.get_pinned_cpu())
                 )
             else:
@@ -139,7 +140,7 @@ class ExternalBench(External):
             monitoring = "(M)"
         print(
             "[{}] {}/{}/{}{}: {:3d} stressor{} for {}s{}".format(
-                p.get_name(),
+                p.get_name_with_position(),
                 self.engine_module.get_engine().get_name(),
                 self.engine_module.get_name(),
                 p.get_engine_module_parameter(),
