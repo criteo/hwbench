@@ -1,7 +1,8 @@
 import os
 import pathlib
 import subprocess
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
+
 from .helpers import fatal
 
 
@@ -88,7 +89,7 @@ class External_Simple(External):
         return self.cmd_list
 
     def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
-        return bytes()
+        return b""
 
     def parse_cmd(self, stdout: bytes, stderr: bytes):
         return {}

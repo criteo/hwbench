@@ -1,3 +1,3 @@
-class TestEnv(object):
+class TestEnv:
     def test_dummy(self):
         print("dummy test")

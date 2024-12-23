@@ -1,6 +1,5 @@
 import pathlib
-from .vendors.dell.dell import Dell
-from .test_dell import TestDell
+
 from ..bench.monitoring_structs import (
     FanContext,
     MonitorMetric,
@@ -10,6 +9,8 @@ from ..bench.monitoring_structs import (
     Temperature,
     ThermalContext,
 )
+from .test_dell import TestDell
+from .vendors.dell.dell import Dell
 
 path = pathlib.Path("")
 
@@ -21,12 +22,8 @@ class TestDell6615(TestDell):
 
     def test_thermal(self):
         expected_output = self.generic_thermal_output()
-        expected_output[str(ThermalContext.INTAKE)] = {
-            "Inlet Temp": Temperature("Inlet", 23)
-        }
-        expected_output[str(ThermalContext.CPU)] = {
-            "CPU1 Temp": Temperature("CPU1", 34)
-        }
+        expected_output[str(ThermalContext.INTAKE)] = {"Inlet Temp": Temperature("Inlet", 23)}
+        expected_output[str(ThermalContext.CPU)] = {"CPU1 Temp": Temperature("CPU1", 34)}
         super().generic_thermal_test(expected_output)
 
     def test_fan(self):
@@ -50,12 +47,8 @@ class TestDell6615(TestDell):
         expected_output[str(PowerContext.BMC)] = {
             str(PowerCategories.CHASSIS): Power(str(PowerCategories.CHASSIS), 339),
             str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER), 80),
-            str(PowerCategories.SERVERINCHASSIS): Power(
-                str(PowerCategories.SERVERINCHASSIS), 112
-            ),
-            str(PowerCategories.INFRASTRUCTURE): Power(
-                str(PowerCategories.INFRASTRUCTURE), 54
-            ),
+            str(PowerCategories.SERVERINCHASSIS): Power(str(PowerCategories.SERVERINCHASSIS), 112),
+            str(PowerCategories.INFRASTRUCTURE): Power(str(PowerCategories.INFRASTRUCTURE), 54),
         }
         super().generic_power_consumption_test(expected_output)
 

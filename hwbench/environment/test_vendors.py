@@ -1,13 +1,14 @@
 import ast
 import errno
-import pathlib
 import os
+import pathlib
 import unittest
 from enum import Enum
-from unittest.mock import patch
 from typing import Any  # noqa: F401
-from .vendors.vendor import Vendor
+from unittest.mock import patch
+
 from ..bench.monitoring_structs import FanContext, PowerContext, ThermalContext
+from .vendors.vendor import Vendor
 
 path = pathlib.Path("")
 
@@ -82,7 +83,7 @@ class TestVendors(unittest.TestCase):
     def sample(self, name):
         """Return the samples for this test."""
         output = None
-        file = open(self.__get_samples_file_name(name), "r")
+        file = open(self.__get_samples_file_name(name))
         output = file.readlines()
         # If the file is empty but json output is requested, let's return an empty string
         if not len(output):
@@ -117,34 +118,26 @@ class TestVendors(unittest.TestCase):
     def generic_test(self, expected_output, func):
         for pc in func:
             if pc not in expected_output.keys():
-                assert False, f"Missing Physical Context '{pc}' in expected_output"
+                raise AssertionError(f"Missing Physical Context '{pc}' in expected_output")
             for sensor in func[pc]:
                 if sensor not in expected_output[pc]:
-                    assert False, f"Missing sensor '{sensor}' in '{pc}'"
+                    raise AssertionError(f"Missing sensor '{sensor}' in '{pc}'")
                 if func[pc][sensor] != expected_output[pc][sensor]:
                     print(
                         f"name: |{func[pc][sensor].get_name()}| vs |{expected_output[pc][sensor].get_name()}|\n"
                         f"value:|{func[pc][sensor].get_values()}| vs |{expected_output[pc][sensor].get_values()}|\n"
                         f"unit: |{func[pc][sensor].get_unit()}| vs |{expected_output[pc][sensor].get_unit()}|"
                     )
-                    assert False, "Metrics do not match"
+                    raise AssertionError("Metrics do not match")
 
     def generic_thermal_test(self, expected_output):
-        return self.generic_test(
-            expected_output, self.get_vendor().get_bmc().read_thermals({})
-        )
+        return self.generic_test(expected_output, self.get_vendor().get_bmc().read_thermals({}))
 
     def generic_fan_test(self, expected_output):
-        return self.generic_test(
-            expected_output, self.get_vendor().get_bmc().read_fans({})
-        )
+        return self.generic_test(expected_output, self.get_vendor().get_bmc().read_fans({}))
 
     def generic_power_consumption_test(self, expected_output):
-        return self.generic_test(
-            expected_output, self.get_vendor().get_bmc().read_power_consumption({})
-        )
+        return self.generic_test(expected_output, self.get_vendor().get_bmc().read_power_consumption({}))
 
     def generic_power_supplies_test(self, expected_output):
-        return self.generic_test(
-            expected_output, self.get_vendor().get_bmc().read_power_supplies({})
-        )
+        return self.generic_test(expected_output, self.get_vendor().get_bmc().read_power_supplies({}))

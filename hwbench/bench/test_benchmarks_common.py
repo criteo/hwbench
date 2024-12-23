@@ -2,13 +2,14 @@ import ast
 import pathlib
 import unittest
 from unittest.mock import patch
-from . import benchmarks
+
 from ..config import config
 from ..environment.cpu import MockCPU
-from ..environment.cpu_info import CPU_INFO
 from ..environment.cpu_cores import CPU_CORES
-from ..environment.numa import NUMA
+from ..environment.cpu_info import CPU_INFO
 from ..environment.mock import MockHardware
+from ..environment.numa import NUMA
+from . import benchmarks
 
 
 class TestCommon(unittest.TestCase):
@@ -65,7 +66,7 @@ class TestCommon(unittest.TestCase):
             with patch("hwbench.environment.turbostat.Turbostat.check_version") as cv:
                 cv.return_value = True
                 with patch("hwbench.environment.turbostat.Turbostat.run") as ts:
-                    with open("hwbench/tests/parsing/turbostat/run", "r") as f:
+                    with open("hwbench/tests/parsing/turbostat/run") as f:
                         ts.return_value = ast.literal_eval(f.read())
                         return self.benches.parse_jobs_config(validate_parameters)
 

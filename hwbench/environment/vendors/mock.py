@@ -1,4 +1,5 @@
 from typing import cast
+
 from ...bench.monitoring_structs import (
     FanContext,
     MonitorMetric,
@@ -8,7 +9,7 @@ from ...bench.monitoring_structs import (
     Temperature,
     ThermalContext,
 )
-from .vendor import Vendor, BMC
+from .vendor import BMC, Vendor
 
 
 class MockedBMC(BMC):
@@ -20,9 +21,11 @@ class MockedBMC(BMC):
         self.model = "MockedBMC"
 
     def read_thermals(
-        self, thermals: dict[str, dict[str, Temperature]] = {}
+        self, thermals: dict[str, dict[str, Temperature]] | None = None
     ) -> dict[str, dict[str, Temperature]]:
         # Let's add a faked thermal metric
+        if thermals is None:
+            thermals = {}
         name = "CPU1"
 
         super().add_monitoring_value(
@@ -34,10 +37,10 @@ class MockedBMC(BMC):
         )
         return thermals
 
-    def read_fans(
-        self, fans: dict[str, dict[str, MonitorMetric]] = {}
-    ) -> dict[str, dict[str, MonitorMetric]]:
+    def read_fans(self, fans: dict[str, dict[str, MonitorMetric]] | None = None) -> dict[str, dict[str, MonitorMetric]]:
         # Let's add a faked fans metric
+        if fans is None:
+            fans = {}
         name = "Fan1"
         super().add_monitoring_value(
             cast(dict[str, dict[str, MonitorMetric]], fans),
@@ -49,9 +52,11 @@ class MockedBMC(BMC):
         return fans
 
     def read_power_consumption(
-        self, power_consumption: dict[str, dict[str, Power]] = {}
+        self, power_consumption: dict[str, dict[str, Power]] | None = None
     ) -> dict[str, dict[str, Power]]:
         # Let's add a faked power metric
+        if power_consumption is None:
+            power_consumption = {}
         name = str(PowerCategories.CHASSIS)
         super().add_monitoring_value(
             cast(dict[str, dict[str, MonitorMetric]], power_consumption),
@@ -63,9 +68,11 @@ class MockedBMC(BMC):
         return power_consumption
 
     def read_power_supplies(
-        self, power_supplies: dict[str, dict[str, Power]] = {}
+        self, power_supplies: dict[str, dict[str, Power]] | None = None
     ) -> dict[str, dict[str, Power]]:
         # Let's add a faked power supplies
+        if power_supplies is None:
+            power_supplies = {}
         status = "PS1 status"
         name = "PS1"
         super().add_monitoring_value(

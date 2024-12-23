@@ -42,3 +42,7 @@ graph = [
   "pillow>=11.0.0",
   "pycairo",
 ]
+
+[tool.ruff]
+target-version = 'py39'
+line-length = 120

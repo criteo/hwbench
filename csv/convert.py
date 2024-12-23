@@ -154,16 +154,9 @@ def result_key(r):
 
 def mean_power_package(result) -> float:
     mean_power = 0
-    result_package_mean = (
-        result.get("monitoring", {}).get("package", {}).get("mean", {})
-    )
-    if (
-        result_package_mean.get("unit") == "Watts"
-        and len(result_package_mean.get("events", [])) > 0
-    ):
-        mean_power = sum(result_package_mean["events"]) / len(
-            result_package_mean["events"]
-        )
+    result_package_mean = result.get("monitoring", {}).get("package", {}).get("mean", {})
+    if result_package_mean.get("unit") == "Watts" and len(result_package_mean.get("events", [])) > 0:
+        mean_power = sum(result_package_mean["events"]) / len(result_package_mean["events"])
     return mean_power
 
 

@@ -1,18 +1,16 @@
-from .monitoring_device import MonitoringDevice
-from ...utils import helpers as h
 from ...bench.monitoring_structs import (
     Power,
     PowerContext,
 )
+from ...utils import helpers as h
+from .monitoring_device import MonitoringDevice
 
 
 class PDU(MonitoringDevice):
     def __init__(self, vendor, pdu_section):
         super().__init__(vendor)
         self.pdu_section = pdu_section
-        self.outlet = self.vendor.monitoring_config_file.get(
-            self.pdu_section, "outlet", fallback=""
-        )
+        self.outlet = self.vendor.monitoring_config_file.get(self.pdu_section, "outlet", fallback="")
 
     def get_url(self):
         url = super().get_url()
@@ -26,15 +24,11 @@ class PDU(MonitoringDevice):
 
     def connect_redfish(self):
         """Connect to the PDU using Redfish."""
-        username = self.vendor.monitoring_config_file.get(
-            self.pdu_section, "username", fallback=""
-        )
+        username = self.vendor.monitoring_config_file.get(self.pdu_section, "username", fallback="")
         if not username:
             h.fatal(f"Cannot find a username for PDU {self.pdu_section}")
 
-        password = self.vendor.monitoring_config_file.get(
-            self.pdu_section, "password", fallback=""
-        )
+        password = self.vendor.monitoring_config_file.get(self.pdu_section, "password", fallback="")
         if not password:
             h.fatal(f"Cannot find a password for PDU {self.pdu_section}")
         return super().connect_redfish(username, password, self.get_url())
@@ -44,17 +38,17 @@ class PDU(MonitoringDevice):
         return {}
 
     def read_power_consumption(
-        self, power_consumption: dict[str, dict[str, Power]] = {}
+        self, power_consumption: dict[str, dict[str, Power]] | None = None
     ) -> dict[str, dict[str, Power]]:
         """Return power consumption from server"""
         # Generic for now, could be override by vendors
+        if power_consumption is None:
+            power_consumption = {}
         if str(PowerContext.PDU) not in power_consumption:
             power_consumption[str(PowerContext.PDU)] = {}  # type: ignore[no-redef]
 
         if self.get_name() not in power_consumption[str(PowerContext.PDU)]:
-            power_consumption[str(PowerContext.PDU)][self.get_name()] = Power(
-                self.get_name()
-            )
+            power_consumption[str(PowerContext.PDU)][self.get_name()] = Power(self.get_name())
 
         # To be completed by drivers
         return power_consumption

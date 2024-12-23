@@ -1,6 +1,5 @@
 import pathlib
-from .vendors.dell.dell import Dell
-from .test_dell import TestDell
+
 from ..bench.monitoring_structs import (
     FanContext,
     MonitorMetric,
@@ -10,6 +9,8 @@ from ..bench.monitoring_structs import (
     Temperature,
     ThermalContext,
 )
+from .test_dell import TestDell
+from .vendors.dell.dell import Dell
 
 path = pathlib.Path("")
 
@@ -21,9 +22,7 @@ class TestDell6420(TestDell):
 
     def test_thermal(self):
         expected_output = self.generic_thermal_output()
-        expected_output[str(ThermalContext.INTAKE)] = {
-            "Inlet Temp": Temperature("Inlet", 32)
-        }
+        expected_output[str(ThermalContext.INTAKE)] = {"Inlet Temp": Temperature("Inlet", 32)}
         expected_output[str(ThermalContext.CPU)] = {
             "CPU1 Temp": Temperature("CPU1", 37),
             "CPU2 Temp": Temperature("CPU2", 34),
