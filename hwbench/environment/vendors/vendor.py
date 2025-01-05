@@ -4,7 +4,8 @@ import configparser
 import os
 from abc import ABC, abstractmethod
 
-from ...utils import helpers as h
+from hwbench.utils import helpers as h
+
 from .bmc import BMC
 from .pdu import PDU
 

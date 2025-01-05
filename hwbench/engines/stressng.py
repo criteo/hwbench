@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import re
 
-from ..bench.benchmark import ExternalBench
-from ..bench.engine import EngineBase, EngineModuleBase
-from ..bench.parameters import BenchmarkParameters
-from ..utils import helpers as h
+from hwbench.bench.benchmark import ExternalBench
+from hwbench.bench.engine import EngineBase, EngineModuleBase
+from hwbench.bench.parameters import BenchmarkParameters
+from hwbench.utils import helpers as h
 
 
 class EngineModulePinnable(EngineModuleBase):
@@ -17,7 +17,7 @@ class EngineModulePinnable(EngineModuleBase):
             pinned = [pinned]
         for cpu in pinned:
             if params.get_hw().logical_core_count() <= int(cpu):
-                return f"Cannot pin on core #{cpu} we only have " f"{params.get_hw().logical_core_count()} cores"
+                return f"Cannot pin on core #{cpu} we only have {params.get_hw().logical_core_count()} cores"
         return ""
 
 

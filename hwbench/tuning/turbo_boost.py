@@ -1,7 +1,7 @@
 import errno
 from pathlib import Path
 
-from ..utils.hwlogging import tunninglog
+from hwbench.utils.hwlogging import tunninglog
 
 
 class TurboBoost:

@@ -1,6 +1,6 @@
-from ..bench.benchmark import ExternalBench
-from ..bench.engine import EngineBase, EngineModuleBase
-from ..bench.parameters import BenchmarkParameters
+from hwbench.bench.benchmark import ExternalBench
+from hwbench.bench.engine import EngineBase, EngineModuleBase
+from hwbench.bench.parameters import BenchmarkParameters
 
 
 class EngineModuleSleep(EngineModuleBase):

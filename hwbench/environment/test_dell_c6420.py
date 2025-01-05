@@ -1,6 +1,6 @@
 import pathlib
 
-from ..bench.monitoring_structs import (
+from hwbench.bench.monitoring_structs import (
     FanContext,
     MonitorMetric,
     Power,
@@ -9,6 +9,7 @@ from ..bench.monitoring_structs import (
     Temperature,
     ThermalContext,
 )
+
 from .test_dell import TestDell
 from .vendors.dell.dell import Dell
 

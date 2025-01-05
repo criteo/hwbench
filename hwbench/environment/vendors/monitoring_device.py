@@ -5,10 +5,8 @@ from typing import Any
 import cachetools.func
 import redfish  # type: ignore
 
-from ...bench.monitoring_structs import (
-    MonitorMetric,
-)
-from ...utils import helpers as h
+from hwbench.bench.monitoring_structs import MonitorMetric
+from hwbench.utils import helpers as h
 
 
 class MonitoringDevice:
@@ -125,7 +123,9 @@ class MonitoringDevice:
             redfish = self.redfish_obj.get(url, None).dict
             # Let's ignore errors and return empty objects
             # It will be up to the caller to see there is no answer and process this
-            # {'error': {'code': 'iLO.0.10.ExtendedInfo', 'message': 'See @Message.ExtendedInfo for more information.', '@Message.ExtendedInfo': [{'MessageArgs': ['/redfish/v1/Chassis/enclosurechassis/'], 'MessageId': 'Base.1.4.ResourceMissingAtURI'}]}}
+            # {'error':
+            # {'code': 'iLO.0.10.ExtendedInfo', 'message': 'See @Message.ExtendedInfo for more information.', '@Message.ExtendedInfo':
+            # [{'MessageArgs': ['/redfish/v1/Chassis/enclosurechassis/'], 'MessageId': 'Base.1.4.ResourceMissingAtURI'}]}}
             if redfish and "error" in redfish:
                 if log_failure:
                     logging.error(f"Parsing redfish url {url} failed : {redfish}")

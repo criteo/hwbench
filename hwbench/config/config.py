@@ -6,9 +6,10 @@ import os
 import re
 from typing import Any
 
-from ..bench.engine import EngineBase
-from ..environment import hardware as env_hw
-from ..utils import helpers as h
+from hwbench.bench.engine import EngineBase
+from hwbench.environment import hardware as env_hw
+from hwbench.utils import helpers as h
+
 from . import config_syntax
 
 

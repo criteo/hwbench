@@ -1,5 +1,6 @@
-from ..utils.external import External_Simple
-from ..utils.hwlogging import tunninglog
+from hwbench.utils.external import External_Simple
+from hwbench.utils.hwlogging import tunninglog
+
 from .drop_caches import SysctlDropCaches
 from .power_profile import PerformancePowerProfile
 from .scheduler import MQDeadlineIOScheduler

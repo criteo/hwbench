@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from ...bench.monitoring_structs import Power, PowerContext
-from ...utils import helpers as h
+from hwbench.bench.monitoring_structs import Power, PowerContext
+from hwbench.utils import helpers as h
+
 from .monitoring_device import MonitoringDevice
 
 

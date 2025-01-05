@@ -2,9 +2,10 @@ import time
 from threading import Thread
 from typing import Any
 
-from ..environment.hardware import BaseHardware
-from ..environment.turbostat import Turbostat
-from ..utils import helpers as h
+from hwbench.environment.hardware import BaseHardware
+from hwbench.environment.turbostat import Turbostat
+from hwbench.utils import helpers as h
+
 from .monitoring_structs import Metrics, MonitoringMetadata, MonitorMetric
 
 
@@ -63,10 +64,10 @@ class Monitoring:
         def check_monitoring(source: str, metric: Metrics):
             data = self.get_metric(metric)
             if not len(data):
-                h.fatal(f"Cannot detect {str(metric)} metrics")
+                h.fatal(f"Cannot detect {metric!s} metrics")
 
             print(
-                f"Monitoring/{source}: {str(metric)} metrics:"
+                f"Monitoring/{source}: {metric!s} metrics:"
                 + ", ".join([f"{len(data[pc])}x{pc}" for pc in data if len(data[pc]) > 0])
             )
 

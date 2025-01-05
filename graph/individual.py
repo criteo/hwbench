@@ -16,7 +16,7 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
     benches = args.traces[0].get_benches_by_job_per_emp(job)
     # For all subjobs sharing the same engine module parameter
     # i.e int128
-    for emp in benches.keys():
+    for emp in benches:
         aggregated_perfs = {}  # type: dict[str, dict[str, Any]]
         aggregated_perfs_watt = {}  # type: dict[str, dict[str, Any]]
         aggregated_watt = {}  # type: dict[str, dict[str, Any]]
@@ -27,7 +27,7 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
         perf_list, unit = benches[emp]["metrics"]
         # For each metric we need to plot
         for perf in perf_list:
-            if perf not in aggregated_perfs.keys():
+            if perf not in aggregated_perfs:
                 aggregated_perfs[perf] = {}
                 aggregated_perfs_watt[perf] = {}
                 aggregated_watt[perf] = {}
@@ -52,7 +52,7 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
             for trace in args.traces:
                 # Let's iterate on each Bench from this trace file matching this em
                 for bench in trace.get_benches_by_job_per_emp(job)[emp]["bench"]:
-                    if bench.workers() not in aggregated_perfs[perf].keys():
+                    if bench.workers() not in aggregated_perfs[perf]:
                         # If the worker count is not known yet, let's init all structures with as much zeros as the number of traces
                         # This will be the default value in case of the host doesn't have performance results
                         aggregated_perfs[perf][bench.workers()] = [0] * len(traces_name)
@@ -90,10 +90,7 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
 
                 # Let's define the tree architecture based on the benchmark profile
                 # If the benchmark has multiple performance results, let's put them in a specific directory
-                if len(perf_list) > 1:
-                    outdir = outdir.joinpath(emp, perf)
-                else:
-                    outdir = outdir.joinpath(emp)
+                outdir = outdir.joinpath(emp, perf) if len(perf_list) > 1 else outdir.joinpath(emp)
 
                 # Select the proper datasource and titles/labels regarding the graph type
                 if graph_type == "perf_watt":

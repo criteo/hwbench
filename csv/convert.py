@@ -58,8 +58,8 @@ def create_csv_power(out_file: pathlib.Path, data):
             job_name = result.get("job_name", "")
             job_number = result.get("job_number", "")
             monitoring = result.get("monitoring", {})
-            for category in monitoring.keys():
-                for typ in monitoring[category].keys():
+            for category in monitoring:
+                for typ in monitoring[category]:
                     measures = monitoring[category][typ]
                     events = measures.get("events", [])
                     unit = measures.get("unit")
@@ -108,7 +108,7 @@ def print_memrates(out, results):
         job_name = result.get("job_name", "")
         job_number = result.get("job_number", "")
         workers = result.get("workers")
-        for key in result.keys():
+        for key in result:
             if isinstance(result[key], dict) and "sum_speed" in result[key]:
                 result_list.append(
                     {

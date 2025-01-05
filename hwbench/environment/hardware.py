@@ -3,7 +3,8 @@ from __future__ import annotations
 import pathlib
 from abc import abstractmethod
 
-from ..utils.external import External_Simple
+from hwbench.utils.external import External_Simple
+
 from .base import BaseEnvironment
 from .cpu import CPU
 from .dmi import DmidecodeRaw, DmiSys

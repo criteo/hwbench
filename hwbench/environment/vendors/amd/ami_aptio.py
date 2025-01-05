@@ -1,6 +1,6 @@
 import re
 
-from ....utils.external import External
+from hwbench.utils.external import External
 
 
 class Ami_Aptio(External):

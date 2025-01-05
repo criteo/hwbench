@@ -4,8 +4,9 @@ import datetime
 import time
 from datetime import timedelta
 
-from ..environment.hardware import BaseHardware
-from ..utils import helpers as h
+from hwbench.environment.hardware import BaseHardware
+from hwbench.utils import helpers as h
+
 from .benchmark import Benchmark
 from .monitoring import Monitoring
 from .parameters import BenchmarkParameters

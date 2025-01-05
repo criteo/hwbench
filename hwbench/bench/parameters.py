@@ -1,6 +1,7 @@
 import pathlib
 
-from ..environment.hardware import BaseHardware
+from hwbench.environment.hardware import BaseHardware
+
 from .monitoring import Monitoring
 
 

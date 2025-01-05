@@ -107,7 +107,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             "Time [seconds]",
             y_label,
             outdir,
-            f"time_watt_{base_outfile}_by_{str(graph_type)}",
+            f"time_watt_{base_outfile}_by_{graph_type!s}",
         )
 
         if graph_type == PowerCategories.SERVERINCHASSIS:
@@ -126,7 +126,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             y_serie = np.array(sum_serie_to_plot[str(component)])[order]
             curve_label = str(component)
             if component in [PowerCategories.SERVER, PowerCategories.SERVERINCHASSIS]:
-                curve_label = f"sum of {str(component)}"
+                curve_label = f"sum of {component!s}"
             graph.get_ax().plot(x_serie, y_serie, "", label=curve_label, marker=get_marker(component))
 
         for trace in args.traces:

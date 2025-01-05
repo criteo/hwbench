@@ -1,7 +1,8 @@
 import re
 from typing import Any
 
-from ..bench.parameters import BenchmarkParameters
+from hwbench.bench.parameters import BenchmarkParameters
+
 from .stressng import EngineBase, EngineModulePinnable, StressNG
 
 

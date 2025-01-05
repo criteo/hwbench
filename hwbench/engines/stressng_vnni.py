@@ -1,8 +1,9 @@
 from collections.abc import Callable, Iterable
 from typing import NamedTuple
 
-from ..bench.parameters import BenchmarkParameters
-from ..environment.hardware import BaseHardware
+from hwbench.bench.parameters import BenchmarkParameters
+from hwbench.environment.hardware import BaseHardware
+
 from .stressng import EngineBase, EngineModulePinnable, StressNG
 
 

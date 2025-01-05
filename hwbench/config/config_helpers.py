@@ -1,10 +1,10 @@
-from ..environment import hardware as env_hw
+from hwbench.environment import hardware as env_hw
 
 
 def simple(hardware: env_hw.BaseHardware) -> str:
     """A naive cpu scaling."""
     # 1, 2, 3, 4, 8, 16 then +16 up to the core count
-    # [1, 2, 3, 4, 8, 16, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256] # noqa: E501
+    # 1, 2, 3, 4, 8, 16, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256
     core_count = []
     for test in range(1, 22):
         if test <= 4:

@@ -1,6 +1,6 @@
 import pathlib
 
-from ..utils.external import External
+from hwbench.utils.external import External
 
 
 class CPU_INFO(External):

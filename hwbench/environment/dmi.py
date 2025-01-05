@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 import pathlib
 
-from ..utils.archive import create_tar_from_directory, extract_file_from_tar
-from ..utils.external import External
+from hwbench.utils.archive import create_tar_from_directory, extract_file_from_tar
+from hwbench.utils.external import External
 
 
 class DmiSys:

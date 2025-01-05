@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pathlib
 
-from ..utils.external import External
+from hwbench.utils.external import External
 
 
 class CPU_CORES(External):
@@ -52,9 +52,9 @@ class CPU_CORES(External):
 
     def get_physical_cores(self) -> list[int]:
         """Return the list of physical cores."""
-        cores = []
+        cores: list[int] = []
         for socket in self.sockets:
-            cores += [key for key in self.get_socket(socket).keys()]
+            cores += self.get_socket(socket).keys()
         return cores
 
     def get_hyperthread_cores(self) -> list[int]:

@@ -1,8 +1,9 @@
 import time
 from typing import Any
 
-from ..utils import helpers as h
-from ..utils.external import External
+from hwbench.utils import helpers as h
+from hwbench.utils.external import External
+
 from .engine import EngineModuleBase
 from .parameters import BenchmarkParameters
 
@@ -50,7 +51,7 @@ class Benchmark:
         p = self.get_parameters()
         error = e.validate_module_parameters(p)
         if error:
-            h.fatal(f"Unsupported parameter for {e.get_engine().get_name()}/" f"{e.get_name()}: {error}")
+            h.fatal(f"Unsupported parameter for {e.get_engine().get_name()}/{e.get_name()}: {error}")
 
     def run(self):
         e = self.get_enginemodule()
@@ -93,7 +94,7 @@ class ExternalBench(External):
         if not self.skip:
             return False
 
-        if self.parameters.get_skip_method() == "wait":
+        if self.parameters.get_skip_method() == "wait":  # noqa: SIM103
             # The job is skipped but we were asked to make a no-op run
             return False
 

@@ -2,17 +2,10 @@ from __future__ import annotations
 
 from typing import cast
 
-from ....bench.monitoring_structs import (
-    MonitorMetric,
-    Power,
-    PowerContext,
-    Temperature,
-)
-from ....bench.monitoring_structs import (
-    PowerCategories as PowerCat,
-)
-from ....utils import helpers as h
-from ..vendor import BMC, Vendor
+from hwbench.bench.monitoring_structs import MonitorMetric, Power, PowerContext, Temperature
+from hwbench.bench.monitoring_structs import PowerCategories as PowerCat
+from hwbench.environment.vendors.vendor import BMC, Vendor
+from hwbench.utils import helpers as h
 
 
 class IDRAC(BMC):
@@ -32,11 +25,10 @@ class IDRAC(BMC):
             name = t["Name"].split("Temp")[0].strip()
             pc = t["PhysicalContext"]
 
-            # Adding quirks on some models
-            if pc is None:
-                # On Gen14, some PhysicalContext are not provided, let's workaround that.
-                if "Inlet" in name:
-                    pc = "Intake"
+            # Adding quirks on some models.
+            # On Gen14, some PhysicalContext are not provided, let's workaround that.
+            if pc is None and "Inlet" in name:
+                pc = "Intake"
 
             super().add_monitoring_value(
                 cast(dict[str, dict[str, MonitorMetric]], thermals),
