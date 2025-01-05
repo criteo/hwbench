@@ -4,11 +4,11 @@ import subprocess
 import time
 from statistics import mean
 
-from ..bench import monitoring_structs
-from ..bench.benchmark import ExternalBench
-from ..bench.engine import EngineBase, EngineModuleBase
-from ..bench.parameters import BenchmarkParameters
-from ..utils import helpers as h
+from hwbench.bench import monitoring_structs
+from hwbench.bench.benchmark import ExternalBench
+from hwbench.bench.engine import EngineBase, EngineModuleBase
+from hwbench.bench.parameters import BenchmarkParameters
+from hwbench.utils import helpers as h
 
 
 class EngineModuleCPUSpike(EngineModuleBase):
@@ -140,7 +140,7 @@ class Spike(ExternalBench):
         args = [
             self.engine_module.engine.get_binary(),
             "-c",
-            f"{str(self.parameters.get_engine_instances_count())}",
+            f"{self.parameters.get_engine_instances_count()!s}",
             "--cpu-method",
             "matrixprod",
         ] + additional_args

@@ -1,6 +1,6 @@
 import pathlib
 
-from ..bench.monitoring_structs import (
+from hwbench.bench.monitoring_structs import (
     FanContext,
     MonitorMetric,
     Power,
@@ -9,6 +9,7 @@ from ..bench.monitoring_structs import (
     Temperature,
     ThermalContext,
 )
+
 from .test_vendors import PATCH_TYPES, TestVendors
 from .vendors.hpe.hpe import ILO, Hpe
 
@@ -84,8 +85,6 @@ class TestHpeAp2K(TestGenericHpe):
             "Fan 6": MonitorMetric("Fan 6", "Percent", 48),
             "Fan 7": MonitorMetric("Fan 7", "Percent", 48),
         }
-
-        # super().generic_fan_test(expected_output)
 
     def test_power_consumption(self):
         expected_output = self.generic_power_output()

@@ -5,7 +5,7 @@ import os.path
 import pathlib
 from typing import cast
 
-from ...bench.monitoring_structs import (
+from hwbench.bench.monitoring_structs import (
     FanContext,
     MonitorMetric,
     Power,
@@ -13,8 +13,9 @@ from ...bench.monitoring_structs import (
     PowerContext,
     Temperature,
 )
-from ...utils import helpers as h
-from ...utils.external import External
+from hwbench.utils import helpers as h
+from hwbench.utils.external import External
+
 from .monitoring_device import MonitoringDevice
 
 

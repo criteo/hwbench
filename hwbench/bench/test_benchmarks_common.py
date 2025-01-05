@@ -3,12 +3,15 @@ import pathlib
 import unittest
 from unittest.mock import patch
 
-from ..config import config
-from ..environment.cpu import MockCPU
-from ..environment.cpu_cores import CPU_CORES
-from ..environment.cpu_info import CPU_INFO
-from ..environment.mock import MockHardware
-from ..environment.numa import NUMA
+import pytest
+
+from hwbench.config import config
+from hwbench.environment.cpu import MockCPU
+from hwbench.environment.cpu_cores import CPU_CORES
+from hwbench.environment.cpu_info import CPU_INFO
+from hwbench.environment.mock import MockHardware
+from hwbench.environment.numa import NUMA
+
 from . import benchmarks
 
 
@@ -65,10 +68,12 @@ class TestCommon(unittest.TestCase):
             # We mock the run() and check_version() command to get a constant output
             with patch("hwbench.environment.turbostat.Turbostat.check_version") as cv:
                 cv.return_value = True
-                with patch("hwbench.environment.turbostat.Turbostat.run") as ts:
-                    with open("hwbench/tests/parsing/turbostat/run") as f:
-                        ts.return_value = ast.literal_eval(f.read())
-                        return self.benches.parse_jobs_config(validate_parameters)
+                with (
+                    patch("hwbench.environment.turbostat.Turbostat.run") as ts,
+                    open("hwbench/tests/parsing/turbostat/run") as f,
+                ):
+                    ts.return_value = ast.literal_eval(f.read())
+                    return self.benches.parse_jobs_config(validate_parameters)
 
     def get_jobs_config(self) -> config.Config:
         return self.jobs_config
@@ -87,7 +92,7 @@ class TestCommon(unittest.TestCase):
 
     def should_be_fatal(self, func, *args):
         """Test if the function func is exiting."""
-        with self.assertRaises(SystemExit):
+        with pytest.raises(SystemExit):
             func(*args)
 
     def assert_job(self, index, name, engine_module, engine_module_parameter=None):

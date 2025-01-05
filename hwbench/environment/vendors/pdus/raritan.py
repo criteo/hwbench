@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from ....bench.monitoring_structs import Power, PowerContext
-from ....utils import helpers as h
-from ..pdu import PDU
+from hwbench.bench.monitoring_structs import Power, PowerContext
+from hwbench.environment.vendors.pdu import PDU
+from hwbench.utils import helpers as h
 
 
 def init(vendor, pdu_section):

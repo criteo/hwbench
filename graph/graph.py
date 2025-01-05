@@ -215,14 +215,14 @@ def generic_graph(
 
     components = bench.get_all_metrics(component_type, filter)
     if not len(components):
-        title = f"{item_title}: no {str(component_type)} metric found"
+        title = f"{item_title}: no {component_type!s} metric found"
         if filter:
             title += f" with filter = '{filter}'"
         return 0
 
     samples_count = bench.get_samples_count()
     unit = bench.get_metric_unit(component_type)
-    title = f'{item_title} during "{bench.get_bench_name()}" benchmark job\n' f"{args.title}\n" f"\n Stressor: "
+    title = f'{item_title} during "{bench.get_bench_name()}" benchmark job\n{args.title}\n\n Stressor: '
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
     title += f"\n{bench.get_system_title()}"
     graph = Graph(
@@ -230,7 +230,7 @@ def generic_graph(
         title,
         "Time [seconds]",
         unit,
-        output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{str(component_type)}"),
+        output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{component_type!s}"),
         outfile,
         show_source_file=trace,
     )
@@ -245,7 +245,7 @@ def generic_graph(
 
     if args.verbose:
         print(
-            f"{trace.get_name()}/{bench.get_bench_name()}: {len(components)} {str(component_type)} to graph with {samples_count} samples"
+            f"{trace.get_name()}/{bench.get_bench_name()}: {len(components)} {component_type!s} to graph with {samples_count} samples"
         )
 
     time_serie = []
@@ -280,7 +280,7 @@ def generic_graph(
                 data_serie[component.get_full_name()].append(component.get_mean()[sample])
 
         if second_axis:
-            for _, entry in bench.get_monitoring_metric(second_axis).items():
+            for entry in bench.get_monitoring_metric(second_axis).values():
                 for sensor, measure in entry.items():
                     # We don't plot the Cores here
                     # We don't plot sensor on y2 if already plot on y1
@@ -366,7 +366,7 @@ def yerr_graph(
         )
         data_serie[MEAN].append(mean_value)
 
-    title = f'{prefix}{component.get_name()} during "{bench.get_bench_name()}" benchmark job\n' f"\n Stressor: "
+    title = f'{prefix}{component.get_name()} during "{bench.get_bench_name()}" benchmark job\n\n Stressor: '
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
     title += f"\n{bench.get_system_title()}"
 
@@ -375,7 +375,7 @@ def yerr_graph(
         title,
         "Time [seconds]",
         unit,
-        output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{str(component_type)}"),
+        output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{component_type!s}"),
         f"{prefix}{component.get_name()}",
         show_source_file=trace,
     )

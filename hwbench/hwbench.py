@@ -123,7 +123,7 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 
 def write_output(out_dir: pathlib.Path, out):
     out_file = out_dir / "results.json"
-    print(f"Result file available at {str(out_file)}")
+    print(f"Result file available at {out_file!s}")
     out_file.write_text(json.dumps(out, cls=EnhancedJSONEncoder))
 
 

@@ -3,8 +3,9 @@ from __future__ import annotations
 import abc
 import pathlib
 
-from ..utils.external import External
-from ..utils.helpers import fatal
+from hwbench.utils.external import External
+from hwbench.utils.helpers import fatal
+
 from .parameters import BenchmarkParameters
 
 
@@ -51,7 +52,7 @@ class EngineBase(External):
         self.modules = modules
         # FIXME: If the import is done at the file level, the mocking is lost here
         # So I'm importing is_binary_available just before the call :/
-        from ..utils.helpers import is_binary_available
+        from hwbench.utils.helpers import is_binary_available
 
         if not is_binary_available(self.binary):
             fatal(f"Engine {name} requires '{binary}' binary, please install it.")
@@ -76,4 +77,4 @@ class EngineBase(External):
         return self.modules.get(module_name)
 
     def module_exists(self, module_name) -> bool:
-        return module_name in self.modules.keys()
+        return module_name in self.modules

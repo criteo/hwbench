@@ -1,4 +1,5 @@
-from ..vendor import Vendor
+from hwbench.environment.vendors.vendor import Vendor
+
 from .ami_aptio import Ami_Aptio
 
 

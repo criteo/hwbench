@@ -6,17 +6,11 @@ import re
 from functools import cache
 from typing import cast
 
-from ....bench.monitoring_structs import (
-    MonitorMetric,
-    Power,
-    PowerContext,
-    Temperature,
-)
-from ....bench.monitoring_structs import (
-    PowerCategories as PowerCat,
-)
-from ....utils import helpers as h
-from ..vendor import BMC, Vendor
+from hwbench.bench.monitoring_structs import MonitorMetric, Power, PowerContext, Temperature
+from hwbench.bench.monitoring_structs import PowerCategories as PowerCat
+from hwbench.environment.vendors.vendor import BMC, Vendor
+from hwbench.utils import helpers as h
+
 from .ilorest import ILOREST, Ilorest, IlorestServerclone
 
 
@@ -176,7 +170,7 @@ class ILO(BMC):
 
     @cache
     def is_multinode_chassis(self) -> bool:
-        return True if self.get_redfish_url("/redfish/v1/Chassis/enclosurechassis/", log_failure=False) else False
+        return bool(self.get_redfish_url("/redfish/v1/Chassis/enclosurechassis/", log_failure=False))
 
     def get_oem_chassis(self):
         if self.is_multinode_chassis():

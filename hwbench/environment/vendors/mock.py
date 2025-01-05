@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from ...bench.monitoring_structs import (
+from hwbench.bench.monitoring_structs import (
     FanContext,
     MonitorMetric,
     Power,
@@ -11,6 +11,7 @@ from ...bench.monitoring_structs import (
     Temperature,
     ThermalContext,
 )
+
 from .vendor import BMC, Vendor
 
 

@@ -1,7 +1,7 @@
 import os
 import pathlib
 
-from ..utils.hwlogging import tunninglog
+from hwbench.utils.hwlogging import tunninglog
 
 
 class IOScheduler:

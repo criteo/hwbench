@@ -7,7 +7,8 @@ from enum import Enum
 from typing import Any  # noqa: F401
 from unittest.mock import patch
 
-from ..bench.monitoring_structs import FanContext, PowerContext, ThermalContext
+from hwbench.bench.monitoring_structs import FanContext, PowerContext, ThermalContext
+
 from .vendors.vendor import Vendor
 
 path = pathlib.Path("")
@@ -83,11 +84,11 @@ class TestVendors(unittest.TestCase):
     def sample(self, name):
         """Return the samples for this test."""
         output = None
-        file = open(self.__get_samples_file_name(name))
-        output = file.readlines()
-        # If the file is empty but json output is requested, let's return an empty string
-        if not len(output):
-            output = "{}"
+        with open(self.__get_samples_file_name(name)) as file:
+            output = file.readlines()
+            # If the file is empty but json output is requested, let's return an empty string
+            if not len(output):
+                output = "{}"
         return ast.literal_eval("\n".join(output))
 
     def __get_samples_file_name(self, name):
@@ -117,7 +118,7 @@ class TestVendors(unittest.TestCase):
 
     def generic_test(self, expected_output, func):
         for pc in func:
-            if pc not in expected_output.keys():
+            if pc not in expected_output:
                 raise AssertionError(f"Missing Physical Context '{pc}' in expected_output")
             for sensor in func[pc]:
                 if sensor not in expected_output[pc]:

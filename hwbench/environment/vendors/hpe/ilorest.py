@@ -1,8 +1,8 @@
 import json
 import subprocess
 
-from ....utils import helpers as h
-from ....utils.external import External
+from hwbench.utils import helpers as h
+from hwbench.utils.external import External
 
 
 class Ilorest(External):

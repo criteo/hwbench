@@ -3,8 +3,11 @@ import pathlib
 import unittest
 from unittest.mock import patch
 
-from ..bench.parameters import BenchmarkParameters
-from ..environment.mock import MockHardware
+import pytest
+
+from hwbench.bench.parameters import BenchmarkParameters
+from hwbench.environment.mock import MockHardware
+
 from .stressng import Engine as StressNG
 from .stressng_memrate import EngineModuleMemrate, StressNGMemrate
 from .stressng_qsort import EngineModuleQsort, StressNGQsort
@@ -79,7 +82,7 @@ class TestParse(unittest.TestCase):
                     stderr = (d / "stderr").read_bytes()
                     output = test_target.parse_cmd(stdout, stderr)
                     # these are unused in parsing
-                    for key in test_target.parameters.get_result_format().keys():
+                    for key in test_target.parameters.get_result_format():
                         output.pop(key, None)
                     assert output == json.loads((d / "output").read_bytes())
 
@@ -185,5 +188,5 @@ class TestParse(unittest.TestCase):
         assert test_params(AMD_7502, "avx_vpaddb128") is False
         assert test_params(AMD_7502, "avx_vpaddb256") is False
 
-        with self.assertRaises(LookupError):
+        with pytest.raises(LookupError):
             test_instance(AMD_9534, "inexistant")

@@ -1,6 +1,8 @@
 import pathlib
 from unittest.mock import patch
 
+import pytest
+
 from . import test_benchmarks_common as tbc
 from .monitoring_structs import Metrics
 
@@ -45,16 +47,13 @@ class TestParse(tbc.TestCommon):
         for job in range(196, 199):
             self.assert_job(job, "check_physical_core_int8_perf", "cpu", "int8")
             # Ensure the auto syntax updated the number of engine instances
-            if job == 198:
-                instances = 4
-            else:
-                instances = 2
+            instances = 4 if job == 198 else 2
             assert self.get_bench_parameters(job).get_engine_instances_count() == instances
 
         group_count = 0
         for job in range(199, 203):
             group_count += 2
-            self.assert_job(job, "check_physical_core_scale_plus_1_int8_perf", "cpu", "int8")  # noqa: E501
+            self.assert_job(job, "check_physical_core_scale_plus_1_int8_perf", "cpu", "int8")
             assert self.get_bench_parameters(job).get_engine_instances_count() == group_count
             assert len(self.get_bench_parameters(job).get_pinned_cpu()) == group_count
 
@@ -89,7 +88,7 @@ class TestParse(tbc.TestCommon):
             self.load_benches("./hwbench/config/stream.ini")
             assert self.get_jobs_config().get_config().getint("global", "runtime") == 5
             self.get_jobs_config().get_config().set("global", "runtime", "2")
-            with self.assertRaises(SystemExit):
+            with pytest.raises(SystemExit):
                 self.parse_jobs_config()
             # This jobs_config file doesn't need monitoring
             assert self.benches.need_monitoring() is False

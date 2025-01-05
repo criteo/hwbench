@@ -1,3 +1,5 @@
+import pytest
+
 from . import test_benchmarks_common as tbc
 
 
@@ -62,5 +64,5 @@ class TestHelpersImpossible(tbc.TestCommon):
     def test_helpers_impossible(self):
         """Testing impossible helper usecase."""
 
-        with self.assertRaises(SystemExit):
+        with pytest.raises(SystemExit):
             self.parse_jobs_config()

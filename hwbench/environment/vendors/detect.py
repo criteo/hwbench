@@ -1,6 +1,7 @@
 import pathlib
 
-from ..dmi import DmiSys
+from hwbench.environment.dmi import DmiSys
+
 from .amd.amd import Amd
 from .dell.dell import Dell
 from .generic import GenericVendor

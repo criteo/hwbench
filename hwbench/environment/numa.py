@@ -3,7 +3,7 @@ from __future__ import annotations
 import pathlib
 import re
 
-from ..utils.external import External
+from hwbench.utils.external import External
 
 
 class NUMA(External):
@@ -35,12 +35,11 @@ class NUMA(External):
                     numa_dest = -1
                     for latency in latencies.split():
                         numa_dest += 1
-                        if int(latency) < 12:
-                            if not self.__is_numa_node_in_quadrant(numa_dest):
-                                if not quadrant:
-                                    self.quadrants.append([])
-                                    quadrant = self.quadrants[-1]
-                                quadrant.append(int(numa_dest))
+                        if int(latency) < 12 and not self.__is_numa_node_in_quadrant(numa_dest):
+                            if not quadrant:
+                                self.quadrants.append([])
+                                quadrant = self.quadrants[-1]
+                            quadrant.append(int(numa_dest))
         return self.numa_domains
 
     def run_cmd_version(self) -> list[str]:

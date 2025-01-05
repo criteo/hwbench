@@ -1,7 +1,7 @@
 import json
 import pathlib
 from statistics import mean
-from typing import Any  # noqa: F401
+from typing import Any
 
 from graph.common import fatal
 from hwbench.bench.monitoring_structs import (
@@ -17,6 +17,13 @@ EVENTS = "events"
 MIN = "min"
 MAX = "max"
 MEAN = "mean"
+
+
+METRIC_AXIs = {
+    "Percent": (100, 10, 5),
+    "RPM": (21000, 1000, 250),
+    "Celsius": (110, 10, 5),
+}
 
 
 class Bench:
@@ -68,12 +75,12 @@ class Bench:
         self.metrics = {}
         m = self.get_monitoring()
         if m:
-            for metric in m.keys():
+            for metric in m:
                 if metric in MonitoringMetadata.list_str():
                     self.metrics[metric] = m[metric]
                 elif metric in Metrics.list_str():
                     self.metrics[metric] = {}
-                    for component_family in m[metric].keys():
+                    for component_family in m[metric]:
                         self.metrics[metric][component_family] = {}
                         for measure in m[metric][component_family]:
                             original_measure = m[metric][component_family][measure]
@@ -100,14 +107,7 @@ class Bench:
 
     def get_monitoring_metric_axis(self, unit: str) -> tuple[Any, Any, Any]:
         """Return adjusted metric axis values"""
-        # return y_max, y_major_tick, y_minor_tick
-        if unit == "Percent":
-            return 100, 10, 5
-        elif unit == "RPM":
-            return 21000, 1000, 250
-        elif unit == "Celsius":
-            return 110, 10, 5
-        return None, None, None
+        return METRIC_AXIs.get(unit, (None, None, None))
 
     def get_component(self, metric_type: Metrics, component: Any) -> dict[str, MonitorMetric]:
         return self.get_monitoring_metric(metric_type)[str(component)]
@@ -153,8 +153,8 @@ class Bench:
         d = self.get_trace().get_dmi()
         c = self.get_trace().get_cpu()
         k = self.get_trace().get_kernel()
-        title = f"System: {d['serial']} {d['product']} Bios " f"v{d['bios']['version']} Linux Kernel {k['release']}"
-        title += f"\nProcessor: {c['model']} with {c['physical_cores']} cores " f"and {c['numa_domains']} NUMA domains"
+        title = f"System: {d['serial']} {d['product']} Bios v{d['bios']['version']} Linux Kernel {k['release']}"
+        title += f"\nProcessor: {c['model']} with {c['physical_cores']} cores and {c['numa_domains']} NUMA domains"
         return title
 
     def job_name(self) -> str:
@@ -449,10 +449,11 @@ class Trace:
     def _list_power_metrics(self) -> list[str]:
         first_bench = self.first_bench()
         first_bench.load_monitoring()
-        power_metrics = []
-        for name, value in first_bench.get_monitoring_metric(Metrics.POWER_CONSUMPTION).items():
-            for v in value:
-                power_metrics.append(f"{name}.{v}")
+        power_metrics = [
+            f"{name}.{v}"
+            for name, value in first_bench.get_monitoring_metric(Metrics.POWER_CONSUMPTION).items()
+            for v in value
+        ]
         return power_metrics
 
     def list_power_metrics(self):

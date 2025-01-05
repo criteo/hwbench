@@ -20,7 +20,7 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
         print(f"Scaling: working on job '{job}' : {len(benches.keys())} engine_module_parameter to render")
     # For all subjobs sharing the same engine module parameter
     # i.e int128
-    for emp in benches.keys():
+    for emp in benches:
         aggregated_perfs = {}  # type: dict[str, dict[str, Any]]
         aggregated_perfs_watt = {}  # type: dict[str, dict[str, Any]]
         aggregated_watt = {}  # type: dict[str, dict[str, Any]]
@@ -38,7 +38,7 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
 
         # For each metric we need to plot
         for perf in perf_list:
-            if perf not in aggregated_perfs.keys():
+            if perf not in aggregated_perfs:
                 aggregated_perfs[perf] = {}
                 aggregated_perfs_watt[perf] = {}
                 aggregated_watt[perf] = {}
@@ -62,7 +62,7 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
 
                     # for each performance metric we have to plot,
                     # let's prepare the data set to plot
-                    if trace.get_name() not in aggregated_perfs[perf].keys():
+                    if trace.get_name() not in aggregated_perfs[perf]:
                         aggregated_perfs[perf][trace.get_name()] = []
                         aggregated_perfs_watt[perf][trace.get_name()] = []
                         aggregated_watt[perf][trace.get_name()] = []
@@ -112,7 +112,7 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                     outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}"
                     y_source = aggregated_perfs
 
-                title = f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job\n' f"\n Stressor: "
+                title = f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job\n\n Stressor: '
                 title += f"{bench.get_title_engine_name()} for {bench.duration()} seconds"
                 xlabel = "Workers"
                 # If we have a constent ratio between cores & workers, let's report them under the Xaxis

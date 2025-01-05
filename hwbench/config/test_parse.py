@@ -1,8 +1,10 @@
 import pathlib
 from unittest.mock import patch
 
-from ..bench import test_benchmarks_common as tbc
-from ..environment.mock import MockHardware
+import pytest
+
+from hwbench.bench import test_benchmarks_common as tbc
+from hwbench.environment.mock import MockHardware
 
 
 class TestParseConfig(tbc.TestCommon):
@@ -75,5 +77,5 @@ class TestParseConfig(tbc.TestCommon):
         assert self.get_jobs_config().parse_range("int8,float") == ["int8", "float"]
         assert self.get_jobs_config().parse_range("1-3 4-5") == [[1, 2, 3], [4, 5]]
         assert self.get_jobs_config().parse_range("1,32 2,33") == [[1, 32], [2, 33]]
-        with self.assertRaises(SystemExit):
+        with pytest.raises(SystemExit):
             self.get_jobs_config().parse_range("bad,range,bad-range")

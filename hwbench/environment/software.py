@@ -2,8 +2,9 @@ import json
 import os
 import pathlib
 
-from ..utils.archive import copy_file, create_tar_from_directory
-from ..utils.external import External_Simple
+from hwbench.utils.archive import copy_file, create_tar_from_directory
+from hwbench.utils.external import External_Simple
+
 from .base import BaseEnvironment
 from .packages import RpmList
 

@@ -20,7 +20,7 @@ class TestSpike(tbc.TestCommon):
         assert self.benches.count_benchmarks() == 5
         assert self.benches.count_jobs() == 3
         assert self.benches.runtime() == 300
-        self.assertIsNone(self.benches.benchs[0].validate_parameters())
+        assert self.benches.benchs[0].validate_parameters() is None
 
         assert self.get_bench_parameters(1).get_pinned_cpu() == self.QUADRANT0
         assert self.get_bench_parameters(2).get_pinned_cpu() == self.QUADRANT1

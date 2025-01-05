@@ -2,7 +2,7 @@ import os
 import pathlib
 import re
 
-from ..utils.hwlogging import tunninglog
+from hwbench.utils.hwlogging import tunninglog
 
 
 class PerformancePowerProfile:

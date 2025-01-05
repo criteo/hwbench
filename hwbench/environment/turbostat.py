@@ -3,13 +3,14 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+from contextlib import suppress
 from enum import Enum
 
 from packaging.version import Version
 
-from ..bench.monitoring_structs import CPUContext, MonitorMetric, PowerContext
-from ..environment.hardware import BaseHardware
-from ..utils.helpers import fatal, is_binary_available
+from hwbench.bench.monitoring_structs import CPUContext, MonitorMetric, PowerContext
+from hwbench.environment.hardware import BaseHardware
+from hwbench.utils.helpers import fatal, is_binary_available
 
 CORE = "core"
 PACKAGE = "package"
@@ -216,21 +217,18 @@ class Turbostat:
 
         # Collecting the overall packages power consumption
         self.power_metrics[str(PowerContext.CPU)][PACKAGE].add(self.get_global_packages_power())
-        # self.__results[PACKAGE].add(self.get_global_packages_power())
 
         # We skip the header and then extract all cores informations
         for line in self.get_output()[header_size:]:
             items = line.split()
             core_nb = items[int(self.__get_field_position(CPUSTATS.CPU))]
             if self.has(CPUSTATS.CORE_WATTS):
-                try:
+                # Some processors reports the corewatt in the header but not for all cores ...
+                # So let's ignore if the metrics does not exist for this core
+                with suppress(IndexError):
                     self.power_metrics[str(PowerContext.CPU)][f"Core_{core_nb}"].add(
                         float(items[int(self.__get_field_position(CPUSTATS.CORE_WATTS))])
                     )
-                except IndexError:
-                    # Some processors reports the corewatt in the header but not for all cores ...
-                    # So let's ignore if the metrics does not exist for this core
-                    pass
 
             self.freq_metrics[str(CPUContext.CPU)][f"Core_{core_nb}"].add(
                 float(items[int(self.__get_field_position(CPUSTATS.BUSY_MHZ))])
@@ -268,10 +266,7 @@ class Turbostat:
             return None
 
     def get_output_fields(self, line, fields):
-        output = []
-        for field in fields:
-            output.append(self.get_output_field(line, field))
-        return output
+        return [self.get_output_field(line, field) for field in fields]
 
     def get_core_info(self, core_nb, info):
         # We ignore the two header lines and jumps to the core itself
