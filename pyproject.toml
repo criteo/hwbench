@@ -50,6 +50,10 @@ line-length = 120
 [tool.ruff.lint]
 # See complete list : https://docs.astral.sh/ruff/rules/
 select = [
+    "E",     # pycodestyle
+    "W",     # pycodestyle
     "F",     # pyflakes
     "I",     # isort
+    "UP",    # pyupgrade
 ]
+ignore = ["E501"]
