@@ -31,13 +31,16 @@ def extract_file_from_tar(tarfilename: str, filename: str) -> bytes | None:
     """return a specific file in a tar archive as bytes if
     the file exists."""
     # may raise tarfile.ReadError if tarfilename is not a tar file
-    with tarfile.open(tarfilename, "r") as tarfd:
-        file = tarfd.extractfile(filename)
-        if not file:
-            tarfd.close()
-            return None
-        ret = file.read(-1)
-        return ret
+    try:
+        with tarfile.open(tarfilename, "r") as tarfd:
+            file = tarfd.extractfile(filename)
+            if not file:
+                tarfd.close()
+                return None
+            ret = file.read(-1)
+            return ret
+    except KeyError:
+        return None
 
 
 def copy_file(filename: str, destination_dir: str) -> None:
