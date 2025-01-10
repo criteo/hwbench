@@ -4,7 +4,7 @@ all:
 
 SOURCES = hwbench csv graph
 
-RUFF_VERSION = 0.8.6
+RUFF_VERSION = 0.9.0
 
 update_deps:
 	uv sync -U
