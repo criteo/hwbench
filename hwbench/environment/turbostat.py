@@ -150,7 +150,7 @@ class Turbostat:
         cmd_line = [
             "taskset",
             "-c",
-            f"{self.hardware.get_cpu().get_logical_cores_count()-1}",
+            f"{self.hardware.get_cpu().get_logical_cores_count() - 1}",
             "turbostat",
             "--cpu",
             "core",

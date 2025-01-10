@@ -95,21 +95,21 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                         f"Scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
                     )
                     y_label = f"{unit} per Watt"
-                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}"
+                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_source = aggregated_perfs_watt
                 elif "watts" in graph_type:
                     graph_type_title = f"Scaling {graph_type}: {args.traces[0].get_metric_name()}"
-                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}"
+                    outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_label = "Watts"
                     y_source = aggregated_watt
                 elif "cpu_clock" in graph_type:
                     graph_type_title = f"Scaling {graph_type}: {args.traces[0].get_metric_name()}"
-                    outfile = f"scaling_cpu_clock_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}"
+                    outfile = f"scaling_cpu_clock_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_label = "Mhz"
                     y_source = aggregated_cpu_clock
                 else:
                     graph_type_title = f"Scaling {graph_type}: {bench.get_title_engine_name()}"
-                    outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ','_')}"
+                    outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_source = aggregated_perfs
 
                 title = f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job\n\n Stressor: '

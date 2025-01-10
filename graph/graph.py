@@ -263,7 +263,7 @@ def generic_graph(
                 # If the user didn't explictely agreed to be replaced by 0, let's be fatal
                 if not args.ignore_missing_datapoint:
                     fatal(
-                        f"{trace.get_name()}/{bench.get_bench_name()}: {component.get_full_name()} is missing the {sample+1}th data point.\
+                        f"{trace.get_name()}/{bench.get_bench_name()}: {component.get_full_name()} is missing the {sample + 1}th data point.\
  Use --ignore-missing-datapoint to ignore this case. Generated graphs will be partially incorrect."
                     )
                 else:
@@ -292,7 +292,7 @@ def generic_graph(
                         # If the user didn't explictely agreed to be replaced by 0, let's be fatal
                         if not args.ignore_missing_datapoint:
                             fatal(
-                                f"{trace.get_name()}/{bench.get_bench_name()}: second axis of {sensor}: {measure.get_full_name()} is missing the {sample+1}th data point.\
+                                f"{trace.get_name()}/{bench.get_bench_name()}: second axis of {sensor}: {measure.get_full_name()} is missing the {sample + 1}th data point.\
          Use --ignore-missing-datapoint to ignore this case. Generated graphs will be partially incorrect."
                             )
                         else:

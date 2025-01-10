@@ -153,7 +153,7 @@ class Config:
         # Let's replace 'all' special keyword if any
         all = re.findall("all", hcc)
         if all:
-            hcc = hcc.replace("all", f"0-{self.hardware.get_cpu().get_logical_cores_count()-1}")
+            hcc = hcc.replace("all", f"0-{self.hardware.get_cpu().get_logical_cores_count() - 1}")
 
         # Let's replace helpers if any
         helpers = re.findall("simple", hcc)

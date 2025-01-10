@@ -128,8 +128,8 @@ def print_memrates(out, results):
             r.get("job_name", "")
             + r.get("engine_module", "")
             + r.get("key", "")
-            + f'{r.get("workers", ""):05}'
-            + f'{r.get("job_number", ""):06}'
+            + f"{r.get('workers', ''):05}"
+            + f"{r.get('job_number', ''):06}"
         )
 
     results_sorted = sorted(result_list, key=memrate_key)
@@ -147,8 +147,8 @@ def result_key(r):
         + r.get("engine_module", "")
         + r.get("engine_module_parameter", "")
         + r.get("job_name", "")
-        + f'{r.get("workers", ""):05}'
-        + f'{r.get("job_number", "")}'
+        + f"{r.get('workers', ''):05}"
+        + f"{r.get('job_number', '')}"
     )
 
 

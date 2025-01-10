@@ -53,7 +53,7 @@ def cpu_list_to_range(cpu_list: list[int]) -> str:
 
         if not is_immediately_next:
             if needs_compression:
-                output.append(f"{previous_entry}-{cpu_list[i-1]}")
+                output.append(f"{previous_entry}-{cpu_list[i - 1]}")
             else:
                 output.append(str(previous_entry))
             previous_entry = current_entry

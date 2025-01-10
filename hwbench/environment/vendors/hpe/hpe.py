@@ -119,7 +119,7 @@ class ILO(BMC):
                         # Let's inform the user the PSU is reported as non healthy
                         self.__warn_psu(
                             psu_position,
-                            f'marked as {psu_state} in {psu_status.get("Health")} state',
+                            f"marked as {psu_state} in {psu_status.get('Health')} state",
                         )
                     continue
 

@@ -241,7 +241,7 @@ class Bench:
                         if delta > 1:
                             print(
                                 f"{self.trace.get_name()}/{self.get_bench_name()} didn't completed on time. "
-                                f"Effective_runtime={effective_runtime} vs {self.duration()} : delta=[{delta:.2f}s; {delta/self.duration()*100:.2f}%]"
+                                f"Effective_runtime={effective_runtime} vs {self.duration()} : delta=[{delta:.2f}s; {delta / self.duration() * 100:.2f}%]"
                             )
                     except TypeError:
                         # We can ignore the delay computation if effective_runtime is not defined
