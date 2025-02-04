@@ -1,4 +1,5 @@
-from .vendor import BMC, Vendor
+from .mock import MockedBMC
+from .vendor import Vendor
 
 
 class GenericVendor(Vendor):
@@ -9,10 +10,15 @@ class GenericVendor(Vendor):
         monitoring_config_filename,
     ):
         super().__init__(out_dir, dmi, monitoring_config_filename)
-        self.bmc = BMC(self.out_dir, self)
 
     def detect(self) -> bool:
         return True
+
+    def prepare(self):
+        if self.get_monitoring_config_filename():
+            super().prepare()
+        else:
+            self.bmc = MockedBMC(self.out_dir, self)
 
     def save_bios_config(self):
         print("Warning: using Generic BIOS vendor")
@@ -28,3 +34,8 @@ class GenericVendor(Vendor):
 
     def name(self) -> str:
         return "GenericVendor"
+
+    def find_monitoring_sections(self, section_type: str, sections_list=[], max_sections=0):
+        if self.get_monitoring_config_filename():
+            return super().find_monitoring_sections(section_type, sections_list, max_sections)
+        return []
