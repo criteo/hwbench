@@ -1,0 +1,12 @@
+stress-ng: info:  [25843] setting to a 2 mins, 0 secs run per stressor
+stress-ng: info:  [25843] dispatching hogs: 480 vnni
+stress-ng: metrc: [25843] stressor       bogo ops real time  usr time  sys time   bogo ops/s     bogo ops/s CPU used per       RSS Max
+stress-ng: metrc: [25843]                           (secs)    (secs)    (secs)   (real time) (usr+sys time) instance (%)          (KB)
+stress-ng: metrc: [25843] vnni          12398957550    120.00  57406.01      0.21 103324399.42      215986.30        99.66             0
+stress-ng: metrc: [25843] miscellaneous metrics:
+stress-ng: metrc: [25843] vnni           237586526.64 vpaddb512 ops per sec (harmonic mean of 480 instances)
+stress-ng: info:  [25843] skipped: 0
+stress-ng: info:  [25843] passed: 480: vnni (480)
+stress-ng: info:  [25843] failed: 0
+stress-ng: info:  [25843] metrics untrustworthy: 0
+stress-ng: info:  [25843] successful run completed in 2 mins, 0.09 secs
