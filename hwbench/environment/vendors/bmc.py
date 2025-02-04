@@ -152,7 +152,7 @@ class BMC(MonitoringDevice, External):
 
                 super().add_monitoring_value(
                     cast(dict[str, dict[str, MonitorMetric]], thermals),
-                    t["PhysicalContext"],
+                    t.get("PhysicalContext", "UnknownPhysicalContext"),
                     Temperature(name),
                     t["Name"],
                     t["ReadingCelsius"],
@@ -196,7 +196,7 @@ class BMC(MonitoringDevice, External):
         if str(PowerContext.BMC) not in power_consumption:
             power_consumption[str(PowerContext.BMC)] = {str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER))}  # type: ignore[no-redef]
 
-        power = self.get_power().get("PowerControl", [{"PowerConsumedWatts": None}])[0]["PowerConsumedWatts"]
+        power = self.get_power().get("PowerControl", [{"PowerConsumedWatts": None}])[0].get("PowerConsumedWatts", None)
         if power:
             power_consumption[str(PowerContext.BMC)][str(PowerCategories.SERVER)].add(power)
         return power_consumption
