@@ -51,7 +51,7 @@ class Vendor(ABC):
     def prepare(self):
         """If the vendor needs some specific code to init itself."""
         if not self.bmc:
-            self.bmc = BMC(self.out_dir, self, self.find_monitoring_sections("BMC"))
+            self.bmc = BMC(self.out_dir, self)
             self.bmc.run()
         if not self.pdus:
             pdu_sections = self.find_monitoring_sections("PDU")
