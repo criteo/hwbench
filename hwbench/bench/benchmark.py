@@ -113,7 +113,7 @@ class ExternalBench(External):
         p = self.parameters
         cpu_location = ""
         if p.get_pinned_cpu():
-            if isinstance(p.get_pinned_cpu(), int | str):
+            if isinstance(p.get_pinned_cpu(), (int, str)):
                 cpu_location = f" on CPU {p.get_pinned_cpu():3d}"
             elif isinstance(p.get_pinned_cpu(), list):
                 cpu_location = f" on CPU [{h.cpu_list_to_range(p.get_pinned_cpu())}]"
