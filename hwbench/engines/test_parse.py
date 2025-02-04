@@ -41,10 +41,12 @@ class TestParse(unittest.TestCase):
 
     def test_module_parsing_output(self):
         engine_v17 = mock_engine("v17")
-        for classname, engine_module, prefix, instances, engine in [
-            (StressNGQsort, EngineModuleQsort, "stressng", 0, engine_v17),
-            (StressNGStream, EngineModuleStream, "stressng-stream", 0, engine_v17),
-            (StressNGMemrate, EngineModuleMemrate, "stressng-memrate", 128, engine_v17),
+        for classname, engine_module, prefix, instances, engine, engine_module_param in [
+            (StressNGQsort, EngineModuleQsort, "stressng", 0, engine_v17, ""),
+            (StressNGQsort, EngineModuleQsort, "stressng", 0, engine_v17, ""),
+            (StressNGStream, EngineModuleStream, "stressng-stream", 0, engine_v17, ""),
+            (StressNGMemrate, EngineModuleMemrate, "stressng-memrate", 128, engine_v17, ""),
+            (StressNGVNNI, EngineModuleVNNI, "stressng-avx512", 0, engine_v17, "avx_vpaddb512"),
         ]:
             test_dir = pathlib.Path(f"./hwbench/tests/parsing/{prefix}")
             for d in test_dir.iterdir():
@@ -60,7 +62,7 @@ class TestParse(unittest.TestCase):
                         instances,
                         "",
                         5,
-                        "",
+                        engine_module_param,
                         "",
                         MockHardware(),
                         "none",
