@@ -87,6 +87,7 @@ You can install both of them on the server, but `hwgraph` requires some graphics
 - ipmitool
 - ilorest (for HPE servers)
 - stress-ng >= 0.17.04
+- AMISCE Utility (for some ODM servers) : please contact your hardware vendor to get a copy
 
 ### Requirements to run hwgraph
 #### Mandatory
