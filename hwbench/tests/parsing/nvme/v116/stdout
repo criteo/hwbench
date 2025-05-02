@@ -1,0 +1,79 @@
+{
+  "Devices" : [
+    {
+      "Subsystem" : "nvme-subsys0",
+      "SubsystemNQN" : "CN03YGWTFCP0051E00H5Dell BOSS-N1                            ",
+      "Controllers" : [
+        {
+          "Controller" : "nvme0",
+          "Transport" : "pcie",
+          "Address" : "0000:01:00.0",
+          "State" : "live",
+          "Firmware" : "11131069",
+          "ModelNumber" : "Dell BOSS-N1",
+          "SerialNumber" : "CN03YGWTFCP0051E00H5",
+          "Namespaces" : [
+            {
+              "NameSpace" : "nvme0n1",
+              "NSID" : 1,
+              "UsedBytes" : 480036519936,
+              "MaximumLBA" : 937571328,
+              "PhysicalSize" : 480036519936,
+              "SectorSize" : 512
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Subsystem" : "nvme-subsys1",
+      "SubsystemNQN" : "nqn.2024-08.com.skhynix:nvme:nvm-subsystem-sn-BID8N0071I1908N3W",
+      "Controllers" : [
+        {
+          "Controller" : "nvme1",
+          "Transport" : "pcie",
+          "Address" : "0000:c1:00.0",
+          "State" : "live",
+          "Firmware" : "1.2.0",
+          "ModelNumber" : "Dell NVMe ISE PS1030 MU U.2 6.4TB",
+          "SerialNumber" : "BID8N0071I1908N3W",
+          "Namespaces" : [
+            {
+              "NameSpace" : "nvme1n1",
+              "NSID" : 1,
+              "UsedBytes" : 134479872,
+              "MaximumLBA" : 12502446768,
+              "PhysicalSize" : 6401252745216,
+              "SectorSize" : 512
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Subsystem" : "nvme-subsys2",
+      "SubsystemNQN" : "nqn.2024-08.com.skhynix:nvme:nvm-subsystem-sn-BID8N0071I1908N3T",
+      "Controllers" : [
+        {
+          "Controller" : "nvme2",
+          "Transport" : "pcie",
+          "Address" : "0000:c2:00.0",
+          "State" : "live",
+          "Firmware" : "1.2.0",
+          "ModelNumber" : "Dell NVMe ISE PS1030 MU U.2 6.4TB",
+          "SerialNumber" : "BID8N0071I1908N3T",
+          "Namespaces" : [
+            {
+              "NameSpace" : "nvme2n1",
+              "NSID" : 1,
+              "UsedBytes" : 134479872,
+              "MaximumLBA" : 12502446768,
+              "PhysicalSize" : 6401252745216,
+              "SectorSize" : 512
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
