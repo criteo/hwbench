@@ -37,8 +37,11 @@ def main():
     # configure logging
     init_logging(tuning_out_dir / "hwbench-tuning.log")
 
+    print("Startup: Tuning host")
     tuning_setup.Tuning(tuning_out_dir).apply(args.tuning)
+    print("Startup: Dumping software environment")
     env = env_soft.Environment(out_dir)
+    print("Startup: Dumping hardware environment")
     hw = env_hw.Hardware(out_dir, args.monitoring_config)
 
     benches = benchmarks.Benchmarks(out_dir, config.Config(args.jobs_config, hw), hw)
