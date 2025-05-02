@@ -75,19 +75,20 @@ You can install both of them on the server, but `hwgraph` requires some graphics
 
 ### Requirements to run hwbench
 #### Mandatory
-- python >= 3.9
-- turbostat >= 2022.04.16
-- numactl
 - dmidecode
-- util-linux >= 2.32
 - lspci
+- numactl
+- nvme-cli
+- python >= 3.9
 - rpm
+- turbostat >= 2022.04.16
+- util-linux >= 2.32
 
 #### Optional
-- ipmitool
-- ilorest (for HPE servers)
-- stress-ng >= 0.17.04
 - AMISCE Utility (for some ODM servers) : please contact your hardware vendor to get a copy
+- ilorest (for HPE servers)
+- ipmitool
+- stress-ng >= 0.17.04
 
 ### Requirements to run hwgraph
 #### Mandatory

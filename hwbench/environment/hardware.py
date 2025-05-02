@@ -9,6 +9,7 @@ from .base import BaseEnvironment
 from .cpu import CPU
 from .dmi import DmidecodeRaw, DmiSys
 from .lspci import Lspci, LspciBin
+from .nvme import Nvme
 from .vendors.detect import first_matching_vendor
 from .vendors.vendor import Vendor
 
@@ -47,6 +48,7 @@ class Hardware(BaseHardware):
         Lspci(out_dir).run()
         LspciBin(out_dir).run()
         DmidecodeRaw(out_dir).run()
+        Nvme(out_dir).run()
         External_Simple(self.out_dir, ["ipmitool", "sdr"], "ipmitool-sdr")
 
     def dump(self) -> dict[str, str | int | None | dict]:

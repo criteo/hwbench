@@ -1,7 +1,7 @@
 import json
 import pathlib
 
-from . import cpu_cores, cpu_info, numa
+from . import cpu_cores, cpu_info, numa, nvme
 from .vendors.amd import amd
 from .vendors.vendor import BMC
 
@@ -258,3 +258,14 @@ class TestParseCPU:
         stderr = (d / "stderr").read_bytes()
         test_target.parse_cmd(stdout, stderr)
         assert test_target.get_url() == "https://10.168.97.137"
+
+    def test_parsing_nvme(self):
+        d = pathlib.Path("./hwbench/tests/parsing/nvme/v116")
+        print(f"parsing test {d.name}")
+        test_target = nvme.Nvme(path)
+
+        ver_stdout = (d / "version-stdout").read_bytes()
+        ver_stderr = (d / "version-stderr").read_bytes()
+
+        version = test_target.parse_version(ver_stdout, ver_stderr)
+        assert version == (d / "version").read_bytes().strip()
