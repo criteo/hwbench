@@ -53,6 +53,12 @@ class Environment(BaseEnvironment):
             "/sys/devices/system/cpu",
             self.out_dir.joinpath("sys-system-cpu.tar"),
         )
+        block_devices = [f for f in os.listdir("/sys/block/") if os.path.isdir(f"/sys/block/{f}")]
+        for block_device in block_devices:
+            create_tar_from_directory(
+                f"/sys/block/{block_device}",
+                self.out_dir.joinpath(f"sys-block-{block_device}.tar"),
+            )
 
     def kernel_logs(self):
         External_Simple(
