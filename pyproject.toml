@@ -4,7 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hwbench"
-authors = [{name = "Erwan Velu", email = "e.velu@criteo.com"}, {name = "Anisse Astier", email = "a.astier@criteo.com"}, {name = "Aurélien Rougemont", email="a.rougemont@criteo.com"}]
+authors = [
+  { name = "Erwan Velu", email = "e.velu@criteo.com" },
+  { name = "Anisse Astier", email = "a.astier@criteo.com" },
+  { name = "Aurélien Rougemont", email = "a.rougemont@criteo.com" },
+]
 description = "hwbench is a benchmark orchestrator to automate the low-level testing of servers"
 version = "0.2.0"
 readme = "README.md"
@@ -12,7 +16,8 @@ requires-python = ">=3.9"
 dependencies = [
   "cachetools",
   "redfish",
-  "packaging"
+  "packaging",
+  "pyudev>=0.24.3"
 ]
 
 [project.urls]
@@ -27,12 +32,12 @@ packages = ["hwbench", "graph"]
 
 [dependency-groups]
 dev = [
-    "cachetools>=4.2.4",
-    "mypy",
-    "pytest>=8.3.3",
-    "ruff>=0.7.1",
-    "types-cachetools>=5.5.0.20240820",
-    "uv>=0.4.27"
+  "cachetools>=4.2.4",
+  "mypy",
+  "pytest>=8.3.3",
+  "ruff>=0.7.1",
+  "types-cachetools>=5.5.0.20240820",
+  "uv>=0.4.27",
 ]
 
 [project.optional-dependencies]
@@ -50,21 +55,25 @@ line-length = 120
 [tool.ruff.lint]
 # See complete list : https://docs.astral.sh/ruff/rules/
 select = [
-    "E",     # pycodestyle
-    "W",     # pycodestyle
-    "F",     # pyflakes
-    "I",     # isort
-    "UP",    # pyupgrade
-    "SIM",   # flake8-simplify
-    "YTT",   # flake8-2020
-    "FA",    # flake8-future-annotations
-    "ISC",   # flake8-implicit-str-concat
-    "PYI",   # flake8-pyi
-    "PT",    # flake8-pytest-style
-    "TID",   # flake8-tidy-imports
-    "ERA",   # eradicate
+  "E",   # pycodestyle
+  "W",   # pycodestyle
+  "F",   # pyflakes
+  "I",   # isort
+  "UP",  # pyupgrade
+  "SIM", # flake8-simplify
+  "YTT", # flake8-2020
+  "FA",  # flake8-future-annotations
+  "ISC", # flake8-implicit-str-concat
+  "PYI", # flake8-pyi
+  "PT",  # flake8-pytest-style
+  "TID", # flake8-tidy-imports
+  "ERA", # eradicate
 ]
 ignore = [
   "E501",
   "ISC001",
 ]
+
+[[tool.mypy.overrides]]
+module = ["pyudev.*"]
+ignore_missing_imports = true
