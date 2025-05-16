@@ -6,6 +6,7 @@ from abc import abstractmethod
 from hwbench.utils.external import External_Simple
 
 from .base import BaseEnvironment
+from .block_devices import Block_Devices
 from .cpu import CPU
 from .dmi import DmidecodeRaw, DmiSys
 from .lspci import Lspci, LspciBin
@@ -45,6 +46,7 @@ class Hardware(BaseHardware):
         self.vendor = first_matching_vendor(out_dir, self.dmi, monitoring_config)
         self.vendor.save_bios_config()
         self.vendor.save_bmc_config()
+        self.block = Block_Devices(out_dir)
         Lspci(out_dir).run()
         LspciBin(out_dir).run()
         DmidecodeRaw(out_dir).run()
@@ -56,6 +58,7 @@ class Hardware(BaseHardware):
             "dmi": self.dmi.dump(),
             "cpu": self.cpu.dump(),
             "bmc": self.vendor.get_bmc().dump(),
+            "block_devices": self.block.dump(),
             "pdu": {},
         }
         for pdu in self.vendor.get_pdus():
