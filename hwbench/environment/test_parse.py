@@ -275,6 +275,30 @@ class TestParseNvme:
         assert version == (d / "version").read_bytes().strip()
 
 
+class TestParseSdparm:
+    d = pathlib.Path("./hwbench/tests/parsing/sdparm/v110")
+    test_target = block_devices.Sdparm(path, "/dev/sda")
+
+    def test_sdparm_parsing_version_v110(self):
+        print(f"parsing test {self.d.name}")
+
+        ver_stdout = (self.d / "version-stdout").read_bytes()
+        ver_stderr = (self.d / "version-stderr").read_bytes()
+
+        version = self.test_target.parse_version(ver_stdout, ver_stderr)
+        assert version == (self.d / "version").read_bytes().strip()
+
+    def test_parsing_sdparm_stdout_stderr(self):
+        print(f"parsing test {self.d.name}")
+
+        stdout = (self.d / "stdout").read_bytes()
+        stderr = (self.d / "stderr").read_bytes()
+
+        output = self.test_target.parse_cmd(stdout, stderr)
+
+        assert output == json.loads((self.d / "output").read_bytes())
+
+
 class TestParseSMART:
     d = pathlib.Path("./hwbench/tests/parsing/smartctl/v73")
     test_target = block_devices.Smartctl(path, "/dev/sda")

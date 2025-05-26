@@ -1,4 +1,5 @@
 import pathlib
+import re
 from enum import Enum
 from json import JSONDecodeError, loads
 from typing import Any
@@ -53,6 +54,11 @@ class Block_Device:
         smart_info = Smartctl(self.out_dir, self.name)
         return smart_info.dump()
 
+    def get_sdparm(self):
+        """Dump sdparm information for current block devices"""
+        sdparm_info = Sdparm(self.out_dir, self.name)
+        return sdparm_info.dump()
+
     def get_udev_properties(self) -> dict[str, Any]:
         """Dump UDEV properties for current block device"""
         dumped: dict[str, Any] = {}
@@ -97,6 +103,7 @@ class Block_Devices:
         for disk_name, device in self.data.items():
             dumped[disk_name] = {}
             dumped[disk_name]["smart"] = device.get_smart()
+            dumped[disk_name]["sdparm"] = device.get_sdparm()
             dumped[disk_name]["udev_properties"] = device.get_udev_properties()
             dumped[disk_name]["udev_attributes"] = device.get_udev_attributes()
 
@@ -138,5 +145,71 @@ class Smartctl(External):
         return str.encode(self.version)
 
     def dump(self) -> dict[str, Any]:
+        self.run()
+        return self.data
+
+
+class Sdparm(External):
+    """Dumps based on External abstract class Sdparm tool information for a block device"""
+
+    def __init__(self, out_dir: pathlib.Path, block_device_name):
+        self.device_name = block_device_name
+        self.cmd_name = "sdparm"
+        self.out_dir = out_dir
+        self.data: dict[str, dict[str, Any]] = {}
+        self.version = b""
+
+    @property
+    def name(self) -> str:
+        return f"sdparm_{self.device_name}"
+
+    def run_cmd(self) -> list[str]:
+        return ["sdparm", "--all", f"/dev/{self.device_name}"]
+
+    def parse_cmd(self, stdout: bytes, stderr: bytes) -> dict[str, dict[str, Any]]:
+        # here is a sdparm output excerpt. Look at the parsing tests for more
+        # Informational exceptions control mode page:
+        #  PERF          0  [cha: n, def:  0, sav:  0]
+        #  EBF           0  [cha: n, def:  0, sav:  0]
+        mode_page_pattern = re.compile(r"^(-?.+ mode page):")
+        setting_pattern = re.compile(r"^\s+(\S+)\s+(-?\d+)\s+\[cha:\s+(\w),\s+def:\s+(-?\d+),\s+sav:\s+(-?\d+)\]")
+
+        current_mode_page = None
+
+        if stdout:
+            for line in stdout.splitlines():
+                if not line:
+                    continue
+                # Check for mode page header
+                mode_match = mode_page_pattern.match(line.decode())
+                if mode_match:
+                    current_mode_page = mode_match.group(1)
+                    self.data[current_mode_page] = {}
+                    continue
+
+                # Check for setting line
+                setting_match = setting_pattern.match(line.decode())
+                if setting_match and current_mode_page:
+                    name, current, changeable, default, saved = setting_match.groups()
+                    # The casting below is to avoid breaking struct to json. b"" cant be serialized has to be cast as string
+                    value = str(current) if type(current) is bytes else current
+                    metric_data = {
+                        "default": int(default),
+                        "saved": int(saved),
+                        "current": value,
+                        "changeable": changeable.lower() == "y",
+                    }
+                    self.data[current_mode_page][name] = metric_data
+        return self.data
+
+    def run_cmd_version(self) -> list[str]:
+        return ["sdparm", "--version"]
+
+    def parse_version(self, stdout: bytes, stderr: bytes) -> bytes:
+        if stderr:
+            self.version = stderr.split()[1]
+        return self.version
+
+    def dump(self) -> dict[str, dict[str, Any]]:
         self.run()
         return self.data
