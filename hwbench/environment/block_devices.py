@@ -6,6 +6,7 @@ from typing import Any
 
 import pyudev
 
+from hwbench.environment.oui import OUI
 from hwbench.utils import helpers as h
 from hwbench.utils.external import External
 
@@ -22,10 +23,15 @@ class Block_Device_Type(Enum):
 class Block_Device:
     """Block_Device is a class that gathers block_device information"""
 
+    oui: str = "000000"
+    manufacturer: str = "unknown"
+
     def __init__(self, out_dir, udev_device):
         self.udev_device = udev_device
+        self.wwn = udev_device.get("ID_WWN")
         self.name = udev_device.sys_name
         self.type = self.get_block_device_type()
+        self.manufacturer = self.get_manufacturer()
         self.out_dir = out_dir
         self.smart_json = b"{}"
 
@@ -79,6 +85,15 @@ class Block_Device:
             )
         return dumped
 
+    def get_manufacturer(self) -> str:
+        if not self.wwn:
+            return self.manufacturer
+
+        ouidb = OUI()
+        self.oui = ouidb.wwn_to_oui(self.wwn)
+        self.manufacturer = ouidb.hex_to_manufacturer(self.oui)
+        return self.manufacturer
+
 
 class Block_Devices:
     """Block_Devices is a class that gets a list of block_devices using pyudev and holds a collection of corresponding Block_device objects"""
@@ -106,6 +121,7 @@ class Block_Devices:
             dumped[disk_name]["sdparm"] = device.get_sdparm()
             dumped[disk_name]["udev_properties"] = device.get_udev_properties()
             dumped[disk_name]["udev_attributes"] = device.get_udev_attributes()
+            dumped[disk_name]["manufacturer"] = device.get_manufacturer()
 
         return dumped
 

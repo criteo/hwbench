@@ -17,7 +17,7 @@ dependencies = [
   "cachetools",
   "redfish",
   "packaging",
-  "pyudev>=0.24.3"
+  "pyudev>=0.24.3",
 ]
 
 [project.urls]
