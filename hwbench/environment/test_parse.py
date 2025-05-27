@@ -250,6 +250,8 @@ class TestParseCPU:
         for domain in range(0, test_target.count()):
             assert len(test_target.get_cores(domain)) == 16
 
+
+class TestParseIpmitool:
     def test_ipmitool_parsing(self):
         d = pathlib.Path("./hwbench/tests/parsing/ipmitool/1818")
         print(f"parsing test {d.name}")
@@ -259,7 +261,9 @@ class TestParseCPU:
         test_target.parse_cmd(stdout, stderr)
         assert test_target.get_url() == "https://10.168.97.137"
 
-    def test_parsing_nvme(self):
+
+class TestParseNvme:
+    def test_nvme_parsing_version_v116(self):
         d = pathlib.Path("./hwbench/tests/parsing/nvme/v116")
         print(f"parsing test {d.name}")
         test_target = nvme.Nvme(path)
