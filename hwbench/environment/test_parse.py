@@ -1,7 +1,7 @@
 import json
 import pathlib
 
-from . import cpu_cores, cpu_info, numa, nvme
+from . import block_devices, cpu_cores, cpu_info, numa, nvme
 from .vendors.amd import amd
 from .vendors.vendor import BMC
 
@@ -250,6 +250,8 @@ class TestParseCPU:
         for domain in range(0, test_target.count()):
             assert len(test_target.get_cores(domain)) == 16
 
+
+class TestParseIpmitool:
     def test_ipmitool_parsing(self):
         d = pathlib.Path("./hwbench/tests/parsing/ipmitool/1818")
         print(f"parsing test {d.name}")
@@ -259,7 +261,9 @@ class TestParseCPU:
         test_target.parse_cmd(stdout, stderr)
         assert test_target.get_url() == "https://10.168.97.137"
 
-    def test_parsing_nvme(self):
+
+class TestParseNvme:
+    def test_nvme_parsing_version_v116(self):
         d = pathlib.Path("./hwbench/tests/parsing/nvme/v116")
         print(f"parsing test {d.name}")
         test_target = nvme.Nvme(path)
@@ -269,3 +273,51 @@ class TestParseCPU:
 
         version = test_target.parse_version(ver_stdout, ver_stderr)
         assert version == (d / "version").read_bytes().strip()
+
+
+class TestParseSdparm:
+    d = pathlib.Path("./hwbench/tests/parsing/sdparm/v110")
+    test_target = block_devices.Sdparm(path, "/dev/sda")
+
+    def test_sdparm_parsing_version_v110(self):
+        print(f"parsing test {self.d.name}")
+
+        ver_stdout = (self.d / "version-stdout").read_bytes()
+        ver_stderr = (self.d / "version-stderr").read_bytes()
+
+        version = self.test_target.parse_version(ver_stdout, ver_stderr)
+        assert version == (self.d / "version").read_bytes().strip()
+
+    def test_parsing_sdparm_stdout_stderr(self):
+        print(f"parsing test {self.d.name}")
+
+        stdout = (self.d / "stdout").read_bytes()
+        stderr = (self.d / "stderr").read_bytes()
+
+        output = self.test_target.parse_cmd(stdout, stderr)
+
+        assert output == json.loads((self.d / "output").read_bytes())
+
+
+class TestParseSMART:
+    d = pathlib.Path("./hwbench/tests/parsing/smartctl/v73")
+    test_target = block_devices.Smartctl(path, "/dev/sda")
+
+    def test_parsing_smartctl_version(self):
+        print(f"parsing test {self.d.name}")
+
+        ver_stdout = (self.d / "version-stdout").read_bytes()
+        ver_stderr = (self.d / "version-stderr").read_bytes()
+
+        version = self.test_target.parse_version(ver_stdout, ver_stderr)
+        assert version == (self.d / "version").read_bytes().strip()
+
+    def test_parsing_smartctl_stdout_stderr(self):
+        print(f"parsing test {self.d.name}")
+
+        stdout = (self.d / "stdout").read_bytes()
+        stderr = (self.d / "stderr").read_bytes()
+
+        output = self.test_target.parse_cmd(stdout, stderr)
+
+        assert output == json.loads((self.d / "output").read_bytes())
