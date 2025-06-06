@@ -132,6 +132,7 @@ def graph_cpu(args, trace: Trace, bench_name: str, output_dir) -> int:
     cpu_graphs["CPU Core power consumption"] = {Metrics.POWER_CONSUMPTION: "Core"}
     cpu_graphs["Package power consumption"] = {Metrics.POWER_CONSUMPTION: "package"}
     cpu_graphs["Core frequency"] = {Metrics.FREQ: "Core"}
+    cpu_graphs["Core IPC"] = {Metrics.IPC: "Core"}
     for graph_name in cpu_graphs:
         # Let's render the performance, perf_per_temp, perf_per_watt graphs
         for metric, filter in cpu_graphs[graph_name].items():
