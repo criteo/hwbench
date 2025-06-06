@@ -107,6 +107,7 @@ class Metrics(Enum):
     THERMAL = "Thermal"
     MONITOR = "Monitor"
     FREQ = "Freq"
+    IPC = "IPC"
 
     def __str__(self) -> str:
         return str(self.value)

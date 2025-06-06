@@ -40,11 +40,14 @@ class Turbostat:
         hardware: BaseHardware,
         freq_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] | None = None,
         power_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] | None = None,
+        ipc_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] | None = None,
     ):
         if power_metrics is None:
             power_metrics = {}
         if freq_metrics is None:
             freq_metrics = {}
+        if ipc_metrics is None:
+            ipc_metrics = {}
         self.__output = None
         self.cores_count = 0
         self.sensor_list = {
@@ -64,10 +67,12 @@ class Turbostat:
         self.header = ""
         self.freq_metrics = freq_metrics
         self.power_metrics = power_metrics
+        self.ipc_metrics = ipc_metrics
         self.hardware = hardware
         self.process: subprocess.Popen[bytes] = None  # type: ignore[assignment]
         self.freq_metrics[str(CPUContext.CPU)] = {}  # type: ignore[no-redef]
         self.power_metrics[str(PowerContext.CPU)] = {}  # type: ignore[no-redef]
+        self.ipc_metrics[str(PowerContext.CPU)] = {}  # type: ignore[no-redef]
 
         # Let's make a first quick run to detect system
         self.check_version()
@@ -112,8 +117,11 @@ class Turbostat:
             # If we have CoreWatt, let's report them
             if self.has(CPUSTATS.CORE_WATTS):
                 self.power_metrics[str(PowerContext.CPU)][f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Watts")
+            # If we have IPC, let's report them
+            if self.has(CPUSTATS.IPC):
+                self.ipc_metrics[str(CPUContext.CPU)][f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "IPC")
             self.freq_metrics[str(CPUContext.CPU)][f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Mhz")
-        return self.freq_metrics, self.power_metrics
+        return self.freq_metrics, self.power_metrics, self.ipc_metrics
 
     def has(self, metric) -> bool:
         """Return if turbostat has a given metric"""
@@ -229,7 +237,10 @@ class Turbostat:
                     self.power_metrics[str(PowerContext.CPU)][f"Core_{core_nb}"].add(
                         float(items[int(self.__get_field_position(CPUSTATS.CORE_WATTS))])
                     )
-
+            if self.has(CPUSTATS.IPC):
+                self.ipc_metrics[str(CPUContext.CPU)][f"Core_{core_nb}"].add(
+                    float(items[int(self.__get_field_position(CPUSTATS.IPC))])
+                )
             self.freq_metrics[str(CPUContext.CPU)][f"Core_{core_nb}"].add(
                 float(items[int(self.__get_field_position(CPUSTATS.BUSY_MHZ))])
             )

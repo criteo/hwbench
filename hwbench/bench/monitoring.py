@@ -3,7 +3,7 @@ from threading import Thread
 from typing import Any
 
 from hwbench.environment.hardware import BaseHardware
-from hwbench.environment.turbostat import Turbostat
+from hwbench.environment.turbostat import CPUSTATS, Turbostat
 from hwbench.utils import helpers as h
 
 from .monitoring_structs import Metrics, MonitoringMetadata, MonitorMetric
@@ -78,8 +78,11 @@ class Monitoring:
                 self.hardware,
                 self.get_metric(Metrics.FREQ),
                 self.get_metric(Metrics.POWER_CONSUMPTION),
+                self.get_metric(Metrics.IPC),
             )
             check_monitoring("turbostat", Metrics.FREQ)
+            if self.turbostat.has(CPUSTATS.IPC):
+                check_monitoring("turbostat", Metrics.IPC)
 
         print(f"Monitoring/BMC: initialize {v.name()} vendor with {bmc.get_driver_name()} {bmc.get_detect_string()}")
 
@@ -249,9 +252,12 @@ class Monitoring:
         self.__set_metric(Metrics.POWER_SUPPLIES, {})
         self.__set_metric(Metrics.THERMAL, {})
         if self.turbostat:
-            freq, power = self.turbostat.reset_metrics({})
+            freq, power, ipc = self.turbostat.reset_metrics({})
             self.__set_metric(Metrics.FREQ, freq)
             self.__set_metric(Metrics.POWER_CONSUMPTION, power)
+            if self.turbostat.has(CPUSTATS.IPC):
+                self.__set_metric(Metrics.IPC, ipc)
         else:
             self.__set_metric(Metrics.FREQ, {})
+            self.__set_metric(Metrics.IPC, {})
         self.__set_metric(Metrics.MONITOR, {})
