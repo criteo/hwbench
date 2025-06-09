@@ -192,6 +192,8 @@ class Graph:
         """Render the graph to a file."""
         # Retrieve the rendering file format
         file_format = self.args.format
+        # Having vertical xticks makes it scalable for large number of cores
+        plt.xticks(rotation=90)
         plt.savefig(
             f"{self.output_dir}/{self.filename}.{file_format}",
             format=file_format,
