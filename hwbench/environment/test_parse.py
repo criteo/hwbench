@@ -142,6 +142,25 @@ class TestParseCPU:
         for domain in range(0, test_target.count()):
             assert len(test_target.get_cores(domain)) == 16
 
+    def test_parsing_numa_20_domains_with_llc(self):
+        d = pathlib.Path("./hwbench/tests/parsing/numa/20domainsllc")
+        print(f"parsing test {d.name}")
+        test_target = numa.NUMA(path)
+
+        stdout = (d / "stdout").read_bytes()
+        stderr = (d / "stderr").read_bytes()
+
+        test_target.parse_cmd(stdout, stderr)
+        assert test_target.count() == 20
+        for domain in range(0, test_target.count()):
+            assert len(test_target.get_cores(domain)) == 32
+        # We are running in NPS=2, LLC=ON, that makes 4 quadrants
+        assert test_target.quadrants_count() == 4
+        assert test_target.get_numa_nodes_in_quadrant(0) == [0, 1, 2, 3, 4]
+        assert test_target.get_numa_nodes_in_quadrant(1) == [5, 6, 7, 8, 9]
+        assert test_target.get_numa_nodes_in_quadrant(2) == [10, 11, 12, 13, 14]
+        assert test_target.get_numa_nodes_in_quadrant(3) == [15, 16, 17, 18, 19]
+
 
 class TestParseIpmitool:
     def test_ipmitool_parsing(self):

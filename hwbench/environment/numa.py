@@ -19,6 +19,7 @@ class NUMA(External):
             match = re.search(r"node (?P<node>[0-9]+) cpus: (?P<cpus>.*)", line)
             if match:
                 self.numa_domains[int(match.group("node"))] = [int(cpu) for cpu in match.group("cpus").split()]
+            # 1S AMD
             # node   0   1   2   3   4   5   6   7
             #  0:  10  11  12  12  12  12  12  12
             #  1:  11  10  12  12  12  12  12  12
@@ -28,6 +29,14 @@ class NUMA(External):
             #  5:  12  12  12  12  11  10  12  12
             #  6:  12  12  12  12  12  12  10  11
             #  7:  12  12  12  12  12  12  11  10
+
+            # 2S AMD
+            # node   0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19
+            # 0:  10  11  11  11  11  12  12  12  12  12  32  32  32  32  32  32  32  32  32  32
+            # 1:  11  10  11  11  11  12  12  12  12  12  32  32  32  32  32  32  32  32  32  32
+            # ...
+            # 10:  32  32  32  32  32  32  32  32  32  32  10  11  11  11  11  12  12  12  12  12
+            # 11:  32  32  32  32  32  32  32  32  32  32  11  10  11  11  11  12  12  12  12  12
             numa_distance = re.findall(r"(\d+): (.*)", line)
             if numa_distance:
                 for source, latencies in numa_distance:
