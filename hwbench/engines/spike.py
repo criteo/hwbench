@@ -254,10 +254,13 @@ class Spike(ExternalBench):
 
         super().pre_run()
 
+        loop = 1
         while True:
+            print(f"Cycle {loop}: Stressing for {self.high}s")
             # Let's load the system from <high> seconds on the listed cores
             self.__spawn_stressor(["-t", f"{self.high}"], wait_stressor=True)
 
+            print(f"Cycle {loop}: Cooling down for {self.low}s")
             # Let's the system unload for <low> seconds
             time.sleep(self.low)
 
@@ -274,6 +277,7 @@ class Spike(ExternalBench):
                 )
 
             # If we have enough time, let's do another cycle
+            loop = loop + 1
 
     def run(self):
         """Do the spike test."""
