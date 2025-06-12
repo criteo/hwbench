@@ -192,6 +192,8 @@ class Graph:
         """Render the graph to a file."""
         # Retrieve the rendering file format
         file_format = self.args.format
+        # Having vertical xticks makes it scalable for large number of cores
+        plt.xticks(rotation=90)
         plt.savefig(
             f"{self.output_dir}/{self.filename}.{file_format}",
             format=file_format,
@@ -324,7 +326,13 @@ def generic_graph(
 
     for component in components:
         y_serie = np.array(data_serie[component.get_full_name()])[order]
-        graph.get_ax().plot(x_serie, y_serie, "", label=component.get_full_name())
+        y_label = ""
+        # If we have more than 36 items to draw,
+        # labels will not fit and makes the drawing hard to read.
+        # Let's disable labels in such case.
+        if len(components) < 37:
+            y_label = component.get_full_name()
+        graph.get_ax().plot(x_serie, y_serie, "", label=y_label)
 
     graph.prepare_axes(
         30,
