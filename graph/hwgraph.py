@@ -61,9 +61,50 @@ def render_traces(args: argparse.Namespace):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     compare_traces(args)
+    generate_stats(args)
     rendered_graphs += graph_environment(args, output_dir)
     rendered_graphs += plot_graphs(args, output_dir)
     print(f"{rendered_graphs} graphs can be found in '{output_dir}' directory")
+
+
+def generate_stats(args) -> None:
+    if not args.no_stats:
+        return
+    for trace in args.traces:
+        benches = trace.bench_list()
+        print(f"stats: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})")
+        max_power = {"BMC": 0.0, "CPU": 0.0, "PDU": 0.0}
+        max_power_name = {"BMC": "", "CPU": "", "PDU": ""}
+        for bench_name in sorted(benches):
+            bench = trace.bench(bench_name)
+            for metric_name in ["BMC", "CPU", "PDU"]:
+                try:
+                    for m in [Metrics.POWER_CONSUMPTION]:
+                        metrics = bench.get_component(m, metric_name)
+                        if metrics:
+                            for metric in metrics:
+                                # If a metric has no measure, let's ignore it
+                                if len(metrics[metric].get_samples()) == 0:
+                                    print(f"{bench_name}: No samples found in {metric_name}.{metric}, ignoring metric.")
+                                    continue
+                                else:
+                                    max_values = metrics[metric].get_max()
+                                    if max_values:
+                                        current_max = max(max_values)
+                                        if current_max > max_power[metric_name]:
+                                            max_power[metric_name] = float(current_max)
+                                            max_power_name[metric_name] = bench_name
+                                            bench.get_metric_unit(m)
+                except KeyError:
+                    continue
+
+    for metric in [Metrics.POWER_CONSUMPTION]:
+        print(f"{str(metric):}")
+        for metric_name in ["BMC", "CPU", "PDU"]:
+            if max_power[metric_name]:
+                print(
+                    f"    {metric_name} max : {max_power[metric_name]:.2f} {bench.get_metric_unit(metric)} in {max_power_name[metric_name]}"
+                )
 
 
 def compare_traces(args) -> None:
@@ -298,6 +339,7 @@ power_metric : the name of a power metric, from the monitoring, to be used for '
     parser_graph.add_argument("--no-env", help="Disable environmental graphs", action="store_false")
     parser_graph.add_argument("--no-scaling", help="Disable scaling graphs", action="store_false")
     parser_graph.add_argument("--no-individual", help="Disable individual graphs", action="store_false")
+    parser_graph.add_argument("--no-stats", help="Disable stats", action="store_false")
     parser_graph.add_argument("--title", help="Title of the graph")
     parser_graph.add_argument("--dpi", help="Graph dpi", type=int, default="72")
     parser_graph.add_argument("--width", help="Graph width", type=int, default="1920")
