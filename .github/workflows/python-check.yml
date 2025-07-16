@@ -28,9 +28,8 @@ jobs:
         run: sudo apt update && sudo apt install libcairo2-dev
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v6
         with:
-          version: "0.4.28"
           enable-cache: true
 
       - name: Set up Python ${{ matrix.python-version }}
@@ -44,6 +43,3 @@ jobs:
             git show --no-patch --format='Testing commit %h %s'
             make sync_deps check_ci bundle || exit 1
           done
-
-      - name: Minimize uv cache
-        run: uv cache prune --ci
