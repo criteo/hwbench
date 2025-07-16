@@ -79,8 +79,8 @@ class Block_Device:
         for attribute in attributes.available_attributes:
             # The casting below is to avoid breaking struct to json. b"" cant be serialized has to be cast as string
             dumped[attribute] = (
-                str(attributes.get(attribute))
-                if type(attributes.get(attribute)) is bytes
+                attributes.get(attribute).decode()
+                if isinstance(attributes.get(attribute), bytes)
                 else attributes.get(attribute)
             )
         return dumped
