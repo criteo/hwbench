@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 import subprocess
@@ -203,6 +204,14 @@ class Turbostat:
         header_size = 2
         self.cores_count = len(self.__output) - header_size
         self.__set_column_header(self.__output[0])
+        if not self.has(CPUSTATS.BUSY_MHZ):
+            logging.warning(
+                "Busy MHz not supported by turbostat. Are you running in a VM? If not, then the CPU is probably not supported by the running kernel"
+            )
+        if not self.has(CPUSTATS.PACKAGE_WATTS):
+            logging.warning(
+                "Package watts not supported by turbostat. Are you running in a VM? If not, then the CPU is probably not supported by the running kernel"
+            )
         self.reset_metrics()
 
     def parse(self):
@@ -216,7 +225,8 @@ class Turbostat:
         self.__set_column_header(self.__output[0])
 
         # Collecting the overall packages power consumption
-        self.power_metrics[str(PowerContext.CPU)][PACKAGE].add(self.get_global_packages_power())
+        if self.has(CPUSTATS.PACKAGE_WATTS):
+            self.power_metrics[str(PowerContext.CPU)][PACKAGE].add(self.get_global_packages_power())
 
         # We skip the header and then extract all cores informations
         for line in self.get_output()[header_size:]:
@@ -229,10 +239,10 @@ class Turbostat:
                     self.power_metrics[str(PowerContext.CPU)][f"Core_{core_nb}"].add(
                         float(items[int(self.__get_field_position(CPUSTATS.CORE_WATTS))])
                     )
-
-            self.freq_metrics[str(CPUContext.CPU)][f"Core_{core_nb}"].add(
-                float(items[int(self.__get_field_position(CPUSTATS.BUSY_MHZ))])
-            )
+            if self.has(CPUSTATS.BUSY_MHZ):
+                self.freq_metrics[str(CPUContext.CPU)][f"Core_{core_nb}"].add(
+                    float(items[int(self.__get_field_position(CPUSTATS.BUSY_MHZ))])
+                )
 
     def get_packages_power(self):
         """Return the individual package power."""
