@@ -66,3 +66,10 @@ def cpu_list_to_range(cpu_list: list[int]) -> str:
                 output.append(str(current_entry))
 
     return ", ".join(output)
+
+
+def versiontuple(v: str) -> tuple[int, ...]:
+    """
+    Convert a version string to a tuple of integers that allows very basic version comparisons
+    """
+    return tuple(map(int, (v.split("."))))

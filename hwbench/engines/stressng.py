@@ -52,16 +52,6 @@ class Engine(EngineBase):
         self.version = stdout.split()[2]
         return self.version
 
-    def version_major(self) -> int:
-        if self.version:
-            return int(self.version.split(b".")[1])
-        return 0
-
-    def version_minor(self) -> int:
-        if self.version:
-            return int(self.version.split(b".")[2])
-        return 0
-
     def get_version(self) -> str | None:
         if self.version:
             return self.version.decode("utf-8")
@@ -81,8 +71,8 @@ class StressNG(ExternalBench):
         self.parameters = parameters
 
     def version_compatible(self) -> bool:
-        engine = self.engine_module.get_engine()
-        return engine.version_major() >= 17 and engine.version_minor() >= 4
+        engine = self.engine_module.get_engine().get_version()
+        return h.versiontuple(engine) >= h.versiontuple("0.17.4")
 
     def need_skip_because_version(self):
         if self.skip:
@@ -116,9 +106,6 @@ class StressNG(ExternalBench):
 
     def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
         return self.engine_module.get_engine().parse_version(stdout, _stderr)
-
-    def version_major(self) -> int:
-        return self.engine_module.get_engine().version_major()
 
     def run_cmd_version(self) -> list[str]:
         return self.engine_module.get_engine().run_cmd_version()
