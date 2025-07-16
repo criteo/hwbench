@@ -57,7 +57,7 @@ class CPU_CORES(External):
         cores = []
         for socket in self.sockets:
             for core in self.get_socket(socket):
-                cores += [c for c in self.get_cores(socket, core) if c != int(core)]
+                cores += self.get_cores(socket, core)[1:]
         return cores
 
     def get_physical_cores_count(self) -> int:
