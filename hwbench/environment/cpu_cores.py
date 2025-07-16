@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pathlib
+from collections import defaultdict
 
 from hwbench.utils.external import External
 
@@ -11,14 +12,12 @@ class CPU_CORES(External):
         return ["lscpu", "--all", "-pSOCKET,CORE,CPU"]
 
     def parse_cmd(self, stdout: bytes, _stderr: bytes):
-        for line in stdout.decode("utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            if line.startswith("#"):
-                continue
-            socket, core, cpu = line.strip().split(",", 2)
-            self.get_cores(int(socket), int(core)).append(int(cpu))
+        content = filter(lambda line: line and not line.startswith("#"), stdout.decode("utf-8").splitlines())
+        split = map(lambda line: line.split(",", 2), content)
+        intsplit = list(map(lambda line: list(map(int, line)), split))
+        intsplit.sort()
+        for socket, core, cpu in intsplit:
+            self.sockets[socket][core].append(cpu)
 
         return self.sockets
 
@@ -36,18 +35,14 @@ class CPU_CORES(External):
     def __init__(self, out_dir: pathlib.Path):
         self.raw_core_list = None
         self.raw_cpu_config = None
-        self.sockets: dict[int, dict[int, list[int]]] = {}
+        self.sockets: defaultdict[int, defaultdict[int, list[int]]] = defaultdict(lambda: defaultdict(list))
         self.logical_cpu: dict[int, list[int]] = {}
         super().__init__(out_dir)
 
     def get_socket(self, number) -> dict[int, list[int]]:
-        if not self.sockets.get(number):
-            self.sockets[number] = {}
         return self.sockets[number]
 
     def get_cores(self, socket, number) -> list[int]:
-        if not self.get_socket(socket).get(number):
-            self.sockets[socket][number] = []
         return self.get_socket(socket)[number]
 
     def get_physical_cores(self) -> list[int]:
