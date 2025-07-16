@@ -1,6 +1,9 @@
 # ignore uv venv
 .venv
 
+# ignore IDE configs
+.vscode
+
 # ignore standard cache folders
 .*_cache
 
