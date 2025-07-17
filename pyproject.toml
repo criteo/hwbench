@@ -41,11 +41,14 @@ dev = [
 ]
 
 [project.optional-dependencies]
-graph = [
+graph-ci = [
   "numpy",
   "matplotlib>3.5.0",
-  "pillow>=11.0.0",
-  "pycairo",
+  "pillow>=11.0.0"
+]
+graph = [
+  "hwbench[graph-ci]",
+  "pycairo"
 ]
 
 [tool.ruff]

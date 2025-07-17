@@ -24,9 +24,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: ${{ env.PR_FETCH_DEPTH }}
 
-      - name: install cairo so we can install hwgraph dependencies
-        run: sudo apt update && sudo apt install libcairo2-dev
-
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
@@ -41,5 +38,5 @@ jobs:
           for commit in $COMMITS; do
             git checkout $commit || exit 1
             git show --no-patch --format='Testing commit %h %s'
-            make sync_deps check_ci bundle || exit 1
+            make check_ci bundle || exit 1
           done
