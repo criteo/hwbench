@@ -14,7 +14,7 @@ from . import config_syntax
 
 
 class Config:
-    def __init__(self, jobs_file: str, hardware: env_hw.Hardware):
+    def __init__(self, jobs_file: str):
         self.jobs_file = jobs_file
         if not os.path.isfile(self.jobs_file):
             h.fatal(f"File '{self.jobs_file}' does not exists.")
@@ -32,7 +32,6 @@ class Config:
             "sync_start": "none",
         }
         self.jobs_config = configparser.RawConfigParser(default_section="global", defaults=default_parameters)
-        self.hardware = hardware
         self.jobs_config.read(self.jobs_file)
 
     def to_dict(self) -> dict:
@@ -41,6 +40,14 @@ class Config:
             items = self.jobs_config.items(section)
             output_dict[section] = dict(items)
         return output_dict
+
+    def set_hardware(self, hardware: env_hw.Hardware):
+        self.hardware = hardware
+
+    def get_hardware(self) -> env_hw.Hardware:
+        if self.hardware is None:
+            raise AttributeError("Hardware has not been previously set")
+        return self.hardware
 
     def get_sections(self) -> list[str]:
         """Return all sections of a config file."""

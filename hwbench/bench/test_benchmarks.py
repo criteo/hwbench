@@ -13,7 +13,6 @@ class TestParse(tbc.TestCommon):
         # We need to patch list_module_parameters() function
         # to avoid considering the local stress-ng binary
         with patch("hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters") as p:
-            print(pathlib.Path("."))
             p.return_value = (
                 pathlib.Path("hwbench/tests/parsing/stressngmethods/v17/stdout").read_bytes().split(b":", 1)
             )

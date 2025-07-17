@@ -24,7 +24,9 @@ def mock_engine(version: str) -> StressNG:
             p.return_value = (
                 pathlib.Path(f"./hwbench/tests/parsing/stressngmethods/{version}/stdout").read_bytes().split(b":", 1)
             )
-            return StressNG()
+            stress_ng = StressNG()
+            stress_ng.init()
+            return stress_ng
 
 
 class TestParse(unittest.TestCase):

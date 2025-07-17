@@ -25,6 +25,8 @@ class EngineModuleCpu(EngineModulePinnable):
     def __init__(self, engine: EngineBase, engine_module_name: str):
         super().__init__(engine, engine_module_name)
         self.engine_module_name = engine_module_name
+
+    def init(self):
         self.load_module_parameter()
 
     def list_module_parameters(self):

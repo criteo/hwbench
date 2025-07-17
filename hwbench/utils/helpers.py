@@ -8,6 +8,14 @@ from shutil import which
 from typing import NoReturn
 
 
+class MissingBinary(Exception):
+    def __init__(self, binary):
+        self.binary = binary
+
+    def __str__(self):
+        return f"Binary {self.binary} is not available on the system"
+
+
 def fatal(message) -> NoReturn:
     logging.error(message)
     sys.exit(1)

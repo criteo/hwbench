@@ -29,6 +29,7 @@ def validate_engine_module(config, section_name, value) -> str:
     """Validate the engine module syntax."""
     try:
         engine = config.load_engine(config.get_engine(section_name))
+        engine.init()
     except ModuleNotFoundError:
         return f'Unknown "{value}" engine'
     if not engine.module_exists(value):
@@ -42,6 +43,7 @@ def validate_engine_module_parameter(config, section_name, value) -> str:
     """Validate the engine module parameter syntax."""
     try:
         engine = config.load_engine(config.get_engine(section_name))
+        engine.init()
     except ModuleNotFoundError:
         return f'Unknown "{value}" engine'
     engine_module_name = config.get_engine_module(section_name)

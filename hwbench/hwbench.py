@@ -3,6 +3,7 @@
 import argparse
 import dataclasses
 import json
+import logging
 import os
 import pathlib
 import platform
@@ -37,6 +38,16 @@ def main():
     # configure logging
     init_logging(tuning_out_dir / "hwbench-tuning.log")
 
+    hwbench_config = config.Config(args.jobs_config)
+    benches = benchmarks.Benchmarks(out_dir, hwbench_config)
+
+    problems = env_hw.check_requirements() + benches.check_requirements()
+
+    if len(problems) > 0:
+        for problem in problems:
+            logging.critical("Requirements are not met: %s", problem)
+        return problems
+
     print("Startup: Tuning host")
     tuning_setup.Tuning(tuning_out_dir).apply(args.tuning)
     print("Startup: Dumping software environment")
@@ -44,7 +55,8 @@ def main():
     print("Startup: Dumping hardware environment")
     hw = env_hw.Hardware(out_dir, args.monitoring_config)
 
-    benches = benchmarks.Benchmarks(out_dir, config.Config(args.jobs_config, hw), hw)
+    hwbench_config.set_hardware(hw)
+    benches.set_hardware(hw)
     benches.parse_jobs_config()
 
     results = benches.run()

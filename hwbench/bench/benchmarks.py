@@ -4,6 +4,7 @@ import datetime
 import time
 from datetime import timedelta
 
+from hwbench.bench.engine import EngineModuleBase
 from hwbench.environment.hardware import BaseHardware
 from hwbench.utils import helpers as h
 
@@ -15,14 +16,22 @@ from .parameters import BenchmarkParameters
 class Benchmarks:
     """A class to list and execute benchmarks to run."""
 
-    def __init__(self, out_dir, jobs_config, hardware: BaseHardware):
+    def __init__(self, out_dir, jobs_config) -> None:
         self.jobs_config = jobs_config
         self.out_dir = out_dir
         self.benchs: list[Benchmark] = []
-        self.hardware = hardware
         self.monitoring: Monitoring = None  # type: ignore[assignment]
+        self.hardware: BaseHardware | None = None
 
-    def get_engine(self, job):
+    def set_hardware(self, hardware: BaseHardware):
+        self.hardware = hardware
+
+    def get_hardware(self) -> BaseHardware:
+        if self.hardware is None:
+            raise AttributeError("Hardware has not been previously set")
+        return self.hardware
+
+    def get_engine(self, job) -> tuple[str, EngineModuleBase]:
         """Return the engine of a particular job."""
         # get the engine name
         engine_name = self.jobs_config.get_engine(job)
@@ -44,6 +53,19 @@ class Benchmarks:
         """Return the jobs_config."""
         return self.jobs_config
 
+    def check_requirements(self) -> list[Exception]:
+        """Check if all the binaries required by the benchmarks are present."""
+        problems = []
+        # For each job in the jobs_config file
+        for job in self.jobs_config.get_sections():
+            # Get the engine for this job
+            _, engine_module = self.get_engine(job)
+            if hasattr(engine_module.engine.__class__, "check_requirements") and callable(
+                engine_module.engine.check_requirements
+            ):
+                problems += engine_module.engine.check_requirements()
+        return problems
+
     def parse_jobs_config(self, validate_parameters=True):
         """Parse the jobs configuration file to create a list of benchmarks to run."""
         # Ensure the configuration file has a valid syntax
@@ -53,6 +75,7 @@ class Benchmarks:
         for job in self.jobs_config.get_sections():
             # Get the engine for this job
             engine_name, engine_module = self.get_engine(job)
+            engine_module.init()
 
             # extract the engine module parameter
             engine_module_parameter = self.jobs_config.get_engine_module_parameter(job)
@@ -143,15 +166,16 @@ class Benchmarks:
         runtime = self.jobs_config.get_runtime(job)
         monitoring_config = self.get_monitoring_config(job)
         _, engine_module = self.get_engine(job)
+        engine_module.init()
 
         # If job needs monitoring, let's create it
         if monitoring_config != "none" and not self.monitoring:
-            self.hardware.vendor.get_bmc().connect_redfish()
-            self.hardware.vendor.get_bmc().detect()
-            for pdu in self.hardware.vendor.get_pdus():
+            self.get_hardware().vendor.get_bmc().connect_redfish()
+            self.get_hardware().vendor.get_bmc().detect()
+            for pdu in self.get_hardware().vendor.get_pdus():
                 pdu.connect_redfish()
                 pdu.detect()
-            self.monitoring = Monitoring(self.out_dir, self.jobs_config, self.hardware)
+            self.monitoring = Monitoring(self.out_dir, self.jobs_config, self.get_hardware())
 
         # For each stressor, add a benchmark object to the list
         for stressor_count in self.jobs_config.get_stressor_range(job):
@@ -172,7 +196,7 @@ class Benchmarks:
                         runtime,
                         individual_emp,
                         self.jobs_config.get_engine_module_parameter_base(job),
-                        self.hardware,
+                        self.get_hardware(),
                         monitoring_config,
                         self.monitoring,
                         self.jobs_config.get_skip_method(job),
@@ -189,7 +213,7 @@ class Benchmarks:
                     runtime,
                     engine_module_parameter,
                     self.jobs_config.get_engine_module_parameter_base(job),
-                    self.hardware,
+                    self.get_hardware(),
                     monitoring_config,
                     self.monitoring,
                     self.jobs_config.get_skip_method(job),
