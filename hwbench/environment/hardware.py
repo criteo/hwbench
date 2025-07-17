@@ -3,7 +3,9 @@ from __future__ import annotations
 import pathlib
 from abc import abstractmethod
 
+from hwbench.utils import helpers
 from hwbench.utils.external import External_Simple
+from hwbench.utils.helpers import MissingBinary
 
 from .base import BaseEnvironment
 from .block_devices import Block_Devices
@@ -13,6 +15,18 @@ from .lspci import Lspci, LspciBin
 from .nvme import Nvme
 from .vendors.detect import first_matching_vendor
 from .vendors.vendor import Vendor
+
+
+def check_requirements() -> list[Exception]:
+    """Check if all required binaries are available
+    This is a "better than nothing" solution, as the current codebase
+    does not yet properly support detecting all required binaries.
+    """
+    problems: list[Exception] = []
+    for binary in ["lspci", "ipmitool", "dmidecode", "nvme", "smartctl", "sdparm"]:
+        if not helpers.is_binary_available(binary):
+            problems.append(MissingBinary(binary))
+    return problems
 
 
 # This is the interface of Hardware

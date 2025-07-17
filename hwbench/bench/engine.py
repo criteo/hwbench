@@ -4,15 +4,16 @@ import abc
 import pathlib
 
 from hwbench.utils.external import External
-from hwbench.utils.helpers import fatal
+from hwbench.utils.helpers import MissingBinary, is_binary_available
 
 from .parameters import BenchmarkParameters
 
 
 class EngineModuleBase(abc.ABC):
     def __init__(self, engine, name: str):
+        """Please do not include initialization logic in this method, there is a dedicated init() method"""
         self.name = name
-        self.engine = engine
+        self.engine: EngineBase = engine
         self.module_parameters: list[str] = []
 
     def get_engine(self):
@@ -37,6 +38,9 @@ class EngineModuleBase(abc.ABC):
     def fully_skipped_job(self, p) -> bool:
         raise NotImplementedError
 
+    def init(self):
+        pass
+
     @abc.abstractmethod
     def run(self, params: BenchmarkParameters):
         pass
@@ -50,15 +54,18 @@ class EngineBase(External):
         self.engine_name = name
         self.binary = binary
         self.modules = modules
-        # FIXME: If the import is done at the file level, the mocking is lost here
-        # So I'm importing is_binary_available just before the call :/
-        from hwbench.utils.helpers import is_binary_available
-
-        if not is_binary_available(self.binary):
-            fatal(f"Engine {name} requires '{binary}' binary, please install it.")
 
     def get_binary(self) -> str:
         return self.binary
+
+    def check_requirements(self) -> list[Exception]:
+        if not is_binary_available(self.get_binary()):
+            return [MissingBinary(self.binary)]
+        return []
+
+    def init(self):
+        for module in self.modules.values():
+            module.init()
 
     def get_name(self) -> str:
         return self.engine_name
