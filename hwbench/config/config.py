@@ -226,16 +226,33 @@ class Config:
 
     def validate_section(self, section_name):
         """Validate <section_name> section of a config file."""
-        for directive in self.get_section(section_name):
-            if not self.is_valid_keyword(directive):
-                h.fatal(f"job {section_name}: invalid keyword {directive}")
+        section = self.get_section(section_name)
+        try:
+            current_engine = self.load_engine(self.get_engine(section_name))
+        except Exception:
+            h.fatal(f"Job {section_name}: invalid or no engine specified")
+        for required_custom_parameter in current_engine.custom_parameters_required:
+            if required_custom_parameter not in section:
+                h.fatal(f'Job {section_name}: missing required custom parameter "{required_custom_parameter}"')
+
+        for directive in section:
+            if not self.is_valid_keyword(directive) and current_engine:
+                if directive in current_engine.custom_parameters_validators:
+                    message = current_engine.custom_parameters_validators[directive](
+                        self.get_section(section_name)[directive]
+                    )
+                    if message:
+                        h.fatal(f"Job {section_name}: keyword {directive}: {message}")
+                    return
+                else:
+                    h.fatal(f"Job {section_name}: invalid keyword {directive}")
             # Execute the validations_<function> from config_syntax file
             # It will validate the syntax of this particular function.
             # An invalid syntax is fatal and halts the program
             validate_function = getattr(config_syntax, f"validate_{directive}")
             message = validate_function(self, section_name, self.get_section(section_name)[directive])
             if message:
-                h.fatal(f"Job {section_name}: keyword {directive} : {message}")
+                h.fatal(f"Job {section_name}: keyword {directive}: {message}")
 
     def get_config(self) -> configparser.RawConfigParser:
         """Return the configuration object."""

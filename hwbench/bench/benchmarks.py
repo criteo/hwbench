@@ -205,22 +205,27 @@ class Benchmarks:
                     benchmark = Benchmark(self.count_benchmarks(), engine_module, parameters)
                     self.add_benchmark(benchmark, validate_parameters)
             else:
-                parameters = BenchmarkParameters(
-                    self.out_dir,
-                    job,
-                    stressor_count,
-                    pinned_cpu,
-                    runtime,
-                    engine_module_parameter,
-                    self.jobs_config.get_engine_module_parameter_base(job),
-                    self.get_hardware(),
-                    monitoring_config,
-                    self.monitoring,
-                    self.jobs_config.get_skip_method(job),
-                    self.jobs_config.get_sync_start(job),
-                )
-                benchmark = Benchmark(self.count_benchmarks(), engine_module, parameters)
-                self.add_benchmark(benchmark, validate_parameters)
+                benchs = engine_module.generate_benchmarks(self.jobs_config.to_dict()[job])
+                if benchs == []:
+                    raise ValueError(f"No benchmarks generated for job {job}. Please check configuration")
+                for bench in benchs:
+                    parameters = BenchmarkParameters(
+                        self.out_dir,
+                        job,
+                        stressor_count,
+                        pinned_cpu,
+                        runtime,
+                        engine_module_parameter,
+                        self.jobs_config.get_engine_module_parameter_base(job),
+                        self.get_hardware(),
+                        monitoring_config,
+                        self.monitoring,
+                        self.jobs_config.get_skip_method(job),
+                        self.jobs_config.get_sync_start(job),
+                        **bench,
+                    )
+                    benchmark = Benchmark(self.count_benchmarks(), engine_module, parameters)
+                    self.add_benchmark(benchmark, validate_parameters)
 
     def add_benchmark(self, benchmark: Benchmark, validate_parameters: bool):
         if validate_parameters:

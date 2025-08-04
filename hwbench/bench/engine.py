@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import abc
 import pathlib
+from typing import Callable
 
 from hwbench.utils.external import External
 from hwbench.utils.helpers import MissingBinary, is_binary_available
@@ -35,6 +36,11 @@ class EngineModuleBase(abc.ABC):
     def validate_module_parameters(self, params: BenchmarkParameters) -> str:
         return ""
 
+    # Used to allow an engine to expand to a matrix of multiple benchmarks
+    # Every entry is a dict containing custom parameters for each instance
+    def generate_benchmarks(self, config: dict[str, str]) -> list[dict[str, str]]:
+        return [{}]
+
     def fully_skipped_job(self, p) -> bool:
         raise NotImplementedError
 
@@ -55,6 +61,8 @@ class EngineBase(External):
         self.binary = binary
         self.modules = modules
         self.version = ""
+        self.custom_parameters_validators: dict[str, Callable[[str], str | None]] = {}
+        self.custom_parameters_required: list[str] = []
 
     def get_binary(self) -> str:
         return self.binary

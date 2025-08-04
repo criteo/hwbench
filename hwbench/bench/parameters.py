@@ -22,6 +22,7 @@ class BenchmarkParameters:
         monitoring: Monitoring,
         skip_method: str,
         sync_start: str,
+        **kwargs,
     ):
         self.out_dir = out_dir
         self.job_name = job_name
@@ -36,6 +37,7 @@ class BenchmarkParameters:
         self.monitoring = monitoring
         self.skip_method = skip_method
         self.sync_start = sync_start
+        self.custom_parameters: dict[str, str] = kwargs
 
     def get_benchmark(self):
         return self.benchmark
@@ -90,3 +92,6 @@ class BenchmarkParameters:
 
     def get_hw(self) -> BaseHardware:
         return self.hw
+
+    def get_custom_parameters(self) -> dict[str, str]:
+        return self.custom_parameters
