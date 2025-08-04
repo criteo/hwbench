@@ -38,6 +38,7 @@ class Benchmark:
             "engine_module": self.get_enginemodule().get_name(),
             "engine_module_parameter": self.parameters.get_engine_module_parameter(),
             "engine_module_parameter_base": self.parameters.get_engine_module_parameter_base(),
+            "custom_parameters": self.parameters.get_custom_parameters(),
             "timeout": self.parameters.get_runtime(),
             "cpu_pin": self.parameters.get_pinned_cpu(),
             "workers": self.parameters.get_engine_instances_count(),
