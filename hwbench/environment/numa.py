@@ -45,8 +45,8 @@ class NUMA(External):
     def run_cmd_version(self) -> list[str]:
         return []
 
-    def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
-        return b""
+    def parse_version(self, stdout: bytes, _stderr: bytes) -> str:
+        return ""
 
     @property
     def name(self) -> str:

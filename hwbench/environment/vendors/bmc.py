@@ -46,8 +46,8 @@ class BMC(MonitoringDevice, External):
     def run_cmd_version(self) -> list[str]:
         return ["ipmitool", "-V"]
 
-    def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
-        self.version = stdout.split()[2]
+    def parse_version(self, stdout: bytes, _stderr: bytes) -> str:
+        self.version = stdout.split()[2].decode()
         return self.version
 
     @property

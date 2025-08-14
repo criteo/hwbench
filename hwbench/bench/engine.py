@@ -54,6 +54,7 @@ class EngineBase(External):
         self.engine_name = name
         self.binary = binary
         self.modules = modules
+        self.version = ""
 
     def get_binary(self) -> str:
         return self.binary
@@ -85,3 +86,6 @@ class EngineBase(External):
 
     def module_exists(self, module_name) -> bool:
         return module_name in self.modules
+
+    def get_version(self) -> str:
+        return self.version

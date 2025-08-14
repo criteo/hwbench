@@ -18,8 +18,8 @@ class Ilorest(External):
     def run_cmd_version(self) -> list[str]:
         return ["ilorest", "--version"]
 
-    def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
-        self.version = stdout.split()[3]
+    def parse_version(self, stdout: bytes, _stderr: bytes) -> str:
+        self.version = stdout.split()[3].decode()
         return self.version
 
     @property
@@ -38,8 +38,8 @@ class IlorestServerclone(External):
     def run_cmd_version(self) -> list[str]:
         return ["ilorest", "--version"]
 
-    def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
-        self.version = stdout.split()[3]
+    def parse_version(self, stdout: bytes, _stderr: bytes) -> str:
+        self.version = stdout.split()[3].decode()
         return self.version
 
     @property

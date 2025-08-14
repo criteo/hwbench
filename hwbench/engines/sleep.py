@@ -41,14 +41,9 @@ class Engine(EngineBase):
     def run_cmd(self) -> list[str]:
         return []
 
-    def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
-        self.version = stdout.split()[3]
+    def parse_version(self, stdout: bytes, _stderr: bytes) -> str:
+        self.version = stdout.split()[3].decode()
         return self.version
-
-    def version_major(self) -> int:
-        if self.version:
-            return int(self.version.split(b".")[1])
-        return 0
 
     def parse_cmd(self, stdout: bytes, stderr: bytes):
         return {}
@@ -83,5 +78,5 @@ class Sleep(ExternalBench):
     def run_cmd_version(self) -> list[str]:
         return self.engine_module.get_engine().run_cmd_version()
 
-    def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
+    def parse_version(self, stdout: bytes, _stderr: bytes) -> str:
         return self.engine_module.get_engine().parse_version(stdout, _stderr)

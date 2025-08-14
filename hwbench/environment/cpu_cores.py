@@ -24,9 +24,9 @@ class CPU_CORES(External):
     def run_cmd_version(self) -> list[str]:
         return ["lscpu", "--version"]
 
-    def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
+    def parse_version(self, stdout: bytes, _stderr: bytes) -> str:
         """Return the version of lscpu"""
-        return stdout.split()[3]
+        return stdout.split()[3].decode()
 
     @property
     def name(self) -> str:

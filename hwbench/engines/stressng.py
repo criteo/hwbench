@@ -37,7 +37,7 @@ class Engine(EngineBase):
         self.add_module(EngineModuleStream(self, "stream"))
         self.add_module(EngineModuleMemrate(self, "memrate"))
         self.add_module(EngineModuleVNNI(self, "vnni"))
-        self.version = None
+        self.version = ""
 
     def run_cmd_version(self) -> list[str]:
         return [
@@ -48,14 +48,12 @@ class Engine(EngineBase):
     def run_cmd(self) -> list[str]:
         return []
 
-    def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
-        self.version = stdout.split()[2]
+    def parse_version(self, stdout: bytes, _stderr: bytes) -> str:
+        self.version = stdout.split()[2].decode()
         return self.version
 
-    def get_version(self) -> str | None:
-        if self.version:
-            return self.version.decode("utf-8")
-        return None
+    def get_version(self) -> str:
+        return self.version
 
     def parse_cmd(self, stdout: bytes, stderr: bytes):
         return {}
@@ -104,7 +102,7 @@ class StressNG(ExternalBench):
     def name(self) -> str:
         return self.engine_module.get_engine().get_name() + self.stressor_name
 
-    def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
+    def parse_version(self, stdout: bytes, _stderr: bytes) -> str:
         return self.engine_module.get_engine().parse_version(stdout, _stderr)
 
     def run_cmd_version(self) -> list[str]:

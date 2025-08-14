@@ -57,9 +57,9 @@ class DmidecodeRaw(External):
     def run_cmd_version(self) -> list[str]:
         return ["dmidecode", "--version"]
 
-    def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
+    def parse_version(self, stdout: bytes, _stderr: bytes) -> str:
         """Not much to parse since the full output is the version with dmidecode"""
-        return stdout.strip()
+        return stdout.strip().decode()
 
     @property
     def name(self) -> str:

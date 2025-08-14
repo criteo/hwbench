@@ -152,13 +152,13 @@ class Smartctl(External):
     def run_cmd_version(self) -> list[str]:
         return ["smartctl", "-j", "--version"]
 
-    def parse_version(self, stdout: bytes, stderr: bytes) -> bytes:
+    def parse_version(self, stdout: bytes, stderr: bytes) -> str:
         try:
             data = loads(stdout)
         except JSONDecodeError:
             h.fatal(stdout)
         self.version = ".".join(str(x) for x in data["smartctl"]["version"])
-        return str.encode(self.version)
+        return self.version
 
     def dump(self) -> dict[str, Any]:
         self.run()
@@ -173,7 +173,7 @@ class Sdparm(External):
         self.cmd_name = "sdparm"
         self.out_dir = out_dir
         self.data: dict[str, dict[str, Any]] = {}
-        self.version = b""
+        self.version = ""
 
     @property
     def name(self) -> str:
@@ -221,9 +221,9 @@ class Sdparm(External):
     def run_cmd_version(self) -> list[str]:
         return ["sdparm", "--version"]
 
-    def parse_version(self, stdout: bytes, stderr: bytes) -> bytes:
+    def parse_version(self, stdout: bytes, stderr: bytes) -> str:
         if stderr:
-            self.version = stderr.split()[1]
+            self.version = stderr.split()[1].decode()
         return self.version
 
     def dump(self) -> dict[str, dict[str, Any]]:

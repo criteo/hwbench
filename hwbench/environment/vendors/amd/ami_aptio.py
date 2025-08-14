@@ -19,15 +19,15 @@ class Ami_Aptio(External):
     def run_cmd_version(self) -> list[str]:
         return ["EtaSceLnx64"]
 
-    def parse_version(self, _stdout: bytes, stderr: bytes) -> bytes:
-        self.version = b""
+    def parse_version(self, _stdout: bytes, stderr: bytes) -> str:
+        self.version = ""
         for line in stderr.decode("utf-8").splitlines():
             if not line:
                 continue
             # |                   AMISCE Utility. Ver 5.05.05.0006.2301             |
             match = re.search(r".*AMISCE Utility. Ver (?P<version>[0-9.]+).*$", line)
             if match:
-                self.version = bytes(match.group("version"), encoding="utf-8")
+                self.version = match.group("version")
                 break
         return self.version
 

@@ -16,7 +16,7 @@ class TestParseCPU:
         ver_stdout = (d / "version-stdout").read_bytes()
         ver_stderr = (d / "version-stderr").read_bytes()
         version = test_target.parse_version(ver_stdout, ver_stderr)
-        assert version == (d / "version").read_bytes().strip()
+        assert version == (d / "version").read_text().strip()
 
     def test_parsing_cpuinfo(self):
         for d in [
@@ -30,7 +30,7 @@ class TestParseCPU:
             ver_stderr = (d / "version-stderr").read_bytes()
 
             version = test_target.parse_version(ver_stdout, ver_stderr)
-            assert version == (d / "version").read_bytes().strip()
+            assert version == (d / "version").read_text().strip()
 
             stdout = (d / "stdout").read_bytes()
             stderr = (d / "stderr").read_bytes()
@@ -59,7 +59,7 @@ class TestParseCPU:
             ver_stderr = (d / "version-stderr").read_bytes()
 
             version = test_target.parse_version(ver_stdout, ver_stderr)
-            assert version == (d / "version").read_bytes().strip()
+            assert version == (d / "version").read_text().strip()
 
             stdout = (d / "stdout").read_bytes()
             stderr = (d / "stderr").read_bytes()
@@ -164,7 +164,7 @@ class TestParseNvme:
         ver_stderr = (d / "version-stderr").read_bytes()
 
         version = test_target.parse_version(ver_stdout, ver_stderr)
-        assert version == (d / "version").read_bytes().strip()
+        assert version == (d / "version").read_text().strip()
 
 
 class TestParseSdparm:
@@ -178,7 +178,7 @@ class TestParseSdparm:
         ver_stderr = (self.d / "version-stderr").read_bytes()
 
         version = self.test_target.parse_version(ver_stdout, ver_stderr)
-        assert version == (self.d / "version").read_bytes().strip()
+        assert version == (self.d / "version").read_text().strip()
 
     def test_parsing_sdparm_stdout_stderr(self):
         print(f"parsing test {self.d.name}")
@@ -202,7 +202,7 @@ class TestParseSMART:
         ver_stderr = (self.d / "version-stderr").read_bytes()
 
         version = self.test_target.parse_version(ver_stdout, ver_stderr)
-        assert version == (self.d / "version").read_bytes().strip()
+        assert version == (self.d / "version").read_text().strip()
 
     def test_parsing_smartctl_stdout_stderr(self):
         print(f"parsing test {self.d.name}")
