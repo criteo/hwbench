@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pathlib
 import re
 from enum import Enum
@@ -99,10 +101,10 @@ class Block_Devices:
     """Block_Devices is a class that gets a list of block_devices using pyudev and holds a collection of corresponding Block_device objects"""
 
     udev_context = pyudev.Context()
-    data: dict[str, Block_Device] = {}
 
-    def __init__(self, out_dir: pathlib.Path):
+    def __init__(self, out_dir: pathlib.Path | None = None):
         self.out_dir = out_dir
+        self.data: dict[str, Block_Device] = {}
         self.__discover_devices()
 
     def __discover_devices(self):
@@ -110,7 +112,7 @@ class Block_Devices:
             dname = device.get("DEVNAME")
             self.data[dname] = Block_Device(self.out_dir, device)
 
-    def list_disks(self) -> list:
+    def list_disks(self) -> list[str]:
         return sorted(list(self.data.keys()))
 
     def dump(self) -> dict[str, dict[str, Any]]:

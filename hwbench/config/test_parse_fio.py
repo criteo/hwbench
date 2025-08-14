@@ -22,8 +22,10 @@ class TestParseConfig(tbc.TestCommon):
     def test_keywords(self):
         """Check if all keywords are valid."""
         try:
-            with patch("hwbench.utils.helpers.is_binary_available") as iba:
-                iba.return_value = True
+            with (
+                patch("hwbench.utils.helpers.is_binary_available", return_value=None),
+                patch("hwbench.engines.fio.Engine.validate_disks", return_value=None),
+            ):
                 self.get_jobs_config().validate_sections()
         except Exception as exc:
             pytest.fail(f"'validate_sections' detected a syntax error {exc}")
