@@ -5,7 +5,7 @@ from typing import Any
 from hwbench.bench.benchmark import ExternalBench
 from hwbench.bench.engine import EngineBase, EngineModuleBase
 from hwbench.bench.parameters import BenchmarkParameters
-from hwbench.utils.helpers import fatal
+from hwbench.utils.helpers import fatal, versiontuple
 
 
 class EngineModuleCmdline(EngineModuleBase):
@@ -51,19 +51,12 @@ class Engine(EngineBase):
     def run_cmd(self) -> list[str]:
         return []
 
-    def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
-        self.version = stdout.split(b"-")[1].strip()
+    def parse_version(self, stdout: bytes, _stderr: bytes) -> str:
+        self.version = stdout.split(b"-")[1].strip().decode()
         return self.version
 
-    def version_major(self) -> int:
-        if self.version:
-            return int(self.version.split(b".")[0])
-        return 0
-
-    def version_minor(self) -> int:
-        if self.version:
-            return int(self.version.split(b".")[1])
-        return 0
+    def get_version(self):
+        return self.version
 
     def parse_cmd(self, stdout: bytes, stderr: bytes):
         return {}
@@ -84,7 +77,7 @@ class Fio(ExternalBench):
 
     def version_compatible(self) -> bool:
         engine = self.engine_module.get_engine()
-        return engine.version_major() >= 3 and engine.version_minor() >= 19
+        return versiontuple(engine.get_version()) >= versiontuple("3.19")
 
     def _parse_parameters(self):
         self.runtime = self.parameters.runtime
@@ -181,7 +174,7 @@ class Fio(ExternalBench):
     def run_cmd_version(self) -> list[str]:
         return self.engine_module.get_engine().run_cmd_version()
 
-    def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
+    def parse_version(self, stdout: bytes, _stderr: bytes) -> str:
         return self.engine_module.get_engine().parse_version(stdout, _stderr)
 
     def empy_result(self):

@@ -39,7 +39,7 @@ class TestParse(unittest.TestCase):
             ver_stdout = (d / "version-stdout").read_bytes()
             ver_stderr = (d / "version-stderr").read_bytes()
             version = test_target.parse_version(ver_stdout, ver_stderr)
-            assert version == (d / "version").read_bytes().strip()
+            assert version == (d / "version").read_text().strip()
 
     def test_module_parsing_output(self):
         engine_v17 = mock_engine("v17")

@@ -2,6 +2,8 @@ import pathlib
 import unittest
 from unittest.mock import patch
 
+from hwbench.utils.helpers import versiontuple
+
 from .fio import Engine as Fio
 
 
@@ -21,6 +23,5 @@ class TestParse(unittest.TestCase):
             ver_stdout = (d / "version-stdout").read_bytes()
             ver_stderr = (d / "version-stderr").read_bytes()
             version = test_target.parse_version(ver_stdout, ver_stderr)
-            assert version == (d / "version").read_bytes().strip()
-            assert test_target.version_major() == 3
-            assert test_target.version_minor() == 19
+            assert version == (d / "version").read_text().strip()
+            assert versiontuple(test_target.get_version()) == versiontuple("3.19")

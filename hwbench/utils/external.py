@@ -30,8 +30,8 @@ class External(ABC):
         return {}
 
     @abstractmethod
-    def parse_version(self, stdout: bytes, stderr: bytes) -> bytes:
-        return b""
+    def parse_version(self, stdout: bytes, stderr: bytes) -> str:
+        return ""
 
     def _write_output(self, name: str, content: bytes):
         if len(content) > 0:
@@ -88,8 +88,8 @@ class External_Simple(External):
     def run_cmd(self) -> list[str]:
         return self.cmd_list
 
-    def parse_version(self, stdout: bytes, _stderr: bytes) -> bytes:
-        return b""
+    def parse_version(self, stdout: bytes, _stderr: bytes) -> str:
+        return ""
 
     def parse_cmd(self, stdout: bytes, stderr: bytes):
         return {}
