@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 import json
+import logging
 import pathlib
+import subprocess
 from typing import Any
 
 from hwbench.bench.benchmark import ExternalBench
 from hwbench.bench.engine import EngineBase, EngineModuleBase
 from hwbench.bench.parameters import BenchmarkParameters
+from hwbench.environment.block_devices import Block_Devices
 from hwbench.utils.helpers import fatal, versiontuple
 
 
@@ -19,6 +24,21 @@ class EngineModuleCmdline(EngineModuleBase):
     def load_module_parameter(self, fake_stdout=None):
         # if needed add module parameters to your module
         self.add_module_parameter("cmdline")
+
+    def generate_benchmarks(self, config: dict[str, str]) -> list[dict[str, str]]:
+        disks: list[dict[str, str]] = []
+        if config["disks"] == "all":
+            disks = []
+            for block_device in Block_Devices().data.values():
+                # Device is not mounted, let's add it to the benchs
+                if subprocess.run(["findmnt", block_device.udev_device]).returncode == 1:
+                    if not str(block_device.get_udev_properties().get("DEVPATH", "")).startswith("/devices/virtual/"):
+                        disks.append({"disk": block_device.udev_device})
+                else:
+                    logging.warning("Disk %s is mounted, skipping", block_device)
+        elif config["disks"] != "":
+            disks = [{"disk": disk.strip()} for disk in config["disks"].split(",")]
+        return disks
 
     def validate_module_parameters(self, p: BenchmarkParameters):
         msg = super().validate_module_parameters(p)
@@ -41,6 +61,18 @@ class Engine(EngineBase):
     def __init__(self, fake_stdout=None):
         super().__init__("fio", "fio")
         self.add_module(EngineModuleCmdline(self, "cmdline", fake_stdout))
+        self.custom_parameters_validators = {
+            "disks": self.validate_disks,
+        }
+        self.custom_parameters_required = ["disks"]
+
+    def validate_disks(self, disks: str) -> str | None:
+        """Validate the disks syntax."""
+        if disks != "all":
+            for disk in disks.split(","):
+                if not pathlib.Path(disk).is_block_device():
+                    return f"{disk} is not a valid disk path"
+        return None
 
     def run_cmd_version(self) -> list[str]:
         return [
@@ -142,6 +174,7 @@ class Fio(ExternalBench):
             ["--name", name],
             ["--invalidate", 1],
             ["--log_avg_msec", self.log_avg_msec],
+            ["--filename", self.parameters.get_custom_parameters()["disk"]],
         ]
         for log_type in ["bw", "lat", "hist", "iops"]:
             enforced_items.append([f"--write_{log_type}_log", f"fio/{name}_{log_type}.log"])
