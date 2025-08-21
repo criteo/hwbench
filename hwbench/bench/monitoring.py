@@ -220,7 +220,9 @@ class Monitoring:
 
             if sleep_time < 0:
                 # The iteration is already late on schedule, no need to sleep
-                print(f"Monitoring iteration {loops_done} is {abs(sleep_time):.2f}ms late")
+                # Only print a warning message if we are more than 5ms late
+                if sleep_time < -5:
+                    print(f"Monitoring iteration {loops_done} is {abs(sleep_time):.2f}ms late")
             else:
                 # The iteration is on time, let's sleep until the next one
                 time.sleep(sleep_time)
