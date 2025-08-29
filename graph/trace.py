@@ -19,7 +19,7 @@ MAX = "max"
 MEAN = "mean"
 
 
-METRIC_AXIs = {
+METRIC_AXIS = {
     "Percent": (100, 10, 5),
     "RPM": (21000, 1000, 250),
     "Celsius": (110, 10, 5),
@@ -107,7 +107,7 @@ class Bench:
 
     def get_monitoring_metric_axis(self, unit: str) -> tuple[Any, Any, Any]:
         """Return adjusted metric axis values"""
-        return METRIC_AXIs.get(unit, (None, None, None))
+        return METRIC_AXIS.get(unit, (None, None, None))
 
     def get_component(self, metric_type: Metrics, component: Any) -> dict[str, MonitorMetric]:
         return self.get_monitoring_metric(metric_type)[str(component)]
