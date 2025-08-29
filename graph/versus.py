@@ -10,6 +10,7 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
     """Plot bar graph to compare traces during individual benchmarks."""
     if args.verbose:
         print(f"Max versus: rendering {job}")
+    max_bars_for_horizontal_label = 10
     rendered_graphs = 0
     temp_outdir = output_dir.joinpath("max_versus")
 
@@ -138,6 +139,7 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                         color="white",
                         fontsize=16,
                         fmt=graph.human_format,
+                        rotation="vertical" if len(traces_name) > max_bars_for_horizontal_label else "horizontal",
                     )
                     graph.prepare_axes(legend=False)
                     graph.render()
@@ -181,6 +183,9 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                                 ha="center",
                                 color="white",
                                 fontsize=16,
+                                rotation="vertical"
+                                if len(traces_name) > max_bars_for_horizontal_label
+                                else "horizontal",
                             )
 
                     # Add the number of workers, needed to reach that perf, below the trace name
