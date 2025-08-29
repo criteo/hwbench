@@ -9,9 +9,9 @@ try:
     from graph.chassis import graph_chassis
     from graph.common import fatal
     from graph.graph import generic_graph, init_matplotlib, yerr_graph
-    from graph.individual import individual_graph
-    from graph.scaling import scaling_graph
+    from graph.scaling import smp_scaling_graph
     from graph.trace import Trace
+    from graph.versus import max_versus_graph
     from hwbench.bench.monitoring_structs import (
         FanContext,
         Metrics,
@@ -226,6 +226,8 @@ def graph_environment(args, output_dir) -> int:
         print("environment: disabled by user")
         return rendered_graphs
 
+    output_dir = output_dir.joinpath("environment")
+
     chassis = args.traces[0].get_chassis_serial()
     if chassis:
         all_chassis = [t.get_chassis_serial() == chassis for t in args.traces]
@@ -262,10 +264,12 @@ def graph_environment(args, output_dir) -> int:
         error_message = valid_traces(args)
         if not error_message:
             for bench_name in sorted(args.traces[0].bench_list()):
-                rendered_graphs += graph_chassis(args, bench_name, output_dir)
+                rendered_graphs += graph_chassis(args, bench_name, output_dir.joinpath("by_chassis"))
         else:
             print(error_message)
 
+    # Graphs below are per host
+    output_dir = output_dir.joinpath("by_host")
     for trace in args.traces:
         output_dir.joinpath(f"{trace.get_name()}").mkdir(parents=True, exist_ok=True)
         benches = trace.bench_list()
@@ -294,20 +298,20 @@ def plot_graphs(args, output_dir) -> int:
     traces_name = [trace.get_name() for trace in args.traces]
 
     if not args.no_scaling:
-        print("Scaling: disabled by user")
+        print("SMP scaling: disabled by user")
     else:
         # Let's generate the scaling graphs
-        print(f"Scaling: rendering {len(jobs)} jobs")
+        print(f"SMP scaling: rendering {len(jobs)} jobs")
         for job in jobs:
-            rendered_graphs += scaling_graph(args, output_dir, job, traces_name)
+            rendered_graphs += smp_scaling_graph(args, output_dir, job, traces_name)
 
-    if not args.no_individual:
-        print("Individual: disabled by user")
+    if not args.no_versus:
+        print("Max versus: disabled by user")
     else:
         # Let's generate the unitary comparing graphs
-        print(f"Individual: rendering {len(jobs)} jobs")
+        print(f"Max versus: rendering {len(jobs)} jobs")
         for job in jobs:
-            rendered_graphs += individual_graph(args, output_dir, job, traces_name)
+            rendered_graphs += max_versus_graph(args, output_dir, job, traces_name)
 
     return rendered_graphs
 
@@ -337,8 +341,8 @@ power_metric : the name of a power metric, from the monitoring, to be used for '
         required=True,
     )
     parser_graph.add_argument("--no-env", help="Disable environmental graphs", action="store_false")
-    parser_graph.add_argument("--no-scaling", help="Disable scaling graphs", action="store_false")
-    parser_graph.add_argument("--no-individual", help="Disable individual graphs", action="store_false")
+    parser_graph.add_argument("--no-scaling", help="Disable 'SMP scaling' graphs", action="store_false")
+    parser_graph.add_argument("--no-versus", help="Disable 'max versus' graphs", action="store_false")
     parser_graph.add_argument("--no-stats", help="Disable stats", action="store_false")
     parser_graph.add_argument("--title", help="Title of the graph")
     parser_graph.add_argument("--dpi", help="Graph dpi", type=int, default="72")

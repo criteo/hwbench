@@ -7,17 +7,17 @@ import numpy as np
 from graph.graph import GRAPH_TYPES, Graph
 
 
-def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
+def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
     """Render line graphs to compare performance scaling."""
     rendered_graphs = 0
-    temp_outdir = output_dir.joinpath("scaling")
+    temp_outdir = output_dir.joinpath("smp_scaling")
 
     # We extract the skeleton from the first trace
     # This will give us the name of the engine module parameters and
     # the metrics we need to plot
     benches = args.traces[0].get_benches_by_job_per_emp(job)
     if args.verbose:
-        print(f"Scaling: working on job '{job}' : {len(benches.keys())} engine_module_parameter to render")
+        print(f"SMP scaling: working on job '{job}' : {len(benches.keys())} engine_module_parameter to render")
     # For all subjobs sharing the same engine module parameter
     # i.e int128
     for emp in benches:
@@ -33,7 +33,7 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
 
         # If we can't detect several bench on the same emp, it means there was no scaling
         if len(args.traces[0].get_benches_by_job_per_emp(job)[emp]["bench"]) == 1:
-            print(f"Scaling: No scaling detected on job '{job}', skipping graph")
+            print(f"SMP scaling: No scaling detected on job '{job}', skipping graph")
             continue
 
         # For each metric we need to plot
@@ -91,24 +91,22 @@ def scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 y_label = unit
                 outdir = temp_outdir.joinpath(graph_type)
                 if "perf_watt" in graph_type:
-                    graph_type_title = (
-                        f"Scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
-                    )
+                    graph_type_title = f"SMP scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
                     y_label = f"{unit} per Watt"
                     outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_source = aggregated_perfs_watt
                 elif "watts" in graph_type:
-                    graph_type_title = f"Scaling {graph_type}: {args.traces[0].get_metric_name()}"
+                    graph_type_title = f"SMP scaling {graph_type}: {args.traces[0].get_metric_name()}"
                     outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_label = "Watts"
                     y_source = aggregated_watt
                 elif "cpu_clock" in graph_type:
-                    graph_type_title = f"Scaling {graph_type}: {args.traces[0].get_metric_name()}"
+                    graph_type_title = f"SMP scaling {graph_type}: {args.traces[0].get_metric_name()}"
                     outfile = f"scaling_cpu_clock_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_label = "Mhz"
                     y_source = aggregated_cpu_clock
                 else:
-                    graph_type_title = f"Scaling {graph_type}: {bench.get_title_engine_name()}"
+                    graph_type_title = f"SMP scaling {graph_type}: {bench.get_title_engine_name()}"
                     outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_source = aggregated_perfs
 

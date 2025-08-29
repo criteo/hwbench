@@ -6,12 +6,12 @@ import numpy as np
 from graph.graph import GRAPH_TYPES, Graph
 
 
-def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
+def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
     """Plot bar graph to compare traces during individual benchmarks."""
     if args.verbose:
-        print(f"Individual: rendering {job}")
+        print(f"Max versus: rendering {job}")
     rendered_graphs = 0
-    temp_outdir = output_dir.joinpath("individual")
+    temp_outdir = output_dir.joinpath("max_versus")
 
     benches = args.traces[0].get_benches_by_job_per_emp(job)
     # For all subjobs sharing the same engine module parameter
@@ -94,19 +94,19 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
 
                 # Select the proper datasource and titles/labels regarding the graph type
                 if graph_type == "perf_watt":
-                    graph_type_title = f"Individual {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
+                    graph_type_title = f"Max versus '{graph_type}': '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
                     graph_type_title += ": Bigger is better"
                     y_label = f"{unit} per Watt"
                     y_source = aggregated_perfs_watt
                     y_max = max_perfs_watt
                 elif graph_type == "watts":
-                    graph_type_title = f"Individual {graph_type}: {args.traces[0].get_metric_name()}"
+                    graph_type_title = f"Max versus '{graph_type}': {args.traces[0].get_metric_name()}"
                     graph_type_title += ": Lower is better"
                     y_label = "Watts"
                     y_source = aggregated_watt
                     y_max = max_watt
                 else:
-                    graph_type_title = f"Individual {graph_type}: {bench.get_title_engine_name()}"
+                    graph_type_title = f"Max versus '{graph_type}': {bench.get_title_engine_name()}"
                     graph_type_title += ": Bigger is better"
                     y_source = aggregated_perfs
                     y_max = max_perf
