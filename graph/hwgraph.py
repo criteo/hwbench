@@ -9,6 +9,7 @@ try:
     from graph.chassis import graph_chassis
     from graph.common import fatal
     from graph.graph import generic_graph, init_matplotlib, yerr_graph
+    from graph.group import graph_group_env
     from graph.scaling import smp_scaling_graph
     from graph.trace import Event, Trace
     from graph.versus import max_versus_graph
@@ -83,6 +84,7 @@ def render_traces(args: argparse.Namespace):
 
     compare_traces(args)
     generate_stats(args)
+    rendered_graphs += graph_group(args, output_dir)
     rendered_graphs += graph_environment(args, output_dir)
     rendered_graphs += plot_graphs(args, output_dir)
     print(f"{rendered_graphs} graphs can be found in '{output_dir}' directory")
@@ -237,6 +239,30 @@ def graph_pdu(args, trace: Trace, bench_name: str, output_dir) -> int:
 def graph_thermal(args, trace: Trace, bench_name: str, output_dir) -> int:
     rendered_graphs = 0
     rendered_graphs += generic_graph(args, output_dir, trace.bench(bench_name), Metrics.THERMAL, str(Metrics.THERMAL))
+    return rendered_graphs
+
+
+def graph_group(args, output_dir) -> int:
+    rendered_graphs = 0
+    if not args.same_group:
+        return rendered_graphs
+    # Graphs below are per group
+    output_dir = output_dir.joinpath("by_group")
+    for trace in args.traces:
+        try:
+            metric = f"{PowerContext.BMC}/{PowerCategories.SERVER}"
+            trace.first_bench().get_single_metric(
+                Metrics.POWER_CONSUMPTION,
+                PowerContext.BMC,
+                PowerCategories.SERVER,
+            )
+            metric = f"{PowerContext.CPU}/package"
+            trace.first_bench().get_single_metric(Metrics.POWER_CONSUMPTION, PowerContext.CPU, "package")
+        except KeyError:
+            fatal(f"group: missing '{metric}' monitoric metric in {trace.get_filename()}")
+    print(f"group: rendering {len(args.traces[0].bench_list())} jobs")
+    for bench_name in sorted(args.traces[0].bench_list()):
+        rendered_graphs += graph_group_env(args, bench_name, output_dir)
     return rendered_graphs
 
 
@@ -397,6 +423,11 @@ duration     : duration of the event (in seconds)
     parser_graph.add_argument(
         "--same-chassis",
         help="All traces are from the same chassis",
+        action="store_true",
+    )
+    parser_graph.add_argument(
+        "--same-group",
+        help="All traces are from the same group of servers",
         action="store_true",
     )
     parser_graph.add_argument(
