@@ -10,7 +10,7 @@ try:
     from graph.common import fatal
     from graph.graph import generic_graph, init_matplotlib, yerr_graph
     from graph.scaling import smp_scaling_graph
-    from graph.trace import Trace
+    from graph.trace import Event, Trace
     from graph.versus import max_versus_graph
     from hwbench.bench.monitoring_structs import (
         FanContext,
@@ -43,7 +43,28 @@ def valid_trace_file(trace_arg: str) -> Trace:
         return trace
     except BaseException as e:
         # Print validation failure and pass it on
-        print(f"Validation failure: {e}")
+        print(f"Trace validation failure: {e}")
+        raise e
+
+
+def valid_events(event_arg: str) -> Event:
+    """Custom argparse type to decode and validate the event list"""
+
+    match = re.search(r"(?P<event>.*):(?P<start>.*):(?P<duration>.*)", event_arg)
+    if not match:
+        raise argparse.ArgumentTypeError(f"{event_arg} does not match 'event_name:start_time:duration' syntax")
+
+    try:
+        event = Event(
+            match.group("event"),
+            int(match.group("start")),
+            int(match.group("duration")),
+        )
+        event.validate()
+        return event
+    except BaseException as e:
+        # Print validation failure and pass it on
+        print(f"Event validation failure: {e}")
         raise e
 
 
@@ -348,6 +369,17 @@ power_metric : the name of a power metric, from the monitoring, to be used for '
     parser_graph.add_argument("--dpi", help="Graph dpi", type=int, default="72")
     parser_graph.add_argument("--width", help="Graph width", type=int, default="1920")
     parser_graph.add_argument("--height", help="Graph height", type=int, default="1080")
+    parser_graph.add_argument(
+        "--events",
+        type=valid_events,
+        nargs="+",
+        help="""List events that occured during the benchmark.
+Syntax: <event_name>:<start_time>:<duration>
+event_name   : the name of an event
+start_time   : the starting time of the event (in seconds)
+duration     : duration of the event (in seconds)
+""",
+    )
     parser_graph.add_argument(
         "--format",
         help="Graph file format",

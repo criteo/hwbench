@@ -26,6 +26,30 @@ METRIC_AXIS = {
 }
 
 
+class Event:
+    def __init__(self, event_name: str, start_time: int, duration: int):
+        self.event_name = event_name
+        self.start_time = start_time
+        self.duration = duration
+
+    def get_name(self) -> str:
+        return self.event_name
+
+    def get_start_time(self) -> int:
+        return self.start_time
+
+    def get_duration(self) -> int:
+        return self.duration
+
+    def validate(self) -> None:
+        if len(self.get_name()) == 0:
+            fatal("Event: event_name is not defined")
+        if self.get_start_time() < 0:
+            fatal(f"Event {self.get_name}: start_time is lower than 0")
+        if self.get_duration() <= 0:
+            fatal(f"Event {self.get_name}: duration should be greater than 0")
+
+
 class Bench:
     def __init__(self, trace, bench_name: str):
         self.trace = trace
