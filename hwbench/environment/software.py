@@ -2,6 +2,7 @@ import json
 import os
 import pathlib
 
+from hwbench.environment.memory import KernelMemoryInfo
 from hwbench.utils.archive import copy_file, create_tar_from_directory
 from hwbench.utils.external import External_Simple
 
@@ -18,6 +19,9 @@ class Environment(BaseEnvironment):
 
         copy_file("/proc/config.gz", str(self.out_dir))
 
+        self.memory = KernelMemoryInfo()
+        self.memory.detect()
+
         self.rpms = RpmList(out_dir)
         self.rpms.run()
         self.proc_sys_info()
@@ -27,6 +31,7 @@ class Environment(BaseEnvironment):
         return {
             "kernel": self.kernel_version(),
             "kernel_cmdline": self.kernel_cmdline().decode("utf-8"),
+            "meminfo": self.memory.dump(),
         }
 
     @staticmethod
