@@ -356,9 +356,12 @@ def plot_graphs(args, output_dir) -> int:
         print("Max versus: disabled by user")
     else:
         # Let's generate the unitary comparing graphs
-        print(f"Max versus: rendering {len(jobs)} jobs")
-        for job in jobs:
-            rendered_graphs += max_versus_graph(args, output_dir, job, traces_name)
+        if len(traces_name) > 1:
+            print(f"Max versus: rendering {len(jobs)} jobs")
+            for job in jobs:
+                rendered_graphs += max_versus_graph(args, output_dir, job, traces_name)
+        else:
+            print("Max versus: skipped as at least 2 traces are necessary for this mode")
 
     return rendered_graphs
 
