@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from itertools import cycle
+
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -51,6 +53,7 @@ class Graph:
         self.output_dir = output_dir
         output_dir.mkdir(parents=True, exist_ok=True)
         self.set_filename(filename)
+        self.needs_legend = True  # Does this graph need a legend to be rendered ?
 
     def __del__(self):
         """Destruction will close all plots"""
@@ -95,6 +98,7 @@ class Graph:
         interval=0,
     ):
         """Set the ticks and axes limits."""
+        self.needs_legend = legend
         # This should be called _after_ the ax.*plot calls
         ymax, y_major, y_minor = y_locators
 
@@ -119,10 +123,6 @@ class Graph:
             self.ax2.yaxis.set_major_formatter(FuncFormatter(self.human_format))
             self.fig.tight_layout()  # otherwise the right y-label is slightly clipped
             self.ax2.yaxis.set_major_locator(matplotlib.ticker.LinearLocator(len(self.ax.get_yticks()) - 2))
-        else:
-            # Bar graphs do not need legend, let the caller disable it
-            if legend:
-                plt.legend()
 
         # If we have less than 15 points to render, let's use the real time interval
         if points_to_plot and points_to_plot < 30:
@@ -188,12 +188,43 @@ class Graph:
         """Return the ax2 object (for the 2nd y axis)."""
         return self.ax2
 
+    def trace_events(self):
+        """Trace events of the graphics"""
+        # if we don't have events or if this graph will not have a legend (like BarGraphs),
+        # do not add events
+        if not self.args.events or not self.needs_legend:
+            return
+
+        colors = ["red", "cyan", "magenta", "yellow", "blue"]
+        # Let's add all events and color them,
+        for event, event_color in zip(self.args.events, cycle(colors)):
+            ymin, ymax = self.get_ax().get_ylim()
+            plt.axvspan(
+                event.get_start_time(),
+                event.get_start_time() + event.get_duration(),
+                ymin,
+                ymax,
+                label=f"Event {event.get_name()}",
+                alpha=0.1,
+                color=event_color,
+            )
+
     def render(self):
         """Render the graph to a file."""
         # Retrieve the rendering file format
         file_format = self.args.format
+
+        # Trace the events passed on the command line
+        self.trace_events()
+
         # Having vertical xticks makes it scalable for large number of cores
         plt.xticks(rotation=90)
+
+        # Plot the legend if necessary
+        # (Some graphs, like BarGraphs, do not need legend)
+        if self.needs_legend:
+            plt.legend()
+
         plt.savefig(
             f"{self.output_dir}/{self.filename}.{file_format}",
             format=file_format,
@@ -322,7 +353,7 @@ def generic_graph(
     if second_axis:
         for data2_item in data2_serie:
             y2_serie = np.array(data2_serie[data2_item])[order]
-            graph.get_ax2().plot(x_serie, y2_serie, "", label=data2_item, marker="o")
+            graph.get_ax2().plot(x_serie, y2_serie, "", label=data2_item, marker=".")
 
     for component in components:
         y_serie = np.array(data_serie[component.get_full_name()])[order]

@@ -6,12 +6,13 @@ import numpy as np
 from graph.graph import GRAPH_TYPES, Graph
 
 
-def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
+def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
     """Plot bar graph to compare traces during individual benchmarks."""
     if args.verbose:
-        print(f"Individual: rendering {job}")
+        print(f"Max versus: rendering {job}")
+    max_bars_for_horizontal_label = 10
     rendered_graphs = 0
-    temp_outdir = output_dir.joinpath("individual")
+    temp_outdir = output_dir.joinpath("max_versus")
 
     benches = args.traces[0].get_benches_by_job_per_emp(job)
     # For all subjobs sharing the same engine module parameter
@@ -94,55 +95,22 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
 
                 # Select the proper datasource and titles/labels regarding the graph type
                 if graph_type == "perf_watt":
-                    graph_type_title = f"Individual {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
+                    graph_type_title = f"Max versus '{graph_type}': '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
                     graph_type_title += ": Bigger is better"
                     y_label = f"{unit} per Watt"
-                    y_source = aggregated_perfs_watt
                     y_max = max_perfs_watt
                 elif graph_type == "watts":
-                    graph_type_title = f"Individual {graph_type}: {args.traces[0].get_metric_name()}"
+                    graph_type_title = f"Max versus '{graph_type}': {args.traces[0].get_metric_name()}"
                     graph_type_title += ": Lower is better"
                     y_label = "Watts"
-                    y_source = aggregated_watt
                     y_max = max_watt
                 else:
-                    graph_type_title = f"Individual {graph_type}: {bench.get_title_engine_name()}"
+                    graph_type_title = f"Max versus '{graph_type}': {bench.get_title_engine_name()}"
                     graph_type_title += ": Bigger is better"
-                    y_source = aggregated_perfs
                     y_max = max_perf
 
-                # For each performance we have
-                for worker in aggregated_perfs[perf]:
-                    # Let's make a custom graph
-                    title = f'{args.title}\n\n{graph_type_title} during "{bench.job_name()}" benchmark\n'
-                    title += f"\nStressor: {worker} x {bench.engine()} "
-                    title += f"{bench.engine_module()} "
-                    title += f"{bench.engine_module_parameter()} for {bench.duration()} seconds"
-                    y_serie = np.array(y_source[perf][worker])
-                    graph = Graph(
-                        args,
-                        title,
-                        "",
-                        y_label,
-                        outdir,
-                        f"{worker}_workers_{outfile}{graph_type}_{clean_perf}",
-                    )
-
-                    # Prepare the plot for this benchmark
-                    bar_colors = ["tab:red", "tab:blue", "tab:green", "tab:orange"]
-                    # zorder=3 ensure the graph with be on top of the grid
-                    graph.get_ax().bar(traces_name, y_serie, color=bar_colors, zorder=3)
-                    graph.get_ax().bar_label(
-                        graph.get_ax().containers[0],
-                        label_type="center",
-                        color="white",
-                        fontsize=16,
-                        fmt=graph.human_format,
-                    )
-                    graph.prepare_axes(legend=False)
-                    graph.render()
-                    rendered_graphs += 1
-
+                # Prepare the plot for this benchmark
+                bar_colors = ["tab:red", "tab:blue", "tab:green", "tab:orange"]
                 # Now render the max performance graph
                 # Concept is to show what every product reached as a maximum perf and plot them together
                 # This way we have on a single graph showing the max of 32 cores vs a 48 cores vs a 64 cores.
@@ -181,6 +149,9 @@ def individual_graph(args, output_dir, job: str, traces_name: list) -> int:
                                 ha="center",
                                 color="white",
                                 fontsize=16,
+                                rotation="vertical"
+                                if len(traces_name) > max_bars_for_horizontal_label
+                                else "horizontal",
                             )
 
                     # Add the number of workers, needed to reach that perf, below the trace name

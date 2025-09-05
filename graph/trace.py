@@ -19,11 +19,35 @@ MAX = "max"
 MEAN = "mean"
 
 
-METRIC_AXIs = {
+METRIC_AXIS = {
     "Percent": (100, 10, 5),
     "RPM": (21000, 1000, 250),
     "Celsius": (110, 10, 5),
 }
+
+
+class Event:
+    def __init__(self, event_name: str, start_time: int, duration: int):
+        self.event_name = event_name
+        self.start_time = start_time
+        self.duration = duration
+
+    def get_name(self) -> str:
+        return self.event_name
+
+    def get_start_time(self) -> int:
+        return self.start_time
+
+    def get_duration(self) -> int:
+        return self.duration
+
+    def validate(self) -> None:
+        if len(self.get_name()) == 0:
+            fatal("Event: event_name is not defined")
+        if self.get_start_time() < 0:
+            fatal(f"Event {self.get_name}: start_time is lower than 0")
+        if self.get_duration() <= 0:
+            fatal(f"Event {self.get_name}: duration should be greater than 0")
 
 
 class Bench:
@@ -107,7 +131,7 @@ class Bench:
 
     def get_monitoring_metric_axis(self, unit: str) -> tuple[Any, Any, Any]:
         """Return adjusted metric axis values"""
-        return METRIC_AXIs.get(unit, (None, None, None))
+        return METRIC_AXIS.get(unit, (None, None, None))
 
     def get_component(self, metric_type: Metrics, component: Any) -> dict[str, MonitorMetric]:
         return self.get_monitoring_metric(metric_type)[str(component)]
@@ -132,13 +156,16 @@ class Bench:
     def get_all_metrics(self, metric_type: Metrics, filter=None) -> list[MonitorMetric]:
         """Return all metrics of a given type."""
         metrics = []
-        for metric in self.get_monitoring_metric(metric_type).values():
-            for component_name, component in metric.items():
-                if not filter:
-                    metrics.append(component)
-                else:
-                    if filter in component_name:
+        try:
+            for metric in self.get_monitoring_metric(metric_type).values():
+                for component_name, component in metric.items():
+                    if not filter:
                         metrics.append(component)
+                    else:
+                        if filter in component_name:
+                            metrics.append(component)
+        except KeyError:
+            pass
         return metrics
 
     def title(self) -> str:

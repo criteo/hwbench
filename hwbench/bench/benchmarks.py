@@ -267,7 +267,7 @@ ETA {duration}"
             bench_name = benchmark.get_parameters().get_name()
             # This benchmark requires to be synced on a time based
             if benchmark.get_parameters().get_sync_start() == "time":
-                time_to_sync_secs, _ = h.time_to_next_sync()
+                time_to_sync_secs = h.time_to_next_sync()
                 print(f"hwbench: [{bench_name}]: sync_start=time requested, waiting {time_to_sync_secs} seconds")
                 time.sleep(time_to_sync_secs)
                 print(f"hwbench: [{bench_name}]: started at {datetime.datetime.utcnow()}")
