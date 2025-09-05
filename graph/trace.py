@@ -156,13 +156,16 @@ class Bench:
     def get_all_metrics(self, metric_type: Metrics, filter=None) -> list[MonitorMetric]:
         """Return all metrics of a given type."""
         metrics = []
-        for metric in self.get_monitoring_metric(metric_type).values():
-            for component_name, component in metric.items():
-                if not filter:
-                    metrics.append(component)
-                else:
-                    if filter in component_name:
+        try:
+            for metric in self.get_monitoring_metric(metric_type).values():
+                for component_name, component in metric.items():
+                    if not filter:
                         metrics.append(component)
+                    else:
+                        if filter in component_name:
+                            metrics.append(component)
+        except KeyError:
+            pass
         return metrics
 
     def title(self) -> str:

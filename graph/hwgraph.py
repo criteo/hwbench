@@ -154,7 +154,10 @@ def graph_monitoring_metrics(args, trace: Trace, bench_name: str, output_dir) ->
     rendered_graphs = 0
     bench = trace.bench(bench_name)
     for metric_name in ["BMC", "CPU", "PDU"]:
-        metrics = bench.get_component(Metrics.MONITOR, metric_name)
+        try:
+            metrics = bench.get_component(Metrics.MONITOR, metric_name)
+        except KeyError:
+            print(f"{bench_name}: {metric_name} metric is not present in trace file, skipping.")
         if metrics:
             for metric in metrics:
                 # If a metric has no measure, let's ignore it
