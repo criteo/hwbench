@@ -195,7 +195,17 @@ class Graph:
         if not self.args.events or not self.needs_legend:
             return
 
-        colors = ["red", "cyan", "magenta", "yellow", "blue"]
+        colors = [
+            "tab:blue",
+            "tab:orange",
+            "tab:green",
+            "tab:red",
+            "tab:purple",
+            "tab:brown",
+            "tab:pink",
+            "tab:cyan",
+            "tab:olive",
+        ]
         # Let's add all events and color them,
         for event, event_color in zip(self.args.events, cycle(colors)):
             ymin, ymax = self.get_ax().get_ylim()
@@ -205,7 +215,7 @@ class Graph:
                 ymin,
                 ymax,
                 label=f"Event {event.get_name()}",
-                alpha=0.1,
+                alpha=0.2,
                 color=event_color,
             )
 
