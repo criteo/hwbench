@@ -218,7 +218,7 @@ class Graph:
         self.trace_events()
 
         # Having vertical xticks makes it scalable for large number of cores
-        plt.xticks(rotation=90)
+        plt.setp(self.ax.get_xticklabels(), rotation=90)
 
         # Plot the legend if necessary
         # (Some graphs, like BarGraphs, do not need legend)
