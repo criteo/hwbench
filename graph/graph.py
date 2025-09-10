@@ -223,6 +223,7 @@ class Graph:
         """Render the graph to a file."""
         # Retrieve the rendering file format
         file_format = self.args.format
+        legends = []
 
         # Trace the events passed on the command line
         self.trace_events()
@@ -234,11 +235,19 @@ class Graph:
         # (Some graphs, like BarGraphs, do not need legend)
         if self.needs_legend:
             plt.legend()
+            # Upper left
+            legends.append(self.ax.legend(bbox_to_anchor=(-0.05, 1)))
+            if self.ax2:
+                # Upper right
+                legends.append(self.ax2.legend(loc="upper right", bbox_to_anchor=(1.25, 1)))
 
         plt.savefig(
             f"{self.output_dir}/{self.filename}.{file_format}",
             format=file_format,
             dpi=self.args.dpi,
+            bbox_inches="tight",
+            pad_inches=1,
+            bbox_extra_artists=legends,
         )
         self.fig.clear()
         plt.close(self.fig)
