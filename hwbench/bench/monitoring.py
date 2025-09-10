@@ -39,10 +39,6 @@ class Monitoring:
         self.__reset_metrics()
         self.prepare()
 
-    def get_monotonic_clock(self):
-        """Return the raw clock time, not sensible of ntp adjustments."""
-        return time.monotonic_ns()
-
     def __get_metrics(self):
         """Return the actual metrics."""
         return self.metrics
@@ -131,14 +127,14 @@ class Monitoring:
                 for metric_name, metric in component.items():
                     metric.compact()
 
-    def monitor(self, precision: int, frequency: int, duration: int):
+    def monitor(self, precision_s: int, frequency: int, duration_s: int):
         """Method to trigger asynchronous monitoring"""
         self.executor = ThreadWithReturnValue(
             target=self.__monitor,
             args=(
-                precision,
+                precision_s,
                 frequency,
-                duration,
+                duration_s,
             ),
         )
         self.executor.start()
@@ -147,72 +143,75 @@ class Monitoring:
         """Returns the metrics from the latest monitoring."""
         return self.executor.join()
 
-    def __monitor(self, precision: int, frequency: int, duration: int):
+    def __monitor(self, precision_s: int, frequency: int, duration_s: int):
         """Private method to perform the monitoring."""
         # This function will be a thread of self.monitor()
         #
-        #  >|                 duration                |<
-        #  >|    precision       |<                   |
-        # __|monitor_loop|_______|monitor_loop|_______|
-        #   |           >| stime |<
-        # stime is the time to wait before starting a new monitor_loop
-        # If frequency == 2, every two <precision> run, maths are computed
-        start_monitoring = self.get_monotonic_clock()
+        #  >|                         duration                        |<
+        #  >|    precision               |<                           |
+        # __|monitor_loop|_______________|monitor_loop|_______________|
+        #   |           >| sleep_time_ns |<
+        # sleep_time_ns is the time to wait before starting a new monitor_loop
+        # If frequency == 2, every two <precision_s> run, maths are computed
+
+        start_monitoring_ns = time.monotonic_ns()
         self.__reset_metrics()
-        self.metrics[str(MonitoringMetadata.PRECISION)] = precision
+        self.metrics[str(MonitoringMetadata.PRECISION)] = precision_s
         self.metrics[str(MonitoringMetadata.FREQUENCY)] = frequency
-        self.metrics[str(MonitoringMetadata.ITERATION_TIME)] = frequency * precision
+        self.metrics[str(MonitoringMetadata.ITERATION_TIME)] = frequency * precision_s
         self.metrics[str(Metrics.MONITOR)] = {
             "BMC": {"Polling": MonitorMetric("Polling", "ms")},
             "PDU": {"Polling": MonitorMetric("Polling", "ms")},
             "CPU": {"Polling": MonitorMetric("Polling", "ms")},
         }
-        # When will we hit "duration" ?
-        end_of_run = start_monitoring + duration * 1e9
+        # When will we hit "duration_s" ?
+        end_of_run_ns = start_monitoring_ns + (duration_s * 1e9)
         loops_done = 0
         compact_count = 0
 
-        def next_iter():
+        def next_iter_ns() -> float:
             # When does the next iteration must starts ?
-            return start_monitoring + ((loops_done + 1) * precision) * 1e9
+            return start_monitoring_ns + ((loops_done + 1) * precision_s) * 1e9
 
         # monitor_loop
         while True:
-            start_time = self.get_monotonic_clock()
+            start_time_loop_ns = time.monotonic_ns()
             if self.turbostat:
-                # Turbostat will run for the whole duration of this loop
+                # Turbostat will run for the whole duration_s of this loop
                 # We just retract a 5/10th of second to ensure it will not overdue
-                self.turbostat.run(interval=(precision - 0.5))
-                # Let's monitor the time spent at monitoring the CPU
-                self.get_metric(Metrics.MONITOR)["CPU"]["Polling"].add((self.get_monotonic_clock() - start_time) * 1e-6)
+                self.turbostat.run(interval=(precision_s - 0.5))
+                # Let's monitor the time spent at monitoring the CPU, in milliseconds
+                self.get_metric(Metrics.MONITOR)["CPU"]["Polling"].add(
+                    (time.monotonic_ns() - start_time_loop_ns) * 1e-6
+                )
             if loops_done and loops_done % frequency == 0:
                 # At every frequency, the maths are computed
                 self.__compact()
                 compact_count = compact_count + 1
 
-            start_bmc = self.get_monotonic_clock()
+            start_bmc_ns = time.monotonic_ns()
             self.__monitor_bmc()
-            end_monitoring = self.get_monotonic_clock()
-            # Let's monitor the time spent at monitoring the BMC
-            self.get_metric(Metrics.MONITOR)["BMC"]["Polling"].add((end_monitoring - start_bmc) * 1e-6)
+
+            # Let's monitor the time spent at monitoring the BMC, in milliseconds
+            self.get_metric(Metrics.MONITOR)["BMC"]["Polling"].add((time.monotonic_ns() - start_bmc_ns) * 1e-6)
 
             if self.vendor.get_pdus():
-                start_pdu = self.get_monotonic_clock()
+                start_pdu_ns = time.monotonic_ns()
                 self.__monitor_pdus()
-                end_monitoring = self.get_monotonic_clock()
-                # Let's monitor the time spent at monitoring the PDUs
-                self.get_metric(Metrics.MONITOR)["PDU"]["Polling"].add((end_monitoring - start_pdu) * 1e-6)
+                # Let's monitor the time spent at monitoring the PDUs, in milliseconds
+                self.get_metric(Metrics.MONITOR)["PDU"]["Polling"].add((time.monotonic_ns() - start_pdu_ns) * 1e-6)
 
             # We compute the time spent since we started this iteration
-            monitoring_duration = end_monitoring - start_time
+            monitoring_duration_s_ns = time.monotonic_ns() - start_time_loop_ns
 
             # Based on the time passed, let's compute the amount of sleep time
-            # to keep in sync with the expected precision
-            sleep_time_ns = next_iter() - self.get_monotonic_clock()  # stime
-            sleep_time = sleep_time_ns / 1e9
+            # to keep in sync with the expected precision_s
+            sleep_time_ns = next_iter_ns() - time.monotonic_ns()  # in nanoseconds
+            sleep_time_ms = sleep_time_ns / 1e6  # in milliseconds
+            sleep_time = sleep_time_ns / 1e9  # in seconds
 
-            # If the the current time + sleep_time is above the total duration (we accept up to 500ms overdue)
-            if (end_monitoring + monitoring_duration + sleep_time_ns) > (end_of_run + 0.5 * 1e9):
+            # If the the current time + sleep_time is above the total duration_s (we accept up to 500ms overdue)
+            if (start_monitoring_ns + monitoring_duration_s_ns + sleep_time_ns) > (end_of_run_ns + 0.5 * 1e9):
                 # We can stop the monitoring, no more measures will be done
                 if self.turbostat:
                     self.turbostat.parse()
@@ -221,8 +220,8 @@ class Monitoring:
             if sleep_time < 0:
                 # The iteration is already late on schedule, no need to sleep
                 # Only print a warning message if we are more than 5ms late
-                if sleep_time < -5:
-                    print(f"Monitoring iteration {loops_done} is {abs(sleep_time):.2f}ms late")
+                if sleep_time_ms < -5:
+                    print(f"Monitoring iteration {loops_done} is {abs(sleep_time_ms):.2f}ms late")
             else:
                 # The iteration is on time, let's sleep until the next one
                 time.sleep(sleep_time)
@@ -234,12 +233,14 @@ class Monitoring:
             loops_done = loops_done + 1
 
         # How much time did we spent in this monitoring loop ?
-        completed_time = self.get_monotonic_clock()
-        self.metrics[str(MonitoringMetadata.MONITORING_TIME)] = (completed_time - start_monitoring) * 1e-9
+        completed_time_ns = time.monotonic_ns()
+        self.metrics[str(MonitoringMetadata.MONITORING_TIME)] = (
+            completed_time_ns - start_monitoring_ns
+        ) * 1e-9  # seconds
 
-        # We were supposed to last "duration", how close are we from this metric ?
+        # We were supposed to last "duration_s", how close are we from this metric ?
         self.metrics[str(MonitoringMetadata.OVERDUE_TIME_MS)] = (
-            (completed_time - start_monitoring) - (duration * 1e9)
+            (completed_time_ns - start_monitoring_ns) - (duration_s * 1e9)
         ) * 1e-6
 
         self.metrics[str(MonitoringMetadata.SAMPLES_COUNT)] = compact_count
