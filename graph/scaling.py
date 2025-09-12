@@ -4,7 +4,7 @@ from typing import Any  # noqa: F401
 
 import numpy as np
 
-from graph.graph import GRAPH_TYPES, Graph
+from graph.graph import GRAPH_TYPES, Graph, statistics_in_label
 
 
 def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
@@ -156,6 +156,7 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                     x_serie = np.array(workers[trace_name])[order]
                     y_serie = np.array(y_source[perf][trace_name])[order]
                     # If we plot the power consumption, let's use errorbars
+                    y_label = statistics_in_label(trace_name, y_serie)
                     if y_source == aggregated_watt:
                         graph.get_ax().errorbar(
                             x_serie,
@@ -164,7 +165,7 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                             ecolor=e_color,
                             color=color_name,
                             capsize=4,
-                            label=trace_name,
+                            label=y_label,
                         )
                     elif y_source == aggregated_cpu_clock:
                         graph.get_ax().errorbar(
@@ -174,7 +175,7 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                             ecolor=e_color,
                             color=color_name,
                             capsize=4,
-                            label=trace_name,
+                            label=y_label,
                         )
                     else:
                         graph.get_ax().plot(
@@ -182,7 +183,7 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                             y_serie,
                             "",
                             color=color_name,
-                            label=trace_name,
+                            label=y_label,
                             marker="o",
                         )
 
