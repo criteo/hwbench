@@ -45,21 +45,46 @@ class ILO(BMC):
             pc = t["PhysicalContext"]
 
             # Temperature metrics are named like the following :
-            # 05-P1 DIMM 5-8
-            # 14-VR P1 Mem 1
-            # 19-BMC Zone
+            # 01-Inlet Ambient
+            # 02-CPU 1 PkgTmp
+            # 03-CPU 2 PkgTmp
+            # 04-P1 DIMM 1-6
+            # 06-P1 DIMM 7-12
+            # 08-P2 DIMM 1-6
+            # 10-P2 DIMM 7-12
+            # 12-VR P1
+            # 13-VR P2
+            # 14-HD Max
+            # 15-AHCI HD Max
+            # 16-Exp Bay Drive
+            # 18-Stor Batt
+            # 22-BMC
+            # 23-P/S 1 Inlet
+            # 24-P/S 1
+            # 25-P/S 2 Inlet
+            # 26-P/S 2
+            # 27-E-Fuse
+            # 29-Battery Zone
+            # 32-PCI 1
+            # 34-PCI 2
+            # 36-Board Inlet
+            # 39-Sys Exhaust 1
+            # 40-P/S 2 Zone
+            # 44-Sys Exhaust 2
+            # 17.1-ExpBayBoot-I/O controller
+            # 17.2-ExpBayBoot-I/O controller
+            # 28.1-OCP 1-I/O module
+            # 30.1-OCP 2-I/O module
+
             match = re.search(
-                r"(?P<index>[0-9.]+)-(?P<sensor>[A-Za-z0-9]*) (?P<detail>[A-Za-z0-9*]*)(?P<details>.*)$",
+                r"(?P<index>[0-9]*.?[0-9]*)-(?P<sensor>.*)$",
                 t["Name"],
             )
             # Normalizing names
             if match:
-                s = match.group("sensor")
-                d = match.group("detail")
-                de = match.group("details").strip()
-                # i  s  d    de
+                sensor = match.group("sensor").strip()  # s
+                # i  < sensor  >
                 # 04-P1 DIMM 1-4
-                sd = f"{s}{d}"
 
                 def add(self, name):
                     super().add_monitoring_value(
@@ -70,15 +95,9 @@ class ILO(BMC):
                         t["ReadingCelsius"],
                     )
 
-                # We don't consider all sensors for now
-                # This could be updated depending on the needs
-                if s == "CPU":
-                    add(self, sd)
-                elif s == "Inlet":
-                    add(self, s)
-                elif d == "DIMM":
-                    # P1 DIMM 1-4
-                    add(self, f"{s} {d} {de}")
+                add(self, sensor)
+            else:
+                print(f"read_thermals: Unsupported sensor {t['Name']}")
         return thermals
 
     def get_power(self):
