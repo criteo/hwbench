@@ -6,22 +6,24 @@ from hwbench.utils import helpers as h
 
 
 def init(vendor, pdu_section):
-    return Raritan(vendor, pdu_section)
+    return Generic(vendor, pdu_section)
 
 
-class Raritan(PDU):
-    def __init__(self, vendor, pdu_section):
+class Generic(PDU):
+    def __init__(self, vendor, pdu_section: str):
         super().__init__(vendor, pdu_section)
         self.outletgroup = self.vendor.monitoring_config_file.get(self.pdu_section, "outletgroup", fallback="")
         if not self.outlet and not self.outletgroup:
-            h.fatal("PDU/Raritan: An outlet or an outletgroup must be defined.")
+            h.fatal("PDU/Generic: An outlet or an outletgroup must be defined.")
 
         if self.outlet and self.outletgroup:
-            h.fatal("PDU/Raritan: outlet and outletgroup are mutually exclusive.")
+            h.fatal("PDU/Generic: outlet and outletgroup are mutually exclusive.")
 
     def detect(self):
         """Detect monitoring device"""
+        # In theory we should enumerate the RackPDUs instead of picking "1", but for now this works
         pdu_info = self.get_redfish_url("/redfish/v1/PowerEquipment/RackPDUs/1/")
+        self.manufacturer = pdu_info.get("Manufacturer")
         self.firmware_version = pdu_info.get("FirmwareVersion")
         self.model = pdu_info.get("Model")
         self.serialnumber = pdu_info.get("SerialNumber")

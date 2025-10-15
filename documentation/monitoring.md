@@ -66,7 +66,7 @@ When defining a PDU,
 username=admin
 password=admin
 type=PDU
-driver=raritan
+driver=generic
 url=http://mypdu/
 outlet=21
 ```
@@ -77,12 +77,11 @@ outlet=21
 ### Driver
 There exist many PDU providers and the software quality may vary a lot and so the protocols. To ensure a good compatibility with them, drivers can be added to hwbench.
 
-For this release, only **raritan** driver exists but as it uses some redfish endpoints, it might work on other products.
+For this release, only **generic**, (`raritan` is a synonym for `generic` for compatibility reasons) driver exists but as it uses some redfish endpoints, it might work on other products.
 
-If you have tested it on some other PDUs or have created a custom driver, feel free to push a PR for review.
+If you have tested it on some other PDUs than raritan or enlogic or have created a custom driver, feel free to push a PR for review.
 
-**Note**: The Raritan driver only exports the power in Watts but can be expanded easily to get more metrics.
-
+**Note**: The Generic driver only exports the power in Watts but can be expanded easily to get more metrics.
 
 
 ## URL
