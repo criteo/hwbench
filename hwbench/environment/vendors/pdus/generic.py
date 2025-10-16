@@ -13,6 +13,7 @@ class Generic(PDU):
     def __init__(self, vendor, pdu_section: str):
         super().__init__(vendor, pdu_section)
         self.outletgroup: str = self.vendor.monitoring_config_file.get(self.pdu_section, "outletgroup", fallback="")
+        self.multi_separator: str = self.vendor.monitoring_config_file.get(self.pdu_section, "separator", fallback=",")
         if not self.outlet and not self.outletgroup:
             h.fatal("PDU/Generic: An outlet or an outletgroup must be defined.")
 
@@ -28,11 +29,18 @@ class Generic(PDU):
         self.model = pdu_info.get("Model")
         self.serialnumber = pdu_info.get("SerialNumber")
 
-    def get_power(self):
+    def get_power_url(self, url):
+        return self.get_redfish_url(url).get("PowerWatts")["Reading"]
+
+    def get_power_total(self):
         if self.outletgroup:
-            return self.get_redfish_url(f"/redfish/v1/PowerEquipment/RackPDUs/1/OutletGroups/{self.outletgroup}/")
+            option, basepath = self.outletgroup, "/redfish/v1/PowerEquipment/RackPDUs/1/OutletGroups"
         else:
-            return self.get_redfish_url(f"/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/{self.outlet}/")
+            option, basepath = self.outlet, "/redfish/v1/PowerEquipment/RackPDUs/1/Outlets"
+        total = 0.0
+        for opt in option.split(self.multi_separator):
+            total += self.get_power_url(f"{basepath}/{opt}/")
+        return total
 
     def read_power_consumption(
         self, power_consumption: dict[str, dict[str, Power]] | None = None
@@ -41,5 +49,5 @@ class Generic(PDU):
         if power_consumption is None:
             power_consumption = {}
         power_consumption = super().read_power_consumption(power_consumption)
-        power_consumption[str(PowerContext.PDU)][self.get_name()].add(self.get_power().get("PowerWatts")["Reading"])
+        power_consumption[str(PowerContext.PDU)][self.get_name()].add(self.get_power_total())
         return power_consumption

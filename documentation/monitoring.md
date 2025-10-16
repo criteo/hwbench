@@ -108,5 +108,8 @@ outletgroup=1
 
 **Note**: ``outlet`` and ``outletgroup` are mutually exclusive.
 
+## separator
+By default, specifying multiple outlets or outletgroups for a given PDU is possible: using a comma as a separator, multiple outlets will be fetched for this PDU. This separator can be configured with the `separator`, in the eventual case that your outlet ids contain `,`.
+
 # Turbostat
 Turbostat will be automatically used on x86_64 systems if already installed on the server with release >= 2022.04.16. No configuration is required.

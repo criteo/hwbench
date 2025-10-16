@@ -17,6 +17,7 @@ class Vendor(ABC):
         self.bmc: BMC | None = None
         self.pdus: list[PDU] = []
         self.monitoring_config_filename = monitoring_config_filename
+        self.monitoring_config_file: configparser.ConfigParser
 
     @abstractmethod
     def detect(self) -> bool:

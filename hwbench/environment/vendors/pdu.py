@@ -33,9 +33,9 @@ class PDU(MonitoringDevice):
             h.fatal(f"Cannot find a password for PDU {self.pdu_section}")
         return super().connect_redfish(username, password, self.get_url())
 
-    def get_power(self):
+    def get_power_total(self):
         """Return the power metrics."""
-        return {}
+        return 0.0
 
     def read_power_consumption(
         self, power_consumption: dict[str, dict[str, Power]] | None = None
