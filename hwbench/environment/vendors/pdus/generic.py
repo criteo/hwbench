@@ -28,6 +28,12 @@ class Generic(PDU):
         self.firmware_version = pdu_info.get("FirmwareVersion")
         self.model = pdu_info.get("Model")
         self.serialnumber = pdu_info.get("SerialNumber")
+        self.userlabel = pdu_info.get("UserLabel")
+
+    def dump(self):
+        dump = super().dump()
+        dump["user_label"] = self.userlabel
+        return dump
 
     def get_power_url(self, url):
         return self.get_redfish_url(url).get("PowerWatts")["Reading"]
