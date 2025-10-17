@@ -17,6 +17,7 @@ class Vendor(ABC):
         self.bmc: BMC = None
         self.pdus: list[PDU] = []
         self.monitoring_config_filename = monitoring_config_filename
+        self.monitoning_config_file: configparser.ConfigParser
 
     @abstractmethod
     def detect(self) -> bool:
@@ -59,6 +60,9 @@ class Vendor(ABC):
                 pdu_driver_name = self.monitoring_config_file.get(pdu_section, "driver", fallback="")
                 if not pdu_driver_name:
                     h.fatal("PDU configuration requires a driver.")
+                # for config backwards compatibility
+                if pdu_driver_name.lower() == "raritan":
+                    pdu_driver_name = "generic"
                 pdu_driver = self._load_vendor("pdus", pdu_driver_name.lower()).init(self, pdu_section)
                 self.pdus.append(pdu_driver)
 

@@ -15,6 +15,7 @@ class MonitoringDevice:
         self.redfish_obj = None
         self.logged = False
         self.firmware_version = ""
+        self.manufacturer = ""
         self.model = ""
         self.serialnumber = ""
 
@@ -86,6 +87,8 @@ class MonitoringDevice:
             dump["serial_number"] = self.serialnumber
         if self.get_url():
             dump["url"] = self.get_url()
+        if self.manufacturer:
+            dump["manufacturer"] = self.manufacturer
         return dump
 
     def connect_redfish(self, username: str, password: str, device_url: str):
