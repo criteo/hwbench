@@ -62,14 +62,36 @@ class TestHpeAp2K(TestGenericHpe):
 
     def test_thermal(self):
         expected_output = self.generic_thermal_output()
-        expected_output["Intake"]["01-Inlet Ambient"] = Temperature("Inlet", 23)
+        expected_output["Intake"]["01-Inlet Ambient"] = Temperature("Inlet Ambient", 23)
         expected_output["CPU"] = {
-            "02-CPU 1": Temperature("CPU1", 40),
-            "55-CPU 1 PkgTmp": Temperature("CPU1", 36),
+            "02-CPU 1": Temperature("CPU 1", 40),
+            "55-CPU 1 PkgTmp": Temperature("CPU 1 PkgTmp", 36),
         }
         expected_output["Memory"] = {
             "04-P1 DIMM 1-4": Temperature("P1 DIMM 1-4", 28),
             "05-P1 DIMM 5-8": Temperature("P1 DIMM 5-8", 28),
+        }
+        expected_output["SystemBoard"] = {
+            "11-Board Inlet": Temperature("Board Inlet", 25),
+            "12-VR P1": Temperature("VR P1", 37),
+            "14-VR P1 Mem 1": Temperature("VR P1 Mem 1", 38),
+            "15-VR P1 Mem 2": Temperature("VR P1 Mem 2", 39),
+            "18-BMC": Temperature("BMC", 47),
+            "19-BMC Zone": Temperature("BMC Zone", 33),
+            "21-Sys Exhaust 1": Temperature("Sys Exhaust 1", 32),
+            "31-PCI 2 Zone": Temperature("PCI 2 Zone", 26),
+            "36-I/O Zone": Temperature("I/O Zone", 32),
+            "47-Sys Exhaust 2": Temperature("Sys Exhaust 2", 26),
+            "20.1-LOM-CORE": Temperature("LOM-CORE", 39),
+            "35.1-LOM Card-I/O module": Temperature("LOM Card-I/O module", 45),
+        }
+        expected_output["PowerSupply"] = {
+            "41-P/S 1 Zone": Temperature("P/S 1 Zone", 25),
+            "42-P/S 2 Zone": Temperature("P/S 2 Zone", 25),
+            "43-P/S 1 Inlet": Temperature("P/S 1 Inlet", 40),
+            "44-P/S 2 Inlet": Temperature("P/S 2 Inlet", 40),
+            "45-P/S 1": Temperature("P/S 1", 40),
+            "46-P/S 2": Temperature("P/S 2", 40),
         }
 
         super().generic_thermal_test(expected_output)
@@ -112,12 +134,15 @@ class TestHpeDL380(TestGenericHpe):
 
     def test_thermal(self):
         expected_output = self.generic_thermal_output()
-        expected_output[str(ThermalContext.INTAKE)] = {"01-Inlet Ambient": Temperature("Inlet", 24)}
+        expected_output[str(ThermalContext.INTAKE)] = {
+            "01-Inlet Ambient": Temperature("Inlet Ambient", 24),
+            "15-Front Ambient": Temperature("Front Ambient", 32),
+        }
         expected_output[str(ThermalContext.CPU)] = {
-            "02-CPU 1": Temperature("CPU1", 40),
-            "03-CPU 2": Temperature("CPU2", 40),
-            "96-CPU 1 PkgTmp": Temperature("CPU1", 41),
-            "97-CPU 2 PkgTmp": Temperature("CPU2", 37),
+            "02-CPU 1": Temperature("CPU 1", 40),
+            "03-CPU 2": Temperature("CPU 2", 40),
+            "96-CPU 1 PkgTmp": Temperature("CPU 1 PkgTmp", 41),
+            "97-CPU 2 PkgTmp": Temperature("CPU 2 PkgTmp", 37),
         }
         expected_output[str(ThermalContext.MEMORY)] = {
             "04-P1 DIMM 1-6": Temperature("P1 DIMM 1-6", 35),
@@ -125,7 +150,9 @@ class TestHpeDL380(TestGenericHpe):
             "08-P2 DIMM 1-6": Temperature("P2 DIMM 1-6", 36),
             "10-P2 DIMM 7-12": Temperature("P2 DIMM 7-12", 35),
         }
-        super().generic_thermal_test(expected_output)
+        expected_output["SystemBoard"] = {
+            "12-HD Max": Temperature("HD Max", 25),
+        }
 
     def test_fan(self):
         expected_output = self.generic_fan_output()
