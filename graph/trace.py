@@ -20,7 +20,7 @@ MEAN = "mean"
 
 
 METRIC_AXIS = {
-    "Percent": (100, 10, 5),
+    "Percent": (110, 10, 5),
     "RPM": (21000, 1000, 250),
     "Celsius": (110, 10, 5),
 }
