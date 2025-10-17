@@ -30,22 +30,35 @@ class Generic(PDU):
         self.serialnumber = pdu_info.get("SerialNumber")
         self.userlabel = pdu_info.get("UserLabel")
 
+        self.outlets = []
+        for outlet in self.get_power():
+            self.outlets.append(
+                {
+                    "id": outlet.get("Id"),
+                    "name": outlet.get("Name"),
+                    "user_label": outlet.get("UserLabel"),
+                }
+            )
+
     def dump(self):
         dump = super().dump()
         dump["user_label"] = self.userlabel
+        dump["outlets"] = self.outlets
         return dump
 
-    def get_power_url(self, url):
-        return self.get_redfish_url(url).get("PowerWatts")["Reading"]
-
-    def get_power_total(self):
+    def get_power(self):
+        power = []
         if self.outletgroup:
             option, basepath = self.outletgroup, "/redfish/v1/PowerEquipment/RackPDUs/1/OutletGroups"
         else:
             option, basepath = self.outlet, "/redfish/v1/PowerEquipment/RackPDUs/1/Outlets"
-        total = 0.0
         for opt in option.split(self.multi_separator):
-            total += self.get_power_url(f"{basepath}/{opt}/")
+            power.append(self.get_redfish_url(f"{basepath}/{opt}/"))
+
+    def get_power_total(self):
+        total = 0.0
+        for outlet in self.get_power():
+            total += outlet.get("PowerWatts")["Reading"]
         return total
 
     def read_power_consumption(
