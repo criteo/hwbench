@@ -195,7 +195,17 @@ class Graph:
         if not self.args.events or not self.needs_legend:
             return
 
-        colors = ["red", "cyan", "magenta", "yellow", "blue"]
+        colors = [
+            "tab:blue",
+            "tab:orange",
+            "tab:green",
+            "tab:red",
+            "tab:purple",
+            "tab:brown",
+            "tab:pink",
+            "tab:cyan",
+            "tab:olive",
+        ]
         # Let's add all events and color them,
         for event, event_color in zip(self.args.events, cycle(colors)):
             ymin, ymax = self.get_ax().get_ylim()
@@ -205,7 +215,7 @@ class Graph:
                 ymin,
                 ymax,
                 label=f"Event {event.get_name()}",
-                alpha=0.1,
+                alpha=0.2,
                 color=event_color,
             )
 
@@ -213,25 +223,62 @@ class Graph:
         """Render the graph to a file."""
         # Retrieve the rendering file format
         file_format = self.args.format
+        legends = []
 
         # Trace the events passed on the command line
         self.trace_events()
 
         # Having vertical xticks makes it scalable for large number of cores
-        plt.xticks(rotation=90)
+        plt.setp(self.ax.get_xticklabels(), rotation=90)
 
         # Plot the legend if necessary
         # (Some graphs, like BarGraphs, do not need legend)
         if self.needs_legend:
             plt.legend()
+            # Upper left
+            legends.append(self.ax.legend(bbox_to_anchor=(-0.05, 1), title="component [min; mean; stddev; max]\n"))
+            if self.ax2:
+                # Upper right
+                legends.append(
+                    self.ax2.legend(
+                        loc="upper right", bbox_to_anchor=(1.3, 1), title="component [min; mean; stddev; max]\n"
+                    )
+                )
 
+        plt.rcParams["font.family"] = "monospace"  # Using monospace font to manage text alignment
         plt.savefig(
             f"{self.output_dir}/{self.filename}.{file_format}",
             format=file_format,
             dpi=self.args.dpi,
+            bbox_inches="tight",
+            pad_inches=1,
+            bbox_extra_artists=legends,
         )
         self.fig.clear()
         plt.close(self.fig)
+
+
+def fp(value: float, max_value_length=0) -> str:
+    # Return the string representation of a normalized float
+    result = f"{value:.1f}"
+    # If we force the string length:
+    if max_value_length:
+        return f"{result:>{max_value_length}}"
+    return result
+
+
+def get_max_value_string_length(serie) -> int:
+    # Get the max value of a serie
+    return max(len(fp(x)) for x in serie)
+
+
+def statistics_in_label(label: str, serie: np.ndarray, max_title_length=0, max_value_length=0) -> str:
+    """Return 'label + [min, mean, stddev, max]'"""
+
+    if not max_title_length:
+        max_title_length = len(label)
+
+    return f"{label:{max_title_length}} [{fp(min(serie), max_value_length)}; {fp(np.mean(serie), max_value_length)}; {fp(np.std(serie), max_value_length)}; {fp(max(serie), max_value_length)}]"
 
 
 def generic_graph(
@@ -351,10 +398,19 @@ def generic_graph(
     x_serie = np.array(time_serie)[order]
 
     if second_axis:
+        max_title_length = max(len(data2_item) for data2_item in data2_serie)
+        max_value_length = max(
+            get_max_value_string_length(np.array(data2_serie[data2_item])) for data2_item in data2_serie
+        )
         for data2_item in data2_serie:
             y2_serie = np.array(data2_serie[data2_item])[order]
-            graph.get_ax2().plot(x_serie, y2_serie, "", label=data2_item, marker=".")
+            y2_label = statistics_in_label(str(data2_item), y2_serie, max_title_length, max_value_length)
+            graph.get_ax2().plot(x_serie, y2_serie, "", label=y2_label, marker=".")
 
+    max_title_length = max(len(component.get_full_name()) for component in components)
+    max_value_length = max(
+        get_max_value_string_length(np.array(data_serie[component.get_full_name()])) for component in components
+    )
     for component in components:
         y_serie = np.array(data_serie[component.get_full_name()])[order]
         y_label = ""
@@ -362,7 +418,7 @@ def generic_graph(
         # labels will not fit and makes the drawing hard to read.
         # Let's disable labels in such case.
         if len(components) < 37:
-            y_label = component.get_full_name()
+            y_label = statistics_in_label(component.get_full_name(), y_serie, max_title_length, max_value_length)
         graph.get_ax().plot(x_serie, y_serie, "", label=y_label)
 
     graph.prepare_axes(
@@ -409,20 +465,21 @@ def yerr_graph(
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
     title += f"\n{bench.get_system_title()}"
 
+    order = np.argsort(time_serie)
+    x_serie = np.array(time_serie)[order]
+    y_serie = np.array(data_serie[MEAN])[order]
+    yerror_serie = np.array(data_serie[ERROR]).T
+
     graph = Graph(
         args,
         title,
         "Time [seconds]",
         unit,
         output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{component_type!s}"),
-        f"{prefix}{component.get_name()}",
+        component.get_name(),
         show_source_file=trace,
     )
 
-    order = np.argsort(time_serie)
-    x_serie = np.array(time_serie)[order]
-    y_serie = np.array(data_serie[MEAN])[order]
-    yerror_serie = np.array(data_serie[ERROR]).T
     graph.get_ax().errorbar(
         x_serie,
         y_serie,
@@ -430,7 +487,9 @@ def yerr_graph(
         fmt="-b",
         ecolor="r",
         capsize=4,
-        label=component.get_name(),
+        label=statistics_in_label(
+            component.get_name(), y_serie, len(component.get_full_name()), get_max_value_string_length(y_serie)
+        ),
     )
     graph.prepare_axes(
         30,

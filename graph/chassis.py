@@ -1,6 +1,6 @@
 import numpy as np
 
-from graph.graph import Graph
+from graph.graph import Graph, statistics_in_label
 from hwbench.bench.monitoring_structs import Metrics, PowerCategories, PowerContext
 
 
@@ -127,15 +127,17 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             curve_label = str(component)
             if component in [PowerCategories.SERVER, PowerCategories.SERVERINCHASSIS]:
                 curve_label = f"sum of {component!s}"
+            curve_label = statistics_in_label(curve_label, y_serie)
             graph.get_ax().plot(x_serie, y_serie, "", label=curve_label, marker=get_marker(component))
 
         for trace in args.traces:
             y_serie = np.array(serie[trace.get_name()])[order]
+            y_label = statistics_in_label(trace.get_name() + label_caption, y_serie)
             graph.get_ax().plot(
                 x_serie,
                 y_serie,
                 "",
-                label=trace.get_name() + label_caption,
+                label=y_label,
                 marker=get_marker(graph_type),
             )
 

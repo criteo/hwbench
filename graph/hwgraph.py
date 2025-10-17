@@ -2,6 +2,7 @@
 import argparse
 import pathlib
 import re
+import shlex
 import sys
 from typing import Any  # noqa: F401
 
@@ -463,6 +464,14 @@ duration     : duration of the event (in seconds)
 
     # Call the appropriate sub command
     args.func(args)
+
+    # Save the actual cmdline so it's easier to regenerate graph
+    # Do not expose the actual hwbench path like /home/user/hwbench/...
+    sys.argv[0] = "hwgraph"
+    # Keep quotes from the argument list with shlex
+    pathlib.Path(pathlib.Path(args.outdir).joinpath("cmdline")).write_text(
+        " ".join(shlex.quote(arg) for arg in sys.argv)
+    )
 
 
 if __name__ == "__main__":
