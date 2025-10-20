@@ -12,6 +12,8 @@ def init(vendor, pdu_section):
 class Generic(PDU):
     def __init__(self, vendor, pdu_section: str):
         super().__init__(vendor, pdu_section)
+        pdu_id: str = self.vendor.monitoring_config_file.get(self.pdu_section, "pdu_id", fallback="1")
+        self.redfish_root = f"/redfish/v1/PowerEquipment/RackPDUs/{pdu_id}/"
         self.outletgroup: str = self.vendor.monitoring_config_file.get(self.pdu_section, "outletgroup", fallback="")
         self.multi_separator: str = self.vendor.monitoring_config_file.get(self.pdu_section, "separator", fallback=",")
         if not self.outlet and not self.outletgroup:
@@ -22,13 +24,13 @@ class Generic(PDU):
 
     def detect(self):
         """Detect monitoring device"""
-        # In theory we should enumerate the RackPDUs instead of picking "1", but for now this works
-        pdu_info = self.get_redfish_url("/redfish/v1/PowerEquipment/RackPDUs/1/")
+        pdu_info = self.get_redfish_url(self.redfish_root)
         self.manufacturer = pdu_info.get("Manufacturer")
         self.firmware_version = pdu_info.get("FirmwareVersion")
         self.model = pdu_info.get("Model")
         self.serialnumber = pdu_info.get("SerialNumber")
         self.userlabel = pdu_info.get("UserLabel")
+        self.id = pdu_info.get("Id")
 
         self.outlets = []
         for outlet in self.get_power():
@@ -44,16 +46,18 @@ class Generic(PDU):
         dump = super().dump()
         dump["user_label"] = self.userlabel
         dump["outlets"] = self.outlets
+        dump["id"] = self.id
         return dump
 
     def get_power(self):
         power = []
         if self.outletgroup:
-            option, basepath = self.outletgroup, "/redfish/v1/PowerEquipment/RackPDUs/1/OutletGroups"
+            option, path = self.outletgroup, "OutletGroups"
         else:
-            option, basepath = self.outlet, "/redfish/v1/PowerEquipment/RackPDUs/1/Outlets"
+            option, path = self.outlet, "Outlets"
         for opt in option.split(self.multi_separator):
-            power.append(self.get_redfish_url(f"{basepath}/{opt}/"))
+            power.append(self.get_redfish_url(f"{self.redfish_root}{path}/{opt}/"))
+        return power
 
     def get_power_total(self):
         total = 0.0

@@ -111,5 +111,8 @@ outletgroup=1
 ## separator
 By default, specifying multiple outlets or outletgroups for a given PDU is possible: using a comma as a separator, multiple outlets will be fetched for this PDU. This separator can be configured with the `separator`, in the eventual case that your outlet ids contain `,`.
 
+## pdu_id
+This property allows selecting the RackPDU member id. It is used to access daisy-chained PDUs that are accessible behind a first PDU. It is handled as a string.
+
 # Turbostat
 Turbostat will be automatically used on x86_64 systems if already installed on the server with release >= 2022.04.16. No configuration is required.
