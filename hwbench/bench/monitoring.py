@@ -201,28 +201,25 @@ class Monitoring:
                 # Let's monitor the time spent at monitoring the PDUs, in milliseconds
                 self.get_metric(Metrics.MONITOR)["PDU"]["Polling"].add((time.monotonic_ns() - start_pdu_ns) * 1e-6)
 
-            # We compute the time spent since we started this iteration
-            monitoring_duration_s_ns = time.monotonic_ns() - start_time_loop_ns
-
             # Based on the time passed, let's compute the amount of sleep time
             # to keep in sync with the expected precision_s
             sleep_time_ns = next_iter_ns() - time.monotonic_ns()  # in nanoseconds
             sleep_time_ms = sleep_time_ns / 1e6  # in milliseconds
             sleep_time = sleep_time_ns / 1e9  # in seconds
 
+            if sleep_time_ms < -5:
+                # The iteration is already late on schedule
+                # Only print a warning message if we are more than 5ms late
+                print(f"Monitoring iteration {loops_done} is {abs(sleep_time_ms):.2f}ms late")
+
             # If the the current time + sleep_time is above the total duration_s (we accept up to 500ms overdue)
-            if (start_monitoring_ns + monitoring_duration_s_ns + sleep_time_ns) > (end_of_run_ns + 0.5 * 1e9):
+            if (time.monotonic_ns() + max(0, sleep_time_ns)) > (end_of_run_ns + 0.5 * 1e9):
                 # We can stop the monitoring, no more measures will be done
                 if self.turbostat:
                     self.turbostat.parse()
                 break
 
-            if sleep_time < 0:
-                # The iteration is already late on schedule, no need to sleep
-                # Only print a warning message if we are more than 5ms late
-                if sleep_time_ms < -5:
-                    print(f"Monitoring iteration {loops_done} is {abs(sleep_time_ms):.2f}ms late")
-            else:
+            if sleep_time > 0:
                 # The iteration is on time, let's sleep until the next one
                 time.sleep(sleep_time)
 
