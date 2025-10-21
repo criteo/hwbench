@@ -114,5 +114,8 @@ By default, specifying multiple outlets or outletgroups for a given PDU is possi
 ## pdu_id
 This property allows selecting the RackPDU member id. It is used to access daisy-chained PDUs that are accessible behind a first PDU. It is handled as a string.
 
+## group
+This parameter is just metadata to be added in hwbench's output. The rendering software (hwgraph) can be used to group PDUs with the same group together. For example it can be used to annotate electrical feeds on which PDUs are attached to monitor for imbalance between them.
+
 # Turbostat
 Turbostat will be automatically used on x86_64 systems if already installed on the server with release >= 2022.04.16. No configuration is required.

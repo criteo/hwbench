@@ -21,6 +21,7 @@ class Generic(PDU):
 
         if self.outlet and self.outletgroup:
             h.fatal("PDU/Generic: outlet and outletgroup are mutually exclusive.")
+        self.group = self.vendor.monitoring_config_file.get(self.pdu_section, "group", fallback="")
 
     def detect(self):
         """Detect monitoring device"""
@@ -47,6 +48,8 @@ class Generic(PDU):
         dump["user_label"] = self.userlabel
         dump["outlets"] = self.outlets
         dump["id"] = self.id
+        if self.group:
+            dump["group"] = self.group
         return dump
 
     def get_power_outlet(self, url: str):
