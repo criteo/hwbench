@@ -49,6 +49,12 @@ class Generic(PDU):
         dump["id"] = self.id
         return dump
 
+    def get_power_outlet(self, url: str):
+        res = self.get_redfish_url(url)
+        if not isinstance(res, dict) or "ErrorDescription" in res:
+            h.fatal(f"Cannot get outlet from url {self.get_url()}{url}, please check its name: {res}")
+        return res
+
     def get_power(self):
         power = []
         if self.outletgroup:
@@ -56,12 +62,16 @@ class Generic(PDU):
         else:
             option, path = self.outlet, "Outlets"
         for opt in option.split(self.multi_separator):
-            power.append(self.get_redfish_url(f"{self.redfish_root}{path}/{opt}/"))
+            power.append(self.get_power_outlet(f"{self.redfish_root}{path}/{opt}"))
         return power
 
     def get_power_total(self):
         total = 0.0
         for outlet in self.get_power():
+            if "PowerWatts" not in outlet or "Reading" not in outlet["PowerWatts"]:
+                h.fatal(
+                    f"Outlet for {self.get_url()} does not expose power metrics: {outlet}\noutlet={self.outlet}, outletgroup={self.outletgroup}"
+                )
             total += outlet.get("PowerWatts")["Reading"]
         return total
 
