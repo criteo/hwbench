@@ -12,7 +12,7 @@ def init(vendor, pdu_section):
 class Generic(PDU):
     def __init__(self, vendor, pdu_section: str):
         super().__init__(vendor, pdu_section)
-        self.outletgroup = self.vendor.monitoring_config_file.get(self.pdu_section, "outletgroup", fallback="")
+        self.outletgroup: str = self.vendor.monitoring_config_file.get(self.pdu_section, "outletgroup", fallback="")
         if not self.outlet and not self.outletgroup:
             h.fatal("PDU/Generic: An outlet or an outletgroup must be defined.")
 

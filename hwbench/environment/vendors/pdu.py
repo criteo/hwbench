@@ -10,7 +10,7 @@ class PDU(MonitoringDevice):
     def __init__(self, vendor, pdu_section: str):
         super().__init__(vendor)
         self.pdu_section = pdu_section
-        self.outlet = self.vendor.monitoring_config_file.get(self.pdu_section, "outlet", fallback="")
+        self.outlet: str = self.vendor.monitoring_config_file.get(self.pdu_section, "outlet", fallback="")
 
     def get_url(self):
         url = super().get_url()
