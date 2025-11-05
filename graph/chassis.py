@@ -1,3 +1,5 @@
+from typing import cast
+
 import numpy as np
 
 from graph.graph import Graph, statistics_in_label
@@ -128,7 +130,9 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             if component in [PowerCategories.SERVER, PowerCategories.SERVERINCHASSIS]:
                 curve_label = f"sum of {component!s}"
             curve_label = statistics_in_label(curve_label, y_serie)
-            graph.get_ax().plot(x_serie, y_serie, "", label=curve_label, marker=get_marker(component))
+            graph.get_ax().plot(
+                x_serie, y_serie, "", label=curve_label, marker=get_marker(cast(PowerCategories, component))
+            )
 
         for trace in args.traces:
             y_serie = np.array(serie[trace.get_name()])[order]
