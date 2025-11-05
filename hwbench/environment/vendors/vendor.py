@@ -11,10 +11,10 @@ from .pdu import PDU
 
 
 class Vendor(ABC):
-    def __init__(self, out_dir, dmi, monitoring_config_filename):
+    def __init__(self, out_dir, dmi, monitoring_config_filename: str):
         self.out_dir = out_dir
         self.dmi = dmi
-        self.bmc: BMC = None
+        self.bmc: BMC | None = None
         self.pdus: list[PDU] = []
         self.monitoring_config_filename = monitoring_config_filename
 
@@ -64,7 +64,10 @@ class Vendor(ABC):
 
     def get_bmc(self) -> BMC:
         """Return the BMC object"""
-        return self.bmc
+        if self.bmc:
+            return self.bmc
+        else:
+            h.fatal("No bmc is configured")
 
     def get_pdus(self) -> list[PDU]:
         """Return a list of PDUs object"""
