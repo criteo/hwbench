@@ -7,10 +7,10 @@ from .monitoring_device import MonitoringDevice
 
 
 class PDU(MonitoringDevice):
-    def __init__(self, vendor, pdu_section):
+    def __init__(self, vendor, pdu_section: str):
         super().__init__(vendor)
         self.pdu_section = pdu_section
-        self.outlet = self.vendor.monitoring_config_file.get(self.pdu_section, "outlet", fallback="")
+        self.outlet: str = self.vendor.monitoring_config_file.get(self.pdu_section, "outlet", fallback="")
 
     def get_url(self):
         url = super().get_url()
@@ -33,9 +33,9 @@ class PDU(MonitoringDevice):
             h.fatal(f"Cannot find a password for PDU {self.pdu_section}")
         return super().connect_redfish(username, password, self.get_url())
 
-    def get_power(self):
+    def get_power_total(self):
         """Return the power metrics."""
-        return {}
+        return 0.0
 
     def read_power_consumption(
         self, power_consumption: dict[str, dict[str, Power]] | None = None

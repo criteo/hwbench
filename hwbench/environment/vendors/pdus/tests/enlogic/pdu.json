@@ -1,0 +1,44 @@
+{
+  "@odata.type": "#PowerDistribution.v1_0_0.PowerDistribution",
+  "Id": 1,
+  "EquipmentType": "RackPDU",
+  "Name": "",
+  "FirmwareVersion": "3.2.5",
+  "Version": "1.6.0",
+  "ProductionDate": "2025-04-27T00:03:35",
+  "Manufacturer": "ENLOGIC",
+  "Model": "346-415V, 32A, 22.0kVA, 50/60Hz",
+  "SerialNumber": "WPDXXXXX",
+  "PartNumber": "EN6850",
+  "UUID": "NULL",
+  "AssetTag": "NULL",
+  "Status": {
+    "State": "Enabled",
+    "Health": "OK"
+  },
+  "Location": {
+    "Placement": {
+      "Row": "99 aun at ant nra nr"
+    }
+  },
+  "Mains": {
+    "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/Mains"
+  },
+  "Branches": {
+    "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/Branches"
+  },
+  "Outlets": {
+    "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/Outlets"
+  },
+  "OutletGroups": {
+    "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/OutletGroups"
+  },
+  "Metrics": {
+    "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/Metrics"
+  },
+  "Sensors": {
+    "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/Sensors"
+  },
+  "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1",
+  "@Redfish.Copyright": "Copyright 2014-2021 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

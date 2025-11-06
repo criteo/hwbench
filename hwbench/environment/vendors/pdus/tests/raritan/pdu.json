@@ -1,0 +1,33 @@
+{
+  "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1",
+  "@odata.type": "#PowerDistribution.v1_3_3.PowerDistribution",
+  "Name": "PDU 1",
+  "Id": "1",
+  "EquipmentType": "RackPDU",
+  "Manufacturer": "Raritan",
+  "Model": "PX3-5722V-V2",
+  "SerialNumber": "1EXXXXXXXXXXX",
+  "FirmwareVersion": "4.3.0.5-51180",
+  "UserLabel": "DATACENTER-6/RACK-B37/FEED-C",
+  "Status": {
+    "State": "Enabled",
+    "Health": "OK",
+    "HealthRollup": "OK"
+  },
+  "Metrics": {
+    "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/Metrics"
+  },
+  "Mains": {
+    "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/Mains"
+  },
+  "Branches": {
+    "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/Branches"
+  },
+  "Outlets": {
+    "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/Outlets"
+  },
+  "OutletGroups": {
+    "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/OutletGroups"
+  },
+  "@odata.etag": "6362e3035dc2a15d3410b0cfa4333c83"
+}

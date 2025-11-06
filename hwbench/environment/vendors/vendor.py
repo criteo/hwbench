@@ -11,12 +11,13 @@ from .pdu import PDU
 
 
 class Vendor(ABC):
-    def __init__(self, out_dir, dmi, monitoring_config_filename):
+    def __init__(self, out_dir, dmi, monitoring_config_filename: str):
         self.out_dir = out_dir
         self.dmi = dmi
-        self.bmc: BMC = None
+        self.bmc: BMC | None = None
         self.pdus: list[PDU] = []
         self.monitoring_config_filename = monitoring_config_filename
+        self.monitoring_config_file: configparser.ConfigParser
 
     @abstractmethod
     def detect(self) -> bool:
@@ -59,12 +60,18 @@ class Vendor(ABC):
                 pdu_driver_name = self.monitoring_config_file.get(pdu_section, "driver", fallback="")
                 if not pdu_driver_name:
                     h.fatal("PDU configuration requires a driver.")
+                # for config backwards compatibility
+                if pdu_driver_name.lower() == "raritan":
+                    pdu_driver_name = "generic"
                 pdu_driver = self._load_vendor("pdus", pdu_driver_name.lower()).init(self, pdu_section)
                 self.pdus.append(pdu_driver)
 
     def get_bmc(self) -> BMC:
         """Return the BMC object"""
-        return self.bmc
+        if self.bmc:
+            return self.bmc
+        else:
+            h.fatal("No bmc is configured")
 
     def get_pdus(self) -> list[PDU]:
         """Return a list of PDUs object"""

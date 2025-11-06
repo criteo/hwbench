@@ -84,14 +84,14 @@ class TestVendors(unittest.TestCase):
     def sample(self, name):
         """Return the samples for this test."""
         output = None
-        with open(self.__get_samples_file_name(name)) as file:
+        with open(self.get_samples_file_name(name)) as file:
             output = file.readlines()
             # If the file is empty but json output is requested, let's return an empty string
             if not len(output):
                 output = "{}"
         return ast.literal_eval("\n".join(output))
 
-    def __get_samples_file_name(self, name):
+    def get_samples_file_name(self, name):
         """Return the expected sample filename."""
         filename = ""
         # If there is no alternative set or alternative doesn't have this sample, let's use the default

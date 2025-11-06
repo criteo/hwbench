@@ -66,7 +66,7 @@ When defining a PDU,
 username=admin
 password=admin
 type=PDU
-driver=raritan
+driver=generic
 url=http://mypdu/
 outlet=21
 ```
@@ -77,12 +77,11 @@ outlet=21
 ### Driver
 There exist many PDU providers and the software quality may vary a lot and so the protocols. To ensure a good compatibility with them, drivers can be added to hwbench.
 
-For this release, only **raritan** driver exists but as it uses some redfish endpoints, it might work on other products.
+For this release, only **generic**, (`raritan` is a synonym for `generic` for compatibility reasons) driver exists but as it uses some redfish endpoints, it might work on other products.
 
-If you have tested it on some other PDUs or have created a custom driver, feel free to push a PR for review.
+If you have tested it on some other PDUs than raritan or enlogic or have created a custom driver, feel free to push a PR for review.
 
-**Note**: The Raritan driver only exports the power in Watts but can be expanded easily to get more metrics.
-
+**Note**: The Generic driver only exports the power in Watts but can be expanded easily to get more metrics.
 
 
 ## URL
@@ -108,6 +107,15 @@ outletgroup=1
 ```
 
 **Note**: ``outlet`` and ``outletgroup` are mutually exclusive.
+
+## separator
+By default, specifying multiple outlets or outletgroups for a given PDU is possible: using a comma as a separator, multiple outlets will be fetched for this PDU. This separator can be configured with the `separator`, in the eventual case that your outlet ids contain `,`.
+
+## pdu_id
+This property allows selecting the RackPDU member id. It is used to access daisy-chained PDUs that are accessible behind a first PDU. It is handled as a string.
+
+## group
+This parameter is just metadata to be added in hwbench's output. The rendering software (hwgraph) can be used to group PDUs with the same group together. For example it can be used to annotate electrical feeds on which PDUs are attached to monitor for imbalance between them.
 
 # Turbostat
 Turbostat will be automatically used on x86_64 systems if already installed on the server with release >= 2022.04.16. No configuration is required.

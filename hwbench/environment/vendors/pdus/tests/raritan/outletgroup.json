@@ -1,0 +1,39 @@
+{
+  "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/OutletGroups/2",
+  "@odata.type": "#OutletGroup.v1_1_2.OutletGroup",
+  "Name": "Serial xxx",
+  "Id": "2",
+  "Status": {
+    "State": "Enabled",
+    "Health": "OK",
+    "HealthRollup": "OK"
+  },
+  "Actions": {
+    "#OutletGroup.PowerControl": {
+      "target": "/redfish/v1/PowerEquipment/RackPDUs/1/OutletGroups/2/Actions/OutletGroup.PowerControl"
+    }
+  },
+  "PowerState": "On",
+  "PowerStateInTransition": false,
+  "PowerWatts": {
+    "Reading": 825.97700000000012,
+    "ApparentVA": 848.172
+  },
+  "EnergykWh": {
+    "Reading": 21.19475100000203
+  },
+  "Links": {
+    "Outlets": [
+      {
+        "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/19"
+      },
+      {
+        "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/25"
+      },
+      {
+        "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/31"
+      }
+    ]
+  },
+  "@odata.etag": "5c8939aa781d9deeec39cc402f3a8554"
+}

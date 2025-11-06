@@ -1,0 +1,43 @@
+{
+  "@odata.id": "/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/1",
+  "@odata.type": "#Outlet.v1_4_2.Outlet",
+  "Name": "Outlet 1",
+  "Id": "1",
+  "PhaseWiringType": "OnePhase3Wire",
+  "UserLabel": "A very nice outlet",
+  "Status": {
+    "State": "Enabled",
+    "Health": "OK",
+    "HealthRollup": "OK"
+  },
+  "Actions": {
+    "#Outlet.PowerControl": {
+      "target": "/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/1/Actions/Outlet.PowerControl"
+    }
+  },
+  "PowerOnDelaySeconds": 3,
+  "PowerCycleDelaySeconds": 10,
+  "PowerRestorePolicy": "LastState",
+  "PowerState": "On",
+  "PowerStateInTransition": false,
+  "NominalVoltage": "AC200To240V",
+  "RatedCurrentAmps": 16.0,
+  "Voltage": {
+    "Reading": 238.08
+  },
+  "CurrentAmps": {
+    "Reading": 1.65
+  },
+  "FrequencyHz": {
+    "Reading": 49.9
+  },
+  "PowerWatts": {
+    "Reading": 386.839,
+    "ApparentVA": 393.61,
+    "PowerFactor": 0.98279769314803982
+  },
+  "EnergykWh": {
+    "Reading": 4219.230905
+  },
+  "@odata.etag": "b6b328753d960d3d908ad9dd7459ec52"
+}
