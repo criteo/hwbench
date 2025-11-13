@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 import statistics
 import sys
+from collections import defaultdict
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, StrEnum
+from typing import Any
 
 
 @dataclass
@@ -10,86 +14,79 @@ class MonitorMetric:
 
     name: str
     unit: str
-    # We let an option to init with an initial value
-    # The default is set to None and this value shall be used during comparison or repr
     value: float = field(default=sys.float_info.max, compare=False, repr=False)
     values: list[float] = field(default_factory=list, init=False)
     mean: list[float] = field(default_factory=list, init=False)
     min: list[float] = field(default_factory=list, init=False)
     max: list[float] = field(default_factory=list, init=False)
     stdev: list[float] = field(default_factory=list, init=False)
-    samples: list[float] = field(default_factory=list, init=False)
+    samples: list[int] = field(default_factory=list, init=False)
+    full_name: str = field(default="", init=False)
 
-    def __post_init__(self):
-        # Called after __init__
-        if self.value is not None and self.value is not sys.float_info.max:
-            # If a value is given, let's add it
+    def __post_init__(self) -> None:
+        if self.value != sys.float_info.max:
             self.add(self.value)
 
-    def load_from_dict(self, input: dict, full_name: str):
+    def load_from_dict(self, input_data: dict[str, Any], full_name: str) -> None:
+        """Load metric data from a dictionary."""
         self.full_name = full_name
-        self.name = str(input.get("name"))
-        self.unit = str(input.get("unit"))
-        self.mean = input.get("mean")  # type: ignore[assignment]
-        self.min = input.get("min")  # type: ignore[assignment]
-        self.max = input.get("max")  # type: ignore[assignment]
-        self.stdev = input.get("stdev")  # type: ignore[assignment]
-        self.samples = input.get("samples")  # type: ignore[assignment]
+        self.name = str(input_data.get("name", self.name))
+        self.unit = str(input_data.get("unit", self.unit))
+        self.mean = input_data.get("mean", [])
+        self.min = input_data.get("min", [])
+        self.max = input_data.get("max", [])
+        self.stdev = input_data.get("stdev", [])
+        self.samples = input_data.get("samples", [])
 
-    def get_full_name(self):
+    def get_full_name(self) -> str:
         """Return the metric full name"""
-        if self.full_name:
-            return self.full_name
-        return self.name
+        return self.full_name or self.name
 
-    def get_name(self):
+    def get_name(self) -> str:
         """Return the metric name"""
         return self.name
 
-    def get_values(self):
+    def get_values(self) -> list[float]:
         """Return the aggregated raw values"""
         return self.values
 
-    def get_unit(self):
+    def get_unit(self) -> str:
         """Return the unit for this metric"""
         return self.unit
 
-    def get_min(self):
+    def get_min(self) -> list[float]:
         """Return the min for this metric"""
         return self.min
 
-    def get_mean(self):
+    def get_mean(self) -> list[float]:
         """Return the mean for this metric"""
         return self.mean
 
-    def get_max(self):
+    def get_max(self) -> list[float]:
         """Return the max for this metric"""
         return self.max
 
-    def get_samples(self):
+    def get_samples(self) -> list[int]:
         """Return the number of samples"""
         return self.samples
 
-    def add(self, value: float):
+    def add(self, value: float) -> None:
         """Add a single value"""
         self.values.append(value)
 
-    def compact(self):
+    def compact(self) -> None:
         """Compute new min/max/mean/stdev from values."""
-        # Let's compute the stats for this run
-        if len(self.values):
-            self.min.append(min(self.values))
-            self.max.append(max(self.values))
-            self.mean.append(statistics.mean(self.values))
-            if len(self.values) > 1:
-                self.stdev.append(statistics.stdev(self.values))
-            else:
-                self.stdev.append(0.0)
-            self.samples.append(len(self.values))
-            # And reset values so a new set of stats can be started
-            self.values = []
+        if not self.values:
+            return
 
-    def reset(self):
+        self.min.append(min(self.values))
+        self.max.append(max(self.values))
+        self.mean.append(statistics.mean(self.values))
+        self.stdev.append(statistics.stdev(self.values) if len(self.values) > 1 else 0.0)
+        self.samples.append(len(self.values))
+        self.values = []
+
+    def reset(self) -> None:
         """Reset all metrics to the default."""
         self.value = sys.float_info.max
         self.values = []
@@ -100,81 +97,28 @@ class MonitorMetric:
         self.samples = []
 
 
-class Metrics(Enum):
-    FANS = "Fans"
-    POWER_CONSUMPTION = "PowerConsumption"
-    POWER_SUPPLIES = "PowerSupplies"
-    THERMAL = "Thermal"
-    MONITOR = "Monitor"
-    FREQ = "Freq"
-    IPC = "IPC"
-
-    def __str__(self) -> str:
-        return str(self.value)
-
-    @classmethod
-    def list(cls):
-        return list(map(lambda mm: mm.value, cls))
-
-    @classmethod
-    def list_str(cls):
-        return [str(mm.value) for mm in cls]
-
-
 class Temperature(MonitorMetric):
-    def __init__(self, name: str, value=None):
-        super().__init__(name, "Celsius", value=value)
+    def __init__(self, name: str, value: float | None = None) -> None:
+        super().__init__(name, "Celsius", value=value if value is not None else sys.float_info.max)
 
 
 class Power(MonitorMetric):
-    def __init__(self, name: str, value=None):
-        super().__init__(name, "Watts", value=value)
-
-
-class ThermalContext(Enum):
-    INTAKE = "Intake"
-    CPU = "CPU"
-    MEMORY = "Memory"
-    SYSTEMBOARD = "SystemBoard"
-    POWERSUPPLY = "PowerSupply"
-
-    def __str__(self) -> str:
-        return str(self.value)
-
-
-class FanContext(Enum):
-    FAN = "Fan"
-
-    def __str__(self) -> str:
-        return str(self.value)
-
-
-class CPUContext(Enum):
-    CPU = "CPU"
-
-    def __str__(self) -> str:
-        return str(self.value)
-
-
-class PowerContext(Enum):
-    BMC = "BMC"
-    PDU = "PDU"
-    CPU = "CPU"
-
-    def __str__(self) -> str:
-        return str(self.value)
+    def __init__(self, name: str, value: float | None = None) -> None:
+        super().__init__(name, "Watts", value=value if value is not None else sys.float_info.max)
 
 
 class PowerCategories(Enum):
+    """Power consumption categories"""
+
     #      4N CHASSIS            1N CHASSIS
     #  --------------------       ----------
     # | [server]  [server] |     | [server] |
     # | [server]  |server] |      ----------
     #  --------------------
-    CHASSIS = "Chassis"  # The chassis power consumption
-    INFRASTRUCTURE = "Infrastructure"  # = Chassis - servers (fans, pdb, ..)
-    SERVERINCHASSIS = "ServerInChassis"  # One server + its part of the chassis
-    SERVER = "Server"  # One server
+    CHASSIS = "Chassis"
+    INFRASTRUCTURE = "Infrastructure"
+    SERVERINCHASSIS = "ServerInChassis"
+    SERVER = "Server"
     PDU = "Pdu"
 
     def __str__(self) -> str:
@@ -184,29 +128,191 @@ class PowerCategories(Enum):
         return self.__str__() == str(value)
 
     @classmethod
-    def list(cls):
-        return list(map(lambda mm: mm.value, cls))
-
-    @classmethod
-    def list_str(cls):
-        return [str(mm.value) for mm in cls]
+    def list(cls) -> list[str]:
+        return [member.value for member in cls]
 
 
-class MonitoringMetadata(Enum):
-    PRECISION = "precision"
-    FREQUENCY = "frequency"
-    ITERATION_TIME = "iteration_time"
-    MONITORING_TIME = "monitoring_time"
-    OVERDUE_TIME_MS = "overdue_time_ms"
-    SAMPLES_COUNT = "samples_count"
+@dataclass
+class MonitoringMetadata:
+    """Metadata for monitoring operations"""
 
-    def __str__(self) -> str:
-        return str(self.value)
+    precision: float | None = None
+    frequency: float | None = None
+    iteration_time: float | None = None
+    monitoring_time: float | None = None
+    overdue_time_ms: float | None = None
+    samples_count: int | None = None
 
-    @classmethod
-    def list(cls):
-        return list(map(lambda mm: mm.value, cls))
 
-    @classmethod
-    def list_str(cls):
-        return [str(mm.value) for mm in cls]
+class MonitoringMetadataKeys(StrEnum):
+    precision = "precision"
+    frequency = "frequency"
+    iteration_time = "iteration_time"
+    monitoring_time = "monitoring_time"
+    overdue_time_ms = "overdue_time_ms"
+    samples_count = "samples_count"
+
+
+@dataclass
+class FansContext:
+    """Fans monitoring context"""
+
+    Fan: dict[str, MonitorMetric] = field(default_factory=dict)
+
+    def compact_all(self) -> None:
+        """Compact all metrics in this context"""
+        for metric in self.Fan.values():
+            metric.compact()
+
+
+class FansContextKeys(StrEnum):
+    Fan = "Fan"
+
+
+@dataclass
+class PowerConsumptionContext:
+    """Power consumption monitoring context"""
+
+    CPU: dict[str, MonitorMetric] = field(default_factory=dict)
+    BMC: dict[str, MonitorMetric] = field(default_factory=dict)
+    PDU: dict[str, MonitorMetric] = field(default_factory=dict)
+
+    def compact_all(self) -> None:
+        """Compact all metrics in this context"""
+        for metric in self.CPU.values():
+            metric.compact()
+        for metric in self.BMC.values():
+            metric.compact()
+        for metric in self.PDU.values():
+            metric.compact()
+
+
+class PowerConsumptionContextKeys(StrEnum):
+    CPU = "CPU"
+    BMC = "BMC"
+    PDU = "PDU"
+
+
+@dataclass
+class PowerSuppliesContext:
+    """Power supplies monitoring context"""
+
+    BMC: dict[str, MonitorMetric] = field(default_factory=dict)
+
+    def compact_all(self) -> None:
+        """Compact all metrics in this context"""
+        for metric in self.BMC.values():
+            metric.compact()
+
+
+class PowerSuppliesContextKeys(StrEnum):
+    BMC = "BMC"
+
+
+ThermalContext = defaultdict[str, dict[str, MonitorMetric]]
+"""Thermal monitoring context, based on Redfish output
+https://redfish.dmtf.org/schemas/v1/PhysicalContext.json#/definitions/PhysicalContext
+"""
+
+
+def ThermalContextFactory() -> ThermalContext:
+    return defaultdict(dict[str, MonitorMetric])
+
+
+@dataclass
+class FreqContext:
+    """CPU frequency monitoring context"""
+
+    CPU: dict[str, MonitorMetric] = field(default_factory=dict)
+
+    def compact_all(self) -> None:
+        """Compact all metrics in this context"""
+        for metric in self.CPU.values():
+            metric.compact()
+
+
+class FreqContextKeys(StrEnum):
+    CPU = "CPU"
+
+
+@dataclass
+class IPCContext:
+    """CPU IPC monitoring context"""
+
+    CPU: dict[str, MonitorMetric] = field(default_factory=dict)
+
+    def compact_all(self) -> None:
+        """Compact all metrics in this context"""
+        for metric in self.CPU.values():
+            metric.compact()
+
+
+class IPCContextKeys(StrEnum):
+    CPU = "CPU"
+
+
+@dataclass
+class MonitorContext:
+    """Monitoring context"""
+
+    BMC: dict[str, MonitorMetric] = field(default_factory=dict)
+    PDU: dict[str, MonitorMetric] = field(default_factory=dict)
+    CPU: dict[str, MonitorMetric] = field(default_factory=dict)
+
+    def compact_all(self) -> None:
+        """Compact all metrics in this context"""
+        for metric in self.BMC.values():
+            metric.compact()
+        for metric in self.PDU.values():
+            metric.compact()
+        for metric in self.CPU.values():
+            metric.compact()
+
+
+class MonitorContextKeys(StrEnum):
+    BMC = "BMC"
+    PDU = "PDU"
+    CPU = "CPU"
+
+
+@dataclass
+class MonitoringContexts:
+    """Container for all monitoring contexts"""
+
+    Fans: FansContext = field(default_factory=FansContext)
+    PowerConsumption: PowerConsumptionContext = field(default_factory=PowerConsumptionContext)
+    PowerSupplies: PowerSuppliesContext = field(default_factory=PowerSuppliesContext)
+    Thermal: ThermalContext = field(default_factory=ThermalContextFactory)
+    Freq: FreqContext = field(default_factory=FreqContext)
+    IPC: IPCContext = field(default_factory=IPCContext)
+    Monitor: MonitorContext = field(default_factory=MonitorContext)
+
+    def compact_all(self) -> None:
+        """Compact all metrics in all contexts"""
+        self.Fans.compact_all()
+        self.PowerConsumption.compact_all()
+        self.PowerSupplies.compact_all()
+        for chassis in self.Thermal.values():
+            for metric in chassis.values():
+                metric.compact()
+        self.Freq.compact_all()
+        self.IPC.compact_all()
+        self.Monitor.compact_all()
+
+
+class MonitoringContextKeys(StrEnum):
+    Fans = "Fans"
+    PowerConsumption = "PowerConsumption"
+    PowerSupplies = "PowerSupplies"
+    Thermal = "Thermal"
+    Freq = "Freq"
+    IPC = "IPC"
+    Monitor = "Monitor"
+
+
+@dataclass
+class MonitoringData:
+    """Complete monitoring data with metadata and contexts"""
+
+    metadata: MonitoringMetadata = field(default_factory=MonitoringMetadata)
+    contexts: MonitoringContexts = field(default_factory=MonitoringContexts)

@@ -4,7 +4,14 @@ import pathlib
 import re
 import shlex
 import sys
-from typing import Any  # noqa: F401
+
+from graph.graph import InvalidValue
+from hwbench.bench.monitoring_structs import (
+    FansContextKeys,
+    MonitorContextKeys,
+    MonitoringContextKeys,
+    PowerConsumptionContextKeys,
+)
 
 try:
     from graph.chassis import graph_chassis
@@ -15,10 +22,7 @@ try:
     from graph.trace import Event, Trace
     from graph.versus import max_versus_graph
     from hwbench.bench.monitoring_structs import (
-        FanContext,
-        Metrics,
         PowerCategories,
-        PowerContext,
     )
 except ImportError as exc:
     print(exc)
@@ -97,13 +101,12 @@ def generate_stats(args) -> None:
     for trace in args.traces:
         benches = trace.bench_list()
         print(f"stats: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})")
-        max_power = {"BMC": 0.0, "CPU": 0.0, "PDU": 0.0}
-        max_power_name = {"BMC": "", "CPU": "", "PDU": ""}
+        max_power = {key: ("", 0.0) for key in PowerConsumptionContextKeys}
         for bench_name in sorted(benches):
             bench = trace.bench(bench_name)
-            for metric_name in ["BMC", "CPU", "PDU"]:
+            for metric_name in PowerConsumptionContextKeys:
                 try:
-                    for m in [Metrics.POWER_CONSUMPTION]:
+                    for m in [MonitoringContextKeys.PowerConsumption]:
                         metrics = bench.get_component(m, metric_name)
                         if metrics:
                             for metric in metrics:
@@ -116,18 +119,17 @@ def generate_stats(args) -> None:
                                     if max_values:
                                         current_max = max(max_values)
                                         if current_max > max_power[metric_name]:
-                                            max_power[metric_name] = float(current_max)
-                                            max_power_name[metric_name] = bench_name
+                                            max_power[metric_name] = (bench_name, float(current_max))
                                             bench.get_metric_unit(m)
                 except KeyError:
                     continue
 
-    for metric in [Metrics.POWER_CONSUMPTION]:
+    for metric in [MonitoringContextKeys.PowerConsumption]:
         print(f"{str(metric):}")
-        for metric_name in ["BMC", "CPU", "PDU"]:
+        for metric_name in PowerConsumptionContextKeys:
             if max_power[metric_name]:
                 print(
-                    f"    {metric_name} max : {max_power[metric_name]:.2f} {bench.get_metric_unit(metric)} in {max_power_name[metric_name]}"
+                    f"    {metric_name} max : {max_power[metric_name][0]:.2f} {bench.get_metric_unit(metric)} in {max_power[metric_name][1]}"
                 )
 
 
@@ -154,9 +156,9 @@ def compare_traces(args) -> None:
 def graph_monitoring_metrics(args, trace: Trace, bench_name: str, output_dir) -> int:
     rendered_graphs = 0
     bench = trace.bench(bench_name)
-    for metric_name in ["BMC", "CPU", "PDU"]:
+    for metric_name in MonitorContextKeys:
         try:
-            metrics = bench.get_component(Metrics.MONITOR, metric_name)
+            metrics = bench.get_component(MonitoringContextKeys.Monitor, metric_name)
         except KeyError:
             print(f"{bench_name}: {metric_name} metric is not present in trace file, skipping.")
         if metrics:
@@ -165,14 +167,17 @@ def graph_monitoring_metrics(args, trace: Trace, bench_name: str, output_dir) ->
                 if len(metrics[metric].get_samples()) == 0:
                     print(f"{bench_name}: No samples found in {metric_name}.{metric}, ignoring metric.")
                 else:
-                    rendered_graphs += yerr_graph(
-                        args,
-                        output_dir,
-                        bench,
-                        Metrics.MONITOR,
-                        metrics[metric],
-                        prefix=f"{metric_name}.",
-                    )
+                    try:
+                        rendered_graphs += yerr_graph(
+                            args,
+                            output_dir,
+                            bench,
+                            MonitoringContextKeys.Monitor,
+                            metrics[metric],
+                            prefix=f"{metric_name}.",
+                        )
+                    except InvalidValue as e:
+                        print(f"An error occured while generating the graph for {bench_name} ({metric_name}): {e}")
 
     return rendered_graphs
 
@@ -180,15 +185,15 @@ def graph_monitoring_metrics(args, trace: Trace, bench_name: str, output_dir) ->
 def graph_fans(args, trace: Trace, bench_name: str, output_dir) -> int:
     rendered_graphs = 0
     bench = trace.bench(bench_name)
-    fans = bench.get_component(Metrics.FANS, FanContext.FAN)
+    fans = bench.get_component(MonitoringContextKeys.Fans, FansContextKeys.Fan)
     if not fans:
         print(f"{bench_name}: no fans")
         return rendered_graphs
-    for second_axis in [Metrics.THERMAL, Metrics.POWER_CONSUMPTION]:
-        rendered_graphs += generic_graph(args, output_dir, bench, Metrics.FANS, "Fans speed", second_axis)
+    for second_axis in [MonitoringContextKeys.Thermal, MonitoringContextKeys.PowerConsumption]:
+        rendered_graphs += generic_graph(args, output_dir, bench, MonitoringContextKeys.Fans, "Fans speed", second_axis)
 
     for fan in fans:
-        rendered_graphs += yerr_graph(args, output_dir, bench, Metrics.FANS, fans[fan])
+        rendered_graphs += yerr_graph(args, output_dir, bench, MonitoringContextKeys.Fans, fans[fan])
 
     return rendered_graphs
 
@@ -197,14 +202,14 @@ def graph_cpu(args, trace: Trace, bench_name: str, output_dir) -> int:
     rendered_graphs = 0
     bench = trace.bench(bench_name)
     cpu_graphs = {}
-    cpu_graphs["CPU Core power consumption"] = {Metrics.POWER_CONSUMPTION: "Core"}
-    cpu_graphs["Package power consumption"] = {Metrics.POWER_CONSUMPTION: "package"}
-    cpu_graphs["Core frequency"] = {Metrics.FREQ: "Core"}
-    cpu_graphs["Core IPC"] = {Metrics.IPC: "Core"}
+    cpu_graphs["CPU Core power consumption"] = {MonitoringContextKeys.PowerConsumption: "Core"}
+    cpu_graphs["Package power consumption"] = {MonitoringContextKeys.PowerConsumption: "package"}
+    cpu_graphs["Core frequency"] = {MonitoringContextKeys.Freq: "Core"}
+    cpu_graphs["Core IPC"] = {MonitoringContextKeys.IPC: "Core"}
     for graph_name in cpu_graphs:
         # Let's render the performance, perf_per_temp, perf_per_watt graphs
         for metric, filter in cpu_graphs[graph_name].items():
-            for second_axis in [None, Metrics.THERMAL, Metrics.POWER_CONSUMPTION]:
+            for second_axis in [None, MonitoringContextKeys.Thermal, MonitoringContextKeys.PowerConsumption]:
                 rendered_graphs += generic_graph(
                     args,
                     output_dir,
@@ -222,11 +227,11 @@ def graph_pdu(args, trace: Trace, bench_name: str, output_dir) -> int:
     rendered_graphs = 0
     bench = trace.bench(bench_name)
     pdu_graphs = {}
-    pdu_graphs["PDU power reporting"] = {Metrics.POWER_CONSUMPTION: "PDU"}
+    pdu_graphs["PDU power reporting"] = {MonitoringContextKeys.PowerConsumption: "PDU"}
     for graph_name in pdu_graphs:
         # Let's render the performance, perf_per_temp, perf_per_watt graphs
         for metric, filter in pdu_graphs[graph_name].items():
-            for second_axis in [None, Metrics.THERMAL, Metrics.POWER_CONSUMPTION]:
+            for second_axis in [None, MonitoringContextKeys.Thermal, MonitoringContextKeys.PowerConsumption]:
                 rendered_graphs += generic_graph(
                     args,
                     output_dir,
@@ -242,7 +247,9 @@ def graph_pdu(args, trace: Trace, bench_name: str, output_dir) -> int:
 
 def graph_thermal(args, trace: Trace, bench_name: str, output_dir) -> int:
     rendered_graphs = 0
-    rendered_graphs += generic_graph(args, output_dir, trace.bench(bench_name), Metrics.THERMAL, str(Metrics.THERMAL))
+    rendered_graphs += generic_graph(
+        args, output_dir, trace.bench(bench_name), MonitoringContextKeys.Thermal, "Thermal"
+    )
     return rendered_graphs
 
 
@@ -254,14 +261,16 @@ def graph_group(args, output_dir) -> int:
     output_dir = output_dir.joinpath("by_group")
     for trace in args.traces:
         try:
-            metric = f"{PowerContext.BMC}/{PowerCategories.SERVER}"
+            metric = f"BMC/{PowerCategories.SERVER}"
             trace.first_bench().get_single_metric(
-                Metrics.POWER_CONSUMPTION,
-                PowerContext.BMC,
+                MonitoringContextKeys.PowerConsumption,
+                PowerConsumptionContextKeys.BMC,
                 PowerCategories.SERVER,
             )
-            metric = f"{PowerContext.CPU}/package"
-            trace.first_bench().get_single_metric(Metrics.POWER_CONSUMPTION, PowerContext.CPU, "package")
+            metric = "CPU/package"
+            trace.first_bench().get_single_metric(
+                MonitoringContextKeys.PowerConsumption, PowerConsumptionContextKeys.CPU, "package"
+            )
         except KeyError:
             fatal(f"group: missing '{metric}' monitoric metric in {trace.get_filename()}")
     print(f"group: rendering {len(args.traces[0].bench_list())} jobs")
@@ -302,8 +311,8 @@ def graph_environment(args, output_dir) -> int:
                             PowerCategories.SERVER,
                         ]:
                             trace.first_bench().get_single_metric(
-                                Metrics.POWER_CONSUMPTION,
-                                PowerContext.BMC,
+                                MonitoringContextKeys.PowerConsumption,
+                                PowerConsumptionContextKeys.BMC,
                                 metric,
                             )
                     except KeyError:

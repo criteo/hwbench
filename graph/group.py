@@ -1,7 +1,7 @@
 import numpy as np
 
 from graph.graph import Graph
-from hwbench.bench.monitoring_structs import Metrics, PowerCategories, PowerContext
+from hwbench.bench.monitoring_structs import MonitoringContextKeys, PowerCategories, PowerConsumptionContextKeys
 
 
 def graph_sum_ratio(args, bench, bench_name, output_dir, time_serie, serie, base_outfile) -> int:
@@ -124,14 +124,19 @@ def graph_group_env(args, bench_name, output_dir) -> int:
         time_serie.append(time)
 
         values = {}
-        for context, category in [PowerContext.BMC, PowerCategories.SERVER], [PowerContext.CPU, "package"]:
+        for context, category in (
+            [PowerConsumptionContextKeys.BMC, PowerCategories.SERVER],
+            [PowerConsumptionContextKeys.CPU, "package"],
+        ):
             name = f"{str(context)}.{str(category)}"
             if name not in sum_server_serie:
                 sum_server_serie[name] = []
             values[name] = 0
 
             for trace in args.traces:
-                pc = trace.bench(bench_name).get_single_metric(Metrics.POWER_CONSUMPTION, context, category)
+                pc = trace.bench(bench_name).get_single_metric(
+                    MonitoringContextKeys.PowerConsumption, context, category
+                )
 
                 if sample >= len(pc.get_mean()):
                     print(f"Warning: {trace.get_name()}/{bench_name}: Missing sample {sample}, considering 0 watts.")
@@ -142,14 +147,14 @@ def graph_group_env(args, bench_name, output_dir) -> int:
                 if trace.get_name() not in server_serie:
                     server_serie[trace.get_name()] = []
 
-                if context == PowerContext.BMC:
+                if context == PowerConsumptionContextKeys.BMC:
                     server_serie[trace.get_name()].append(server_power)
                 values[name] += server_power
 
             sum_server_serie[name].append(values[name])
 
-    server_metric = f"{str(PowerContext.BMC)}.{str(PowerCategories.SERVER)}"
-    package_metric = f"{str(PowerContext.CPU)}.package"
+    server_metric = f"{PowerConsumptionContextKeys.BMC}.{PowerCategories.SERVER}"
+    package_metric = f"{PowerConsumptionContextKeys.CPU}.package"
     delta_metric = f"({server_metric} - {package_metric})"
     sum_server_serie[delta_metric] = [
         sum_server_serie[server_metric][i] - sum_server_serie[package_metric][i]

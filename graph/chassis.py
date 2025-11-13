@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from typing import cast
 
 import numpy as np
 
 from graph.graph import Graph, statistics_in_label
-from hwbench.bench.monitoring_structs import Metrics, PowerCategories, PowerContext
+from hwbench.bench.monitoring_structs import MonitoringContextKeys, PowerCategories, PowerConsumptionContextKeys
 
 
 def graph_chassis(args, bench_name, output_dir) -> int:
@@ -20,7 +22,15 @@ def graph_chassis(args, bench_name, output_dir) -> int:
     y_label = "Watts"
     title = f"{args.title}\n\nChassis power consumption during {bench_name} benchmark\n\n{bench.title()}"
 
-    def get_marker(category: PowerCategories) -> str:
+    def get_marker(category: PowerCategories | str) -> str:
+        # Handle string input by converting to enum
+        if isinstance(category, str):
+            try:
+                category = PowerCategories(category)
+            except ValueError:
+                # Not a PowerCategories value (e.g., "PowerSupplies")
+                return ""
+
         if category == PowerCategories.SERVER:
             return "x"  # cross
         if category == PowerCategories.SERVERINCHASSIS:
@@ -38,14 +48,16 @@ def graph_chassis(args, bench_name, output_dir) -> int:
         # Collect all components mean value
         for component in PowerCategories.list():
             # Not all components are available on every system
-            if component not in bench.get_component(Metrics.POWER_CONSUMPTION, PowerContext.BMC):
+            if component not in bench.get_component(
+                MonitoringContextKeys.PowerConsumption, PowerConsumptionContextKeys.BMC
+            ):
                 continue
 
             if str(component) not in sum_serie:
                 sum_serie[str(component)] = []
                 sum_serie_in_chassis[str(component)] = []
-                sum_serie[str(Metrics.POWER_SUPPLIES)] = []
-                sum_serie_in_chassis[str(Metrics.POWER_SUPPLIES)] = []
+                sum_serie[MonitoringContextKeys.PowerSupplies] = []
+                sum_serie_in_chassis[MonitoringContextKeys.PowerSupplies] = []
 
             value = 0
             # We want to get the sum of servers/serversinchassis vs chassis
@@ -53,7 +65,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
                 # so let's add all server's value from each trace
                 for trace in args.traces:
                     pc = trace.bench(bench_name).get_single_metric(
-                        Metrics.POWER_CONSUMPTION, PowerContext.BMC, component
+                        MonitoringContextKeys.PowerConsumption, PowerConsumptionContextKeys.BMC, component
                     )
                     if sample >= len(pc.get_mean()):
                         print(
@@ -81,17 +93,17 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             else:
                 # These are shared metrics on the chassis, so picking one from the first bench
                 # should be enough to get the chassis metric, no need to iterate on traces.
-                value = bench.get_single_metric(Metrics.POWER_CONSUMPTION, PowerContext.BMC, component).get_mean()[
-                    sample
-                ]
+                value = bench.get_single_metric(
+                    MonitoringContextKeys.PowerConsumption, PowerConsumptionContextKeys.BMC, component
+                ).get_mean()[sample]
                 sum_serie[str(component)].append(value)
                 sum_serie_in_chassis[str(component)].append(value)
 
             # Let's add the PSUs
             psus = bench.get_psu_power()
             if psus:
-                sum_serie[str(Metrics.POWER_SUPPLIES)].append(psus[sample])
-                sum_serie_in_chassis[str(Metrics.POWER_SUPPLIES)].append(psus[sample])
+                sum_serie[MonitoringContextKeys.PowerSupplies].append(psus[sample])
+                sum_serie_in_chassis[MonitoringContextKeys.PowerSupplies].append(psus[sample])
 
     order = np.argsort(time_serie)
     x_serie = np.array(time_serie)[order]

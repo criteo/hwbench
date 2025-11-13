@@ -1,7 +1,7 @@
 import json
 import pathlib
 
-from hwbench.bench.monitoring_structs import Power, PowerContext
+from hwbench.bench.monitoring_structs import Power, PowerConsumptionContext
 from hwbench.environment.test_vendors import PATCH_TYPES, TestVendors
 from hwbench.environment.vendors.mock import MockVendor
 from hwbench.environment.vendors.pdus.generic import Generic
@@ -45,10 +45,10 @@ class TestPDU(TestVendors):
         self.get_vendor().prepare()
 
     def generic_power_output(self):
-        return {str(PowerContext.PDU): {}}
+        return PowerConsumptionContext()
 
     def generic_power_consumption_test(self, expected_output):
-        return self.generic_test(expected_output, self.pdu.read_power_consumption({}))
+        return self.generic_test(expected_output, self.pdu.read_power_consumption(PowerConsumptionContext()))
 
     def json(self, name):
         with open(self.get_samples_file_name(name)) as file:
@@ -61,7 +61,7 @@ class TestEnlogic(TestPDU):
 
     def test_outlet(self):
         expected_output = self.generic_power_output()
-        expected_output[str(PowerContext.PDU)] = {
+        expected_output.PDU = {
             "PDU_outlet": Power("PDU_outlet", 0.0),
         }
 
@@ -87,7 +87,7 @@ class TestRaritan(TestPDU):
 
     def test_power(self):
         expected_output = self.generic_power_output()
-        expected_output[str(PowerContext.PDU)] = {
+        expected_output.PDU = {
             "PDU_outlet": Power("PDU_outlet", 386.839),
         }
 
@@ -128,7 +128,7 @@ class TestRaritanGroup(TestRaritan):
 
     def test_power(self):
         expected_output = self.generic_power_output()
-        expected_output[str(PowerContext.PDU)] = {
+        expected_output.PDU = {
             "PDU_outletgroup": Power("PDU_outletgroup", 825.9770000000001),
         }
 

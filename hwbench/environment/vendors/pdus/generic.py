@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from hwbench.bench.monitoring_structs import Power, PowerContext
+from hwbench.bench.monitoring_structs import PowerConsumptionContext
 from hwbench.environment.vendors.pdu import PDU
 from hwbench.utils import helpers as h
 
@@ -78,12 +78,8 @@ class Generic(PDU):
             total += outlet.get("PowerWatts")["Reading"]
         return total
 
-    def read_power_consumption(
-        self, power_consumption: dict[str, dict[str, Power]] | None = None
-    ) -> dict[str, dict[str, Power]]:
+    def read_power_consumption(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
         """Return power consumption from pdu"""
-        if power_consumption is None:
-            power_consumption = {}
         power_consumption = super().read_power_consumption(power_consumption)
-        power_consumption[str(PowerContext.PDU)][self.get_name()].add(self.get_power_total())
+        power_consumption.PDU[self.get_name()].add(self.get_power_total())
         return power_consumption
