@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import dataclasses
 import time
 from threading import Thread
 from typing import Any
@@ -6,7 +9,11 @@ from hwbench.environment.hardware import BaseHardware
 from hwbench.environment.turbostat import CPUSTATS, Turbostat
 from hwbench.utils import helpers as h
 
-from .monitoring_structs import Metrics, MonitoringMetadata, MonitorMetric
+from .monitoring_structs import (
+    MonitoringContextKeys,
+    MonitoringData,
+    MonitorMetric,
+)
 
 
 class ThreadWithReturnValue(Thread):
@@ -33,23 +40,15 @@ class Monitoring:
         self.out_dir = out_dir
         self.hardware = hardware
         self.vendor = hardware.get_vendor()
-        self.metrics: Any = {}
+        self.metrics = MonitoringData()
         self.executor: ThreadWithReturnValue
-        self.turbostat: Turbostat = None  # type: ignore[assignment]
+        self.turbostat: Turbostat | None = None
         self.__reset_metrics()
         self.prepare()
 
-    def __get_metrics(self):
+    def __get_metrics(self) -> MonitoringData:
         """Return the actual metrics."""
         return self.metrics
-
-    def get_metric(self, metric: Metrics):
-        """Return one metric."""
-        return self.metrics[str(metric)]
-
-    def __set_metric(self, metric: Metrics, value: dict[str, dict[str, MonitorMetric]]):
-        """Set one metric"""
-        self.metrics[str(metric)] = value
 
     def prepare(self):
         """Preparing the monitoring"""
@@ -57,28 +56,26 @@ class Monitoring:
         bmc = self.vendor.get_bmc()
         pdus = self.vendor.get_pdus()
 
-        def check_monitoring(source: str, metric: Metrics):
-            data = self.get_metric(metric)
+        def check_monitoring(source: str, metric_name: MonitoringContextKeys, data: Any):
+            if not isinstance(data, dict):
+                # Probably a dataclass
+                data = dataclasses.asdict(data)
+
             if not len(data):
-                h.fatal(f"Cannot detect {metric!s} metrics")
+                h.fatal(f"Cannot detect {str(metric_name)} metrics")
 
             print(
-                f"Monitoring/{source}: {metric!s} metrics:"
+                f"Monitoring/{source}: {str(metric_name)} metrics: "
                 + ", ".join([f"{len(data[pc])}x{pc}" for pc in data if len(data[pc]) > 0])
             )
 
         # - checking if the CPU monitoring works
         if self.hardware.cpu.get_arch() == "x86_64":
             print("Monitoring/turbostat: initialize")
-            self.turbostat = Turbostat(
-                self.hardware,
-                self.get_metric(Metrics.FREQ),
-                self.get_metric(Metrics.POWER_CONSUMPTION),
-                self.get_metric(Metrics.IPC),
-            )
-            check_monitoring("turbostat", Metrics.FREQ)
+            self.turbostat = Turbostat(self.hardware, self.metrics.contexts)
+            check_monitoring("turbostat", MonitoringContextKeys.Freq, self.metrics.contexts.Freq)
             if self.turbostat.has(CPUSTATS.IPC):
-                check_monitoring("turbostat", Metrics.IPC)
+                check_monitoring("turbostat", MonitoringContextKeys.IPC, self.metrics.contexts.IPC)
 
         print(f"Monitoring/BMC: initialize {v.name()} vendor with {bmc.get_driver_name()} {bmc.get_detect_string()}")
 
@@ -87,64 +84,62 @@ class Monitoring:
 
         # - checking if the bmc monitoring works
         # These calls will also initialize the datastructures out of the monitoring loop
-        self.vendor.get_bmc().read_thermals(self.get_metric(Metrics.THERMAL))
-        check_monitoring("BMC", Metrics.THERMAL)
+        self.vendor.get_bmc().read_thermals(self.metrics.contexts.Thermal)
+        check_monitoring("BMC", MonitoringContextKeys.Thermal, self.metrics.contexts.Thermal)
 
-        self.vendor.get_bmc().read_fans(self.get_metric(Metrics.FANS))
-        check_monitoring("BMC", Metrics.FANS)
+        self.vendor.get_bmc().read_fans(self.metrics.contexts.Fans)
+        check_monitoring("BMC", MonitoringContextKeys.Fans, self.metrics.contexts.Fans)
 
-        self.vendor.get_bmc().read_power_consumption(self.get_metric(Metrics.POWER_CONSUMPTION))
-        check_monitoring("BMC", Metrics.POWER_CONSUMPTION)
+        self.vendor.get_bmc().read_power_consumption(self.metrics.contexts.PowerConsumption)
+        check_monitoring("BMC", MonitoringContextKeys.PowerConsumption, self.metrics.contexts.PowerConsumption)
 
-        self.vendor.get_bmc().read_power_supplies(self.get_metric(Metrics.POWER_SUPPLIES))
-        check_monitoring("BMC", Metrics.POWER_SUPPLIES)
+        self.vendor.get_bmc().read_power_supplies(self.metrics.contexts.PowerSupplies)
+        check_monitoring("BMC", MonitoringContextKeys.PowerSupplies, self.metrics.contexts.PowerSupplies)
 
         # - checking if pdu monitoring works
         if pdus:
             for pdu in pdus:
-                pdu.read_power_consumption(self.get_metric(Metrics.POWER_CONSUMPTION))
-            check_monitoring("PDU", Metrics.POWER_CONSUMPTION)
+                pdu.read_power_consumption(self.metrics.contexts.PowerConsumption)
+            check_monitoring("PDU", MonitoringContextKeys.PowerConsumption, self.metrics.contexts.PowerConsumption)
 
     def __monitor_bmc(self):
         """Monitor the bmc metrics"""
-        self.vendor.get_bmc().read_thermals(self.get_metric(Metrics.THERMAL))
-        self.vendor.get_bmc().read_fans(self.get_metric(Metrics.FANS))
-        self.vendor.get_bmc().read_power_consumption(self.get_metric(Metrics.POWER_CONSUMPTION))
-        self.vendor.get_bmc().read_power_supplies(self.get_metric(Metrics.POWER_SUPPLIES))
+        self.vendor.get_bmc().read_thermals(self.metrics.contexts.Thermal)
+        self.vendor.get_bmc().read_fans(self.metrics.contexts.Fans)
+        self.vendor.get_bmc().read_power_consumption(self.metrics.contexts.PowerConsumption)
+        self.vendor.get_bmc().read_power_supplies(self.metrics.contexts.PowerSupplies)
 
     def __monitor_pdus(self):
         """Monitor the PDU metrics"""
         for pdu in self.vendor.get_pdus():
-            pdu.read_power_consumption(self.get_metric(Metrics.POWER_CONSUMPTION))
+            pdu.read_power_consumption(self.metrics.contexts.PowerConsumption)
 
     def __compact(self):
         """Compute statistics"""
-        for metric_name, metric_type in self.metrics.items():
-            # Do not compact metadata
-            if metric_name in MonitoringMetadata.list_str():
-                continue
-            for component in metric_type.values():
-                for metric_name, metric in component.items():
-                    metric.compact()
+        # Compact all metrics in contexts
+        self.metrics.contexts.compact_all()
 
     def monitor(self, precision_s: int, frequency: int, duration_s: int):
         """Method to trigger asynchronous monitoring"""
         self.executor = ThreadWithReturnValue(
             target=self.__monitor,
-            args=(
-                precision_s,
-                frequency,
-                duration_s,
-            ),
+            args=(precision_s, frequency, duration_s),
         )
         self.executor.start()
 
-    def get_monitor_metrics(self):
+    def get_monitor_metrics(self) -> MonitoringData:
         """Returns the metrics from the latest monitoring."""
-        return self.executor.join()
+        if not self.executor:
+            raise RuntimeError("Monitoring has not been started")
+        return self.executor.join()  # type: ignore
 
-    def __monitor(self, precision_s: int, frequency: int, duration_s: int):
+    def __monitor(self, precision_s: int, frequency: int, duration_s: int) -> MonitoringData:
         """Private method to perform the monitoring."""
+        start_monitoring_ns = time.monotonic_ns()
+        self.__reset_metrics()
+        if self.turbostat:
+            self.turbostat.reinitialize_metrics()
+
         # This function will be a thread of self.monitor()
         #
         #  >|                         duration                        |<
@@ -154,16 +149,16 @@ class Monitoring:
         # sleep_time_ns is the time to wait before starting a new monitor_loop
         # If frequency == 2, every two <precision_s> run, maths are computed
 
-        start_monitoring_ns = time.monotonic_ns()
-        self.__reset_metrics()
-        self.metrics[str(MonitoringMetadata.PRECISION)] = precision_s
-        self.metrics[str(MonitoringMetadata.FREQUENCY)] = frequency
-        self.metrics[str(MonitoringMetadata.ITERATION_TIME)] = frequency * precision_s
-        self.metrics[str(Metrics.MONITOR)] = {
-            "BMC": {"Polling": MonitorMetric("Polling", "ms")},
-            "PDU": {"Polling": MonitorMetric("Polling", "ms")},
-            "CPU": {"Polling": MonitorMetric("Polling", "ms")},
-        }
+        # Set metadata
+        self.metrics.metadata.precision = precision_s
+        self.metrics.metadata.frequency = frequency
+        self.metrics.metadata.iteration_time = frequency * precision_s
+
+        # Initialize monitor metrics
+        self.metrics.contexts.Monitor.BMC = {"Polling": MonitorMetric("Polling", "ms")}
+        self.metrics.contexts.Monitor.PDU = {"Polling": MonitorMetric("Polling", "ms")}
+        self.metrics.contexts.Monitor.CPU = {"Polling": MonitorMetric("Polling", "ms")}
+
         # When will we hit "duration_s" ?
         end_of_run_ns = start_monitoring_ns + (duration_s * 1e9)
         loops_done = 0
@@ -181,9 +176,8 @@ class Monitoring:
                 # We just retract a 5/10th of second to ensure it will not overdue
                 self.turbostat.run(interval=(precision_s - 0.5))
                 # Let's monitor the time spent at monitoring the CPU, in milliseconds
-                self.get_metric(Metrics.MONITOR)["CPU"]["Polling"].add(
-                    (time.monotonic_ns() - start_time_loop_ns) * 1e-6
-                )
+                self.metrics.contexts.Monitor.CPU["Polling"].add((time.monotonic_ns() - start_time_loop_ns) * 1e-6)
+
             if loops_done and loops_done % frequency == 0:
                 # At every frequency, the maths are computed
                 self.__compact()
@@ -191,15 +185,14 @@ class Monitoring:
 
             start_bmc_ns = time.monotonic_ns()
             self.__monitor_bmc()
-
             # Let's monitor the time spent at monitoring the BMC, in milliseconds
-            self.get_metric(Metrics.MONITOR)["BMC"]["Polling"].add((time.monotonic_ns() - start_bmc_ns) * 1e-6)
+            self.metrics.contexts.Monitor.BMC["Polling"].add((time.monotonic_ns() - start_bmc_ns) * 1e-6)
 
             if self.vendor.get_pdus():
                 start_pdu_ns = time.monotonic_ns()
                 self.__monitor_pdus()
                 # Let's monitor the time spent at monitoring the PDUs, in milliseconds
-                self.get_metric(Metrics.MONITOR)["PDU"]["Polling"].add((time.monotonic_ns() - start_pdu_ns) * 1e-6)
+                self.metrics.contexts.Monitor.PDU["Polling"].add((time.monotonic_ns() - start_pdu_ns) * 1e-6)
 
             # Based on the time passed, let's compute the amount of sleep time
             # to keep in sync with the expected precision_s
@@ -212,7 +205,7 @@ class Monitoring:
                 # Only print a warning message if we are more than 5ms late
                 print(f"Monitoring iteration {loops_done} is {abs(sleep_time_ms):.2f}ms late")
 
-            # If the the current time + sleep_time is above the total duration_s (we accept up to 500ms overdue)
+            # If the current time + sleep_time is above the total duration_s (we accept up to 500ms overdue)
             if (time.monotonic_ns() + max(0, sleep_time_ns)) > (end_of_run_ns + 0.5 * 1e9):
                 # We can stop the monitoring, no more measures will be done
                 if self.turbostat:
@@ -231,33 +224,18 @@ class Monitoring:
 
         # How much time did we spent in this monitoring loop ?
         completed_time_ns = time.monotonic_ns()
-        self.metrics[str(MonitoringMetadata.MONITORING_TIME)] = (
-            completed_time_ns - start_monitoring_ns
-        ) * 1e-9  # seconds
+        self.metrics.metadata.monitoring_time = (completed_time_ns - start_monitoring_ns) * 1e-9  # seconds
 
         # We were supposed to last "duration_s", how close are we from this metric ?
-        self.metrics[str(MonitoringMetadata.OVERDUE_TIME_MS)] = (
-            (completed_time_ns - start_monitoring_ns) - (duration_s * 1e9)
-        ) * 1e-6
+        self.metrics.metadata.overdue_time_ms = ((completed_time_ns - start_monitoring_ns) - (duration_s * 1e9)) * 1e-6
 
-        self.metrics[str(MonitoringMetadata.SAMPLES_COUNT)] = compact_count
+        self.metrics.metadata.samples_count = compact_count
 
         # And return the final metrics
         return self.__get_metrics()
 
     def __reset_metrics(self):
-        self.metrics = {}
-        self.__set_metric(Metrics.FANS, {})
-        self.__set_metric(Metrics.POWER_CONSUMPTION, {})
-        self.__set_metric(Metrics.POWER_SUPPLIES, {})
-        self.__set_metric(Metrics.THERMAL, {})
+        """Reset all metrics to default state"""
+        self.metrics = MonitoringData()
         if self.turbostat:
-            freq, power, ipc = self.turbostat.reset_metrics({})
-            self.__set_metric(Metrics.FREQ, freq)
-            self.__set_metric(Metrics.POWER_CONSUMPTION, power)
-            if self.turbostat.has(CPUSTATS.IPC):
-                self.__set_metric(Metrics.IPC, ipc)
-        else:
-            self.__set_metric(Metrics.FREQ, {})
-            self.__set_metric(Metrics.IPC, {})
-        self.__set_metric(Metrics.MONITOR, {})
+            self.turbostat.monitoring_contexts = self.metrics.contexts

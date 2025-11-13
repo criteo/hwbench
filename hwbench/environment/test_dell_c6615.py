@@ -1,13 +1,10 @@
 import pathlib
 
 from hwbench.bench.monitoring_structs import (
-    FanContext,
     MonitorMetric,
     Power,
     PowerCategories,
-    PowerContext,
     Temperature,
-    ThermalContext,
 )
 
 from .test_dell import TestDell
@@ -23,13 +20,13 @@ class TestDell6615(TestDell):
 
     def test_thermal(self):
         expected_output = self.generic_thermal_output()
-        expected_output[str(ThermalContext.INTAKE)] = {"Inlet Temp": Temperature("Inlet", 23)}
-        expected_output[str(ThermalContext.CPU)] = {"CPU1 Temp": Temperature("CPU1", 34)}
+        expected_output["Intake"] = {"Inlet Temp": Temperature("Inlet", 23)}
+        expected_output["CPU"] = {"CPU1 Temp": Temperature("CPU1", 34)}
         super().generic_thermal_test(expected_output)
 
     def test_fan(self):
         expected_output = self.generic_fan_output()
-        expected_output[str(FanContext.FAN)] = {
+        expected_output.Fan = {
             "Fan1A": MonitorMetric("Fan1A", "RPM", 10680),
             "Fan1B": MonitorMetric("Fan1B", "RPM", 11040),
             "Fan2A": MonitorMetric("Fan2A", "RPM", 10680),
@@ -45,7 +42,7 @@ class TestDell6615(TestDell):
 
     def test_power_consumption(self):
         expected_output = self.generic_power_output()
-        expected_output[str(PowerContext.BMC)] = {
+        expected_output.BMC = {
             str(PowerCategories.CHASSIS): Power(str(PowerCategories.CHASSIS), 339),
             str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER), 80),
             str(PowerCategories.SERVERINCHASSIS): Power(str(PowerCategories.SERVERINCHASSIS), 112),
@@ -55,7 +52,7 @@ class TestDell6615(TestDell):
 
     def test_power_supplies(self):
         expected_output = self.generic_power_output()
-        expected_output[str(PowerContext.BMC)] = {
+        expected_output.BMC = {
             "PS1 Status": Power("PS1", 168.0),
             "PS2 Status": Power("PS2", 171.0),
         }

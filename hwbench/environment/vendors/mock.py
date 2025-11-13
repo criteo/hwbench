@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import cast
-
 from hwbench.bench.monitoring_structs import (
-    FanContext,
+    FansContext,
     MonitorMetric,
     Power,
     PowerCategories,
-    PowerContext,
+    PowerConsumptionContext,
+    PowerSuppliesContext,
     Temperature,
     ThermalContext,
 )
@@ -23,68 +22,42 @@ class MockedBMC(BMC):
         self.firmware_version = "1.0.0"
         self.model = "MockedBMC"
 
-    def read_thermals(
-        self, thermals: dict[str, dict[str, Temperature]] | None = None
-    ) -> dict[str, dict[str, Temperature]]:
+    def read_thermals(self, thermals: ThermalContext) -> ThermalContext:
         # Let's add a faked thermal metric
-        if thermals is None:
-            thermals = {}
         name = "CPU1"
 
         super().add_monitoring_value(
-            cast(dict[str, dict[str, MonitorMetric]], thermals),
-            ThermalContext.CPU,
+            thermals,
+            "CPU",
             Temperature(name),
             name,
             40,
         )
         return thermals
 
-    def read_fans(self, fans: dict[str, dict[str, MonitorMetric]] | None = None) -> dict[str, dict[str, MonitorMetric]]:
+    def read_fans(self, fans: FansContext) -> FansContext:
         # Let's add a faked fans metric
-        if fans is None:
-            fans = {}
         name = "Fan1"
-        super().add_monitoring_value(
-            cast(dict[str, dict[str, MonitorMetric]], fans),
-            FanContext.FAN,
-            MonitorMetric(name, "RPM"),
-            name,
-            40,
-        )
+        if name not in fans.Fan:
+            fans.Fan[name] = MonitorMetric(name, "RPM")
+        fans.Fan[name].add(40)
         return fans
 
-    def read_power_consumption(
-        self, power_consumption: dict[str, dict[str, Power]] | None = None
-    ) -> dict[str, dict[str, Power]]:
+    def read_power_consumption(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
         # Let's add a faked power metric
-        if power_consumption is None:
-            power_consumption = {}
         name = str(PowerCategories.CHASSIS)
-        super().add_monitoring_value(
-            cast(dict[str, dict[str, MonitorMetric]], power_consumption),
-            PowerContext.BMC,
-            Power(name),
-            name,
-            125.0,
-        )
+        if name not in power_consumption.BMC:
+            power_consumption.BMC[name] = Power(name)
+        power_consumption.BMC[name].add(125.0)
         return power_consumption
 
-    def read_power_supplies(
-        self, power_supplies: dict[str, dict[str, Power]] | None = None
-    ) -> dict[str, dict[str, Power]]:
+    def read_power_supplies(self, power_supplies: PowerSuppliesContext) -> PowerSuppliesContext:
         # Let's add a faked power supplies
-        if power_supplies is None:
-            power_supplies = {}
         status = "PS1 status"
         name = "PS1"
-        super().add_monitoring_value(
-            cast(dict[str, dict[str, MonitorMetric]], power_supplies),
-            PowerContext.BMC,
-            Power(name),
-            status,
-            125,
-        )
+        if status not in power_supplies.BMC:
+            power_supplies.BMC[status] = Power(name)
+        power_supplies.BMC[status].add(125)
         return power_supplies
 
     def connect_redfish(self):

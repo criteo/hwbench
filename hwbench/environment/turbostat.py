@@ -9,7 +9,7 @@ from enum import Enum
 
 from packaging.version import Version
 
-from hwbench.bench.monitoring_structs import CPUContext, MonitorMetric, PowerContext
+from hwbench.bench.monitoring_structs import MonitoringContexts, MonitorMetric
 from hwbench.environment.hardware import BaseHardware
 from hwbench.utils.helpers import fatal, is_binary_available
 
@@ -36,19 +36,7 @@ class CPUSTATS(Enum):
 
 
 class Turbostat:
-    def __init__(
-        self,
-        hardware: BaseHardware,
-        freq_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] | None = None,
-        power_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] | None = None,
-        ipc_metrics: dict[str, dict[str, dict[str, MonitorMetric]]] | None = None,
-    ):
-        if power_metrics is None:
-            power_metrics = {}
-        if freq_metrics is None:
-            freq_metrics = {}
-        if ipc_metrics is None:
-            ipc_metrics = {}
+    def __init__(self, hardware: BaseHardware, monitoring_contexts: MonitoringContexts):
         self.__output = None
         self.cores_count = 0
         self.sensor_list = {
@@ -66,14 +54,9 @@ class Turbostat:
         }
         self.min_release = Version("2022.04.16")
         self.header = ""
-        self.freq_metrics = freq_metrics
-        self.power_metrics = power_metrics
-        self.ipc_metrics = ipc_metrics
+        self.monitoring_contexts = monitoring_contexts
         self.hardware = hardware
         self.process: subprocess.Popen[bytes] = None  # type: ignore[assignment]
-        self.freq_metrics[str(CPUContext.CPU)] = {}  # type: ignore[no-redef]
-        self.power_metrics[str(PowerContext.CPU)] = {}  # type: ignore[no-redef]
-        self.ipc_metrics[str(CPUContext.CPU)] = {}  # type: ignore[no-redef]
 
         # Let's make a first quick run to detect system
         self.check_version()
@@ -106,23 +89,6 @@ class Turbostat:
         print(f"Monitoring/turbostat: Detected release {current_version}")
         if current_version < self.min_release:
             fatal(f"Monitoring/turbostat: minimal expected release is {self.min_release}")
-
-    def reset_metrics(self, power_metrics=None):
-        if power_metrics is not None:
-            self.power_metrics = power_metrics
-        if str(PowerContext.CPU) not in self.power_metrics:
-            self.power_metrics[str(PowerContext.CPU)] = {}
-        self.power_metrics[str(PowerContext.CPU)][PACKAGE] = MonitorMetric(PACKAGE, "Watts")
-
-        for cores in range(self.get_cores_count()):
-            # If we have CoreWatt, let's report them
-            if self.has(CPUSTATS.CORE_WATTS):
-                self.power_metrics[str(PowerContext.CPU)][f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Watts")
-            # If we have IPC, let's report them
-            if self.has(CPUSTATS.IPC):
-                self.ipc_metrics[str(CPUContext.CPU)][f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "IPC")
-            self.freq_metrics[str(CPUContext.CPU)][f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Mhz")
-        return self.freq_metrics, self.power_metrics, self.ipc_metrics
 
     def has(self, metric) -> bool:
         """Return if turbostat has a given metric"""
@@ -220,7 +186,34 @@ class Turbostat:
             logging.warning(
                 "Package watts not supported by turbostat. Are you running in a VM? If not, then the CPU is probably not supported by the running kernel"
             )
-        self.reset_metrics()
+        for cores in range(self.get_cores_count()):
+            # If we have CoreWatt, let's report them
+            if self.has(CPUSTATS.CORE_WATTS):
+                self.monitoring_contexts.PowerConsumption.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Watts")
+            # If we have IPC, let's report them
+            if self.has(CPUSTATS.IPC):
+                self.monitoring_contexts.IPC.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "IPC")
+            self.monitoring_contexts.Freq.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Mhz")
+
+    def reinitialize_metrics(self):
+        """Reinitialize metric structures after monitoring contexts are reset.
+
+        This recreates the MonitorMetric objects in the monitoring contexts without
+        re-running turbostat.
+        """
+        # Initialize package power metric if available
+        if self.has(CPUSTATS.PACKAGE_WATTS):
+            self.monitoring_contexts.PowerConsumption.CPU[PACKAGE] = MonitorMetric(PACKAGE, "Watts")
+
+        # Initialize per-core metrics
+        for cores in range(self.get_cores_count()):
+            # If we have CoreWatt, let's report them
+            if self.has(CPUSTATS.CORE_WATTS):
+                self.monitoring_contexts.PowerConsumption.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Watts")
+            # If we have IPC, let's report them
+            if self.has(CPUSTATS.IPC):
+                self.monitoring_contexts.IPC.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "IPC")
+            self.monitoring_contexts.Freq.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Mhz")
 
     def parse(self):
         """Parse the run() output"""
@@ -234,7 +227,7 @@ class Turbostat:
 
         # Collecting the overall packages power consumption
         if self.has(CPUSTATS.PACKAGE_WATTS):
-            self.power_metrics[str(PowerContext.CPU)][PACKAGE].add(self.get_global_packages_power())
+            self.monitoring_contexts.PowerConsumption.CPU[PACKAGE].add(self.get_global_packages_power())
 
         # We skip the header and then extract all cores informations
         for line in self.get_output()[header_size:]:
@@ -244,15 +237,15 @@ class Turbostat:
                 # Some processors reports the corewatt in the header but not for all cores ...
                 # So let's ignore if the metrics does not exist for this core
                 with suppress(IndexError):
-                    self.power_metrics[str(PowerContext.CPU)][f"Core_{core_nb}"].add(
+                    self.monitoring_contexts.PowerConsumption.CPU[f"Core_{core_nb}"].add(
                         float(items[int(self.__get_field_position(CPUSTATS.CORE_WATTS))])
                     )
             if self.has(CPUSTATS.BUSY_MHZ):
-                self.freq_metrics[str(CPUContext.CPU)][f"Core_{core_nb}"].add(
+                self.monitoring_contexts.Freq.CPU[f"Core_{core_nb}"].add(
                     float(items[int(self.__get_field_position(CPUSTATS.BUSY_MHZ))])
                 )
             if self.has(CPUSTATS.IPC):
-                self.ipc_metrics[str(CPUContext.CPU)][f"Core_{core_nb}"].add(
+                self.monitoring_contexts.IPC.CPU[f"Core_{core_nb}"].add(
                     float(items[int(self.__get_field_position(CPUSTATS.IPC))])
                 )
 

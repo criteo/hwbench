@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from hwbench.bench.monitoring_structs import Power, PowerContext
+from hwbench.bench.monitoring_structs import Power, PowerConsumptionContext
 from hwbench.utils import helpers as h
 
 from .monitoring_device import MonitoringDevice
@@ -37,18 +37,11 @@ class PDU(MonitoringDevice):
         """Return the power metrics."""
         return 0.0
 
-    def read_power_consumption(
-        self, power_consumption: dict[str, dict[str, Power]] | None = None
-    ) -> dict[str, dict[str, Power]]:
+    def read_power_consumption(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
         """Return power consumption from server"""
         # Generic for now, could be override by vendors
-        if power_consumption is None:
-            power_consumption = {}
-        if str(PowerContext.PDU) not in power_consumption:
-            power_consumption[str(PowerContext.PDU)] = {}  # type: ignore[no-redef]
-
-        if self.get_name() not in power_consumption[str(PowerContext.PDU)]:
-            power_consumption[str(PowerContext.PDU)][self.get_name()] = Power(self.get_name())
+        if self.get_name() not in power_consumption.PDU:
+            power_consumption.PDU[self.get_name()] = Power(self.get_name())
 
         # To be completed by drivers
         return power_consumption

@@ -1,13 +1,10 @@
 import pathlib
 
 from hwbench.bench.monitoring_structs import (
-    FanContext,
     MonitorMetric,
     Power,
     PowerCategories,
-    PowerContext,
     Temperature,
-    ThermalContext,
 )
 
 from .test_vendors import PATCH_TYPES, TestVendors
@@ -98,7 +95,7 @@ class TestHpeAp2K(TestGenericHpe):
 
     def test_fan(self):
         expected_output = self.generic_fan_output()
-        expected_output[str(FanContext.FAN)] = {
+        expected_output.Fan = {
             "Fan 1": MonitorMetric("Fan 1", "Percent", 47),
             "Fan 2": MonitorMetric("Fan 2", "Percent", 47),
             "Fan 3": MonitorMetric("Fan 3", "Percent", 0),
@@ -110,7 +107,7 @@ class TestHpeAp2K(TestGenericHpe):
 
     def test_power_consumption(self):
         expected_output = self.generic_power_output()
-        expected_output[str(PowerContext.BMC)] = {
+        expected_output.BMC = {
             str(PowerCategories.CHASSIS): Power(str(PowerCategories.CHASSIS), 315),
             str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER), 75),
             str(PowerCategories.SERVERINCHASSIS): Power(str(PowerCategories.SERVERINCHASSIS), 116),
@@ -120,7 +117,7 @@ class TestHpeAp2K(TestGenericHpe):
 
     def test_power_supplies(self):
         expected_output = self.generic_power_output()
-        expected_output[str(PowerContext.BMC)] = {
+        expected_output.BMC = {
             "HpeServerPowerSupply1": Power("PS1", 116.0),
             "HpeServerPowerSupply2": Power("PS2", 116.0),
         }
@@ -134,17 +131,17 @@ class TestHpeDL380(TestGenericHpe):
 
     def test_thermal(self):
         expected_output = self.generic_thermal_output()
-        expected_output[str(ThermalContext.INTAKE)] = {
+        expected_output["Intake"] = {
             "01-Inlet Ambient": Temperature("Inlet Ambient", 24),
             "15-Front Ambient": Temperature("Front Ambient", 32),
         }
-        expected_output[str(ThermalContext.CPU)] = {
+        expected_output["CPU"] = {
             "02-CPU 1": Temperature("CPU 1", 40),
             "03-CPU 2": Temperature("CPU 2", 40),
             "96-CPU 1 PkgTmp": Temperature("CPU 1 PkgTmp", 41),
             "97-CPU 2 PkgTmp": Temperature("CPU 2 PkgTmp", 37),
         }
-        expected_output[str(ThermalContext.MEMORY)] = {
+        expected_output["Memory"] = {
             "04-P1 DIMM 1-6": Temperature("P1 DIMM 1-6", 35),
             "06-P1 DIMM 7-12": Temperature("P1 DIMM 7-12", 35),
             "08-P2 DIMM 1-6": Temperature("P2 DIMM 1-6", 36),
@@ -156,7 +153,7 @@ class TestHpeDL380(TestGenericHpe):
 
     def test_fan(self):
         expected_output = self.generic_fan_output()
-        expected_output[str(FanContext.FAN)] = {
+        expected_output.Fan = {
             "Fan 1": MonitorMetric("Fan 1", "Percent", 25),
             "Fan 2": MonitorMetric("Fan 2", "Percent", 28),
             "Fan 3": MonitorMetric("Fan 3", "Percent", 25),
@@ -169,7 +166,7 @@ class TestHpeDL380(TestGenericHpe):
 
     def test_power_consumption(self):
         expected_output = self.generic_power_output()
-        expected_output[str(PowerContext.BMC)] = {
+        expected_output.BMC = {
             str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER), 301),
         }
 
@@ -177,7 +174,7 @@ class TestHpeDL380(TestGenericHpe):
 
     def test_power_supplies(self):
         expected_output = self.generic_power_output()
-        expected_output[str(PowerContext.BMC)] = {
+        expected_output.BMC = {
             "HpeServerPowerSupply1": Power("PS1", 147.0),
             "HpeServerPowerSupply2": Power("PS2", 154.0),
         }

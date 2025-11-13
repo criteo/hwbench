@@ -125,6 +125,8 @@ class MonitoringDevice:
         # To avoid multiplicating identical redfish calls, a ttl cache is implemented to avoid multiple redfish calls in a row.
         # As we want to keep a possible high frequency (< 5sec) precision, let's consider the cache must live up to 1.5 seconds
         try:
+            if self.redfish_obj is None:
+                return None
             redfish = self.redfish_obj.get(url, None).dict
             # Let's ignore errors and return empty objects
             # It will be up to the caller to see there is no answer and process this

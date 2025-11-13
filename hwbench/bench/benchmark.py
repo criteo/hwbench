@@ -1,3 +1,4 @@
+import dataclasses
 import time
 from typing import Any
 
@@ -133,7 +134,7 @@ class ExternalBench(External):
 
     def post_run(self, run):
         if self.monitoring and not self.fully_skipped_job():
-            run["monitoring"] = self.parameters.get_monitoring().get_monitor_metrics()
+            run["monitoring"] = dataclasses.asdict(self.parameters.get_monitoring().get_monitor_metrics())
         return run
 
     def empty_result(self):

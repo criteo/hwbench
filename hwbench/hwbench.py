@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import dataclasses
 import json
 import logging
 import os
@@ -12,7 +11,6 @@ import time
 from packaging.version import Version
 
 from .bench import benchmarks
-from .bench.monitoring_structs import MonitorMetric
 from .config import config
 from .environment import hardware as env_hw
 from .environment import software as env_soft
@@ -123,23 +121,10 @@ def format_output(env, hw, results, config) -> dict[str, object]:
     }
 
 
-class EnhancedJSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, MonitorMetric):
-            dc = dataclasses.asdict(o)
-            # In this project, MonitorMetric is the only dataclass object
-            # value & values should not be exported as they are internal attributes
-            # So let's delete them from the output, that would be confusing
-            dc.pop("values")
-            dc.pop("value")
-            return dc
-        return super().default(o)
-
-
 def write_output(out_dir: pathlib.Path, out):
     out_file = out_dir / "results.json"
     print(f"Result file available at {out_file!s}")
-    out_file.write_text(json.dumps(out, cls=EnhancedJSONEncoder))
+    out_file.write_text(json.dumps(out))
 
 
 if __name__ == "__main__":

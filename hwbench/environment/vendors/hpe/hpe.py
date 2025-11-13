@@ -6,7 +6,14 @@ import re
 from functools import cache
 from typing import cast
 
-from hwbench.bench.monitoring_structs import MonitorMetric, Power, PowerContext, Temperature
+from hwbench.bench.monitoring_structs import (
+    MonitorMetric,
+    Power,
+    PowerConsumptionContext,
+    PowerSuppliesContext,
+    Temperature,
+    ThermalContext,
+)
 from hwbench.bench.monitoring_structs import PowerCategories as PowerCat
 from hwbench.environment.vendors.vendor import BMC, Vendor
 from hwbench.utils import helpers as h
@@ -34,11 +41,7 @@ class ILO(BMC):
     def get_thermal(self):
         return self.get_redfish_url("/redfish/v1/Chassis/1/Thermal")
 
-    def read_thermals(
-        self, thermals: dict[str, dict[str, Temperature]] | None = None
-    ) -> dict[str, dict[str, Temperature]]:
-        if thermals is None:
-            thermals = {}
+    def read_thermals(self, thermals: ThermalContext) -> ThermalContext:
         for t in self.get_thermal().get("Temperatures"):
             if t["ReadingCelsius"] <= 0:
                 continue
@@ -107,14 +110,8 @@ class ILO(BMC):
     def __warn_psu(self, psu_number, message):
         logging.error(f"PSU {psu_number}: {message}")
 
-    def read_power_supplies(
-        self, power_supplies: dict[str, dict[str, Power]] | None = None
-    ) -> dict[str, dict[str, Power]]:
+    def read_power_supplies(self, power_supplies: PowerSuppliesContext) -> PowerSuppliesContext:
         """Return power supplies power from server"""
-        if power_supplies is None:
-            power_supplies = {}
-        if str(PowerContext.BMC) not in power_supplies:
-            power_supplies[str(PowerContext.BMC)] = {}  # type: ignore[no-redef]
         for psu in self.get_power().get("PowerSupplies"):
             psu_position = str(psu["Oem"]["Hpe"]["BayNumber"])
             # All PSUs are named the same (HpeServerPowerSupply)
@@ -127,13 +124,9 @@ class ILO(BMC):
                     if str(psu_state).lower() == "enabled":
                         name = psu["Name"] + psu_position
                         psu_name = "PS" + psu_position
-                        super().add_monitoring_value(
-                            cast(dict[str, dict[str, MonitorMetric]], power_supplies),
-                            PowerContext.BMC,
-                            Power(psu_name),
-                            name,
-                            psu["Oem"]["Hpe"]["AveragePowerOutputWatts"],
-                        )
+                        if name not in power_supplies.BMC:
+                            power_supplies.BMC[name] = Power(psu_name)
+                        power_supplies.BMC[name].add(psu["Oem"]["Hpe"]["AveragePowerOutputWatts"])
                     else:
                         # Let's inform the user the PSU is reported as non healthy
                         self.__warn_psu(
@@ -147,9 +140,7 @@ class ILO(BMC):
 
         return power_supplies
 
-    def read_power_consumption(self, power_consumption: dict[str, dict[str, Power]] | None = None):
-        if power_consumption is None:
-            power_consumption = {}
+    def read_power_consumption(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
         oem_chassis = self.get_oem_chassis()
 
         # If server is not in a chassis, the default parsing is good
@@ -160,31 +151,22 @@ class ILO(BMC):
         # But for multi-server chassis, ...
         if "HPE Apollo2000 Gen10+" in oem_chassis["Name"]:
             # On Apollo2000, the generic PowerConsumedWatts is fact SERVERINCHASSIS
-            super().add_monitoring_value(
-                cast(dict[str, dict[str, MonitorMetric]], power_consumption),
-                PowerContext.BMC,
-                Power(str(PowerCat.SERVERINCHASSIS)),
-                str(PowerCat.SERVERINCHASSIS),
-                self.get_power().get("PowerControl")[0]["PowerConsumedWatts"],
-            )
+            server_in_chassis = str(PowerCat.SERVERINCHASSIS)
+            if server_in_chassis not in power_consumption.BMC:
+                power_consumption.BMC[server_in_chassis] = Power(server_in_chassis)
+            power_consumption.BMC[server_in_chassis].add(self.get_power().get("PowerControl")[0]["PowerConsumedWatts"])
 
             # And extract SERVER from NodePowerWatts
-            super().add_monitoring_value(
-                cast(dict[str, dict[str, MonitorMetric]], power_consumption),
-                PowerContext.BMC,
-                Power(str(PowerCat.SERVER)),
-                str(PowerCat.SERVER),
-                oem_chassis["Oem"]["Hpe"]["NodePowerWatts"],
-            )
+            server = str(PowerCat.SERVER)
+            if server not in power_consumption.BMC:
+                power_consumption.BMC[server] = Power(server)
+            power_consumption.BMC[server].add(oem_chassis["Oem"]["Hpe"]["NodePowerWatts"])
 
             # And CHASSIS from ChassisPowerWatts
-            super().add_monitoring_value(
-                cast(dict[str, dict[str, MonitorMetric]], power_consumption),
-                PowerContext.BMC,
-                Power(str(PowerCat.CHASSIS)),
-                str(PowerCat.CHASSIS),
-                oem_chassis["Oem"]["Hpe"]["ChassisPowerWatts"],
-            )
+            chassis = str(PowerCat.CHASSIS)
+            if chassis not in power_consumption.BMC:
+                power_consumption.BMC[chassis] = Power(chassis)
+            power_consumption.BMC[chassis].add(oem_chassis["Oem"]["Hpe"]["ChassisPowerWatts"])
         return power_consumption
 
     @cache

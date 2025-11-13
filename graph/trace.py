@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import pathlib
 from statistics import mean
@@ -5,11 +6,13 @@ from typing import Any
 
 from graph.common import fatal
 from hwbench.bench.monitoring_structs import (
-    Metrics,
+    MonitoringContextKeys,
+    MonitoringContexts,
     MonitoringMetadata,
+    MonitoringMetadataKeys,
     MonitorMetric,
     Power,
-    PowerContext,
+    PowerSuppliesContextKeys,
     Temperature,
 )
 
@@ -91,18 +94,28 @@ class Bench:
             title += f"{self.engine_module_parameter()} "
         return title
 
-    def get_monitoring(self) -> dict:
-        """Return the monitoring metrics."""
-        return self.get("monitoring")
+    def get_monitoring(self) -> dict[str, Any]:
+        """Return the monitoring metrics.
+        The choice here is to replicate the old structure so that nothing breaks,
+        especially since there is no typing/deserialization on this part yet.
+        """
+        legacy_monitoring = self.get("monitoring")
+        new_monitoring = legacy_monitoring.get("contexts", None)
+        if new_monitoring:
+            return legacy_monitoring["metadata"] | new_monitoring
+        else:
+            return legacy_monitoring
 
     def load_monitoring(self):
         self.metrics = {}
         m = self.get_monitoring()
+        meta_fields = list(field.name for field in dataclasses.fields(MonitoringMetadata))
+        context_fields = list(field.name for field in dataclasses.fields(MonitoringContexts))
         if m:
             for metric in m:
-                if metric in MonitoringMetadata.list_str():
+                if metric in meta_fields:
                     self.metrics[metric] = m[metric]
-                elif metric in Metrics.list_str():
+                elif metric in context_fields:
                     self.metrics[metric] = {}
                     for component_family in m[metric]:
                         self.metrics[metric][component_family] = {}
@@ -120,40 +133,44 @@ class Bench:
                     fatal(f"Unexpected {metric} in monitoring")
         return self.metrics
 
-    def get_monitoring_metric(self, metric: Metrics) -> dict[str, dict[str, MonitorMetric]]:
+    def get_monitoring_metric(self, metric: MonitoringContextKeys) -> dict[str, dict[str, MonitorMetric]]:
         """Return one monitoring metric."""
-        return self.metrics[str(metric)]
+        return self.metrics[metric]
 
-    def get_monitoring_metric_by_name(self, metric: Metrics, metric_name: str) -> MonitorMetric:
+    def get_monitoring_metric_by_name(self, metric: MonitoringContextKeys, metric_name: str) -> MonitorMetric:
         """Return one monitoring metric."""
         component, measure = metric_name.split(".")
-        return self.metrics[str(metric)][component][measure]
+        return self.metrics[metric][component][measure]
 
     def get_monitoring_metric_axis(self, unit: str) -> tuple[Any, Any, Any]:
         """Return adjusted metric axis values"""
         return METRIC_AXIS.get(unit, (None, None, None))
 
-    def get_component(self, metric_type: Metrics, component: Any) -> dict[str, MonitorMetric]:
+    def get_component(self, metric_type: MonitoringContextKeys, component: Any) -> dict[str, MonitorMetric]:
         return self.get_monitoring_metric(metric_type)[str(component)]
 
-    def get_single_metric(self, metric_type: Metrics, component: Any, metric: Any) -> MonitorMetric:
+    def get_single_metric(self, metric_type: MonitoringContextKeys, component: Any, metric: Any) -> MonitorMetric:
         return self.get_component(metric_type, component)[str(metric)]
 
     def get_samples_count(self):
         """Return the number of monitoring samples"""
-        return self.metrics[str(MonitoringMetadata.SAMPLES_COUNT)]
+        return self.metrics[MonitoringMetadataKeys.samples_count]
 
-    def get_first_metric(self, metric_type: Metrics):
+    def get_first_metric(self, metric_type: MonitoringContextKeys):
         """Return the first metric of a given metric type"""
         metric = self.get_monitoring_metric(metric_type)
-        component = metric[next(iter(metric))]
-        return component[next(iter(component))]
+        for component in metric.values():
+            for m in component.values():
+                return m
 
-    def get_metric_unit(self, metric_type: Metrics):
+    def get_metric_unit(self, metric_type: MonitoringContextKeys):
         """Return the metric unit of a given metric"""
-        return self.get_first_metric(metric_type).get_unit()
+        first_metric = self.get_first_metric(metric_type)
+        if first_metric:
+            return first_metric.get_unit()
+        return None
 
-    def get_all_metrics(self, metric_type: Metrics, filter=None) -> list[MonitorMetric]:
+    def get_all_metrics(self, metric_type: MonitoringContextKeys, filter=None) -> list[MonitorMetric]:
         """Return all metrics of a given type."""
         metrics = []
         try:
@@ -285,7 +302,7 @@ class Bench:
             if perf_watt is not None:
                 metric = value / mean(
                     self.get_monitoring_metric_by_name(
-                        Metrics.POWER_CONSUMPTION, self.get_trace().get_metric_name()
+                        MonitoringContextKeys.PowerConsumption, self.get_trace().get_metric_name()
                     ).get_mean()
                 )
                 if index is None:
@@ -297,7 +314,7 @@ class Bench:
             if watt is not None:
                 metric = mean(
                     self.get_monitoring_metric_by_name(
-                        Metrics.POWER_CONSUMPTION, self.get_trace().get_metric_name()
+                        MonitoringContextKeys.PowerConsumption, self.get_trace().get_metric_name()
                     ).get_mean()
                 )
                 if index is None:
@@ -309,19 +326,19 @@ class Bench:
                 if watt_err is not None:
                     mean_value = mean(
                         self.get_monitoring_metric_by_name(
-                            Metrics.POWER_CONSUMPTION,
+                            MonitoringContextKeys.PowerConsumption,
                             self.get_trace().get_metric_name(),
                         ).get_mean()
                     )
                     min_value = mean(
                         self.get_monitoring_metric_by_name(
-                            Metrics.POWER_CONSUMPTION,
+                            MonitoringContextKeys.PowerConsumption,
                             self.get_trace().get_metric_name(),
                         ).get_min()
                     )
                     max_value = mean(
                         self.get_monitoring_metric_by_name(
-                            Metrics.POWER_CONSUMPTION,
+                            MonitoringContextKeys.PowerConsumption,
                             self.get_trace().get_metric_name(),
                         ).get_max()
                     )
@@ -332,7 +349,7 @@ class Bench:
                         watt_err[index] = metric
 
             if cpu_clock is not None:
-                mm = self.get_monitoring_metric(Metrics.FREQ)
+                mm = self.get_monitoring_metric(MonitoringContextKeys.Freq)
                 mean_values = []
                 min_values = []
                 max_values = []
@@ -369,10 +386,10 @@ class Bench:
             fatal(f"No {perf} found in {self.get_bench_name()}")
 
     def get_time_interval(self):
-        return self.metrics[str(MonitoringMetadata.ITERATION_TIME)]
+        return self.metrics[MonitoringMetadataKeys.iteration_time]
 
     def get_psu_power(self):
-        psus = self.get_component(Metrics.POWER_SUPPLIES, PowerContext.BMC)
+        psus = self.get_component(MonitoringContextKeys.PowerSupplies, PowerSuppliesContextKeys.BMC)
         power = 0
         if psus:
             power = [0] * len(psus[next(iter(psus))].get_samples())
@@ -458,11 +475,11 @@ class Trace:
         if not metrics:
             fatal(f"{self.filename}: Cannot find monitoring metrics")
 
-        if str(Metrics.POWER_CONSUMPTION) not in metrics:
+        if MonitoringContextKeys.PowerConsumption not in metrics:
             fatal(f"{self.filename}: Cannot find power consumption metrics")
 
         try:
-            first_bench.get_monitoring_metric_by_name(Metrics.POWER_CONSUMPTION, self.metric_name)
+            first_bench.get_monitoring_metric_by_name(MonitoringContextKeys.PowerConsumption, self.metric_name)
         except (KeyError, ValueError):
             try:
                 metrics = " ".join(self._list_power_metrics())
@@ -478,7 +495,7 @@ class Trace:
         first_bench.load_monitoring()
         power_metrics = [
             f"{name}.{v}"
-            for name, value in first_bench.get_monitoring_metric(Metrics.POWER_CONSUMPTION).items()
+            for name, value in first_bench.get_monitoring_metric(MonitoringContextKeys.PowerConsumption).items()
             for v in value
         ]
         return power_metrics

@@ -10,7 +10,7 @@ from matplotlib.ticker import AutoMinorLocator, FuncFormatter, MultipleLocator
 
 from graph.common import fatal
 from graph.trace import Bench
-from hwbench.bench.monitoring_structs import Metrics, MonitorMetric
+from hwbench.bench.monitoring_structs import MonitoringContextKeys, MonitorMetric
 
 MEAN = "mean"
 ERROR = "error"
@@ -285,9 +285,9 @@ def generic_graph(
     args,
     output_dir,
     bench: Bench,
-    component_type: Metrics,
+    component_type: MonitoringContextKeys,
     item_title: str,
-    second_axis=None,
+    second_axis: MonitoringContextKeys | None = None,
     filter=None,
 ) -> int:
     outfile = f"{item_title}"
@@ -302,6 +302,9 @@ def generic_graph(
 
     samples_count = bench.get_samples_count()
     unit = bench.get_metric_unit(component_type)
+    if not unit:
+        raise Exception(f"Could not find unit for metric {item_title}")
+
     title = f'{item_title} during "{bench.get_bench_name()}" benchmark job\n{args.title}\n\n Stressor: '
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
     title += f"\n{bench.get_system_title()}"
@@ -318,9 +321,9 @@ def generic_graph(
     if second_axis:
         outfile += f"_vs_{second_axis}"
         graph.set_filename(outfile)
-        if second_axis == Metrics.THERMAL:
+        if second_axis == MonitoringContextKeys.Thermal:
             graph.set_y2_axis("Thermal (°C)", 110)
-        elif second_axis == Metrics.POWER_CONSUMPTION:
+        elif second_axis == MonitoringContextKeys.PowerConsumption:
             graph.set_y2_axis("Power (Watts)")
 
     if args.verbose:
@@ -387,12 +390,12 @@ def generic_graph(
                     else:  # the actual data
                         data2_serie[sensor].append(measure.get_mean()[sample])
             # If we are plotting the power consumption, having the PSUs would be useful to compare with.
-            if second_axis == Metrics.POWER_CONSUMPTION:
+            if second_axis == MonitoringContextKeys.PowerConsumption:
                 psus = bench.get_psu_power()
                 if psus:
-                    if str(Metrics.POWER_SUPPLIES) not in data2_serie:
-                        data2_serie[str(Metrics.POWER_SUPPLIES)] = []
-                    data2_serie[str(Metrics.POWER_SUPPLIES)].append(psus[sample])
+                    if MonitoringContextKeys.PowerSupplies not in data2_serie:
+                        data2_serie[MonitoringContextKeys.PowerSupplies] = []
+                    data2_serie[MonitoringContextKeys.PowerSupplies].append(psus[sample])
 
     order = np.argsort(time_serie)
     x_serie = np.array(time_serie)[order]
@@ -437,16 +440,18 @@ def yerr_graph(
     args,
     output_dir,
     bench: Bench,
-    component_type: Metrics,
+    component_type: MonitoringContextKeys,
     component: MonitorMetric,
     prefix="",
 ):
     trace = bench.get_trace()
     samples_count = bench.get_samples_count()
     unit = bench.get_metric_unit(component_type)
+    if not unit:
+        raise InvalidValue("Could not find unit")
 
     time_serie = []
-    data_serie = {}  # type: dict[str, list]
+    data_serie: dict[str, list] = {}
     data_serie[MEAN] = []
     data_serie[ERROR] = []
     for sample in range(0, samples_count):
@@ -500,3 +505,7 @@ def yerr_graph(
     )
     graph.render()
     return 1
+
+
+class InvalidValue(Exception):
+    pass

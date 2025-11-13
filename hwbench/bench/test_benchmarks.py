@@ -1,10 +1,13 @@
+import dataclasses
 import pathlib
+from functools import reduce
 from unittest.mock import patch
 
 import pytest
 
+from hwbench.bench.monitoring_structs import MonitoringContextKeys
+
 from . import test_benchmarks_common as tbc
-from .monitoring_structs import Metrics
 
 
 class TestParse(tbc.TestCommon):
@@ -72,12 +75,14 @@ class TestParse(tbc.TestCommon):
         assert self.benches.need_monitoring()
         monitoring = self.benches.get_monitoring()
 
-        def get_monitoring_members(metric: Metrics):
-            data = monitoring.get_metric(metric)
-            return [len(data[pc]) for pc in data if len(data[pc]) > 0]
+        def get_monitoring_members(metric: MonitoringContextKeys):
+            if monitoring is None:
+                return [0]
+            data = dataclasses.asdict(monitoring.metrics.contexts)[str(metric)]
+            return reduce(lambda acc, x: acc + len(x), data.values(), 0)
 
-        assert get_monitoring_members(Metrics.FREQ)[0] == 48
-        assert get_monitoring_members(Metrics.POWER_CONSUMPTION)[0] == 49
+        assert get_monitoring_members(MonitoringContextKeys.Freq) == 48
+        assert get_monitoring_members(MonitoringContextKeys.PowerConsumption) == 49
 
     def test_stream_short(self):
         with patch("hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters") as p:

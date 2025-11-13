@@ -7,7 +7,14 @@ from enum import Enum
 from typing import Any  # noqa: F401
 from unittest.mock import patch
 
-from hwbench.bench.monitoring_structs import FanContext, PowerContext, ThermalContext
+from hwbench.bench.monitoring_structs import (
+    FansContext,
+    PowerConsumptionContext,
+    PowerSuppliesContext,
+    ThermalContext,
+    ThermalContextFactory,
+)
+from hwbench.utils.dataclasses import iterate_dataclass
 
 from .vendors.vendor import Vendor
 
@@ -102,43 +109,43 @@ class TestVendors(unittest.TestCase):
         return filename
 
     def generic_thermal_output(self):
-        return {
-            str(ThermalContext.INTAKE): {},
-            str(ThermalContext.CPU): {},
-            str(ThermalContext.MEMORY): {},
-            str(ThermalContext.SYSTEMBOARD): {},
-            str(ThermalContext.POWERSUPPLY): {},
-        }
+        return ThermalContextFactory()
 
     def generic_fan_output(self):
-        return {str(FanContext.FAN): {}}
+        return FansContext()
 
     def generic_power_output(self):
-        return {str(PowerContext.BMC): {}}
+        return PowerConsumptionContext()
 
     def generic_test(self, expected_output, func):
-        for pc in func:
-            if pc not in expected_output:
+        expected_output_dict = dict(iterate_dataclass(expected_output))
+        for pc, context in iterate_dataclass(func):
+            if pc not in expected_output_dict:
                 raise AssertionError(f"Missing Physical Context '{pc}' in expected_output")
-            for sensor in func[pc]:
-                if sensor not in expected_output[pc]:
-                    raise AssertionError(f"Missing sensor '{sensor}' in '{pc}'")
-                if func[pc][sensor] != expected_output[pc][sensor]:
+            expected_metrics_dict = dict(iterate_dataclass(context))
+            for sensor_name, metric in iterate_dataclass(context):
+                if sensor_name not in expected_metrics_dict:
+                    raise AssertionError(f"Missing sensor '{sensor_name}' in '{pc}'")
+                if metric != expected_metrics_dict[sensor_name]:
                     print(
-                        f"name: |{func[pc][sensor].get_name()}| vs |{expected_output[pc][sensor].get_name()}|\n"
-                        f"value:|{func[pc][sensor].get_values()}| vs |{expected_output[pc][sensor].get_values()}|\n"
-                        f"unit: |{func[pc][sensor].get_unit()}| vs |{expected_output[pc][sensor].get_unit()}|"
+                        f"name: |{metric.get_name()}| vs |{expected_metrics_dict[sensor_name].get_name()}|\n"
+                        f"value:|{metric.get_values()}| vs |{expected_metrics_dict[sensor_name].get_values()}|\n"
+                        f"unit: |{metric.get_unit()}| vs |{expected_metrics_dict[sensor_name].get_unit()}|"
                     )
                     raise AssertionError("Metrics do not match")
 
     def generic_thermal_test(self, expected_output):
-        return self.generic_test(expected_output, self.get_vendor().get_bmc().read_thermals({}))
+        return self.generic_test(expected_output, self.get_vendor().get_bmc().read_thermals(ThermalContext()))
 
     def generic_fan_test(self, expected_output):
-        return self.generic_test(expected_output, self.get_vendor().get_bmc().read_fans({}))
+        return self.generic_test(expected_output, self.get_vendor().get_bmc().read_fans(FansContext()))
 
     def generic_power_consumption_test(self, expected_output):
-        return self.generic_test(expected_output, self.get_vendor().get_bmc().read_power_consumption({}))
+        return self.generic_test(
+            expected_output, self.get_vendor().get_bmc().read_power_consumption(PowerConsumptionContext())
+        )
 
     def generic_power_supplies_test(self, expected_output):
-        return self.generic_test(expected_output, self.get_vendor().get_bmc().read_power_supplies({}))
+        return self.generic_test(
+            expected_output, self.get_vendor().get_bmc().read_power_supplies(PowerSuppliesContext())
+        )
