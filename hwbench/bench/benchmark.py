@@ -110,6 +110,8 @@ class ExternalBench(External):
             if not self.fully_skipped_job():
                 status += " with wait method"
         if self.monitoring and not self.fully_skipped_job():
+            # Start turbostat in background before monitoring begins
+            self.parameters.get_monitoring().preup(precision_s=2)
             # Start the monitoring in background
             # It runs the same amount of time as the benchmark
             self.parameters.get_monitoring().monitor(2, 5, self.parameters.get_runtime())
@@ -135,6 +137,8 @@ class ExternalBench(External):
     def post_run(self, run):
         if self.monitoring and not self.fully_skipped_job():
             run["monitoring"] = dataclasses.asdict(self.parameters.get_monitoring().get_monitor_metrics())
+            # Stop turbostat after monitoring completes
+            self.parameters.get_monitoring().predown()
         return run
 
     def empty_result(self):
