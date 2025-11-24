@@ -160,6 +160,9 @@ class BMC(RedfishDevice, External):
         self.read_power_consumption(contexts.PowerConsumption)
         check_metrics("BMC", MonitoringContextKeys.PowerConsumption, contexts.PowerConsumption)
 
+        # The other PowerControl elements, optional: the power consumption is checked above
+        self.read_oob_power_consumption(contexts.PowerConsumption)
+
         self.read_power_supplies(contexts.PowerSupplies)
         check_metrics("BMC", MonitoringContextKeys.PowerSupplies, contexts.PowerSupplies)
 
@@ -366,6 +369,21 @@ class BMC(RedfishDevice, External):
             return next(iter(th.values()))  # return only element
         return {}  # return nothing if there are more than 1 elements
 
+    def read_oob_power_consumption(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
+        """Return the power of the other PowerControl elements from BMC (OOB), each one under its name.
+
+        The first element is the power of the server, read_power_consumption() reports it as Server.
+        An element without name cannot be told from the others, it is skipped.
+        """
+        for power_ctrl in self.get_power().get("PowerControl", [])[1:]:
+            name = power_ctrl.get("Name")
+            cpu_power = power_ctrl.get("PowerConsumedWatts")
+            if name and cpu_power is not None:
+                if name not in power_consumption.BMC:
+                    power_consumption.BMC[name] = Power(name)
+                power_consumption.BMC[name].add(cpu_power)
+        return power_consumption
+
     def read_power_consumption(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
         """Return power consumption from server"""
         # Generic for now, could be overridden by vendors
@@ -434,6 +452,7 @@ class BMC(RedfishDevice, External):
         self.read_thermals(contexts.Thermal)
         self.read_fans(contexts.Fans)
         self.read_power_consumption(contexts.PowerConsumption)
+        self.read_oob_power_consumption(contexts.PowerConsumption)
         self.read_power_supplies(contexts.PowerSupplies)
         # A no-op on a BMC exposing no accelerator: both collections it walks are
         # cached and empty there.
