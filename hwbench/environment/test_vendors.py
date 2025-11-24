@@ -7,6 +7,8 @@ from enum import Enum
 from typing import Any  # noqa: F401
 from unittest.mock import patch
 
+import pytest
+
 from hwbench.bench.monitoring_structs import (
     FansContext,
     PowerConsumptionContext,
@@ -16,6 +18,8 @@ from hwbench.bench.monitoring_structs import (
 )
 from hwbench.utils.dataclasses import iterate_dataclass
 
+from .vendors.bmc import BMC
+from .vendors.mock import MockVendor
 from .vendors.vendor import Vendor
 
 path = pathlib.Path("")
@@ -149,3 +153,30 @@ class TestVendors(unittest.TestCase):
         return self.generic_test(
             expected_output, self.get_vendor().get_bmc().read_power_supplies(PowerSuppliesContext())
         )
+
+
+@pytest.mark.parametrize(
+    "model", ["Dell/C6420", "Dell/C6615", "Hpe/DL365-Gen11", "Hpe/DL380", "Hpe/DL385-Gen11", "Hpe/XL225N"]
+)
+def test_oob_power_consumption(model):
+    """The first PowerControl element, the only one of these BMCs, is the power read_power_consumption() reports."""
+    power = ast.literal_eval((pathlib.Path("hwbench/environment/tests/vendors") / model / "power").read_text())
+    bmc = BMC(path, MockVendor(path, None))
+    with patch.object(BMC, "get_power", return_value=power):
+        assert bmc.read_oob_power_consumption(PowerConsumptionContext()).BMC == {}
+
+
+def test_oob_power_consumption_elements():
+    """The other PowerControl elements are reported by name, a 0 W reading included, the unnamed ones skipped."""
+    power = {
+        "PowerControl": [
+            {"Name": "System Power Control", "PowerConsumedWatts": 300},
+            {"Name": "Processors Power Control", "PowerConsumedWatts": 0},
+            {"PowerConsumedWatts": 50},
+            {"Name": "Memories Power Control", "PowerConsumedWatts": None},
+        ]
+    }
+    bmc = BMC(path, MockVendor(path, None))
+    with patch.object(BMC, "get_power", return_value=power):
+        reported = bmc.read_oob_power_consumption(PowerConsumptionContext()).BMC
+    assert {name: metric.get_values() for name, metric in reported.items()} == {"Processors Power Control": [0]}
