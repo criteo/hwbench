@@ -110,6 +110,9 @@ class Monitoring:
         self.vendor.get_bmc().read_power_consumption(self.metrics.contexts.PowerConsumption)
         check_monitoring("BMC", MonitoringContextKeys.PowerConsumption, self.metrics.contexts.PowerConsumption)
 
+        self.vendor.get_bmc().read_oob_power_consumption(self.metrics.contexts.PowerConsumption)
+        check_monitoring("BMC", MonitoringContextKeys.PowerConsumption, self.metrics.contexts.PowerConsumption)
+
         self.vendor.get_bmc().read_power_supplies(self.metrics.contexts.PowerSupplies)
         check_monitoring("BMC", MonitoringContextKeys.PowerSupplies, self.metrics.contexts.PowerSupplies)
 
