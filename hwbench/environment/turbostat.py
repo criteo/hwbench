@@ -4,6 +4,8 @@ import logging
 import os
 import re
 import subprocess
+import threading
+import time
 from contextlib import suppress
 from enum import Enum
 
@@ -58,6 +60,14 @@ class Turbostat:
         self.hardware = hardware
         self.process: subprocess.Popen[bytes] = None  # type: ignore[assignment]
 
+        # Background execution support
+        self._background_process: subprocess.Popen[bytes] | None = None
+        self._reader_thread: threading.Thread | None = None
+        self._sample_buffer: tuple[int, list] | None = None  # Last sample as (timestamp, lines), None when consumed
+        self._stop_background = False
+        self._buffer_lock = threading.Lock()
+        self._background_started = False
+
         # Let's make a first quick run to detect system
         self.check_version()
         self.pre_run()
@@ -92,7 +102,7 @@ class Turbostat:
 
     def has(self, metric) -> bool:
         """Return if turbostat has a given metric"""
-        return str(metric) in self.__get_column_header().split()
+        return str(metric) in self.header.split()
 
     def get_sensors(self):
         """Return the list of sensors."""
@@ -159,25 +169,42 @@ class Turbostat:
         self.__output = out.decode().splitlines()
         return self.__output
 
-    def __get_column_header(self):
-        """Return the turbostat column header"""
-        return self.header
-
-    def __set_column_header(self, header):
-        """Set the turbostat column header"""
-        self.header = header
-
     def __get_field_position(self, metric):
-        """Return the field position of a given metric"""
-        return self.__get_column_header().split().index(str(metric))
+        """Return the field position of a given metric in the current header"""
+        return self.header.split().index(str(metric))
+
+    def __find_header_index(self, output_lines):
+        """Find the index of the header line in turbostat output.
+
+        Turbostat with --debug outputs CPU topology lines before the header.
+        Topology lines start with "cpu " (lowercase), the header line contains metric names.
+
+        Args:
+            output_lines: List of turbostat output lines
+
+        Returns:
+            Index of the header line, or 0 if no topology lines found
+        """
+        for i, line in enumerate(output_lines):
+            # Header line contains tab-separated metric names, not "cpu X pkg Y..."
+            if line.startswith("usec\t"):
+                return i
+        return 0
 
     def pre_run(self):
-        # Even if self.run is setting __output, forcing here helps mocking
-        self.__output = self.run(wait=True, interval=0.01)
-        # Header is two lines
-        header_size = 2
-        self.cores_count = len(self.__output) - header_size
-        self.__set_column_header(self.__output[0])
+        # Run a quick turbostat sample to detect system capabilities
+        output = self.run(wait=True, interval=0.01)
+        if not output:
+            fatal("Failed to get turbostat output during initialization")
+
+        # Find the header line (skip any topology debug lines at the start)
+        header_idx = self.__find_header_index(output)
+        self.header = output[header_idx]
+
+        # Data lines come after the header: 1 aggregated line + per-CPU lines
+        # cores_count should only count per-CPU lines, not the aggregated line
+        data_lines = output[header_idx + 1 :]
+        self.cores_count = len(data_lines) - 1  # Subtract 1 for the aggregated line
         if not self.has(CPUSTATS.BUSY_MHZ):
             logging.warning(
                 "Busy MHz not supported by turbostat. Are you running in a VM? If not, then the CPU is probably not supported by the running kernel"
@@ -186,6 +213,9 @@ class Turbostat:
             logging.warning(
                 "Package watts not supported by turbostat. Are you running in a VM? If not, then the CPU is probably not supported by the running kernel"
             )
+        else:
+            # Initialize package power metric
+            self.monitoring_contexts.PowerConsumption.CPU[PACKAGE] = MonitorMetric(PACKAGE, "Watts")
         for cores in range(self.get_cores_count()):
             # If we have CoreWatt, let's report them
             if self.has(CPUSTATS.CORE_WATTS):
@@ -195,11 +225,15 @@ class Turbostat:
                 self.monitoring_contexts.IPC.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "IPC")
             self.monitoring_contexts.Freq.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Mhz")
 
+    def get_cores_count(self):
+        return self.cores_count
+
     def reinitialize_metrics(self):
         """Reinitialize metric structures after monitoring contexts are reset.
 
         This recreates the MonitorMetric objects in the monitoring contexts without
-        re-running turbostat.
+        re-running turbostat. Use this after __reset_metrics() to restore the metric
+        structure that turbostat will populate during monitoring.
         """
         # Initialize package power metric if available
         if self.has(CPUSTATS.PACKAGE_WATTS):
@@ -215,94 +249,299 @@ class Turbostat:
                 self.monitoring_contexts.IPC.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "IPC")
             self.monitoring_contexts.Freq.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Mhz")
 
-    def parse(self):
-        """Parse the run() output"""
-        self.get_process_output()
-
-        # Header is two lines
-        header_size = 2
-        self.cores_count = len(self.__output) - header_size
-
-        self.__set_column_header(self.__output[0])
-
-        # Collecting the overall packages power consumption
-        if self.has(CPUSTATS.PACKAGE_WATTS):
-            self.monitoring_contexts.PowerConsumption.CPU[PACKAGE].add(self.get_global_packages_power())
-
-        # We skip the header and then extract all cores informations
-        for line in self.get_output()[header_size:]:
-            items = line.split()
-            core_nb = items[int(self.__get_field_position(CPUSTATS.CPU))]
-            if self.has(CPUSTATS.CORE_WATTS):
-                # Some processors reports the corewatt in the header but not for all cores ...
-                # So let's ignore if the metrics does not exist for this core
-                with suppress(IndexError):
-                    self.monitoring_contexts.PowerConsumption.CPU[f"Core_{core_nb}"].add(
-                        float(items[int(self.__get_field_position(CPUSTATS.CORE_WATTS))])
-                    )
-            if self.has(CPUSTATS.BUSY_MHZ):
-                self.monitoring_contexts.Freq.CPU[f"Core_{core_nb}"].add(
-                    float(items[int(self.__get_field_position(CPUSTATS.BUSY_MHZ))])
-                )
-            if self.has(CPUSTATS.IPC):
-                self.monitoring_contexts.IPC.CPU[f"Core_{core_nb}"].add(
-                    float(items[int(self.__get_field_position(CPUSTATS.IPC))])
-                )
-
-    def get_packages_power(self):
-        """Return the individual package power."""
+    def _get_global_packages_power(self):
+        """Return the summarized packages power from current output."""
         package_power = []
-        for line in self.get_output()[2:]:
-            pkgwatt = self.get_output_fields(
-                line,
-                [
-                    self.__get_field_position(CPUSTATS.PACKAGE_WATTS),
-                ],
-            )
+        header_idx = self.__find_header_index(self.__output)
+        # Skip header and aggregated line, process per-core data
+        for line in self.__output[header_idx + 2 :]:
+            items = line.split()
+            try:
+                pkg_pos = self.__get_field_position(CPUSTATS.PACKAGE_WATTS)
+                pkg_value = items[pkg_pos]
+                package_power.append(float(pkg_value))
+            except (IndexError, ValueError):
+                continue
+        return sum(package_power)
 
-            if isinstance(pkgwatt[0], str):
-                package_power.append(float(pkgwatt[0]))
-        return package_power
+    def _reader_worker(self):
+        """Background thread that continuously reads turbostat output and buffers samples."""
+        if not self._background_process or not self._background_process.stdout:
+            return
 
-    def get_global_packages_power(self):
-        """Return the summarized packages power."""
-        return sum(self.get_packages_power())
+        current_sample_lines = []
+        header_seen = False
+        sample_timestamp_ns = None
 
-    def get_results(self):
-        return self.__results
-
-    def get_output(self):
-        return self.__output
-
-    def get_output_field(self, line, field):
         try:
-            return line.split()[int(field)]
-        except IndexError:
+            for line in iter(self._background_process.stdout.readline, b""):
+                if self._stop_background:
+                    break
+
+                decoded_line = line.decode().rstrip()
+                if not decoded_line:
+                    continue
+
+                # Skip CPU topology lines (from --debug output)
+                if decoded_line.startswith("cpu "):
+                    continue
+
+                # Check if this is a header line (contains tab-separated column names)
+                if not header_seen and "\t" in decoded_line:
+                    header_seen = True
+                    current_sample_lines = [decoded_line]
+                    continue
+
+                # If we've seen the header, collect lines
+                if header_seen:
+                    current_sample_lines.append(decoded_line)
+
+                    # Extract timestamp from the aggregated line (first data line after header)
+                    # Format with --debug: usec\tTime_Of_Day_Seconds\t...
+                    if len(current_sample_lines) == 2:  # First data line (aggregated metrics)
+                        try:
+                            fields = decoded_line.split()
+                            # Check if we have timestamp fields (not dashes)
+                            if len(fields) >= 2 and fields[0] != "-" and fields[1] != "-":
+                                # usec is the microseconds spent collecting this sample
+                                collection_time_us = int(fields[0])
+                                # Time_Of_Day_Seconds is the timestamp when collection finished
+                                time_of_day_seconds = float(fields[1])
+                                # Convert to nanoseconds for consistency
+                                sample_timestamp_ns = int(time_of_day_seconds * 1e9)
+
+                                # Log if collection took unusually long (> 100ms)
+                                if collection_time_us > 100000:
+                                    logging.warning(
+                                        f"Turbostat collection took {collection_time_us / 1000:.1f}ms "
+                                        f"(threshold: 100ms)"
+                                    )
+                            else:
+                                # No timestamp available (running without --debug or test data)
+                                sample_timestamp_ns = time.time_ns()
+                        except (ValueError, IndexError) as e:
+                            logging.warning(f"Failed to parse turbostat timestamp: {e}")
+                            sample_timestamp_ns = time.time_ns()
+
+                    # Check if this completes a sample (we have header + aggregated + per-core data)
+                    # current_sample_lines contains: [header, aggregated, core_0, core_1, ...]
+                    # We need: 1 (header) + 1 (aggregated) + cores_count (per-core lines)
+                    if len(current_sample_lines) >= 2 + self.cores_count:
+                        # We have a complete sample, store it with turbostat's timestamp
+                        if sample_timestamp_ns is None:
+                            sample_timestamp_ns = time.monotonic_ns()
+
+                        with self._buffer_lock:
+                            # Replace the buffer with only the last sample (timestamp, lines)
+                            self._sample_buffer = (sample_timestamp_ns, current_sample_lines.copy())
+
+                        # Reset for next sample
+                        current_sample_lines = []
+                        header_seen = False
+                        sample_timestamp_ns = None
+
+        except Exception as e:
+            logging.error(f"Turbostat reader thread error: {e}")
+
+    def start_background(self, interval: float = 1.0):
+        """Start turbostat in continuous background mode.
+
+        Args:
+            interval: Sampling interval in seconds
+        """
+        if self._background_started:
+            logging.warning("Turbostat background monitoring already started")
+            return
+
+        english_env = os.environ.copy()
+        english_env["LC_ALL"] = "C"
+
+        cmd_line = [
+            "taskset",
+            "-c",
+            f"{self.hardware.get_cpu().get_logical_cores_count() - 1}",
+            "turbostat",
+            "--cpu",
+            "core",
+            "--quiet",
+            "--debug",
+            "--interval",
+            str(interval),
+            "--show",
+        ]
+
+        sensors = ",".join(str(sensor) for sensor in CPUSTATS)
+        cmd_line.append(sensors)
+
+        logging.info(f"Starting turbostat in background mode with interval={interval}s")
+
+        self._background_process = subprocess.Popen(
+            cmd_line,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=english_env,
+            stdin=subprocess.DEVNULL,
+        )
+
+        # Start the reader thread
+        self._stop_background = False
+        self._reader_thread = threading.Thread(target=self._reader_worker, daemon=True)
+        self._reader_thread.start()
+        self._background_started = True
+
+    def wait_for_sample(self, timeout: float = 5.0) -> tuple[int | None, list | None]:
+        """Wait for a sample from turbostat.
+
+        This method blocks until a sample appears in the buffer, or until the timeout expires.
+        When a sample is found, it is consumed (removed from the buffer).
+
+        Args:
+            timeout: Maximum time to wait in seconds (default: 5.0)
+
+        Returns:
+            Tuple of (timestamp_ns, sample_lines) or (None, None) if timeout or no sample
+        """
+        start_time = time.monotonic()
+        poll_interval = 0.05  # 50ms polling interval
+
+        while time.monotonic() - start_time < timeout:
+            with self._buffer_lock:
+                if self._sample_buffer is not None:
+                    # Get the sample and set buffer to None (consumed)
+                    timestamp, sample_lines = self._sample_buffer
+                    self._sample_buffer = None
+                    return timestamp, sample_lines
+
+            # No sample yet, wait a bit
+            time.sleep(poll_interval)
+
+        # Timeout - no sample available
+        return None, None
+
+    def stop_background(self):
+        """Stop the background turbostat process."""
+        if not self._background_started:
+            return
+
+        logging.info("Stopping turbostat background monitoring")
+        self._stop_background = True
+
+        if self._background_process:
+            self._background_process.terminate()
+            try:
+                self._background_process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                self._background_process.kill()
+                self._background_process.wait()
+
+        if self._reader_thread:
+            self._reader_thread.join(timeout=2)
+
+        self._background_started = False
+        self._background_process = None
+        self._reader_thread = None
+
+    def parse_sample(self, sample_lines):
+        """Parse a turbostat sample and update monitoring contexts.
+
+        Args:
+            sample_lines: List of output lines for a single sample
+        """
+        if not sample_lines:
+            return
+
+        self.__output = sample_lines
+
+        # Find header (skip topology lines if present in test/mock data)
+        header_idx = self.__find_header_index(self.__output)
+        self.header = self.__output[header_idx]
+
+        # Data lines: aggregated + per-core
+        # cores_count should only count per-core lines, not the aggregated line
+        data_lines = self.__output[header_idx + 1 :]
+        self.cores_count = len(data_lines) - 1  # Subtract 1 for the aggregated line
+
+        # Collect overall package power consumption
+        if self.has(CPUSTATS.PACKAGE_WATTS):
+            self.monitoring_contexts.PowerConsumption.CPU[PACKAGE].add(self._get_global_packages_power())
+
+        # Extract per-core information
+        cpu_pos = self.__get_field_position(CPUSTATS.CPU)
+        corewatt_pos = self.__get_field_position(CPUSTATS.CORE_WATTS) if self.has(CPUSTATS.CORE_WATTS) else None
+        freq_pos = self.__get_field_position(CPUSTATS.BUSY_MHZ) if self.has(CPUSTATS.BUSY_MHZ) else None
+        ipc_pos = self.__get_field_position(CPUSTATS.IPC) if self.has(CPUSTATS.IPC) else None
+
+        # Skip aggregated line (first data line), process per-core lines
+        for line in data_lines[1:]:
+            items = line.split()
+            core_nb = items[cpu_pos]
+
+            # Some processors report corewatt in header but not for all cores, so ignore IndexError
+            if corewatt_pos is not None:
+                with suppress(IndexError):
+                    self.monitoring_contexts.PowerConsumption.CPU[f"Core_{core_nb}"].add(float(items[corewatt_pos]))
+
+            if freq_pos is not None:
+                self.monitoring_contexts.Freq.CPU[f"Core_{core_nb}"].add(float(items[freq_pos]))
+
+            if ipc_pos is not None:
+                self.monitoring_contexts.IPC.CPU[f"Core_{core_nb}"].add(float(items[ipc_pos]))
+
+    def get_and_parse_sample(self, precision_s: float) -> int | None:
+        """Get the next sample from buffer, parse it, and handle synchronization.
+
+        This is the main interface for the monitoring loop. It handles:
+        - Waiting for the next unconsumed sample from turbostat
+        - Parsing the sample data
+        - Calculating timing information
+
+        Args:
+            is_first_iteration: True if this is the first monitoring iteration
+            verbose: Whether to print diagnostic messages
+
+        Returns:
+            Tuple of (sample_available, sample_timestamp_ns, time_diff_ms)
+            - sample_available: Whether a sample was found and parsed
+            - sample_timestamp_ns: Wall-clock timestamp of the sample (or None if unavailable)
+        """
+        # Wait for the next sample (blocks until available or timeout)
+        sample_timestamp, sample = self.wait_for_sample(timeout=precision_s + 1)
+
+        if not sample:
+            fatal(f"Monitoring: timeout waiting for a turbostat sample under {precision_s + 1}s")
             return None
 
-    def get_output_fields(self, line, fields):
-        return [self.get_output_field(line, field) for field in fields]
+        # Parse the sample
+        self.parse_sample(sample)
 
-    def get_core_info(self, core_nb, info):
-        # We ignore the two header lines and jumps to the core itself
-        header_size = 2  # lines
-        line = self.get_output()[core_nb + header_size]
-        core, result = self.get_output_fields(
-            line,
-            [self.__get_field_position(CPUSTATS.CPU), self.__get_field_position(info)],
-        )
-        if int(core) == core_nb:
-            return result
-        return None
+        # No time_diff_ms calculation needed - we're consuming samples sequentially now
+        return sample_timestamp
 
-    def get_core_infos(self, core_nb, infos):
-        # We ignore the two header lines and jumps to the core itself
-        header_size = 2  # lines
-        line = self.get_output()[core_nb + header_size]
-        results = self.get_output_fields(line, [self.__get_field_position(CPUSTATS.CPU)] + infos)
-        if int(results[0]) == core_nb:
-            return results[1:]
-        return None
+    def calculate_sync_offset(self, sample_timestamp_ns: int, monitoring_start_ns: int, verbose: bool = True) -> int:
+        """Calculate synchronization offset and return adjusted monitoring start time.
 
-    def get_cores_count(self):
-        return self.cores_count
+        This adjusts the monitoring loop's start time to align with turbostat's
+        actual first sample timing.
+
+        Args:
+            sample_timestamp_ns: Wall-clock timestamp of turbostat's first sample
+            monitoring_start_ns: Monotonic start time of monitoring loop
+            verbose: Whether to print diagnostic messages
+
+        Returns:
+            Adjusted monitoring_start_ns aligned with turbostat timing
+        """
+        # Calculate the wall-clock equivalent of our monotonic start time
+        wallclock_now = time.time_ns()
+        monotonic_now = time.monotonic_ns()
+        wallclock_start = wallclock_now - (monotonic_now - monitoring_start_ns)
+
+        # Calculate the offset between our start and turbostat's first sample
+        sync_offset_ms = (sample_timestamp_ns - wallclock_start) / 1e6
+        if verbose and abs(sync_offset_ms) > 50:  # Only report if offset is significant
+            print(f"Monitoring: synchronized with turbostat (offset: {sync_offset_ms:+.1f}ms)")
+
+        # Adjust our effective start time to align with turbostat
+        # Convert turbostat's wall-clock time back to monotonic time base
+        adjusted_start_ns = monotonic_now - (wallclock_now - sample_timestamp_ns)
+        return adjusted_start_ns
