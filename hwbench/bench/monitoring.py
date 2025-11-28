@@ -43,7 +43,6 @@ class Monitoring:
         self.metrics = MonitoringData()
         self.executor: ThreadWithReturnValue
         self.turbostat: Turbostat | None = None
-        self.__reset_metrics()
         self.prepare()
 
     def __get_metrics(self) -> MonitoringData:
@@ -102,6 +101,38 @@ class Monitoring:
                 pdu.read_power_consumption(self.metrics.contexts.PowerConsumption)
             check_monitoring("PDU", MonitoringContextKeys.PowerConsumption, self.metrics.contexts.PowerConsumption)
 
+    def preup(self, precision_s: int):
+        """Start turbostat monitoring before a benchmark run.
+
+        This should be called before each benchmark to initialize turbostat
+        in background mode with the appropriate sampling interval.
+
+        Args:
+            precision_s: Sampling interval in seconds
+        """
+        self.__reset_metrics()
+        if self.turbostat:
+            # Reinitialize turbostat metrics after reset (fast, doesn't run turbostat)
+            self.turbostat.reinitialize_metrics()
+            print(f"Monitoring/turbostat: starting background monitoring with {precision_s}s interval")
+            self.turbostat.start_background(interval=precision_s)
+
+            # Wait for turbostat to initialize and produce first sample
+            # This prevents the monitoring loop from stalling on first iteration
+            sample_timestamp, sample = self.turbostat.wait_for_sample(timeout=precision_s + 30.0)
+            if not sample:
+                h.fatal(f"Monitoring/turbostat: first sample never came at initialization after {precision_s + 30.0}")
+
+    def predown(self):
+        """Stop turbostat monitoring after a benchmark run.
+
+        This should be called after each benchmark to cleanly shutdown
+        the background turbostat process.
+        """
+        if self.turbostat:
+            print("Monitoring/turbostat: stopping background monitoring")
+            self.turbostat.stop_background()
+
     def __monitor_bmc(self):
         """Monitor the bmc metrics"""
         self.vendor.get_bmc().read_thermals(self.metrics.contexts.Thermal)
@@ -136,9 +167,6 @@ class Monitoring:
     def __monitor(self, precision_s: int, frequency: int, duration_s: int) -> MonitoringData:
         """Private method to perform the monitoring."""
         start_monitoring_ns = time.monotonic_ns()
-        self.__reset_metrics()
-        if self.turbostat:
-            self.turbostat.reinitialize_metrics()
 
         # This function will be a thread of self.monitor()
         #
@@ -163,6 +191,7 @@ class Monitoring:
         end_of_run_ns = start_monitoring_ns + (duration_s * 1e9)
         loops_done = 0
         compact_count = 0
+        monitoring_start_adjusted = False
 
         def next_iter_ns() -> float:
             # When does the next iteration must starts ?
@@ -171,11 +200,18 @@ class Monitoring:
         # monitor_loop
         while True:
             start_time_loop_ns = time.monotonic_ns()
+
+            # Get and parse the most recent turbostat sample from the buffer
             if self.turbostat:
-                # Turbostat will run for the whole duration_s of this loop
-                # We just retract a 5/10th of second to ensure it will not overdue
-                self.turbostat.run(interval=(precision_s - 0.5))
-                # Let's monitor the time spent at monitoring the CPU, in milliseconds
+                sample_timestamp = self.turbostat.get_and_parse_sample(precision_s)
+
+                # On the first sample, synchronize our monitoring loop timing
+                if not monitoring_start_adjusted and sample_timestamp:
+                    start_monitoring_ns = self.turbostat.calculate_sync_offset(sample_timestamp, start_monitoring_ns)
+                    end_of_run_ns = start_monitoring_ns + (duration_s * 1e9)
+                    monitoring_start_adjusted = True
+
+                # Let's monitor the time spent at retrieving the CPU metrics, in milliseconds
                 self.metrics.contexts.Monitor.CPU["Polling"].add((time.monotonic_ns() - start_time_loop_ns) * 1e-6)
 
             if loops_done and loops_done % frequency == 0:
@@ -208,17 +244,11 @@ class Monitoring:
             # If the current time + sleep_time is above the total duration_s (we accept up to 500ms overdue)
             if (time.monotonic_ns() + max(0, sleep_time_ns)) > (end_of_run_ns + 0.5 * 1e9):
                 # We can stop the monitoring, no more measures will be done
-                if self.turbostat:
-                    self.turbostat.parse()
                 break
 
             if sleep_time > 0:
                 # The iteration is on time, let's sleep until the next one
                 time.sleep(sleep_time)
-
-            if self.turbostat:
-                # Turbostat should be already completed, let's parse the output
-                self.turbostat.parse()
 
             loops_done = loops_done + 1
 
