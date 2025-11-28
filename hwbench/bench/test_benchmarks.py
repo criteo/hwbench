@@ -81,8 +81,10 @@ class TestParse(tbc.TestCommon):
             data = dataclasses.asdict(monitoring.metrics.contexts)[str(metric)]
             return reduce(lambda acc, x: acc + len(x), data.values(), 0)
 
-        assert get_monitoring_members(MonitoringContextKeys.Freq) == 48
-        assert get_monitoring_members(MonitoringContextKeys.PowerConsumption) == 49
+        # Data is from a 64 cores CPU
+        assert get_monitoring_members(MonitoringContextKeys.Freq) == 64
+        # Cores + package + BMC
+        assert get_monitoring_members(MonitoringContextKeys.PowerConsumption) == 66
 
     def test_stream_short(self):
         with patch("hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters") as p:
