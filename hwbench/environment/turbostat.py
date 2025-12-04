@@ -39,7 +39,7 @@ class CPUSTATS(Enum):
 
 class Turbostat:
     def __init__(self, hardware: BaseHardware, monitoring_contexts: MonitoringContexts):
-        self.__output = None
+        self.__output: list[str] | None = None
         self.cores_count = 0
         self.sensor_list = {
             CPUSTATS.NODE,
@@ -63,7 +63,8 @@ class Turbostat:
         # Background execution support
         self._background_process: subprocess.Popen[bytes] | None = None
         self._reader_thread: threading.Thread | None = None
-        self._sample_buffer: tuple[int, list] | None = None  # Last sample as (timestamp, lines), None when consumed
+        self._sample_buffer: list | None = None  # Last sample as list of lines, None when cleared
+        self.last_turbostat_output: int = 0
         self._stop_background = False
         self._buffer_lock = threading.Lock()
         self._background_started = False
@@ -92,9 +93,9 @@ class Turbostat:
             str(self.get_process_output()),
         )
 
-        current_version = Version(match.group("version"))
         if not match:
             fatal("Monitoring/turbostat: Cannot detect turbostat version")
+        current_version = Version(match.group("version"))
 
         print(f"Monitoring/turbostat: Detected release {current_version}")
         if current_version < self.min_release:
@@ -103,10 +104,6 @@ class Turbostat:
     def has(self, metric) -> bool:
         """Return if turbostat has a given metric"""
         return str(metric) in self.header.split()
-
-    def get_sensors(self):
-        """Return the list of sensors."""
-        return self.sensor_list.keys
 
     def run(self, interval: float = 1, wait=False):
         """Execute turbostats"""
@@ -249,8 +246,9 @@ class Turbostat:
                 self.monitoring_contexts.IPC.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "IPC")
             self.monitoring_contexts.Freq.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Mhz")
 
-    def _get_global_packages_power(self):
+    def _get_global_packages_power(self) -> float:
         """Return the summarized packages power from current output."""
+        assert self.__output is not None, "Output must be set before calling _get_global_packages_power"
         package_power = []
         header_idx = self.__find_header_index(self.__output)
         # Skip header and aggregated line, process per-core data
@@ -265,13 +263,17 @@ class Turbostat:
         return sum(package_power)
 
     def _reader_worker(self):
-        """Background thread that continuously reads turbostat output and buffers samples."""
+        """Background thread that continuously reads turbostat output and buffers samples.
+
+        With EOL-triggered sampling, turbostat waits for stdin input before producing output,
+        so we don't need to wait for initial output - it will come when we send the first trigger.
+        """
         if not self._background_process or not self._background_process.stdout:
+            logging.error("Turbostat reader: no process or stdout")
             return
 
         current_sample_lines = []
         header_seen = False
-        sample_timestamp_ns = None
 
         try:
             for line in iter(self._background_process.stdout.readline, b""):
@@ -282,7 +284,7 @@ class Turbostat:
                 if not decoded_line:
                     continue
 
-                # Skip CPU topology lines (from --debug output)
+                # Skip CPU topology lines (if present in output)
                 if decoded_line.startswith("cpu "):
                     continue
 
@@ -296,58 +298,27 @@ class Turbostat:
                 if header_seen:
                     current_sample_lines.append(decoded_line)
 
-                    # Extract timestamp from the aggregated line (first data line after header)
-                    # Format with --debug: usec\tTime_Of_Day_Seconds\t...
-                    if len(current_sample_lines) == 2:  # First data line (aggregated metrics)
-                        try:
-                            fields = decoded_line.split()
-                            # Check if we have timestamp fields (not dashes)
-                            if len(fields) >= 2 and fields[0] != "-" and fields[1] != "-":
-                                # usec is the microseconds spent collecting this sample
-                                collection_time_us = int(fields[0])
-                                # Time_Of_Day_Seconds is the timestamp when collection finished
-                                time_of_day_seconds = float(fields[1])
-                                # Convert to nanoseconds for consistency
-                                sample_timestamp_ns = int(time_of_day_seconds * 1e9)
-
-                                # Log if collection took unusually long (> 100ms)
-                                if collection_time_us > 100000:
-                                    logging.warning(
-                                        f"Turbostat collection took {collection_time_us / 1000:.1f}ms "
-                                        f"(threshold: 100ms)"
-                                    )
-                            else:
-                                # No timestamp available (running without --debug or test data)
-                                sample_timestamp_ns = time.time_ns()
-                        except (ValueError, IndexError) as e:
-                            logging.warning(f"Failed to parse turbostat timestamp: {e}")
-                            sample_timestamp_ns = time.time_ns()
-
                     # Check if this completes a sample (we have header + aggregated + per-core data)
                     # current_sample_lines contains: [header, aggregated, core_0, core_1, ...]
                     # We need: 1 (header) + 1 (aggregated) + cores_count (per-core lines)
                     if len(current_sample_lines) >= 2 + self.cores_count:
-                        # We have a complete sample, store it with turbostat's timestamp
-                        if sample_timestamp_ns is None:
-                            sample_timestamp_ns = time.monotonic_ns()
-
                         with self._buffer_lock:
-                            # Replace the buffer with only the last sample (timestamp, lines)
-                            self._sample_buffer = (sample_timestamp_ns, current_sample_lines.copy())
+                            # Replace the buffer with the latest sample
+                            self._sample_buffer = current_sample_lines.copy()
+                            logging.debug("Turbostat: buffered new sample")
 
                         # Reset for next sample
                         current_sample_lines = []
                         header_seen = False
-                        sample_timestamp_ns = None
+                self.last_turbostat_output = time.monotonic_ns()
 
         except Exception as e:
             logging.error(f"Turbostat reader thread error: {e}")
 
-    def start_background(self, interval: float = 1.0):
+    def start_background(self):
         """Start turbostat in continuous background mode.
 
-        Args:
-            interval: Sampling interval in seconds
+        Turbostat will be triggered on-demand via EOL (newline) sent to stdin.
         """
         if self._background_started:
             logging.warning("Turbostat background monitoring already started")
@@ -363,25 +334,36 @@ class Turbostat:
             "turbostat",
             "--cpu",
             "core",
+            "-i",
+            "100",
             "--quiet",
-            "--debug",
-            "--interval",
-            str(interval),
             "--show",
         ]
 
         sensors = ",".join(str(sensor) for sensor in CPUSTATS)
         cmd_line.append(sensors)
 
-        logging.info(f"Starting turbostat in background mode with interval={interval}s")
+        logging.info("Starting turbostat in background mode with EOL-triggered sampling")
 
         self._background_process = subprocess.Popen(
             cmd_line,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            stdin=subprocess.PIPE,
             env=english_env,
-            stdin=subprocess.DEVNULL,
+            bufsize=0,  # Unbuffered
         )
+
+        # Start a thread to monitor stderr for warnings/errors
+        def stderr_monitor():
+            if self._background_process and self._background_process.stderr:
+                for line in self._background_process.stderr:
+                    decoded = line.decode().rstrip()
+                    if decoded:
+                        logging.warning(f"Turbostat stderr: {decoded}")
+
+        stderr_thread = threading.Thread(target=stderr_monitor, daemon=True)
+        stderr_thread.start()
 
         # Start the reader thread
         self._stop_background = False
@@ -389,17 +371,41 @@ class Turbostat:
         self._reader_thread.start()
         self._background_started = True
 
-    def wait_for_sample(self, timeout: float = 5.0) -> tuple[int | None, list | None]:
+    def trigger_sample(self):
+        """Trigger turbostat to output a sample by sending EOL to stdin.
+
+        This sends a newline character to turbostat's stdin, which causes it
+        to immediately collect and output statistics. The previous sample buffer
+        is cleared to ensure we don't retrieve stale data.
+        """
+        if not self._background_process or not self._background_process.stdin:
+            logging.error("Cannot trigger sample: no background process or stdin")
+            return
+
+        # Clear the previous sample buffer to avoid retrieving stale data
+        with self._buffer_lock:
+            self._sample_buffer = None
+            logging.debug("Turbostat: cleared sample buffer")
+
+        try:
+            self._background_process.stdin.write(b"\n")
+            self._background_process.stdin.flush()
+            logging.debug("Turbostat: sent EOL trigger")
+        except (BrokenPipeError, OSError) as e:
+            logging.error(f"Failed to trigger turbostat sample: {e}")
+
+    def wait_for_sample(self, timeout: float = 5.0) -> list | None:
         """Wait for a sample from turbostat.
 
         This method blocks until a sample appears in the buffer, or until the timeout expires.
-        When a sample is found, it is consumed (removed from the buffer).
+        The sample is NOT consumed - it remains in the buffer and will be overwritten when
+        a newer sample arrives.
 
         Args:
             timeout: Maximum time to wait in seconds (default: 5.0)
 
         Returns:
-            Tuple of (timestamp_ns, sample_lines) or (None, None) if timeout or no sample
+            Sample lines or None if timeout or no sample
         """
         start_time = time.monotonic()
         poll_interval = 0.05  # 50ms polling interval
@@ -407,16 +413,14 @@ class Turbostat:
         while time.monotonic() - start_time < timeout:
             with self._buffer_lock:
                 if self._sample_buffer is not None:
-                    # Get the sample and set buffer to None (consumed)
-                    timestamp, sample_lines = self._sample_buffer
-                    self._sample_buffer = None
-                    return timestamp, sample_lines
+                    # Return a copy of the sample WITHOUT consuming it
+                    return self._sample_buffer.copy()
 
             # No sample yet, wait a bit
             time.sleep(poll_interval)
 
         # Timeout - no sample available
-        return None, None
+        return None
 
     def stop_background(self):
         """Stop the background turbostat process."""
@@ -441,7 +445,7 @@ class Turbostat:
         self._background_process = None
         self._reader_thread = None
 
-    def parse_sample(self, sample_lines):
+    def parse_sample(self, sample_lines: list[str]) -> None:
         """Parse a turbostat sample and update monitoring contexts.
 
         Args:
@@ -453,12 +457,12 @@ class Turbostat:
         self.__output = sample_lines
 
         # Find header (skip topology lines if present in test/mock data)
-        header_idx = self.__find_header_index(self.__output)
-        self.header = self.__output[header_idx]
+        header_idx = self.__find_header_index(sample_lines)
+        self.header = sample_lines[header_idx]
 
         # Data lines: aggregated + per-core
         # cores_count should only count per-core lines, not the aggregated line
-        data_lines = self.__output[header_idx + 1 :]
+        data_lines = sample_lines[header_idx + 1 :]
         self.cores_count = len(data_lines) - 1  # Subtract 1 for the aggregated line
 
         # Collect overall package power consumption
@@ -487,61 +491,28 @@ class Turbostat:
             if ipc_pos is not None:
                 self.monitoring_contexts.IPC.CPU[f"Core_{core_nb}"].add(float(items[ipc_pos]))
 
-    def get_and_parse_sample(self, precision_s: float) -> int | None:
-        """Get the next sample from buffer, parse it, and handle synchronization.
+    def get_and_parse_sample(self, precision_s: float) -> int:
+        """Get the latest sample from buffer and parse it.
 
-        This is the main interface for the monitoring loop. It handles:
-        - Waiting for the next unconsumed sample from turbostat
-        - Parsing the sample data
-        - Calculating timing information
+        This method waits for and retrieves a turbostat sample that was triggered
+        earlier by trigger_sample(). The typical usage pattern is:
+        1. Call trigger_sample() at the start of the monitoring loop
+        2. Do monitoring work
+        3. Call get_and_parse_sample() to retrieve and parse the results
 
         Args:
-            is_first_iteration: True if this is the first monitoring iteration
-            verbose: Whether to print diagnostic messages
+            precision_s: the monitoring loop interval (used for timeout)
 
         Returns:
-            Tuple of (sample_available, sample_timestamp_ns, time_diff_ms)
-            - sample_available: Whether a sample was found and parsed
-            - sample_timestamp_ns: Wall-clock timestamp of the sample (or None if unavailable)
+            last_turbostat_output: when (in monotonic time) Turbostat outputed the last values
         """
-        # Wait for the next sample (blocks until available or timeout)
-        sample_timestamp, sample = self.wait_for_sample(timeout=precision_s + 1)
+        # Wait for the triggered sample to be available
+        sample = self.wait_for_sample(timeout=precision_s)
 
         if not sample:
-            fatal(f"Monitoring: timeout waiting for a turbostat sample under {precision_s + 1}s")
-            return None
+            fatal(f"Monitoring: timeout waiting for a turbostat sample under {precision_s}s")
+            return
 
         # Parse the sample
         self.parse_sample(sample)
-
-        # No time_diff_ms calculation needed - we're consuming samples sequentially now
-        return sample_timestamp
-
-    def calculate_sync_offset(self, sample_timestamp_ns: int, monitoring_start_ns: int, verbose: bool = True) -> int:
-        """Calculate synchronization offset and return adjusted monitoring start time.
-
-        This adjusts the monitoring loop's start time to align with turbostat's
-        actual first sample timing.
-
-        Args:
-            sample_timestamp_ns: Wall-clock timestamp of turbostat's first sample
-            monitoring_start_ns: Monotonic start time of monitoring loop
-            verbose: Whether to print diagnostic messages
-
-        Returns:
-            Adjusted monitoring_start_ns aligned with turbostat timing
-        """
-        # Calculate the wall-clock equivalent of our monotonic start time
-        wallclock_now = time.time_ns()
-        monotonic_now = time.monotonic_ns()
-        wallclock_start = wallclock_now - (monotonic_now - monitoring_start_ns)
-
-        # Calculate the offset between our start and turbostat's first sample
-        sync_offset_ms = (sample_timestamp_ns - wallclock_start) / 1e6
-        if verbose and abs(sync_offset_ms) > 50:  # Only report if offset is significant
-            print(f"Monitoring: synchronized with turbostat (offset: {sync_offset_ms:+.1f}ms)")
-
-        # Adjust our effective start time to align with turbostat
-        # Convert turbostat's wall-clock time back to monotonic time base
-        adjusted_start_ns = monotonic_now - (wallclock_now - sample_timestamp_ns)
-        return adjusted_start_ns
+        return self.last_turbostat_output
