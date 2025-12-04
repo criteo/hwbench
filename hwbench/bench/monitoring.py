@@ -105,23 +105,17 @@ class Monitoring:
         """Start turbostat monitoring before a benchmark run.
 
         This should be called before each benchmark to initialize turbostat
-        in background mode with the appropriate sampling interval.
+        in background mode. Turbostat will be triggered on-demand via EOL.
 
         Args:
-            precision_s: Sampling interval in seconds
+            precision_s: Sampling interval in seconds (used for timeouts only)
         """
         self.__reset_metrics()
         if self.turbostat:
             # Reinitialize turbostat metrics after reset (fast, doesn't run turbostat)
             self.turbostat.reinitialize_metrics()
-            print(f"Monitoring/turbostat: starting background monitoring with {precision_s}s interval")
-            self.turbostat.start_background(interval=precision_s)
-
-            # Wait for turbostat to initialize and produce first sample
-            # This prevents the monitoring loop from stalling on first iteration
-            sample_timestamp, sample = self.turbostat.wait_for_sample(timeout=precision_s + 30.0)
-            if not sample:
-                h.fatal(f"Monitoring/turbostat: first sample never came at initialization after {precision_s + 30.0}")
+            print("Monitoring/turbostat: starting background monitoring with EOL-triggered sampling")
+            self.turbostat.start_background()
 
     def predown(self):
         """Stop turbostat monitoring after a benchmark run.
@@ -191,7 +185,6 @@ class Monitoring:
         end_of_run_ns = start_monitoring_ns + (duration_s * 1e9)
         loops_done = 0
         compact_count = 0
-        monitoring_start_adjusted = False
 
         def next_iter_ns() -> float:
             # When does the next iteration must starts ?
@@ -201,18 +194,10 @@ class Monitoring:
         while True:
             start_time_loop_ns = time.monotonic_ns()
 
-            # Get and parse the most recent turbostat sample from the buffer
+            # Trigger turbostat sample collection at the start of the monitoring loop
+            # This allows turbostat to collect metrics while we perform BMC/PDU monitoring
             if self.turbostat:
-                sample_timestamp = self.turbostat.get_and_parse_sample(precision_s)
-
-                # On the first sample, synchronize our monitoring loop timing
-                if not monitoring_start_adjusted and sample_timestamp:
-                    start_monitoring_ns = self.turbostat.calculate_sync_offset(sample_timestamp, start_monitoring_ns)
-                    end_of_run_ns = start_monitoring_ns + (duration_s * 1e9)
-                    monitoring_start_adjusted = True
-
-                # Let's monitor the time spent at retrieving the CPU metrics, in milliseconds
-                self.metrics.contexts.Monitor.CPU["Polling"].add((time.monotonic_ns() - start_time_loop_ns) * 1e-6)
+                self.turbostat.trigger_sample()
 
             if loops_done and loops_done % frequency == 0:
                 # At every frequency, the maths are computed
@@ -229,6 +214,13 @@ class Monitoring:
                 self.__monitor_pdus()
                 # Let's monitor the time spent at monitoring the PDUs, in milliseconds
                 self.metrics.contexts.Monitor.PDU["Polling"].add((time.monotonic_ns() - start_pdu_ns) * 1e-6)
+
+            # Now retrieve and parse the turbostat sample that was triggered at the start
+            if self.turbostat:
+                turbostat_timing = self.turbostat.get_and_parse_sample(precision_s)
+
+                # Let's monitor the time spent at retrieving the CPU metrics, in milliseconds
+                self.metrics.contexts.Monitor.CPU["Polling"].add((turbostat_timing - start_time_loop_ns) * 1e-6)
 
             # Based on the time passed, let's compute the amount of sleep time
             # to keep in sync with the expected precision_s
