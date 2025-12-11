@@ -7,7 +7,7 @@ from hwbench.utils.external import External
 
 class Ilorest(External):
     def run_cmd(self) -> list[str]:
-        return ["ilorest", "get", "--json", "--nologo", "--select", "Bios."]
+        return ["ilorest", "get", "--json", "--nologo", "--select", "Bios.", "--nocache"]
 
     def parse_cmd(self, stdout: bytes, _stderr: bytes):
         try:
