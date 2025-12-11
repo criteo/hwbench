@@ -92,6 +92,17 @@ class MonitoringDevice:
         return dump
 
     def connect_redfish(self, username: str, password: str, device_url: str):
+        try:
+            self._connect_redfish(username, password, device_url, redfish.AuthMethod.SESSION)
+        # This is a workaround for very simple devices, like Enlogic/NVent that don't support session mode (!!!)
+        except redfish.rest.v1.SessionCreationError as e:
+            logging.warning(f"Redfish session authentication error for {device_url}: '{e}'; trying HTTP Basic mode.")
+            try:
+                self._connect_redfish(username, password, device_url, redfish.AuthMethod.BASIC)
+            except redfish.rest.v1.SessionCreationError as e:
+                h.fatal(f"Unable to authenticate with neither session nor basic mode for {device_url}: {e}")
+
+    def _connect_redfish(self, username: str, password: str, device_url: str, auth_method: str):
         """Connect to the device using Redfish."""
         try:
             if not device_url.startswith("https://"):
@@ -103,7 +114,7 @@ class MonitoringDevice:
                 default_prefix="/redfish/v1",
                 timeout=10,
             )
-            self.redfish_obj.login()
+            self.redfish_obj.login(auth=auth_method)
             self.logged = True
         except json.decoder.JSONDecodeError:
             h.fatal(f"JSONDecodeError on {device_url}")
@@ -114,7 +125,7 @@ class MonitoringDevice:
         except redfish.rest.v1.InvalidCredentialsError:
             h.fatal(f"Invalid credentials for {device_url}")
         except redfish.rest.v1.SessionCreationError as e:
-            h.fatal(f"Unable to create session for {device_url}: {e}")
+            raise e
         except Exception as exception:
             h.fatal(f"unknown exception '{type(exception)}' connecting redfish to {device_url}: {exception}")
 
