@@ -13,7 +13,7 @@ class Ilorest(External):
         try:
             return json.loads(stdout.decode("utf-8"))
         except json.decoder.JSONDecodeError:
-            h.fatal(stdout)
+            h.fatal(f"ilorest failed. output:\n{stdout.decode()}")
 
     def run_cmd_version(self) -> list[str]:
         return ["ilorest", "--version"]
