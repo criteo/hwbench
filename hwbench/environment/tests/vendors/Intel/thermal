@@ -1,0 +1,64 @@
+{
+  "Sensors": [
+    {
+      "Name": "Inlet Temp",
+      "Reading": 25,
+      "ReadingType": "Temperature",
+      "ReadingUnits": "Celsius"
+    },
+    {
+      "Name": "Outlet Temp",
+      "Reading": 35,
+      "ReadingType": "Temperature",
+      "ReadingUnits": "Celsius"
+    },
+    {
+      "Name": "CPU0 Die Temp",
+      "Reading": 45,
+      "ReadingType": "Temperature",
+      "ReadingUnits": "Celsius"
+    },
+    {
+      "Name": "CPU1 Die Temp",
+      "Reading": 43,
+      "ReadingType": "Temperature",
+      "ReadingUnits": "Celsius"
+    },
+    {
+      "Name": "CPU0 DIMM Temp",
+      "Reading": 38,
+      "ReadingType": "Temperature",
+      "ReadingUnits": "Celsius"
+    },
+    {
+      "Name": "CPU1 DIMM Temp",
+      "Reading": 37,
+      "ReadingType": "Temperature",
+      "ReadingUnits": "Celsius"
+    },
+    {
+      "Name": "DIMM A0 Temp",
+      "Reading": 39,
+      "ReadingType": "Temperature",
+      "ReadingUnits": "Celsius"
+    },
+    {
+      "Name": "DIMM B0 Temp",
+      "Reading": 38,
+      "ReadingType": "Temperature",
+      "ReadingUnits": "Celsius"
+    },
+    {
+      "Name": "Fan1",
+      "Reading": 5000,
+      "ReadingType": "Rotational",
+      "ReadingUnits": "RPM"
+    },
+    {
+      "Name": "Fan2",
+      "Reading": 5200,
+      "ReadingType": "Rotational",
+      "ReadingUnits": "RPM"
+    }
+  ]
+}

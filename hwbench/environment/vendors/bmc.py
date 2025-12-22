@@ -180,6 +180,17 @@ class BMC(MonitoringDevice, External):
             return next(iter(th.values()))  # return only element
         return {}  # return nothing if there are more than 1 elements
 
+    def read_oob_power_consumption(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
+        """Return all power consumptions from BMC (OOB)"""
+        for power_ctrl in self.get_power().get("PowerControl", []):
+            name = power_ctrl.get("Name", "")
+            cpu_power = power_ctrl.get("PowerConsumedWatts", None)
+            if cpu_power:
+                if name not in power_consumption.BMC:
+                    power_consumption.BMC[name] = Power(name)
+                power_consumption.BMC[name].add(cpu_power)
+        return power_consumption
+
     def read_power_consumption(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
         """Return power consumption from server"""
         # Generic for now, could be overriden by vendors
