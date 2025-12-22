@@ -117,6 +117,13 @@ class TestVendors(unittest.TestCase):
     def generic_power_output(self):
         return PowerConsumptionContext()
 
+    def generic_oob_power_output(self):
+        """Return a generic OOB power consumption context for testing"""
+        return PowerConsumptionContext()
+
+    def generic_power_supplies_output(self):
+        return PowerSuppliesContext()
+
     def generic_test(self, expected_output, func):
         expected_output_dict = dict(iterate_dataclass(expected_output))
         for pc, context in iterate_dataclass(func):
@@ -143,6 +150,12 @@ class TestVendors(unittest.TestCase):
     def generic_power_consumption_test(self, expected_output):
         return self.generic_test(
             expected_output, self.get_vendor().get_bmc().read_power_consumption(PowerConsumptionContext())
+        )
+
+    def generic_oob_power_consumption_test(self, expected_output):
+        """Test OOB power consumption reading from BMC"""
+        return self.generic_test(
+            expected_output, self.get_vendor().get_bmc().read_oob_power_consumption(PowerConsumptionContext())
         )
 
     def generic_power_supplies_test(self, expected_output):

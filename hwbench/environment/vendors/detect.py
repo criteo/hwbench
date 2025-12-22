@@ -6,12 +6,14 @@ from .amd.amd import Amd
 from .dell.dell import Dell
 from .generic import GenericVendor
 from .hpe.hpe import Hpe
+from .intel.intel_vendor import Intel
 from .vendor import Vendor
 
 VENDOR_LIST = [
     Dell,
     Hpe,
     Amd,
+    Intel,
     # This one always detects the hardware and should be kept at the end
     GenericVendor,
 ]
