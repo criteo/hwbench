@@ -118,7 +118,7 @@ def generate_stats(args) -> None:
                                     max_values = metrics[metric].get_max()
                                     if max_values:
                                         current_max = max(max_values)
-                                        if current_max > max_power[metric_name]:
+                                        if current_max > max_power[metric_name][1]:
                                             max_power[metric_name] = (bench_name, float(current_max))
                                             bench.get_metric_unit(m)
                 except KeyError:
@@ -129,7 +129,7 @@ def generate_stats(args) -> None:
         for metric_name in PowerConsumptionContextKeys:
             if max_power[metric_name]:
                 print(
-                    f"    {metric_name} max : {max_power[metric_name][0]:.2f} {bench.get_metric_unit(metric)} in {max_power[metric_name][1]}"
+                    f"    {metric_name} max : {max_power[metric_name][1]:.2f} {bench.get_metric_unit(metric)} in {max_power[metric_name][0]}"
                 )
 
 
