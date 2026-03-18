@@ -21,6 +21,7 @@ def init_matplotlib(args):
         matplotlib.use(args.engine)
     except ValueError:
         fatal(f"Cannot load matplotlib backend engine {args.engine}")
+    matplotlib.rcParams["font.family"] = "monospace"
 
 
 GRAPH_TYPES = ["perf", "perf_watt", "watts", "cpu_clock"]
@@ -200,7 +201,7 @@ class Graph:
         # Let's add all events and color them,
         for event, event_color in zip(self.args.events, cycle(colors)):
             ymin, ymax = self.get_ax().get_ylim()
-            plt.axvspan(
+            self.ax.axvspan(
                 event.get_start_time(),
                 event.get_start_time() + event.get_duration(),
                 ymin,
@@ -220,7 +221,7 @@ class Graph:
         self.trace_events()
 
         # Having vertical xticks makes it scalable for large number of cores
-        plt.setp(self.ax.get_xticklabels(), rotation=90)
+        self.ax.tick_params(axis="x", labelrotation=90)
 
         # Plot the legend if necessary
         # (Some graphs, like BarGraphs, do not need legend)
@@ -239,8 +240,7 @@ class Graph:
                         )
                     )
 
-        plt.rcParams["font.family"] = "monospace"  # Using monospace font to manage text alignment
-        plt.savefig(
+        self.fig.savefig(
             f"{self.output_dir}/{self.filename}.{file_format}",
             format=file_format,
             dpi=self.args.dpi,

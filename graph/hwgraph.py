@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 import argparse
+import os
 import pathlib
+import pickle
 import re
 import shlex
 import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from graph.graph import InvalidValue
 from hwbench.bench.monitoring_structs import (
@@ -30,6 +33,241 @@ except ImportError as exc:
         'Could not start hwgraph: did you make sure to also install the "graph" optional dependencies using `uv sync --extra graph` or `pip install hwbench[graph]`?'
     )
     sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# Multiprocessing infrastructure
+# ---------------------------------------------------------------------------
+
+# Module-level global used by worker processes to access shared data
+_pool_args = None
+
+
+def _init_pool_worker(args_data):
+    """Initialize a worker process with shared data and matplotlib backend."""
+    global _pool_args
+    _pool_args = pickle.loads(args_data)
+    init_matplotlib(_pool_args)
+
+
+def _execute_pool_task(task):
+    """Execute a single graph generation task in a worker process."""
+    func, *func_args = task
+    return func(*func_args)
+
+
+def _task_env_bench(trace_idx, bench_name, output_dir_str):
+    """Generate all environment graphs for a single (trace, bench) pair."""
+    global _pool_args
+    args = _pool_args
+    trace = args.traces[trace_idx]
+    output_dir = pathlib.Path(output_dir_str)
+    count = 0
+    count += graph_monitoring_metrics(args, trace, bench_name, output_dir)
+    count += graph_fans(args, trace, bench_name, output_dir)
+    count += graph_cpu(args, trace, bench_name, output_dir)
+    count += graph_pdu(args, trace, bench_name, output_dir)
+    count += graph_thermal(args, trace, bench_name, output_dir)
+    return count
+
+
+def _task_chassis(bench_name, output_dir_str):
+    """Generate chassis graphs for a single bench."""
+    global _pool_args
+    return graph_chassis(_pool_args, bench_name, pathlib.Path(output_dir_str))
+
+
+def _task_group(bench_name, output_dir_str):
+    """Generate group graphs for a single bench."""
+    global _pool_args
+    return graph_group_env(_pool_args, bench_name, pathlib.Path(output_dir_str))
+
+
+def _task_scaling(job, output_dir_str, traces_name):
+    """Generate SMP scaling graphs for a job."""
+    global _pool_args
+    return smp_scaling_graph(_pool_args, pathlib.Path(output_dir_str), job, traces_name)
+
+
+def _task_versus(job, output_dir_str, traces_name):
+    """Generate max versus graphs for a job."""
+    global _pool_args
+    return max_versus_graph(_pool_args, pathlib.Path(output_dir_str), job, traces_name)
+
+
+# ---------------------------------------------------------------------------
+# Task collection functions
+# ---------------------------------------------------------------------------
+
+
+def _collect_group_tasks(args, output_dir):
+    """Collect group graph tasks."""
+    tasks = []
+    if not args.same_group:
+        return tasks
+    # Graphs below are per group
+    output_dir = output_dir.joinpath("by_group")
+    for trace in args.traces:
+        try:
+            metric = f"BMC/{PowerCategories.SERVER}"
+            trace.first_bench().get_single_metric(
+                MonitoringContextKeys.PowerConsumption,
+                PowerConsumptionContextKeys.BMC,
+                PowerCategories.SERVER,
+            )
+            metric = "CPU/package"
+            trace.first_bench().get_single_metric(
+                MonitoringContextKeys.PowerConsumption, PowerConsumptionContextKeys.CPU, "package"
+            )
+        except KeyError:
+            fatal(f"group: missing '{metric}' monitoric metric in {trace.get_filename()}")
+    print(f"group: rendering {len(args.traces[0].bench_list())} jobs")
+    for bench_name in sorted(args.traces[0].bench_list()):
+        tasks.append((_task_group, bench_name, str(output_dir)))
+    return tasks
+
+
+def _collect_environment_tasks(args, output_dir):
+    """Collect environment graph tasks."""
+    tasks = []
+    # If user disabled the environmental graphs, return immediately
+    if not args.no_env:
+        print("environment: disabled by user")
+        return tasks
+
+    output_dir = output_dir.joinpath("environment")
+
+    chassis = args.traces[0].get_chassis_serial()
+    if chassis:
+        all_chassis = [t.get_chassis_serial() == chassis for t in args.traces]
+        # if all traces are from the same chassis, let's enable the same_chassis feature
+        if all_chassis.count(True) == len(args.traces) and len(args.traces) > 1:
+            print(f"environment: All traces are from the same chassis ({chassis}), enabling --same-chassis feature")
+            args.same_chassis = True
+
+    if args.same_chassis:
+
+        def valid_traces(args):
+            server = [trace.get_server_serial() for trace in args.traces]
+            # Let's ensure we don't have the same serial twice
+
+            if len(server) == len(args.traces):
+                # Let's ensure all traces has server and chassis metrics
+                for trace in args.traces:
+                    try:
+                        for metric in [
+                            PowerCategories.CHASSIS,
+                            PowerCategories.SERVER,
+                        ]:
+                            trace.first_bench().get_single_metric(
+                                MonitoringContextKeys.PowerConsumption,
+                                PowerConsumptionContextKeys.BMC,
+                                metric,
+                            )
+                    except KeyError:
+                        return f"environment: missing '{metric}' monitoric metric in {trace.get_filename()}, disabling same-enclosure print"
+            else:
+                return "environment: server are not unique, disabling same-chassis print"
+            return ""
+
+        error_message = valid_traces(args)
+        if not error_message:
+            for bench_name in sorted(args.traces[0].bench_list()):
+                tasks.append((_task_chassis, bench_name, str(output_dir.joinpath("by_chassis"))))
+        else:
+            print(error_message)
+
+    # Graphs below are per host
+    host_output_dir = output_dir.joinpath("by_host")
+    for trace_idx, trace in enumerate(args.traces):
+        host_output_dir.joinpath(f"{trace.get_name()}").mkdir(parents=True, exist_ok=True)
+        benches = trace.bench_list()
+        print(f"environment: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})")
+        for bench_name in sorted(benches):
+            tasks.append((_task_env_bench, trace_idx, bench_name, str(host_output_dir)))
+
+    return tasks
+
+
+def _collect_plot_tasks(args, output_dir):
+    """Collect scaling and versus graph tasks."""
+    tasks = []
+    jobs = []
+    for bench_name in sorted(args.traces[0].bench_list()):
+        job_name = args.traces[0].bench(bench_name).job_name()
+        # We want to keep a single job type
+        # i.e an avx test can be rampuped from 1 to 64 cores, generating tens of sub jobs
+        # We just want to keep the "avx" test as a reference, not all iterations
+        if job_name not in jobs:
+            jobs.append(job_name)
+
+    traces_name = [trace.get_name() for trace in args.traces]
+
+    if not args.no_scaling:
+        print("SMP scaling: disabled by user")
+    else:
+        # Let's generate the scaling graphs
+        print(f"SMP scaling: rendering {len(jobs)} jobs")
+        for job in jobs:
+            tasks.append((_task_scaling, job, str(output_dir), traces_name))
+
+    if not args.no_versus:
+        print("Max versus: disabled by user")
+    else:
+        # Let's generate the unitary comparing graphs
+        if len(traces_name) > 1:
+            print(f"Max versus: rendering {len(jobs)} jobs")
+            for job in jobs:
+                tasks.append((_task_versus, job, str(output_dir), traces_name))
+        else:
+            print("Max versus: skipped as at least 2 traces are necessary for this mode")
+
+    return tasks
+
+
+# ---------------------------------------------------------------------------
+# Task execution
+# ---------------------------------------------------------------------------
+
+
+def _execute_tasks(args, tasks):
+    """Execute graph generation tasks, using multiprocessing when jobs > 1."""
+    global _pool_args
+    num_workers = max(1, min(args.jobs, len(tasks)))
+    rendered_graphs = 0
+
+    if num_workers <= 1:
+        # Single-process mode: execute tasks sequentially
+        _pool_args = args
+        for task in tasks:
+            try:
+                rendered_graphs += _execute_pool_task(task)
+            except Exception as e:
+                print(f"Error generating graph: {e}")
+    else:
+        # Multi-process mode
+        print(f"Rendering graphs using {num_workers} parallel workers for {len(tasks)} tasks")
+        args_data = pickle.dumps(args, protocol=pickle.HIGHEST_PROTOCOL)
+        with ProcessPoolExecutor(
+            max_workers=num_workers,
+            initializer=_init_pool_worker,
+            initargs=(args_data,),
+        ) as pool:
+            futures = {pool.submit(_execute_pool_task, task): i for i, task in enumerate(tasks)}
+            for completed, future in enumerate(as_completed(futures), 1):
+                try:
+                    rendered_graphs += future.result()
+                except Exception as e:
+                    print(f"Error generating graph (task {futures[future]}): {e}")
+                if completed % 10 == 0 or completed == len(tasks):
+                    print(f"Progress: {completed}/{len(tasks)} tasks completed ({rendered_graphs} graphs rendered)")
+
+    return rendered_graphs
+
+
+# ---------------------------------------------------------------------------
+# Argument validators
+# ---------------------------------------------------------------------------
 
 
 def valid_trace_file(trace_arg: str) -> Trace:
@@ -74,6 +312,11 @@ def valid_events(event_arg: str) -> Event:
         raise e
 
 
+# ---------------------------------------------------------------------------
+# Sub-commands
+# ---------------------------------------------------------------------------
+
+
 def list_metrics_in_trace(args: argparse.Namespace):
     """List power metrics of a trace file"""
     Trace(args.trace).list_power_metrics()
@@ -82,17 +325,31 @@ def list_metrics_in_trace(args: argparse.Namespace):
 
 def render_traces(args: argparse.Namespace):
     """Render the trace files passed in arguments"""
-    rendered_graphs = 0
     init_matplotlib(args)
     output_dir = pathlib.Path(args.outdir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     compare_traces(args)
     generate_stats(args)
-    rendered_graphs += graph_group(args, output_dir)
-    rendered_graphs += graph_environment(args, output_dir)
-    rendered_graphs += plot_graphs(args, output_dir)
+
+    # Collect all graph generation tasks
+    # (This also performs validation and creates output directories)
+    tasks = []
+    tasks.extend(_collect_group_tasks(args, output_dir))
+    tasks.extend(_collect_environment_tasks(args, output_dir))
+    tasks.extend(_collect_plot_tasks(args, output_dir))
+
+    if not tasks:
+        print("No graphs to render")
+        return
+
+    rendered_graphs = _execute_tasks(args, tasks)
     print(f"{rendered_graphs} graphs can be found in '{output_dir}' directory")
+
+
+# ---------------------------------------------------------------------------
+# Sequential helpers (unchanged, used by task workers)
+# ---------------------------------------------------------------------------
 
 
 def generate_stats(args) -> None:
@@ -253,130 +510,9 @@ def graph_thermal(args, trace: Trace, bench_name: str, output_dir) -> int:
     return rendered_graphs
 
 
-def graph_group(args, output_dir) -> int:
-    rendered_graphs = 0
-    if not args.same_group:
-        return rendered_graphs
-    # Graphs below are per group
-    output_dir = output_dir.joinpath("by_group")
-    for trace in args.traces:
-        try:
-            metric = f"BMC/{PowerCategories.SERVER}"
-            trace.first_bench().get_single_metric(
-                MonitoringContextKeys.PowerConsumption,
-                PowerConsumptionContextKeys.BMC,
-                PowerCategories.SERVER,
-            )
-            metric = "CPU/package"
-            trace.first_bench().get_single_metric(
-                MonitoringContextKeys.PowerConsumption, PowerConsumptionContextKeys.CPU, "package"
-            )
-        except KeyError:
-            fatal(f"group: missing '{metric}' monitoric metric in {trace.get_filename()}")
-    print(f"group: rendering {len(args.traces[0].bench_list())} jobs")
-    for bench_name in sorted(args.traces[0].bench_list()):
-        rendered_graphs += graph_group_env(args, bench_name, output_dir)
-    return rendered_graphs
-
-
-def graph_environment(args, output_dir) -> int:
-    rendered_graphs = 0
-    # If user disabled the environmental graphs, return immediately
-    if not args.no_env:
-        print("environment: disabled by user")
-        return rendered_graphs
-
-    output_dir = output_dir.joinpath("environment")
-
-    chassis = args.traces[0].get_chassis_serial()
-    if chassis:
-        all_chassis = [t.get_chassis_serial() == chassis for t in args.traces]
-        # if all traces are from the same chassis, let's enable the same_chassis feature
-        if all_chassis.count(True) == len(args.traces) and len(args.traces) > 1:
-            print(f"environment: All traces are from the same chassis ({chassis}), enabling --same-chassis feature")
-            args.same_chassis = True
-
-    if args.same_chassis:
-
-        def valid_traces(args):
-            server = [trace.get_server_serial() for trace in args.traces]
-            # Let's ensure we don't have the same serial twice
-
-            if len(server) == len(args.traces):
-                # Let's ensure all traces has server and chassis metrics
-                for trace in args.traces:
-                    try:
-                        for metric in [
-                            PowerCategories.CHASSIS,
-                            PowerCategories.SERVER,
-                        ]:
-                            trace.first_bench().get_single_metric(
-                                MonitoringContextKeys.PowerConsumption,
-                                PowerConsumptionContextKeys.BMC,
-                                metric,
-                            )
-                    except KeyError:
-                        return f"environment: missing '{metric}' monitoric metric in {trace.get_filename()}, disabling same-enclosure print"
-            else:
-                return "environment: server are not unique, disabling same-chassis print"
-            return ""
-
-        error_message = valid_traces(args)
-        if not error_message:
-            for bench_name in sorted(args.traces[0].bench_list()):
-                rendered_graphs += graph_chassis(args, bench_name, output_dir.joinpath("by_chassis"))
-        else:
-            print(error_message)
-
-    # Graphs below are per host
-    output_dir = output_dir.joinpath("by_host")
-    for trace in args.traces:
-        output_dir.joinpath(f"{trace.get_name()}").mkdir(parents=True, exist_ok=True)
-        benches = trace.bench_list()
-        print(f"environment: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})")
-        for bench_name in sorted(benches):
-            rendered_graphs += graph_monitoring_metrics(args, trace, bench_name, output_dir)
-            rendered_graphs += graph_fans(args, trace, bench_name, output_dir)
-            rendered_graphs += graph_cpu(args, trace, bench_name, output_dir)
-            rendered_graphs += graph_pdu(args, trace, bench_name, output_dir)
-            rendered_graphs += graph_thermal(args, trace, bench_name, output_dir)
-
-    return rendered_graphs
-
-
-def plot_graphs(args, output_dir) -> int:
-    jobs = []
-    rendered_graphs = 0
-    for bench_name in sorted(args.traces[0].bench_list()):
-        job_name = args.traces[0].bench(bench_name).job_name()
-        # We want to keep a single job type
-        # i.e an avx test can be rampuped from 1 to 64 cores, generating tens of sub jobs
-        # We just want to keep the "avx" test as a reference, not all iterations
-        if job_name not in jobs:
-            jobs.append(job_name)
-
-    traces_name = [trace.get_name() for trace in args.traces]
-
-    if not args.no_scaling:
-        print("SMP scaling: disabled by user")
-    else:
-        # Let's generate the scaling graphs
-        print(f"SMP scaling: rendering {len(jobs)} jobs")
-        for job in jobs:
-            rendered_graphs += smp_scaling_graph(args, output_dir, job, traces_name)
-
-    if not args.no_versus:
-        print("Max versus: disabled by user")
-    else:
-        # Let's generate the unitary comparing graphs
-        if len(traces_name) > 1:
-            print(f"Max versus: rendering {len(jobs)} jobs")
-            for job in jobs:
-                rendered_graphs += max_versus_graph(args, output_dir, job, traces_name)
-        else:
-            print("Max versus: skipped as at least 2 traces are necessary for this mode")
-
-    return rendered_graphs
+# ---------------------------------------------------------------------------
+# CLI entry point
+# ---------------------------------------------------------------------------
 
 
 def main():
@@ -457,6 +593,13 @@ duration     : duration of the event (in seconds)
         choices=["zero", "last"],
         default="",
         help="Replace a missing datapoint instead of stopping the rendering. Could be by a zero or the last known value.",
+    )
+    parser_graph.add_argument(
+        "--jobs",
+        "-j",
+        help="Number of parallel worker processes for graph generation (default: number of CPUs)",
+        type=int,
+        default=os.cpu_count() // 2 or 1,
     )
     parser_graph.set_defaults(func=render_traces)
 

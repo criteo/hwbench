@@ -1,6 +1,5 @@
 from typing import Any  # noqa: F401
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 from graph.graph import GRAPH_TYPES, Graph
@@ -142,7 +141,7 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                     # Let's put the normalized value in the center of the bar
                     for trace_name in range(len(traces_name)):
                         if y_serie[trace_name] > 0:
-                            plt.text(
+                            graph.get_ax().text(
                                 trace_name,
                                 y_serie[trace_name] // 2,
                                 graph.human_format(y_serie[trace_name]),
