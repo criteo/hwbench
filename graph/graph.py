@@ -55,11 +55,6 @@ class Graph:
         self.set_filename(filename)
         self.needs_legend = True  # Does this graph need a legend to be rendered ?
 
-    def __del__(self):
-        """Destruction will close all plots"""
-        self.fig.clear()
-        plt.close(self.fig)
-
     def set_filename(self, filename: str):
         self.filename = filename
 
@@ -115,10 +110,6 @@ class Graph:
         self.ax.set_ylim(None, ymin=0, ymax=ymax, emit=True, auto=True)
         # If we have a 2nd axis, let's prepare it
         if self.ax2:
-            # Legend y1 at top left
-            self.ax.legend(loc=2)
-            # Legend y2 at top right
-            self.ax2.legend(loc=1)
             self.ax2.set_ylim(None, ymin=0, ymax=self.y2_max, emit=True, auto=True)
             self.ax2.yaxis.set_major_formatter(FuncFormatter(self.human_format))
             self.fig.tight_layout()  # otherwise the right y-label is slightly clipped
@@ -234,16 +225,19 @@ class Graph:
         # Plot the legend if necessary
         # (Some graphs, like BarGraphs, do not need legend)
         if self.needs_legend:
-            plt.legend()
             # Upper left
-            legends.append(self.ax.legend(bbox_to_anchor=(-0.05, 1), title="component [min; mean; stddev; max]\n"))
+            handles, labels = self.ax.get_legend_handles_labels()
+            if handles:
+                legends.append(self.ax.legend(bbox_to_anchor=(-0.05, 1), title="component [min; mean; stddev; max]\n"))
             if self.ax2:
                 # Upper right
-                legends.append(
-                    self.ax2.legend(
-                        loc="upper right", bbox_to_anchor=(1.3, 1), title="component [min; mean; stddev; max]\n"
+                handles2, labels2 = self.ax2.get_legend_handles_labels()
+                if handles2:
+                    legends.append(
+                        self.ax2.legend(
+                            loc="upper right", bbox_to_anchor=(1.3, 1), title="component [min; mean; stddev; max]\n"
+                        )
                     )
-                )
 
         plt.rcParams["font.family"] = "monospace"  # Using monospace font to manage text alignment
         plt.savefig(
