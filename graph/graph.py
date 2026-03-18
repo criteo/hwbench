@@ -55,11 +55,6 @@ class Graph:
         self.set_filename(filename)
         self.needs_legend = True  # Does this graph need a legend to be rendered ?
 
-    def __del__(self):
-        """Destruction will close all plots"""
-        self.fig.clear()
-        plt.close(self.fig)
-
     def set_filename(self, filename: str):
         self.filename = filename
 
