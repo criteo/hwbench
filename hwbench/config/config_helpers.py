@@ -34,3 +34,13 @@ def simple(hardware: env_hw.BaseHardware) -> str:
                 cpu_list += hardware.get_cpu().get_peer_siblings(cpu)
             global_cpu_list += ",".join(str(e) for e in sorted(cpu_list)) + " "
     return global_cpu_list.strip()
+
+
+def numa_simple(hardware: env_hw.BaseHardware) -> str:
+    """Return one cpu group per available NUMA node on the system."""
+    cpu = hardware.get_cpu()
+    groups = []
+    for numa_domain in range(cpu.get_numa_domains_count()):
+        cores = cpu.get_logical_cores_in_numa_domain(numa_domain)
+        groups.append(",".join(str(core) for core in sorted(cores)))
+    return " ".join(groups)

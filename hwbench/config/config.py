@@ -163,13 +163,14 @@ class Config:
             hcc = hcc.replace("all", f"0-{self.hardware.get_cpu().get_logical_cores_count() - 1}")
 
         # Let's replace helpers if any
-        helpers = re.findall("simple", hcc)
-        if helpers:
-            for helper in helpers:
-                helper_module = importlib.import_module(  # noqa: F841
-                    ".config_helpers", package="hwbench.config"
-                )
-                hcc = hcc.replace(helper, eval(f"helper_module.{helper}")(self.hardware), 1)
+        # Helpers are listed longest-first so a shorter name (simple) cannot
+        # partially match a longer one (numa-simple). The keyword's dashes are
+        # mapped to underscores to match the function name in config_helpers.
+        helper_module = importlib.import_module(".config_helpers", package="hwbench.config")
+        for helper in ["numa-simple", "simple"]:
+            while helper in hcc:
+                helper_function = getattr(helper_module, helper.replace("-", "_"))
+                hcc = hcc.replace(helper, helper_function(self.hardware), 1)
 
         # If the hcc has some numa domains, lets expand them.
         # Let's search if there is any numa keyword

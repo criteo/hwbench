@@ -78,14 +78,16 @@ def validate_hosting_cpu_cores(config, section_name, value) -> str:
         if value.isnumeric():
             return ""
         else:
-            ressources = re.findall(r"(quadrant|numa|core)([0-9-,]+)", value.lower())
+            value = value.lower()
+            # Helpers are removed first (longest-first so 'simple' cannot
+            # partially match 'numa-simple') before parsing the resources,
+            # otherwise the numa resource regex would eat 'numa-' from 'numa-simple'.
+            for helper in ["numa-simple", "simple", "all"]:
+                value = value.replace(helper, "", 1)
+            ressources = re.findall(r"(quadrant|numa|core)([0-9-,]+)", value)
             if ressources:
                 for ressource in ressources:
-                    value = value.lower().replace(f"{ressource[0]}{ressource[1]}", "", 1)
-            for helper in ["all", "simple"]:
-                ressources = re.findall(rf"{helper}", value.lower())
-                if ressources:
-                    value = value.lower().replace(f"{helper}", "", 1)
+                    value = value.replace(f"{ressource[0]}{ressource[1]}", "", 1)
             range = config.parse_range(value)
             if range:
                 value = value.lower().replace(value, "", 1)
