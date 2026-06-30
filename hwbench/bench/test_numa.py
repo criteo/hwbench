@@ -35,6 +35,25 @@ class TestNuma(tbc.TestCommon):
         ]:
             self.should_be_fatal(self.get_jobs_config().get_hosting_cpu_cores, test_name)
 
+    def test_numa_simple(self):
+        """Check the numa-simple helper expands to one cpu group per NUMA node."""
+        cpu = self.hw.get_cpu()
+        assert cpu.get_numa_domains_count() == 8
+        # One group per NUMA node, in domain order, cores sorted.
+        all_numa_nodes = [
+            sorted(cpu.get_logical_cores_in_numa_domain(domain)) for domain in range(cpu.get_numa_domains_count())
+        ]
+        # Sanity check against the known topology of this mocked AMD system
+        assert all_numa_nodes[0] == self.NUMA0
+        assert all_numa_nodes[1] == self.NUMA1
+        assert all_numa_nodes[7] == self.NUMA7
+
+        assert self.get_jobs_config().get_hosting_cpu_cores("numa_simple") == all_numa_nodes
+
+        # numa_simple benchmarks are scheduled after numa_nodes (5) and quadrants (4)
+        for index, numa_node in enumerate(all_numa_nodes):
+            assert self.get_bench_parameters(9 + index).get_pinned_cpu() == numa_node
+
     def test_numa(self):
         """Check numa syntax"""
         assert self.hw.logical_core_count() == 128
