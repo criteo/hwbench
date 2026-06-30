@@ -55,6 +55,8 @@ hosting_cpu_cores:
                 none       : all cores are selected but no pinning is performed (default)
                 list       : items in hosting_cpu_cores list are considered separately
                 simple     : 1, 2, 3, 4, 8, 16 then +16 up to the physical cores count
+                numa-simple: one cpu group per available NUMA node of the system
+                             (equivalent to listing numa0 numa1 ... numaN as groups)
 
 
 hosting_cpu_cores_scaling:
