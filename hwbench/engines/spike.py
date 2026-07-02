@@ -80,11 +80,11 @@ class Spike(ExternalBench):
     def parse_parameters(self):
         runtime = self.parameters.runtime
         for param in self.parameters.get_engine_module_parameter_base().split():
-            ressources = re.findall(r"\b(high|low):([0-9]+)\b", param)
-            if ressources:
+            resources = re.findall(r"\b(high|low):([0-9]+)\b", param)
+            if resources:
                 self.auto = False
-                for ressource, value in ressources:
-                    if ressource == "high":
+                for resource, value in resources:
+                    if resource == "high":
                         self.high = int(value)
                     else:
                         self.low = int(value)
@@ -197,7 +197,7 @@ class Spike(ExternalBench):
                 )
             if wait_high_fans_speed:
                 if not stressor:
-                    print("High: Spawing stressor")
+                    print("High: Spawning stressor")
                     stressor = self.__spawn_stressor()
                 elif fans_speed >= fans_speed_high:
                     # Fans reach the expected speed, let's stop the stress

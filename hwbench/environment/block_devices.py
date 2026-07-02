@@ -79,7 +79,7 @@ class Block_Device:
         dumped: dict[str, Any] = {}
         attributes = self.udev_device.attributes
         for attribute in attributes.available_attributes:
-            # The casting below is to avoid breaking struct to json. b"" cant be serialized has to be cast as string
+            # The casting below is to avoid breaking struct to json. b"" can't be serialized has to be cast as string
             dumped[attribute] = (
                 attributes.get(attribute).decode()
                 if isinstance(attributes.get(attribute), bytes)
@@ -209,7 +209,7 @@ class Sdparm(External):
                 setting_match = setting_pattern.match(line.decode())
                 if setting_match and current_mode_page:
                     name, current, changeable, default, saved = setting_match.groups()
-                    # The casting below is to avoid breaking struct to json. b"" cant be serialized has to be cast as string
+                    # The casting below is to avoid breaking struct to json. b"" can't be serialized has to be cast as string
                     value = str(current) if type(current) is bytes else current
                     metric_data = {
                         "default": int(default),

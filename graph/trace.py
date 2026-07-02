@@ -404,7 +404,7 @@ class Bench:
         """Compare if two Bench objects are similar"""
         for setting in self.settings():
             # We just want to ensure jobs are similar in their design
-            # The skip_list is matching items that may vary accross systems / runs
+            # The skip_list is matching items that may vary across systems / runs
             skip_list = [
                 "bogo",
                 "monitoring",
@@ -415,7 +415,7 @@ class Bench:
                 "memset",
             ]
 
-            # Skiping network results
+            # Skipping network results
             for size in [8, 16, 32, 64, 128, 256, 512, 1024]:
                 skip_list.append(f"write{size}")
                 skip_list.append(f"read{size}")

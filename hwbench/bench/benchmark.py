@@ -48,7 +48,7 @@ class Benchmark:
         }
 
     def validate_parameters(self):
-        """Verify that the benchmark parameters are correct at instanciation time.
+        """Verify that the benchmark parameters are correct at instantiation time.
         Returns empty string if OK, or an error message"""
         e = self.get_enginemodule()
         p = self.get_parameters()
@@ -61,7 +61,7 @@ class Benchmark:
         p = self.get_parameters()
         # Extract the common result output
         p.set_result_format(self.format_results())
-        # Exectue the engine module
+        # Execute the engine module
         return e.run(p)
 
     def need_monitoring(self):

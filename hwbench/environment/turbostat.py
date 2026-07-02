@@ -504,7 +504,7 @@ class Turbostat:
             precision_s: the monitoring loop interval (used for timeout)
 
         Returns:
-            last_turbostat_output: when (in monotonic time) Turbostat outputed the last values.
+            last_turbostat_output: when (in monotonic time) Turbostat outputted the last values.
             If no sample was available in time, the last known value is returned so the
             caller keeps receiving a value of a consistent type instead of crashing.
         """

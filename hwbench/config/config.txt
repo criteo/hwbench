@@ -4,7 +4,7 @@ runtime:
    unit : seconds
 
 monitor:
-   role : defines what environement metrics should be monitored during jobs
+   role : defines what environment metrics should be monitored during jobs
    value: thermal, power, fans, all, none
    unit : text
    note : The monitoring is done by external tool report_power

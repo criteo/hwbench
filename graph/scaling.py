@@ -113,7 +113,7 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 title = f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job\n\n Stressor: '
                 title += f"{bench.get_title_engine_name()} for {bench.duration()} seconds"
                 xlabel = "Workers"
-                # If we have a constent ratio between cores & workers, let's report them under the Xaxis
+                # If we have a constant ratio between cores & workers, let's report them under the Xaxis
                 if stdev(logical_core_per_worker) == 0:
                     cores = "cores"
                     if logical_core_per_worker[0] == 1:

@@ -3,7 +3,7 @@ The configuration file is a typical init file with sections:
  - global : defines items for all others sections
  - <job>  : defines a new test with "job" as name
             - items defined in global are merged into it
-            - if a global item is redefined, the value is overrided
+            - if a global item is redefined, the value is overridden
 
 config/config.txt file defines the syntax and logic associated to each
 keyword but here is the main principles:

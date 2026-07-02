@@ -160,7 +160,7 @@ class Config:
             core_list = self.hardware.get_cpu().get_peer_siblings(int(core))
 
             if not core_list:
-                h.fatal(f"Unable to find sibblings for cpu core {core}")
+                h.fatal(f"Unable to find siblings for cpu core {core}")
             return core_list
 
         sc = self.get_directive(section_name, "selected_cpus")
@@ -182,34 +182,34 @@ class Config:
 
         # If sc has some numa domains, lets expand them.
         # Let's search if there is any numa keyword
-        ressources = re.findall(r"(quadrant|numa|core)([0-9-,]+)", sc)
+        resources = re.findall(r"(quadrant|numa|core)([0-9-,]+)", sc)
 
-        if ressources:
+        if resources:
             if self.hardware is None:
                 h.fatal("Incorrect hardware init")
 
-            for ressource_name, ressource in ressources:
+            for resource_name, resource in resources:
                 cpus = ""
                 ints = []
                 # reuse the same parse_range function for a consistent syntax
-                for value in self.parse_range(ressource):
-                    ressource_function = None
-                    if ressource_name == "quadrant":
-                        ressource_function = get_cores_from_quadrant
-                    elif ressource_name == "numa":
-                        ressource_function = get_cores_from_domain
+                for value in self.parse_range(resource):
+                    resource_function = None
+                    if resource_name == "quadrant":
+                        resource_function = get_cores_from_quadrant
+                    elif resource_name == "numa":
+                        resource_function = get_cores_from_domain
                     else:
-                        ressource_function = get_physical_cores
-                    ints += ressource_function(value)
+                        resource_function = get_physical_cores
+                    ints += resource_function(value)
 
                 # Let's build the list of cpu for the selected numa domains
                 cpus = ",".join(str(e) for e in sorted(ints))
                 # Replace only the matched domain by the list of cpus
-                sc = sc.replace(f"{ressource_name}{ressource}", cpus, 1)
+                sc = sc.replace(f"{resource_name}{resource}", cpus, 1)
 
-        ressources = re.findall(r"(all|simple|quadrant.*|numa.*|core.*)", sc)
-        if ressources:
-            h.fatal(f"The following keywords, didn't got processed ! : {ressources}")
+        resources = re.findall(r"(all|simple|quadrant.*|numa.*|core.*)", sc)
+        if resources:
+            h.fatal(f"The following keywords, didn't get processed ! : {resources}")
         return self.parse_range(sc)
 
     def get_selected_cpus_scaling(self, section_name) -> str:
