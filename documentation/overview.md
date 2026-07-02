@@ -40,7 +40,7 @@ Time-limited evaluation
 
 - __engine__ : micro\-benchmark\, hwbench plugin to wrap features & command lines
 
-- __hcc__ : selects cores from the system to be eligible for benchmarking\.
+- __selected\_cpus__ : selects cores from the system to be eligible for benchmarking\.
 
     - __Objects__:
       - Logical cores \( _\<int>_ \)
@@ -53,11 +53,11 @@ Time-limited evaluation
 
     Example: CORE0\, CORE1\, QUADRANT0\, QUADRANT0\-3
 
-- __hccs__ : selects how hosting cpu cores are associated with jobs
+- __selected\_cpus\_scaling__ : selects how selected cpus are associated with jobs
 
     - __Objects__:
       - _none _ \(all cores at once\)\
-      - _iterate _ \(each hcc value will create a new job\)
+      - _iterate _ \(each selected\_cpus value will create a new job\)
 
 - __stressor\_range__ : selects how many engine instance per job
 
@@ -65,7 +65,7 @@ Time-limited evaluation
       - \<int>\
       - interval \(\<x\-y>\)
       - list \(\<x>\,\<y>\)\
-      - _auto _ \(same value as hccs\)
+      - _auto _ \(same value as selected\_cpus\_scaling\)
 
 - __\[<__  _job\_name_  _>_  __\]__ : defines one top level job
 
@@ -77,7 +77,7 @@ Time-limited evaluation
 
 Using this config:
 
-![](img/Hwbench-intro5.png)
+![](img/Hwbench-intro4.png)
 
 Output:
 

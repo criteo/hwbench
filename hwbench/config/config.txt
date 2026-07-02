@@ -36,7 +36,7 @@ engine_module_parameter_base:
     role : pass a static base parameter to engine_module
     unit : text
 
-hosting_cpu_cores:
+selected_cpus:
     role : list the logical cpu cores eligible during the test
     value: integer: x
            range: x-y
@@ -53,20 +53,20 @@ hosting_cpu_cores:
                              <x> can be integer, range or list.
                 all        : all cores are selected
                 none       : all cores are selected but no pinning is performed (default)
-                list       : items in hosting_cpu_cores list are considered separately
+                list       : items in selected_cpus list are considered separately
                 simple     : 1, 2, 3, 4, 8, 16 then +16 up to the physical cores count
-                numa-simple: one cpu group per available NUMA node of the system
-                             (equivalent to listing numa0 numa1 ... numaN as groups)
+                numa-simple: cumulative cpu groups, adding one more NUMA node at each step
+                             (equivalent to listing numa0 numa0-1 numa0-2 ... numa0-N as groups)
 
 
-hosting_cpu_cores_scaling:
-    role : defines how the hosting_cpu_cores is consumed
+selected_cpus_scaling:
+    role : defines how the selected_cpus is consumed
     value: plus_<x> : <x> cores are added to the pinning
-           iterate  : for each value of hosting_cpu_cores, a new sub job is executed
-                      if hosting_cpu_cores has lower cpu count than stressor_range, the list is looped
-           none     : all hosting_cpu_cores cores are available for each job
+           iterate  : for each value of selected_cpus, a new sub job is executed
+                      if selected_cpus has lower cpu count than stressor_range, the list is looped
+           none     : all selected_cpus cores are available for each job
     unit : text
-    note : if hosting_cpu_cores is an integer, hosting_cpu_cores_scaling is not considered
+    note : if selected_cpus is an integer, selected_cpus_scaling is not considered
 
 stressor_range:
     role : list the number of stressor threads to use during this test
@@ -74,10 +74,10 @@ stressor_range:
            range: x-y
            list: x,y,z
     unit : integer
-    note : if omitted, stressor_range = hosting_cpu_cores
+    note : if omitted, stressor_range = selected_cpus
            special keywords :
-                all        : all hosting_cpu_cores are selected (not implemented)
-                auto       : equals the number of cores selected by hosting_cpu_cores
+                all        : all selected_cpus are selected (not implemented)
+                auto       : equals the number of cores selected by selected_cpus
 
 stressor_range_scaling:
     role : defines how the stressor_range is consumed
