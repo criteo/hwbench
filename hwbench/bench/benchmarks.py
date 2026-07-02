@@ -87,24 +87,24 @@ class Benchmarks:
             # extract job's parameters
             stressor_range = self.jobs_config.get_stressor_range(job)
             stressor_range_scaling = self.jobs_config.get_stressor_range_scaling(job)
-            hosting_cpu_cores_raw = self.jobs_config.get_hosting_cpu_cores(job)
-            hosting_cpu_cores = hosting_cpu_cores_raw.copy()
-            hosting_cpu_cores_scaling = self.jobs_config.get_hosting_cpu_cores_scaling(job)
+            selected_cpus_raw = self.jobs_config.get_selected_cpus(job)
+            selected_cpus = selected_cpus_raw.copy()
+            selected_cpus_scaling = self.jobs_config.get_selected_cpus_scaling(job)
 
             # Let's set the default values
-            # If a single hosting_cpu_cores is set, the default scaling is iterate
-            if len(hosting_cpu_cores) == 1:
-                hosting_cpu_cores_scaling = "iterate"
+            # If a single selected_cpus is set, the default scaling is iterate
+            if len(selected_cpus) == 1:
+                selected_cpus_scaling = "iterate"
 
             if (
-                hosting_cpu_cores_scaling == "none"
-                and isinstance(hosting_cpu_cores, list)
-                and len(hosting_cpu_cores) > 0
-                and isinstance(hosting_cpu_cores[0], list)
+                selected_cpus_scaling == "none"
+                and isinstance(selected_cpus, list)
+                and len(selected_cpus) > 0
+                and isinstance(selected_cpus[0], list)
             ):
                 h.fatal(
-                    "Impossible to have multiple cpu cores lists in hosting_cpu_cores: "
-                    f"{hosting_cpu_cores} ; with hosting_cpu_cores_scaling "
+                    "Impossible to have multiple cpu cores lists in selected_cpus: "
+                    f"{selected_cpus} ; with selected_cpus_scaling "
                     "strategy 'none'"
                 )
 
@@ -113,21 +113,21 @@ class Benchmarks:
                 stressor_range_scaling = "plus_1"
 
             # Reverse so the pop() call makes cores in a numerical order
-            hosting_cpu_cores.reverse()
+            selected_cpus.reverse()
 
             # Let's create benchmark jobs
-            # Detect hosting cpu cores scaling mode
-            if hosting_cpu_cores_scaling.startswith("plus_"):
-                steps = int(hosting_cpu_cores_scaling.replace("plus_", ""))
-                # It's mandatory to have hosting_cpu_cores to be
+            # Detect selected cpus scaling mode
+            if selected_cpus_scaling.startswith("plus_"):
+                steps = int(selected_cpus_scaling.replace("plus_", ""))
+                # It's mandatory to have selected_cpus to be
                 # a strict modulo of the requested steps
                 # That would lead to an unbalanced benchmark configuration
-                if len(hosting_cpu_cores) % steps != 0:
-                    h.fatal("hosting_cpu_cores is not module hosting_cpu_cores_scaling !")
+                if len(selected_cpus) % steps != 0:
+                    h.fatal("selected_cpus is not module selected_cpus_scaling !")
                 pinned_cpu = []
-                while len(hosting_cpu_cores):
+                while len(selected_cpus):
                     for _step in range(steps):
-                        for cpu in hosting_cpu_cores.pop():
+                        for cpu in selected_cpus.pop():
                             pinned_cpu.append(cpu)
                     self.__schedule_benchmarks(
                         job,
@@ -135,21 +135,21 @@ class Benchmarks:
                         sorted(pinned_cpu.copy()),
                         validate_parameters,
                     )
-            elif hosting_cpu_cores_scaling == "iterate":
-                for _iteration in range(len(hosting_cpu_cores)):
+            elif selected_cpus_scaling == "iterate":
+                for _iteration in range(len(selected_cpus)):
                     # Pick the last CPU of the list
-                    pinned_cpu = hosting_cpu_cores.pop()
+                    pinned_cpu = selected_cpus.pop()
                     self.__schedule_benchmarks(job, stressor_range_scaling, pinned_cpu, validate_parameters)
-            elif hosting_cpu_cores_scaling == "none":
+            elif selected_cpus_scaling == "none":
                 self.__schedule_benchmarks(
                     job,
                     stressor_range_scaling,
-                    sorted(hosting_cpu_cores),
+                    sorted(selected_cpus),
                     validate_parameters,
                 )
             else:
-                hccs = hosting_cpu_cores_scaling
-                h.fatal(f"Unsupported hosting_cpu_cores_scaling : {hccs}")
+                scs = selected_cpus_scaling
+                h.fatal(f"Unsupported selected_cpus_scaling : {scs}")
 
     def __schedule_benchmarks(self, job, stressor_range_scaling, pinned_cpu, validate_parameters: bool):
         """Iterate on engine module parameters to schedule benchmarks."""

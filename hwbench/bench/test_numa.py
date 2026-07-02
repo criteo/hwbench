@@ -33,7 +33,7 @@ class TestNuma(tbc.TestCommon):
             "invalid_quadrant",
             "alpha_quadrant",
         ]:
-            self.should_be_fatal(self.get_jobs_config().get_hosting_cpu_cores, test_name)
+            self.should_be_fatal(self.get_jobs_config().get_selected_cpus, test_name)
 
     def test_numa_simple(self):
         """Check the numa-simple helper accumulates NUMA nodes one at a time."""
@@ -51,7 +51,7 @@ class TestNuma(tbc.TestCommon):
         assert cumulative_numa_nodes[1] == self.NUMA0_1
         assert cumulative_numa_nodes[7] == self.NUMA0_7
 
-        assert self.get_jobs_config().get_hosting_cpu_cores("numa_simple") == cumulative_numa_nodes
+        assert self.get_jobs_config().get_selected_cpus("numa_simple") == cumulative_numa_nodes
 
         # numa_simple benchmarks are scheduled after numa_nodes (5) and quadrants (4)
         for index, numa_node in enumerate(cumulative_numa_nodes):
@@ -63,7 +63,7 @@ class TestNuma(tbc.TestCommon):
         assert self.hw.get_cpu().get_vendor() == "AuthenticAMD"
         assert self.hw.get_cpu().get_numa_domains_count() == 8
         assert self.hw.get_cpu().get_quadrants_count() == 4
-        assert self.get_jobs_config().get_hosting_cpu_cores("numa_nodes") == [
+        assert self.get_jobs_config().get_selected_cpus("numa_nodes") == [
             self.NUMA0,
             self.NUMA1,
             self.NUMA7,
@@ -84,4 +84,4 @@ class TestNuma(tbc.TestCommon):
             "invalid_numa_nodes",
             "alpha_numa_nodes",
         ]:
-            self.should_be_fatal(self.get_jobs_config().get_hosting_cpu_cores, test_name)
+            self.should_be_fatal(self.get_jobs_config().get_selected_cpus, test_name)

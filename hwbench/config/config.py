@@ -14,6 +14,14 @@ from . import config_syntax
 
 
 class Config:
+    # Keywords renamed across versions: old name -> new name.
+    # Kept so configuration files still using the old names get a clear
+    # migration message instead of a generic "invalid keyword" error.
+    RENAMED_KEYWORDS = {
+        "hosting_cpu_cores": "selected_cpus",
+        "hosting_cpu_cores_scaling": "selected_cpus_scaling",
+    }
+
     def __init__(self, jobs_file: str):
         self.jobs_file = jobs_file
         if not os.path.isfile(self.jobs_file):
@@ -25,8 +33,8 @@ class Config:
             "monitor": "none",
             "stressor_range": "1",
             "stressor_range_scaling": "plus_1",
-            "hosting_cpu_cores": "none",
-            "hosting_cpu_cores_scaling": "iterate",
+            "selected_cpus": "none",
+            "selected_cpus_scaling": "iterate",
             "engine_module_parameter_base": "",
             "skip_method": "bypass",
             "sync_start": "none",
@@ -68,8 +76,8 @@ class Config:
             "engine_module_parameter_base",
             "stressor_range",
             "stressor_range_scaling",
-            "hosting_cpu_cores",
-            "hosting_cpu_cores_scaling",
+            "selected_cpus",
+            "selected_cpus_scaling",
             "thermal_start",
             "fans_start",
             "skip_method",
@@ -127,8 +135,8 @@ class Config:
         """Return the stressor range scaling of a section."""
         return self.get_directive(section_name, "stressor_range_scaling")
 
-    def get_hosting_cpu_cores(self, section_name) -> list[str]:
-        """Return the hosting cpu cores of a section."""
+    def get_selected_cpus(self, section_name) -> list[str]:
+        """Return the selected cpus of a section."""
 
         def get_cores_from_quadrant(quadrant):
             """Return the core list for a quadrant"""
@@ -155,12 +163,12 @@ class Config:
                 h.fatal(f"Unable to find sibblings for cpu core {core}")
             return core_list
 
-        hcc = self.get_directive(section_name, "hosting_cpu_cores")
+        sc = self.get_directive(section_name, "selected_cpus")
 
         # Let's replace 'all' special keyword if any
-        all = re.findall("all", hcc)
+        all = re.findall("all", sc)
         if all:
-            hcc = hcc.replace("all", f"0-{self.hardware.get_cpu().get_logical_cores_count() - 1}")
+            sc = sc.replace("all", f"0-{self.hardware.get_cpu().get_logical_cores_count() - 1}")
 
         # Let's replace helpers if any
         # Helpers are listed longest-first so a shorter name (simple) cannot
@@ -168,13 +176,13 @@ class Config:
         # mapped to underscores to match the function name in config_helpers.
         helper_module = importlib.import_module(".config_helpers", package="hwbench.config")
         for helper in ["numa-simple", "simple"]:
-            while helper in hcc:
+            while helper in sc:
                 helper_function = getattr(helper_module, helper.replace("-", "_"))
-                hcc = hcc.replace(helper, helper_function(self.hardware), 1)
+                sc = sc.replace(helper, helper_function(self.hardware), 1)
 
-        # If the hcc has some numa domains, lets expand them.
+        # If sc has some numa domains, lets expand them.
         # Let's search if there is any numa keyword
-        ressources = re.findall(r"(quadrant|numa|core)([0-9-,]+)", hcc)
+        ressources = re.findall(r"(quadrant|numa|core)([0-9-,]+)", sc)
 
         if ressources:
             if self.hardware is None:
@@ -197,16 +205,16 @@ class Config:
                 # Let's build the list of cpu for the selected numa domains
                 cpus = ",".join(str(e) for e in sorted(ints))
                 # Replace only the matched domain by the list of cpus
-                hcc = hcc.replace(f"{ressource_name}{ressource}", cpus, 1)
+                sc = sc.replace(f"{ressource_name}{ressource}", cpus, 1)
 
-        ressources = re.findall(r"(all|simple|quadrant.*|numa.*|core.*)", hcc)
+        ressources = re.findall(r"(all|simple|quadrant.*|numa.*|core.*)", sc)
         if ressources:
             h.fatal(f"The following keywords, didn't got processed ! : {ressources}")
-        return self.parse_range(hcc)
+        return self.parse_range(sc)
 
-    def get_hosting_cpu_cores_scaling(self, section_name) -> str:
-        """Return the hosting cpu cores scaling of a section."""
-        return self.get_directive(section_name, "hosting_cpu_cores_scaling")
+    def get_selected_cpus_scaling(self, section_name) -> str:
+        """Return the selected cpus scaling of a section."""
+        return self.get_directive(section_name, "selected_cpus_scaling")
 
     def get_skip_method(self, section_name) -> str:
         """Return the skipping method of a section."""
@@ -237,6 +245,11 @@ class Config:
                 h.fatal(f'Job {section_name}: missing required custom parameter "{required_custom_parameter}"')
 
         for directive in section:
+            if directive in self.RENAMED_KEYWORDS:
+                h.fatal(
+                    f"Job {section_name}: keyword '{directive}' has been renamed to "
+                    f"'{self.RENAMED_KEYWORDS[directive]}', please update your configuration"
+                )
             if not self.is_valid_keyword(directive) and current_engine:
                 if directive in current_engine.custom_parameters_validators:
                     message = current_engine.custom_parameters_validators[directive](

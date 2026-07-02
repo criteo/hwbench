@@ -70,8 +70,8 @@ def validate_stressor_range_scaling(config, section_name, value) -> str:
     return ""
 
 
-def validate_hosting_cpu_cores(config, section_name, value) -> str:
-    """Validate the hosting cpu cores syntax."""
+def validate_selected_cpus(config, section_name, value) -> str:
+    """Validate the selected cpus syntax."""
     # The concept here is to remove from the value string items we know.
     # If one unhandled item is remaining, an error is reported.
     if isinstance(value, str):
@@ -92,16 +92,16 @@ def validate_hosting_cpu_cores(config, section_name, value) -> str:
             if range:
                 value = value.lower().replace(value, "", 1)
             if len(value):
-                return f"Unhandled string '{value}' in hosting cpu cores"
+                return f"Unhandled string '{value}' in selected cpus"
     else:
-        return f"Unhandled {value} in hosting cpu cores"
+        return f"Unhandled {value} in selected cpus"
     return ""
 
 
-def validate_hosting_cpu_cores_scaling(config, section_name, value) -> str:
-    """Validate the hosting cpu cores scaling syntax."""
+def validate_selected_cpus_scaling(config, section_name, value) -> str:
+    """Validate the selected cpus scaling syntax."""
     if not value.startswith("plus_") and value not in ["iterate", "none"]:
-        return f'Unknown hosting_cpu_cores_scaling="{value}"'
+        return f'Unknown selected_cpus_scaling="{value}"'
     return ""
 
 

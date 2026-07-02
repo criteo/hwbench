@@ -18,7 +18,7 @@ class TestCores(tbc.TestCommon):
         CPU1 = [1, 65]
         CPU0_1 = sorted(CPU0 + CPU1)
         CPU0_7 = list(range(0, 8)) + list(range(64, 72))
-        assert self.get_jobs_config().get_hosting_cpu_cores("cores") == [
+        assert self.get_jobs_config().get_selected_cpus("cores") == [
             CPU0,
             CPU1,
             CPU0_7,
@@ -35,4 +35,4 @@ class TestCores(tbc.TestCommon):
             "invalid_cpu_core",
             "alpha_cpu_core",
         ]:
-            self.should_be_fatal(self.get_jobs_config().get_hosting_cpu_cores, test_name)
+            self.should_be_fatal(self.get_jobs_config().get_selected_cpus, test_name)

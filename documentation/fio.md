@@ -34,12 +34,12 @@ runtime=600
 engine=fio
 engine_module=cmdline
 engine_module_parameter_base=--filename=/dev/nvme0n1 --direct=1 --rw=randread --bs=4k --ioengine=libaio --iodepth=256 --group_reporting --readonly
-hosting_cpu_cores=all
-hosting_cpu_cores_scaling=none
+selected_cpus=all
+selected_cpus_scaling=none
 stressor_range=4,6
 ```
 
-Please note the `hosting_cpu_cores` only selects a set of cores to pin fio. A possible usage would be using a list of cores with a `hosting_cpu_cores_scaling` to study the performance of the same storage device from different NUMA domains.
+Please note the `selected_cpus` only selects a set of cores to pin fio. A possible usage would be using a list of cores with a `selected_cpus_scaling` to study the performance of the same storage device from different NUMA domains.
 
 ## External file execution
 Hwbench execute an already existing fio job file.
