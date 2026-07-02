@@ -257,10 +257,11 @@ class Benchmarks:
         results = {}
         t = str(timedelta(seconds=self.runtime())).split(":")
         duration = f"{t[0]}h {t[1]}m {t[2]}s"
+        eta = datetime.datetime.now() + timedelta(seconds=self.runtime())
         print(
             f"hwbench: {self.count_jobs()} jobs, \
 {self.count_benchmarks()} benchmarks, \
-ETA {duration}"
+ETA {duration}, estimated end at {eta:%Y-%m-%d %H:%M:%S}"
         )
         # Run every benchmark of the list
         for benchmark in self.get_benchmarks():
