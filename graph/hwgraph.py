@@ -434,7 +434,7 @@ def graph_monitoring_metrics(args, trace: Trace, bench_name: str, output_dir) ->
                             prefix=f"{metric_name}.",
                         )
                     except InvalidValue as e:
-                        print(f"An error occured while generating the graph for {bench_name} ({metric_name}): {e}")
+                        print(f"An error occurred while generating the graph for {bench_name} ({metric_name}): {e}")
 
     return rendered_graphs
 
@@ -551,7 +551,7 @@ power_metric : the name of a power metric, from the monitoring, to be used for '
         "--events",
         type=valid_events,
         nargs="+",
-        help="""List events that occured during the benchmark.
+        help="""List events that occurred during the benchmark.
 Syntax: <event_name>:<start_time>:<duration>
 event_name   : the name of an event
 start_time   : the starting time of the event (in seconds)

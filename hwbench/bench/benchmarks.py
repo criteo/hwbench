@@ -123,7 +123,7 @@ class Benchmarks:
                 # a strict modulo of the requested steps
                 # That would lead to an unbalanced benchmark configuration
                 if len(selected_cpus) % steps != 0:
-                    h.fatal("selected_cpus is not module selected_cpus_scaling !")
+                    h.fatal("selected_cpus is not modulo selected_cpus_scaling !")
                 pinned_cpu = []
                 while len(selected_cpus):
                     for _step in range(steps):

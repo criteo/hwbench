@@ -84,10 +84,10 @@ def validate_selected_cpus(config, section_name, value) -> str:
             # otherwise the numa resource regex would eat 'numa-' from 'numa-simple'.
             for helper in ["numa-simple", "simple", "all"]:
                 value = value.replace(helper, "", 1)
-            ressources = re.findall(r"(quadrant|numa|core)([0-9-,]+)", value)
-            if ressources:
-                for ressource in ressources:
-                    value = value.replace(f"{ressource[0]}{ressource[1]}", "", 1)
+            resources = re.findall(r"(quadrant|numa|core)([0-9-,]+)", value)
+            if resources:
+                for resource in resources:
+                    value = value.replace(f"{resource[0]}{resource[1]}", "", 1)
             range = config.parse_range(value)
             if range:
                 value = value.lower().replace(value, "", 1)

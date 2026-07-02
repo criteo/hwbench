@@ -182,7 +182,7 @@ class BMC(MonitoringDevice, External):
 
     def read_power_consumption(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
         """Return power consumption from server"""
-        # Generic for now, could be overriden by vendors
+        # Generic for now, could be overridden by vendors
         if power_consumption.BMC.get(str(PowerCategories.SERVER), None) is None:
             power_consumption.BMC[str(PowerCategories.SERVER)] = Power("Server")
         power = self.get_power().get("PowerControl", [{"PowerConsumedWatts": None}])[0].get("PowerConsumedWatts", None)
@@ -192,7 +192,7 @@ class BMC(MonitoringDevice, External):
 
     def read_power_supplies(self, power_supplies: PowerSuppliesContext) -> PowerSuppliesContext:
         """Return power supplies power from server"""
-        # Generic for now, could be overriden by vendors
+        # Generic for now, could be overridden by vendors
         for psu in self.get_power().get("PowerSupplies", []):
             psu_name = psu["Name"].split()[0]
             if psu["Name"] not in power_supplies.BMC:

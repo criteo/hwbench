@@ -98,7 +98,7 @@ Compare & graph several traces file
 
 __The following graphs are:__
 
-a  _very small_  subset of the complete graph serie​s
+a  _very small_  subset of the complete graph series
 
 fully automatically generated
 

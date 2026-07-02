@@ -337,7 +337,7 @@ def generic_graph(
                 data_serie[component.get_full_name()] = []
             # If we are missing some datapoints ....
             if len(component.get_mean()) <= sample:
-                # If the user didn't explictely agreed to be replaced by 0, let's be fatal
+                # If the user didn't explicitly agreed to be replaced by 0, let's be fatal
                 if not args.ignore_missing_datapoint:
                     fatal(
                         f"{trace.get_name()}/{bench.get_bench_name()}: {component.get_full_name()} is missing the {sample + 1}th data point.\
@@ -366,7 +366,7 @@ def generic_graph(
                     if sensor not in data2_serie:
                         data2_serie[sensor] = []
                     if len(measure.get_mean()) <= sample:
-                        # If the user didn't explictely agreed to be replaced by 0, let's be fatal
+                        # If the user didn't explicitly agreed to be replaced by 0, let's be fatal
                         if not args.ignore_missing_datapoint:
                             fatal(
                                 f"{trace.get_name()}/{bench.get_bench_name()}: second axis of {sensor}: {measure.get_full_name()} is missing the {sample + 1}th data point.\
