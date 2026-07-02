@@ -37,10 +37,11 @@ def simple(hardware: env_hw.BaseHardware) -> str:
 
 
 def numa_simple(hardware: env_hw.BaseHardware) -> str:
-    """Return one cpu group per available NUMA node on the system."""
+    """Return cumulative cpu groups, adding one more NUMA node at each step."""
     cpu = hardware.get_cpu()
     groups = []
+    cores: list[int] = []
     for numa_domain in range(cpu.get_numa_domains_count()):
-        cores = cpu.get_logical_cores_in_numa_domain(numa_domain)
+        cores += cpu.get_logical_cores_in_numa_domain(numa_domain)
         groups.append(",".join(str(core) for core in sorted(cores)))
     return " ".join(groups)
