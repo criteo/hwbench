@@ -463,19 +463,38 @@ def graph_cpu(args, trace: Trace, bench_name: str, output_dir) -> int:
     cpu_graphs["Package power consumption"] = {MonitoringContextKeys.PowerConsumption: "package"}
     cpu_graphs["Core frequency"] = {MonitoringContextKeys.Freq: "Core"}
     cpu_graphs["Core IPC"] = {MonitoringContextKeys.IPC: "Core"}
+    # Per-core metrics (filter "Core") are rendered twice: once for all the
+    # cores of the system, once restricted to the cores that were pinned during
+    # this benchmark job. Each rendering lands in its own subdirectory so the
+    # two outputs never collide.
+    pinned_core_names = bench.pinned_core_names()
+
+    pinned_note = f"View limited to the pinned logical cores {bench.pinned_cpu_range()}"
+
     for graph_name in cpu_graphs:
         # Let's render the performance, perf_per_temp, perf_per_watt graphs
         for metric, filter in cpu_graphs[graph_name].items():
-            for second_axis in [None, MonitoringContextKeys.Thermal, MonitoringContextKeys.PowerConsumption]:
-                rendered_graphs += generic_graph(
-                    args,
-                    output_dir,
-                    bench,
-                    metric,
-                    graph_name,
-                    second_axis,
-                    filter=filter,
-                )
+            if filter == "Core":
+                renderings = [("all_cores", None, None)]  # type: list
+                if pinned_core_names:
+                    renderings.append(("pinned_cores", pinned_core_names, pinned_note))
+            else:
+                # Non per-core metrics (e.g. package power) keep a single rendering.
+                renderings = [(None, None, None)]
+            for dir_suffix, names, title_note in renderings:
+                for second_axis in [None, MonitoringContextKeys.Thermal, MonitoringContextKeys.PowerConsumption]:
+                    rendered_graphs += generic_graph(
+                        args,
+                        output_dir,
+                        bench,
+                        metric,
+                        graph_name,
+                        second_axis,
+                        filter=filter,
+                        names=names,
+                        dir_suffix=dir_suffix,
+                        title_note=title_note,
+                    )
 
     return rendered_graphs
 

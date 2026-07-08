@@ -27,6 +27,12 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
         aggregated_watt_err = {}  # type: dict[str, dict[str, Any]]
         aggregated_cpu_clock = {}  # type: dict[str, dict[str, Any]]
         aggregated_cpu_clock_err = {}  # type: dict[str, dict[str, Any]]
+        # Same as above but restricted to the cores pinned during each benchmark
+        aggregated_cpu_clock_pinned = {}  # type: dict[str, dict[str, Any]]
+        aggregated_cpu_clock_pinned_err = {}  # type: dict[str, dict[str, Any]]
+        # Whether at least one run of this sweep pinned cores (each run may pin a
+        # different set), used to decide if the pinned-cores graph is relevant.
+        any_pinned = False
         workers = {}  # type: dict[str, list]
         logical_core_per_worker = []
         perf_list, unit = benches[emp]["metrics"]
@@ -45,6 +51,8 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 aggregated_watt_err[perf] = {}
                 aggregated_cpu_clock[perf] = {}
                 aggregated_cpu_clock_err[perf] = {}
+                aggregated_cpu_clock_pinned[perf] = {}
+                aggregated_cpu_clock_pinned_err[perf] = {}
             # For every trace file given at the command line
             for trace in args.traces:
                 workers[trace.get_name()] = []
@@ -69,6 +77,8 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                         aggregated_watt_err[perf][trace.get_name()] = []
                         aggregated_cpu_clock[perf][trace.get_name()] = []
                         aggregated_cpu_clock_err[perf][trace.get_name()] = []
+                        aggregated_cpu_clock_pinned[perf][trace.get_name()] = []
+                        aggregated_cpu_clock_pinned_err[perf][trace.get_name()] = []
 
                     bench.add_perf(
                         perf,
@@ -80,6 +90,17 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                         cpu_clock_err=aggregated_cpu_clock_err[perf][trace.get_name()],
                     )
 
+                    # Same cpu clock aggregation but averaging only the cores
+                    # pinned during this benchmark (falls back to all cores when
+                    # the benchmark has no pinning).
+                    bench.add_perf(
+                        cpu_clock=aggregated_cpu_clock_pinned[perf][trace.get_name()],
+                        cpu_clock_err=aggregated_cpu_clock_pinned_err[perf][trace.get_name()],
+                        cpu_clock_cores=bench.pinned_core_names(),
+                    )
+                    if bench.cpu_pin():
+                        any_pinned = True
+
         # Let's render all graphs types
         for graph_type in GRAPH_TYPES:
             # Let's render each performance graph
@@ -89,7 +110,8 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
             for perf in perf_list:
                 clean_perf = perf.replace(" ", "").replace("/", "")
                 y_label = unit
-                outdir = temp_outdir.joinpath(graph_type)
+                # err_source is only set for graphs plotted with error bars.
+                err_source = None
                 if "perf_watt" in graph_type:
                     graph_type_title = f"SMP scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
                     y_label = f"{unit} per Watt"
@@ -100,95 +122,113 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                     outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_label = "Watts"
                     y_source = aggregated_watt
+                    err_source = aggregated_watt_err
                 elif "cpu_clock" in graph_type:
                     graph_type_title = f"SMP scaling {graph_type}: {args.traces[0].get_metric_name()}"
                     outfile = f"scaling_cpu_clock_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_label = "Mhz"
                     y_source = aggregated_cpu_clock
+                    err_source = aggregated_cpu_clock_err
                 else:
                     graph_type_title = f"SMP scaling {graph_type}: {bench.get_title_engine_name()}"
                     outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_source = aggregated_perfs
 
-                title = f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job\n\n Stressor: '
-                title += f"{bench.get_title_engine_name()} for {bench.duration()} seconds"
-                xlabel = "Workers"
-                # If we have a constant ratio between cores & workers, let's report them under the Xaxis
-                if stdev(logical_core_per_worker) == 0:
-                    cores = "cores"
-                    if logical_core_per_worker[0] == 1:
-                        cores = "core"
-                    xlabel += f"\n({int(logical_core_per_worker[0])} logical {cores} per worker)"
-
-                graph = Graph(
-                    args,
-                    title,
-                    xlabel,
-                    y_label,
-                    outdir,
-                    outfile,
-                    square=True,
-                )
-
-                # Let's defined colors used during the rendering
-                # As we use error bars, let's ensure colors are readable with the error color.
-                colors = [
-                    "tab:blue",
-                    "tab:purple",
-                    "tab:green",
-                    "peru",
-                    "slategrey",
-                ]
-                e_colors = [
-                    "darkblue",
-                    "darkmagenta",
-                    "darkgreen",
-                    "tab:brown",
-                    "tab:grey",
-                ]
-                # Traces are not ordered by growing cpu cores count
-                # We need to prepare the x_serie to be sorted this way
-                # The y_serie depends on the graph type
-                for trace_name, color_name, e_color in zip(aggregated_perfs[perf], colors, cycle(e_colors)):
-                    # Each trace can have different numbers of workers based on the hardware setup
-                    # So let's consider the list of x values per trace.
-                    order = np.argsort(workers[trace_name])
-                    x_serie = np.array(workers[trace_name])[order]
-                    y_serie = np.array(y_source[perf][trace_name])[order]
-                    # If we plot the power consumption, let's use errorbars
-                    y_label = statistics_in_label(trace_name, y_serie)
-                    if y_source == aggregated_watt:
-                        graph.get_ax().errorbar(
-                            x_serie,
-                            y_serie,
-                            yerr=np.array(aggregated_watt_err[perf][trace_name]).T,
-                            ecolor=e_color,
-                            color=color_name,
-                            capsize=4,
-                            label=y_label,
+                # The cpu clock scaling graph is rendered twice: once averaging
+                # every system core, once averaging only the cores pinned during
+                # each benchmark. Each variant is stored in its own subdirectory
+                # so the two renderings never collide.
+                if "cpu_clock" in graph_type:
+                    variants = [
+                        ("all_cores", aggregated_cpu_clock, aggregated_cpu_clock_err, None),
+                    ]  # type: list
+                    # Only add the pinned-cores variant when at least one run of
+                    # the sweep actually pinned cores (otherwise it duplicates
+                    # the all-cores graph). Each scaling step pins its own set of
+                    # cores, so we don't list a single global range here.
+                    if any_pinned:
+                        pinned_note = "View limited to the pinned cores of each scaling step"
+                        variants.append(
+                            ("pinned_cores", aggregated_cpu_clock_pinned, aggregated_cpu_clock_pinned_err, pinned_note)
                         )
-                    elif y_source == aggregated_cpu_clock:
-                        graph.get_ax().errorbar(
-                            x_serie,
-                            y_serie,
-                            yerr=np.array(aggregated_cpu_clock_err[perf][trace_name]).T,
-                            ecolor=e_color,
-                            color=color_name,
-                            capsize=4,
-                            label=y_label,
-                        )
-                    else:
-                        graph.get_ax().plot(
-                            x_serie,
-                            y_serie,
-                            "",
-                            color=color_name,
-                            label=y_label,
-                            marker="o",
-                        )
+                else:
+                    variants = [(None, y_source, err_source, None)]
 
-                graph.prepare_axes(8, 4)
-                graph.render()
-                rendered_graphs += 1
+                for dir_suffix, v_y_source, v_err_source, note in variants:
+                    outdir = temp_outdir.joinpath(graph_type)
+                    if dir_suffix:
+                        outdir = outdir.joinpath(dir_suffix)
+
+                    title = f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job\n\n Stressor: '
+                    title += f"{bench.get_title_engine_name()} for {bench.duration()} seconds"
+                    xlabel = "Workers"
+                    # If we have a constant ratio between cores & workers, let's report them under the Xaxis
+                    if stdev(logical_core_per_worker) == 0:
+                        cores = "cores"
+                        if logical_core_per_worker[0] == 1:
+                            cores = "core"
+                        xlabel += f"\n({int(logical_core_per_worker[0])} logical {cores} per worker)"
+
+                    graph = Graph(
+                        args,
+                        title,
+                        xlabel,
+                        y_label,
+                        outdir,
+                        outfile,
+                        square=True,
+                        title_note=note,
+                    )
+
+                    # Let's defined colors used during the rendering
+                    # As we use error bars, let's ensure colors are readable with the error color.
+                    colors = [
+                        "tab:blue",
+                        "tab:purple",
+                        "tab:green",
+                        "peru",
+                        "slategrey",
+                    ]
+                    e_colors = [
+                        "darkblue",
+                        "darkmagenta",
+                        "darkgreen",
+                        "tab:brown",
+                        "tab:grey",
+                    ]
+                    # Traces are not ordered by growing cpu cores count
+                    # We need to prepare the x_serie to be sorted this way
+                    # The y_serie depends on the graph type
+                    for trace_name, color_name, e_color in zip(aggregated_perfs[perf], colors, cycle(e_colors)):
+                        # Each trace can have different numbers of workers based on the hardware setup
+                        # So let's consider the list of x values per trace.
+                        order = np.argsort(workers[trace_name])
+                        x_serie = np.array(workers[trace_name])[order]
+                        y_serie = np.array(v_y_source[perf][trace_name])[order]
+                        series_label = statistics_in_label(trace_name, y_serie)
+                        # If we have an error distribution, let's use errorbars
+                        if v_err_source is not None:
+                            graph.get_ax().errorbar(
+                                x_serie,
+                                y_serie,
+                                yerr=np.array(v_err_source[perf][trace_name]).T,
+                                ecolor=e_color,
+                                color=color_name,
+                                capsize=4,
+                                label=series_label,
+                            )
+                        else:
+                            graph.get_ax().plot(
+                                x_serie,
+                                y_serie,
+                                "",
+                                color=color_name,
+                                label=series_label,
+                                marker="o",
+                            )
+
+                    graph.prepare_axes(8, 4)
+                    graph.render()
+                    rendered_graphs += 1
 
     return rendered_graphs
