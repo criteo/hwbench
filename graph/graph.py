@@ -6,12 +6,14 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.collections import LineCollection
+from matplotlib.lines import Line2D
 from matplotlib.pylab import Axes
 from matplotlib.ticker import AutoMinorLocator, FuncFormatter, MultipleLocator
 
 from graph.common import fatal
 from graph.trace import Bench
 from hwbench.bench.monitoring_structs import MonitoringContextKeys, MonitorMetric
+from hwbench.utils.helpers import cpu_list_to_range
 
 MEAN = "mean"
 ERROR = "error"
@@ -243,11 +245,15 @@ class Graph:
                 color=event_color,
             )
 
-    def render(self):
-        """Render the graph to a file."""
+    def render(self, extra_legend=None):
+        """Render the graph to a file.
+
+        extra_legend: an additional, manually placed legend that must be taken
+        into account when computing the tight bounding box.
+        """
         # Retrieve the rendering file format
         file_format = self.args.format
-        legends = []
+        legends = [extra_legend] if extra_legend else []
 
         # Trace the events passed on the command line
         self.trace_events()
@@ -309,6 +315,26 @@ def statistics_in_label(label: str, serie: np.ndarray, max_title_length=0, max_v
     return f"{label:{max_title_length}} [{fp(min(serie), max_value_length)}; {fp(np.mean(serie), max_value_length)}; {fp(np.std(serie), max_value_length)}; {fp(max(serie), max_value_length)}]"
 
 
+def numa_core_blocks(cpus, width: int = 3) -> str:
+    """Render a cpu list as aligned, individually bracketed range blocks.
+
+    Reuses cpu_list_to_range() and only reformats its output: each range block
+    gets its own "[]", the numbers are padded to `width` digits with the dash
+    centered, so blocks line up in a monospace legend.
+    e.g. [0..7, 64..71] -> "[0  -  7] [64 - 71]".
+    """
+    blocks = []
+    for block in cpu_list_to_range(list(cpus)).split(", "):
+        low, _, high = block.partition("-")
+        if high:
+            # Right-justify both bounds so numbers align and the dash stays centered.
+            blocks.append(f"[{low:>{width}}-{high:>{width}}]")
+        else:
+            # A single core (no range): keep the same block width, right-aligned.
+            blocks.append(f"[{block:>{2 * width + 1}}]")
+    return ", ".join(blocks)
+
+
 def numa_aggregated_components(
     bench: Bench, component_type: MonitoringContextKeys, numa_nodes, pinned_cores=None
 ) -> list[MonitorMetric]:
@@ -340,6 +366,177 @@ def numa_aggregated_components(
         metric.full_name = f"NUMA {node}"
         components.append(metric)
     return components
+
+
+def numa_cores_legend(ax, node_cores):
+    """Add a left-side box listing each NUMA domain's cores in condensed form.
+
+    node_cores is an ordered list of (domain, cpus) pairs (top to bottom). The
+    box is anchored well to the left of the Y axis so it does not collide with
+    it, even with 3-digit core numbers.
+    """
+    node_width = max((len(str(node)) for node, _ in node_cores), default=1)
+    labels = [f"NUMA {node:>{node_width}}: {numa_core_blocks(cpus)}" for node, cpus in node_cores]
+    handles = [Line2D([], [], linestyle="none") for _ in labels]
+    return ax.legend(
+        handles,
+        labels,
+        loc="upper right",
+        bbox_to_anchor=(-0.10, 1),
+        title="NUMA domain [cores]",
+        handlelength=0,
+        handletextpad=0,
+    )
+
+
+def _render_numa_heatmap(graph, nodes, matrix, diagonal_values=None, extra_legend=None) -> None:
+    """Draw a NUMA domain x domain distance matrix onto graph.
+
+    Cells are colored/annotated by the inter-domain distance. When
+    diagonal_values is given, the diagonal (whose self-distance is constant and
+    uninformative) instead shows the per-domain value in bold.
+    """
+    ax = graph.get_ax()
+    image = ax.imshow(matrix, cmap="viridis")
+    graph.fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04, label="NUMA distance")
+    labels = [f"NUMA {node}" for node in nodes]
+    ax.set_xticks(range(len(nodes)))
+    ax.set_yticks(range(len(nodes)))
+    ax.set_xticklabels(labels)
+    ax.set_yticklabels(labels)
+    # Text color threshold so annotations stay readable over the colormap.
+    threshold = (matrix.max() + matrix.min()) / 2
+    for i in range(len(nodes)):
+        for j in range(len(nodes)):
+            if i == j and diagonal_values is not None:
+                text, weight = f"{diagonal_values[i]:.0f}", "bold"
+            else:
+                text, weight = f"{matrix[i, j]:.0f}", "normal"
+            ax.text(
+                j,
+                i,
+                text,
+                ha="center",
+                va="center",
+                fontsize=8,
+                fontweight=weight,
+                color="white" if matrix[i, j] < threshold else "black",
+            )
+    graph.needs_legend = False
+    graph.render(extra_legend=extra_legend)
+
+
+def numa_distance_heatmap(args, output_dir, trace) -> int:
+    """Render the host's NUMA distance matrix as a heatmap.
+
+    This is a per-host topology figure (one per trace), independent of any
+    benchmark or performance metric: cell color/value is the distance between
+    two NUMA domains, so which domains are close/far is visible at a glance.
+    Needs the distance matrix with at least two domains; otherwise nothing is
+    rendered.
+    """
+    distances = trace.get_numa_distances()
+    if not distances or len(distances) < 2:
+        return 0
+    nodes = sorted(distances)
+    try:
+        matrix = np.array([[distances[src][dst] for dst in nodes] for src in nodes], dtype=float)
+    except (KeyError, IndexError):
+        return 0
+
+    cpu = trace.get_cpu()
+    dmi = trace.get_dmi()
+    title = f"NUMA distances of {trace.get_name()}\n{args.title}\n\n"
+    title += f"System: {dmi['serial']} {dmi['product']}"
+    title += f"\nProcessor: {cpu.get('sockets', 1)}x {cpu['model']} - {cpu['numa_domains']} NUMA domains"
+    graph = Graph(
+        args,
+        title,
+        "NUMA domain",
+        "NUMA domain",
+        output_dir.joinpath(trace.get_name()),
+        "NUMA distances",
+        square=True,
+        show_source_file=trace,
+    )
+    numa_nodes = trace.get_numa_nodes()
+    legend = numa_cores_legend(graph.get_ax(), [(node, numa_nodes.get(node, [])) for node in nodes])
+    _render_numa_heatmap(graph, nodes, matrix, extra_legend=legend)
+    return 1
+
+
+def numa_performance_heatmap(
+    args,
+    output_dir,
+    bench: Bench,
+    component_type: MonitoringContextKeys,
+    item_title: str,
+    numa_nodes,
+    dir_suffix=None,
+    pinned_cores=None,
+    title_note=None,
+) -> int:
+    """Render a NUMA-domain x time heatmap of a per-core metric.
+
+    Y axis is the NUMA domains, X axis is time (as in the line graphs of the
+    same directory) and the color is the domain's average metric value at each
+    monitoring step. It is the same data as the per-domain line graph, shown as
+    a heatmap; it lives next to it (all_numa/pinned_numa).
+    """
+    components = numa_aggregated_components(bench, component_type, numa_nodes, pinned_cores)
+    if not components:
+        return 0
+    unit = bench.get_metric_unit(component_type)
+    interval = bench.get_time_interval()
+    matrix = np.array([component.get_mean() for component in components], dtype=float)
+    domains = len(components)
+    samples = matrix.shape[1]
+
+    trace = bench.get_trace()
+    title = f'{item_title} during "{bench.get_bench_name()}" benchmark job\n{args.title}\n\n Stressor: '
+    title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
+    title += f"\n{bench.get_system_title()}"
+    graph_dir = output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{component_type!s}")
+    if dir_suffix:
+        graph_dir = graph_dir.joinpath(dir_suffix)
+    graph = Graph(
+        args,
+        title,
+        "Time [seconds]",
+        "NUMA domain",
+        graph_dir,
+        f"{item_title} - heatmap",
+        show_source_file=trace,
+        title_note=title_note,
+    )
+    ax = graph.get_ax()
+    image = ax.imshow(
+        matrix,
+        aspect="auto",
+        cmap="viridis",
+        interpolation="nearest",
+        extent=(0, samples * interval, domains - 0.5, -0.5),
+    )
+    graph.fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04, label=unit)
+    ax.set_yticks(range(domains))
+    ax.set_yticklabels([component.get_full_name() for component in components])
+
+    # Separate box on the left listing each domain's cores in condensed form,
+    # like the component legend of the line graphs.
+    pinned_cpus = None
+    if pinned_cores is not None:
+        pinned_cpus = {int(name.split("_")[1]) for name in pinned_cores}
+    node_cores = []
+    for component in components:
+        node = int(component.get_full_name().split()[1])
+        cpus = numa_nodes[node]
+        if pinned_cpus is not None:
+            cpus = [cpu for cpu in cpus if cpu in pinned_cpus]
+        node_cores.append((node, cpus))
+    legend = numa_cores_legend(ax, node_cores)
+    graph.needs_legend = False
+    graph.render(extra_legend=legend)
+    return 1
 
 
 def generic_graph(
