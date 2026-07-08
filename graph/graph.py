@@ -309,6 +309,39 @@ def statistics_in_label(label: str, serie: np.ndarray, max_title_length=0, max_v
     return f"{label:{max_title_length}} [{fp(min(serie), max_value_length)}; {fp(np.mean(serie), max_value_length)}; {fp(np.std(serie), max_value_length)}; {fp(max(serie), max_value_length)}]"
 
 
+def numa_aggregated_components(
+    bench: Bench, component_type: MonitoringContextKeys, numa_nodes, pinned_cores=None
+) -> list[MonitorMetric]:
+    """Aggregate per-core metrics into one synthetic metric per NUMA domain.
+
+    For each NUMA domain, average (per sample) the metric of the cores that
+    belong to it. When pinned_cores (a set of "Core_N" names) is given, only the
+    pinned cores of each domain are averaged and domains with no pinned core are
+    dropped. Domains with no monitored core are skipped. The result is a list of
+    MonitorMetric objects (one per domain) ready to feed generic_graph.
+    """
+    samples_count = bench.get_samples_count()
+    components = []
+    for node in sorted(numa_nodes):
+        core_names = {f"Core_{cpu}" for cpu in numa_nodes[node]}
+        if pinned_cores is not None:
+            core_names &= pinned_cores
+        if not core_names:
+            continue
+        cores = bench.get_all_metrics(component_type, names=core_names)
+        if not cores:
+            continue
+        means = []
+        for sample in range(samples_count):
+            values = [c.get_mean()[sample] for c in cores if sample < len(c.get_mean())]
+            means.append(float(np.mean(values)) if values else 0.0)
+        metric = MonitorMetric(f"NUMA {node}", cores[0].get_unit())
+        metric.mean = means
+        metric.full_name = f"NUMA {node}"
+        components.append(metric)
+    return components
+
+
 def generic_graph(
     args,
     output_dir,
@@ -320,11 +353,13 @@ def generic_graph(
     names=None,
     dir_suffix=None,
     title_note=None,
+    components=None,
 ) -> int:
     outfile = f"{item_title}"
     trace = bench.get_trace()
 
-    components = bench.get_all_metrics(component_type, filter, names)
+    if components is None:
+        components = bench.get_all_metrics(component_type, filter, names)
     if not len(components):
         title = f"{item_title}: no {component_type!s} metric found"
         if filter:
