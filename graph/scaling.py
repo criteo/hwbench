@@ -5,6 +5,7 @@ from typing import Any  # noqa: F401
 import numpy as np
 
 from graph.graph import GRAPH_TYPES, Graph, statistics_in_label
+from hwbench.bench.monitoring_structs import MonitoringContextKeys
 
 
 def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
@@ -30,6 +31,11 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
         # Same as above but restricted to the cores pinned during each benchmark
         aggregated_cpu_clock_pinned = {}  # type: dict[str, dict[str, Any]]
         aggregated_cpu_clock_pinned_err = {}  # type: dict[str, dict[str, Any]]
+        # IPC, same handling as cpu_clock (only rendered when the trace has IPC)
+        aggregated_ipc = {}  # type: dict[str, dict[str, Any]]
+        aggregated_ipc_err = {}  # type: dict[str, dict[str, Any]]
+        aggregated_ipc_pinned = {}  # type: dict[str, dict[str, Any]]
+        aggregated_ipc_pinned_err = {}  # type: dict[str, dict[str, Any]]
         # Whether at least one run of this sweep pinned cores (each run may pin a
         # different set), used to decide if the pinned-cores graph is relevant.
         any_pinned = False
@@ -42,6 +48,12 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
             print(f"SMP scaling: No scaling detected on job '{job}', skipping graph")
             continue
 
+        # IPC is not always collected; only aggregate/render it when present.
+        try:
+            has_ipc = bool(benches[emp]["bench"][0].get_monitoring_metric(MonitoringContextKeys.IPC))
+        except KeyError:
+            has_ipc = False
+
         # For each metric we need to plot
         for perf in perf_list:
             if perf not in aggregated_perfs:
@@ -53,6 +65,10 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 aggregated_cpu_clock_err[perf] = {}
                 aggregated_cpu_clock_pinned[perf] = {}
                 aggregated_cpu_clock_pinned_err[perf] = {}
+                aggregated_ipc[perf] = {}
+                aggregated_ipc_err[perf] = {}
+                aggregated_ipc_pinned[perf] = {}
+                aggregated_ipc_pinned_err[perf] = {}
             # For every trace file given at the command line
             for trace in args.traces:
                 workers[trace.get_name()] = []
@@ -79,6 +95,10 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                         aggregated_cpu_clock_err[perf][trace.get_name()] = []
                         aggregated_cpu_clock_pinned[perf][trace.get_name()] = []
                         aggregated_cpu_clock_pinned_err[perf][trace.get_name()] = []
+                        aggregated_ipc[perf][trace.get_name()] = []
+                        aggregated_ipc_err[perf][trace.get_name()] = []
+                        aggregated_ipc_pinned[perf][trace.get_name()] = []
+                        aggregated_ipc_pinned_err[perf][trace.get_name()] = []
 
                     bench.add_perf(
                         perf,
@@ -98,11 +118,21 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                         cpu_clock_err=aggregated_cpu_clock_pinned_err[perf][trace.get_name()],
                         cpu_clock_cores=bench.pinned_core_names(),
                     )
+                    if has_ipc:
+                        bench.add_perf(
+                            ipc=aggregated_ipc[perf][trace.get_name()],
+                            ipc_err=aggregated_ipc_err[perf][trace.get_name()],
+                        )
+                        bench.add_perf(
+                            ipc=aggregated_ipc_pinned[perf][trace.get_name()],
+                            ipc_err=aggregated_ipc_pinned_err[perf][trace.get_name()],
+                            ipc_cores=bench.pinned_core_names(),
+                        )
                     if bench.cpu_pin():
                         any_pinned = True
 
-        # Let's render all graphs types
-        for graph_type in GRAPH_TYPES:
+        # Let's render all graphs types (IPC only when the trace collected it)
+        for graph_type in GRAPH_TYPES + (["cpu_ipc"] if has_ipc else []):
             # Let's render each performance graph
             graph_type_title = ""
 
@@ -112,6 +142,9 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 y_label = unit
                 # err_source is only set for graphs plotted with error bars.
                 err_source = None
+                # pinned_* are only set for per-core metrics (cpu_clock, ipc).
+                pinned_y_source = None
+                pinned_err_source = None
                 if "perf_watt" in graph_type:
                     graph_type_title = f"SMP scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
                     y_label = f"{unit} per Watt"
@@ -129,18 +162,28 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                     y_label = "Mhz"
                     y_source = aggregated_cpu_clock
                     err_source = aggregated_cpu_clock_err
+                    pinned_y_source = aggregated_cpu_clock_pinned
+                    pinned_err_source = aggregated_cpu_clock_pinned_err
+                elif "ipc" in graph_type:
+                    graph_type_title = f"SMP scaling {graph_type}: {bench.get_title_engine_name()}"
+                    outfile = f"scaling_ipc_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
+                    y_label = "IPC"
+                    y_source = aggregated_ipc
+                    err_source = aggregated_ipc_err
+                    pinned_y_source = aggregated_ipc_pinned
+                    pinned_err_source = aggregated_ipc_pinned_err
                 else:
                     graph_type_title = f"SMP scaling {graph_type}: {bench.get_title_engine_name()}"
                     outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_source = aggregated_perfs
 
-                # The cpu clock scaling graph is rendered twice: once averaging
-                # every system core, once averaging only the cores pinned during
-                # each benchmark. Each variant is stored in its own subdirectory
-                # so the two renderings never collide.
-                if "cpu_clock" in graph_type:
+                # The per-core metrics (cpu_clock, ipc) are rendered twice: once
+                # averaging every system core, once averaging only the cores
+                # pinned during each benchmark. Each variant is stored in its own
+                # subdirectory so the two renderings never collide.
+                if pinned_y_source is not None:
                     variants = [
-                        ("all_cores", aggregated_cpu_clock, aggregated_cpu_clock_err, None),
+                        ("all_cores", y_source, err_source, None),
                     ]  # type: list
                     # Only add the pinned-cores variant when at least one run of
                     # the sweep actually pinned cores (otherwise it duplicates
@@ -148,9 +191,7 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                     # cores, so we don't list a single global range here.
                     if any_pinned:
                         pinned_note = "View limited to the pinned cores of each scaling step"
-                        variants.append(
-                            ("pinned_cores", aggregated_cpu_clock_pinned, aggregated_cpu_clock_pinned_err, pinned_note)
-                        )
+                        variants.append(("pinned_cores", pinned_y_source, pinned_err_source, pinned_note))
                 else:
                     variants = [(None, y_source, err_source, None)]
 
