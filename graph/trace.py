@@ -228,7 +228,10 @@ class Bench:
         c = self.get_trace().get_cpu()
         k = self.get_trace().get_kernel()
         title = f"System: {d['serial']} {d['product']} Bios v{d['bios']['version']} Linux Kernel {k['release']}"
-        title += f"\nProcessor: {c['model']} with {c['physical_cores']} cores and {c['numa_domains']} NUMA domains"
+        title += (
+            f"\nProcessor: {c.get('sockets', 1)}x {c['model']} - "
+            f"{c['physical_cores']} physical cores and {c['numa_domains']} NUMA domains"
+        )
         return title
 
     def job_name(self) -> str:
