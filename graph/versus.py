@@ -20,9 +20,11 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
         aggregated_perfs = {}  # type: dict[str, dict[str, Any]]
         aggregated_perfs_watt = {}  # type: dict[str, dict[str, Any]]
         aggregated_watt = {}  # type: dict[str, dict[str, Any]]
+        aggregated_cpu_clock = {}  # type: dict[str, dict[str, Any]]
         max_perf = {}  # type: dict[str, list]
         max_perfs_watt = {}  # type: dict[str, list]
         max_watt = {}  # type: dict[str, list]
+        max_cpu_clock = {}  # type: dict[str, list]
         max_workers = {}  # type: dict[str, list]
         perf_list, unit = benches[emp]["metrics"]
         # For each metric we need to plot
@@ -31,9 +33,11 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                 aggregated_perfs[perf] = {}
                 aggregated_perfs_watt[perf] = {}
                 aggregated_watt[perf] = {}
+                aggregated_cpu_clock[perf] = {}
                 max_perf[perf] = [0] * len(traces_name)
                 max_perfs_watt[perf] = [0] * len(traces_name)
                 max_watt[perf] = [0] * len(traces_name)
+                max_cpu_clock[perf] = [0] * len(traces_name)
                 max_workers[perf] = [0] * len(traces_name)
             # We want a datastructure where metrics of each iteration on the number of workers reports performance for each trace
             # It looks like :
@@ -58,11 +62,16 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                         aggregated_perfs[perf][bench.workers()] = [0] * len(traces_name)
                         aggregated_perfs_watt[perf][bench.workers()] = [0] * len(traces_name)
                         aggregated_watt[perf][bench.workers()] = [0] * len(traces_name)
+                        aggregated_cpu_clock[perf][bench.workers()] = [0] * len(traces_name)
                     bench.add_perf(
                         perf,
                         aggregated_perfs[perf][bench.workers()],
                         aggregated_perfs_watt[perf][bench.workers()],
                         aggregated_watt[perf][bench.workers()],
+                        cpu_clock=aggregated_cpu_clock[perf][bench.workers()],
+                        # Average the clock only over the cores pinned during the
+                        # benchmark (falls back to all cores when there is no pin).
+                        cpu_clock_cores=bench.pinned_core_names(),
                         index=index,
                     )
 
@@ -73,6 +82,7 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                         max_perf[perf][index] = temp_max_perf
                         max_perfs_watt[perf][index] = aggregated_perfs_watt[perf][bench.workers()][index]
                         max_watt[perf][index] = aggregated_watt[perf][bench.workers()][index]
+                        max_cpu_clock[perf][index] = aggregated_cpu_clock[perf][bench.workers()][index]
                         max_workers[perf][index] = bench.workers()
 
                 index = index + 1
@@ -103,6 +113,11 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                     graph_type_title += ": Lower is better"
                     y_label = "Watts"
                     y_max = max_watt
+                elif graph_type == "cpu_clock":
+                    # Clock of the pinned cores reached when the product hit its maximum performance.
+                    graph_type_title = f"Max versus '{graph_type}' on pinned cores: {bench.get_title_engine_name()}"
+                    y_label = "Mhz"
+                    y_max = max_cpu_clock
                 else:
                     graph_type_title = f"Max versus '{graph_type}': {bench.get_title_engine_name()}"
                     graph_type_title += ": Bigger is better"
@@ -113,7 +128,12 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                 # Now render the max performance graph
                 # Concept is to show what every product reached as a maximum perf and plot them together
                 # This way we have on a single graph showing the max of 32 cores vs a 48 cores vs a 64 cores.
-                for max_perf_type in ["max_perf_total", "max_perf_per_core"]:
+                # A per-core breakdown is meaningless for the CPU clock (it is
+                # already an average across cores), so only emit the total there.
+                max_perf_types = ["max_perf_total"]
+                if graph_type != "cpu_clock":
+                    max_perf_types.append("max_perf_per_core")
+                for max_perf_type in max_perf_types:
                     title = f'{args.title}\n\n{graph_type_title} during "{job}" benchmark\n'
                     if max_perf_type == "max_perf_per_core":
                         title += f"\nPer core maximum performance during {bench.duration()} seconds"
@@ -122,6 +142,9 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                         for ymax_nb in range(len(y_max[perf])):
                             y_max_per_core[ymax_nb] = y_max[perf][ymax_nb] / args.traces[ymax_nb].get_physical_cores()
                         y_serie = np.array(y_max_per_core)
+                    elif graph_type == "cpu_clock":
+                        title += f"\nClock reached at maximum performance during {bench.duration()} seconds"
+                        y_serie = np.array(y_max[perf])
                     else:
                         title += f"\nProduct maximum performance during {bench.duration()} seconds"
                         y_serie = np.array(y_max[perf])

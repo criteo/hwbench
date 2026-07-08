@@ -118,8 +118,6 @@ class Graph:
         # Keep a zero baseline so graphs stay comparable across CPUs/products,
         # but when no explicit ymax is given, push the top of the axis slightly
         # above the data so the highest curve is not merged with the frame.
-        # (dataLim is already kept current by plot()/add_collection; we avoid
-        # relim() which would drop LineCollection contributions.)
         if ymax is None:
             data_top = self.ax.dataLim.ymax
             if data_top and 0 < data_top < float("inf"):
