@@ -3,9 +3,201 @@ from statistics import stdev
 from typing import Any  # noqa: F401
 
 import numpy as np
+from matplotlib.colors import LinearSegmentedColormap, Normalize
+from matplotlib.lines import Line2D
+from matplotlib.offsetbox import AnchoredOffsetbox, HPacker, TextArea
 
-from graph.graph import GRAPH_TYPES, Graph, statistics_in_label
+from graph.graph import GRAPH_TYPES, Graph, numa_aggregated_components, numa_core_blocks, statistics_in_label
 from hwbench.bench.monitoring_structs import MonitoringContextKeys
+
+
+def _bench_has_ipc(bench) -> bool:
+    try:
+        return bool(bench.get_monitoring_metric(MonitoringContextKeys.IPC))
+    except KeyError:
+        return False
+
+
+def render_numa_delta_heatmaps(args, temp_outdir, job: str, emp: str) -> int:
+    """Render per-NUMA-domain delta heatmaps comparing traces for one emp.
+
+    The first trace is the reference; one heatmap is produced for each other
+    trace (reference vs that trace), the compared trace name being part of the
+    filename. Y = NUMA domains, X = scaling step (worker count), color = signed
+    delta value(reference) - value(other) of the per-domain metric (white ~ no
+    difference, red = reference higher, green = reference lower). Like the other
+    scaling graphs, each metric is rendered for all_cores and, when the sweep
+    pins cores, pinned_cores. Needs at least two traces exposing the NUMA
+    topology.
+    """
+    if len(args.traces) < 2:
+        return 0
+    reference = args.traces[0]
+    numa_nodes = reference.get_numa_nodes()
+    if not numa_nodes:
+        return 0
+    reference_benches = reference.get_benches_by_job_per_emp(job)
+    if emp not in reference_benches:
+        return 0
+    benches_ref = reference_benches[emp]["bench"]
+    if not benches_ref:
+        return 0
+
+    engine = benches_ref[0].get_title_engine_name().replace(" ", "_")
+    # all_cores always; pinned_cores when at least one run of the sweep pins cores.
+    variants = [("all_cores", False, None)]  # type: list
+    if any(bench.cpu_pin() for bench in benches_ref):
+        variants.append(("pinned_cores", True, "View limited to the pinned cores of each scaling step"))
+
+    rendered = 0
+    # Compare the reference against every other trace, one heatmap set each.
+    for other in args.traces[1:]:
+        other_benches = other.get_benches_by_job_per_emp(job)
+        if emp not in other_benches or not other_benches[emp]["bench"]:
+            continue
+        benches_other = other_benches[emp]["bench"]
+
+        metrics = [("cpu_clock", MonitoringContextKeys.Freq, "MHz")]
+        if _bench_has_ipc(benches_ref[0]) and _bench_has_ipc(benches_other[0]):
+            metrics.append(("cpu_ipc", MonitoringContextKeys.IPC, "IPC"))
+
+        pair = f"{reference.get_name()}_vs_{other.get_name()}".replace(" ", "_").replace("/", "_")
+        for dirname, context, unit in metrics:
+            for dir_suffix, use_pinned, note in variants:
+                # Per trace: worker count -> {domain: mean metric value over the run}
+                per_trace = []
+                for benches in (benches_ref, benches_other):
+                    values = {}  # type: dict[int, dict[int, float]]
+                    for bench in benches:
+                        pinned = bench.pinned_core_names() if use_pinned else None
+                        domain_values = {
+                            int(component.get_full_name().split()[1]): float(np.mean(component.get_mean()))
+                            for component in numa_aggregated_components(bench, context, numa_nodes, pinned)
+                        }
+                        if domain_values:
+                            values[bench.workers()] = domain_values
+                    per_trace.append(values)
+                values_ref, values_other = per_trace
+
+                workers = sorted(set(values_ref) & set(values_other))
+                domains = sorted({d for w in workers for d in set(values_ref[w]) & set(values_other[w])})
+                if not workers or not domains:
+                    continue
+
+                matrix = np.full((len(domains), len(workers)), np.nan)
+                for row, domain in enumerate(domains):
+                    for col, worker in enumerate(workers):
+                        ref = values_ref[worker].get(domain)
+                        oth = values_other[worker].get(domain)
+                        if ref is not None and oth is not None:
+                            # Signed delta: reference minus other.
+                            matrix[row, col] = ref - oth
+
+                title = f'{args.title}\n\nSMP scaling NUMA {dirname} delta via "{job}" benchmark job\n'
+                title += f"{unit} performance delta = ({reference.get_name()} (reference) - {other.get_name()})"
+                # Colour legend rendered as a caption below the graph (see below),
+                # with the "red" and "green" words drawn in their respective colour.
+                # No segment starts/ends with a space (TextArea drops edge spaces,
+                # which made the coloured words collide); word gaps come from the
+                # HPacker sep below instead.
+                caption_tail = f"{other.get_name()} is higher than reference, white: no difference"
+                if use_pinned:
+                    caption_tail += ", black: unused NUMA node during benchmark"
+                caption_segments = [
+                    ("red:", "red"),
+                    (f"{other.get_name()} is lower than reference, ", "black"),
+                    (" green:", "green"),
+                    (caption_tail, "black"),
+                ]
+                graph = Graph(
+                    args,
+                    title,
+                    "Workers (scaling step)",
+                    "NUMA domain",
+                    temp_outdir.joinpath(dirname, dir_suffix),
+                    f"scaling_{dirname}_numa_delta_{pair}_{engine}",
+                    title_note=note,
+                )
+                ax = graph.get_ax()
+                # Diverging map centered on 0: positive delta -> red, negative -> green.
+                finite = matrix[np.isfinite(matrix)]
+                bound = float(np.abs(finite).max()) if finite.size else 1.0
+                bound = bound or 1.0
+                cmap = LinearSegmentedColormap.from_list("numa_delta", ["green", "white", "red"])
+                # Missing data: black on the pinned view (domain not pinned at that
+                # step), light grey otherwise, so it is not mistaken for a zero delta.
+                cmap.set_bad("black" if use_pinned else "0.85")
+                image = ax.imshow(
+                    np.ma.masked_invalid(matrix),
+                    aspect="auto",
+                    cmap=cmap,
+                    norm=Normalize(-bound, bound),
+                    interpolation="nearest",
+                )
+                graph.fig.colorbar(
+                    image,
+                    ax=ax,
+                    fraction=0.046,
+                    pad=0.04,
+                    label=f"{reference.get_name()} - {other.get_name()} ({unit})",
+                )
+                ax.set_xticks(range(len(workers)))
+                ax.set_xticklabels(workers)
+                ax.set_yticks(range(len(domains)))
+                ax.set_yticklabels([f"NUMA {domain}" for domain in domains])
+
+                # Left box listing each domain's cores (condensed). For the pinned
+                # variant, the union of cores pinned across the sweep per domain.
+                if use_pinned:
+                    pinned_union = set()  # type: set
+                    for bench in benches_ref:
+                        pinned_union |= {int(name.split("_")[1]) for name in (bench.pinned_core_names() or set())}
+                    cores_by_domain = {d: [c for c in numa_nodes[d] if c in pinned_union] for d in domains}
+                else:
+                    cores_by_domain = {d: numa_nodes[d] for d in domains}
+                node_width = max((len(str(domain)) for domain in domains), default=1)
+                legend_labels = [
+                    f"NUMA {domain:>{node_width}}; {numa_core_blocks(cores_by_domain[domain])}" for domain in domains
+                ]
+                handles = [Line2D([], [], linestyle="none") for _ in legend_labels]
+                legend = ax.legend(
+                    handles,
+                    legend_labels,
+                    loc="upper right",
+                    # Enough room from the Y-axis so 3-digit core numbers don't collide with it.
+                    bbox_to_anchor=(-0.1, 1),
+                    title="NUMA domain [cores]",
+                    handlelength=0,
+                    handletextpad=0,
+                )
+                # Colour legend caption below the graph: one TextArea per segment
+                # so "red"/"green" can be drawn in their own colour. A proportional
+                # font is used because the cairo backend mismeasures monospace text
+                # width, which would make the HPacker segments overlap.
+                caption = HPacker(
+                    children=[
+                        TextArea(text, textprops=dict(color=color, fontfamily="sans-serif"))
+                        for text, color in caption_segments
+                    ],
+                    align="baseline",
+                    pad=0,
+                    # A gap the width of a space between segments (edge spaces are dropped).
+                    sep=3,
+                )
+                ax.add_artist(
+                    AnchoredOffsetbox(
+                        loc="upper center",
+                        child=caption,
+                        pad=0,
+                        frameon=False,
+                        bbox_to_anchor=(0.5, -0.16),
+                        bbox_transform=ax.transAxes,
+                    )
+                )
+                graph.needs_legend = False
+                graph.render(extra_legend=legend)
+                rendered += 1
+    return rendered
 
 
 def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
@@ -166,7 +358,7 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                     pinned_err_source = aggregated_cpu_clock_pinned_err
                 elif "ipc" in graph_type:
                     graph_type_title = f"SMP scaling {graph_type}: {bench.get_title_engine_name()}"
-                    outfile = f"scaling_ipc_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
+                    outfile = f"scaling_cpu_ipc_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_label = "IPC"
                     y_source = aggregated_ipc
                     err_source = aggregated_ipc_err
@@ -271,5 +463,8 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                     graph.prepare_axes(8, 4)
                     graph.render()
                     rendered_graphs += 1
+
+        # Per-NUMA-domain delta heatmap comparing the two traces (reference vs other).
+        rendered_graphs += render_numa_delta_heatmaps(args, temp_outdir, job, emp)
 
     return rendered_graphs
