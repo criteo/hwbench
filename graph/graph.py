@@ -198,6 +198,10 @@ class Graph:
                 fontsize=14,
                 verticalalignment="top",
                 bbox=props,
+                # Use a proportional font here: with the cairo backend the width
+                # of monospace text is mismeasured, so its rounded box comes out
+                # too narrow and the (often long) filename spills past the frame.
+                fontfamily="sans-serif",
             )
 
     def get_ax(self):
