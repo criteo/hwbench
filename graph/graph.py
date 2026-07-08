@@ -259,12 +259,14 @@ class Graph:
             if handles:
                 legends.append(self.ax.legend(bbox_to_anchor=(-0.05, 1), title="component [min; mean; stddev; max]\n"))
             if self.ax2:
-                # Upper right
+                # Anchor the legend by its left edge, just right of the 2nd y-axis
+                # (past its tick labels and title), so it grows outward instead of
+                # back over the axis regardless of how wide/long its labels get.
                 handles2, labels2 = self.ax2.get_legend_handles_labels()
                 if handles2:
                     legends.append(
                         self.ax2.legend(
-                            loc="upper right", bbox_to_anchor=(1.3, 1), title="component [min; mean; stddev; max]\n"
+                            loc="upper left", bbox_to_anchor=(1.05, 1), title="component [min; mean; stddev; max]\n"
                         )
                     )
 
