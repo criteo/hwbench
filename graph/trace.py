@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import dataclasses
 import json
 import pathlib
@@ -15,6 +17,7 @@ from hwbench.bench.monitoring_structs import (
     PowerSuppliesContextKeys,
     Temperature,
 )
+from hwbench.utils.helpers import cpu_list_to_range
 
 EVENTS = "events"
 MIN = "min"
@@ -170,12 +173,20 @@ class Bench:
             return first_metric.get_unit()
         return None
 
-    def get_all_metrics(self, metric_type: MonitoringContextKeys, filter=None) -> list[MonitorMetric]:
-        """Return all metrics of a given type."""
+    def get_all_metrics(self, metric_type: MonitoringContextKeys, filter=None, names=None) -> list[MonitorMetric]:
+        """Return all metrics of a given type.
+
+        filter: substring that must be present in the component name (e.g. "Core").
+        names: if provided, an explicit allow-list of exact component names to keep
+               (e.g. {"Core_0", "Core_3"}); used to restrict rendering to the cores
+               pinned during a benchmark.
+        """
         metrics = []
         try:
             for metric in self.get_monitoring_metric(metric_type).values():
                 for component_name, component in metric.items():
+                    if names is not None and component_name not in names:
+                        continue
                     if not filter:
                         metrics.append(component)
                     else:
@@ -184,6 +195,25 @@ class Bench:
         except KeyError:
             pass
         return metrics
+
+    def pinned_core_names(self) -> set | None:
+        """Return the set of monitoring component names matching the pinned cores.
+
+        Returns None when the benchmark has no cpu pinning, so callers can fall
+        back to rendering every core.
+        """
+        cpu_pin = self.cpu_pin()
+        if not cpu_pin:
+            return None
+        return {f"Core_{core}" for core in cpu_pin}
+
+    def pinned_cpu_range(self) -> str:
+        """Return the pinned cpus as a condensed range string (e.g. '[0-12, 128-199]')."""
+        cpu_pin = self.cpu_pin()
+        if not cpu_pin:
+            return "[]"
+        # cpu_list_to_range sorts its argument in place, so pass a copy.
+        return f"[{cpu_list_to_range(list(cpu_pin))}]"
 
     def title(self) -> str:
         """Prepare the benchmark title name."""
@@ -265,6 +295,7 @@ class Bench:
         watt_err=None,
         cpu_clock=None,
         cpu_clock_err=None,
+        cpu_clock_cores=None,
         index=None,
     ) -> None:
         """Extract performance and power efficiency"""
@@ -357,8 +388,12 @@ class Bench:
                 for freq_metric in mm:
                     if freq_metric != "CPU":
                         continue
-                    # We have to compute metrics of all systems cores
+                    # By default we compute metrics over all the system cores.
+                    # When cpu_clock_cores is provided, we restrict the computation
+                    # to the cores that were pinned during this benchmark.
                     for core in mm[freq_metric]:
+                        if cpu_clock_cores is not None and core not in cpu_clock_cores:
+                            continue
                         # MIN of min ?
                         # Mean of mean ?
                         # Max of max ?

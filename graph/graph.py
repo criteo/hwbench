@@ -38,6 +38,7 @@ class Graph:
         filename,
         square=False,
         show_source_file=None,
+        title_note=None,
     ) -> None:
         self.ax2: Axes | None = None
         self.args = args
@@ -50,7 +51,7 @@ class Graph:
             self.fig.set_size_inches(args.width / self.dpi, args.height / self.dpi)
         self.set_labels(xlabel, ylabel)
         self.set_xticks_style()
-        self.set_title(title, show_source_file)
+        self.set_title(title, show_source_file, title_note)
         self.output_dir = output_dir
         output_dir.mkdir(parents=True, exist_ok=True)
         self.set_filename(filename)
@@ -156,9 +157,23 @@ class Graph:
         self.ax.grid(which="major", linewidth=1)
         self.ax.grid(which="minor", linewidth=0.2, linestyle="dashed")
 
-    def set_title(self, title, show_source_file=None):
+    def set_title(self, title, show_source_file=None, title_note=None):
         """Set the graph title"""
-        self.ax.set_title(title)
+        # When a note is present, push the main title up to leave room for the
+        # note, which is rendered just above the axes in bold dark red.
+        self.ax.set_title(title, pad=28 if title_note else None)
+        if title_note:
+            self.ax.text(
+                0.5,
+                1.0,
+                title_note,
+                transform=self.ax.transAxes,
+                horizontalalignment="center",
+                verticalalignment="bottom",
+                color="darkred",
+                fontweight="bold",
+                fontsize=14,
+            )
         if show_source_file:
             # place a text box in upper left in axes coords
             props = dict(boxstyle="round", facecolor="white", alpha=0.5)
@@ -283,11 +298,14 @@ def generic_graph(
     item_title: str,
     second_axis: MonitoringContextKeys | None = None,
     filter=None,
+    names=None,
+    dir_suffix=None,
+    title_note=None,
 ) -> int:
     outfile = f"{item_title}"
     trace = bench.get_trace()
 
-    components = bench.get_all_metrics(component_type, filter)
+    components = bench.get_all_metrics(component_type, filter, names)
     if not len(components):
         title = f"{item_title}: no {component_type!s} metric found"
         if filter:
@@ -302,14 +320,18 @@ def generic_graph(
     title = f'{item_title} during "{bench.get_bench_name()}" benchmark job\n{args.title}\n\n Stressor: '
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
     title += f"\n{bench.get_system_title()}"
+    graph_dir = output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{component_type!s}")
+    if dir_suffix:
+        graph_dir = graph_dir.joinpath(dir_suffix)
     graph = Graph(
         args,
         title,
         "Time [seconds]",
         unit,
-        output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{component_type!s}"),
+        graph_dir,
         outfile,
         show_source_file=trace,
+        title_note=title_note,
     )
 
     if second_axis:
