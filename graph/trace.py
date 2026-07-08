@@ -315,10 +315,13 @@ class Bench:
                     try:
                         effective_runtime = self.get("effective_runtime")
                         delta = abs(effective_runtime - self.duration())
-                        # The effective runtime must be within ~1sec compared to the expected duration
-                        if delta > 1:
+                        # The effective runtime must be within ~1sec compared to the expected duration.
+                        # add_perf() is called many times per bench, so only warn once.
+                        event_name = f"{self.trace.get_name()}/{self.get_bench_name()}"
+                        if delta > 1 and event_name not in self.trace.incomplete_runtime_reported:
+                            self.trace.incomplete_runtime_reported.add(event_name)
                             print(
-                                f"{self.trace.get_name()}/{self.get_bench_name()} didn't completed on time. "
+                                f"{event_name} didn't completed on time. "
                                 f"Effective_runtime={effective_runtime} vs {self.duration()} : delta=[{delta:.2f}s; {delta / self.duration() * 100:.2f}%]"
                             )
                     except TypeError:
@@ -480,6 +483,9 @@ class Trace:
         self.filename = filename
         self.logical_name = logical_name
         self.metric_name = metric_name
+        # Benchmarks already reported as not completing on time, so the warning
+        # is printed only once per bench instead of on every add_perf() call.
+        self.incomplete_runtime_reported: set = set()
         self.__load_file()
 
     def get_name(self) -> str:
