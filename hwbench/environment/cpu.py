@@ -74,6 +74,10 @@ class CPU:
         """Return logical cores in a numa domain."""
         return self.numa.get_cores(numa_domain)
 
+    def get_numa_distances(self) -> dict[int, list[int]]:
+        """Return the NUMA distance matrix ({source node: [latency to each node]})."""
+        return self.numa.get_distances()
+
     def get_quadrants_count(self) -> int:
         """Return the number of quadrants."""
         return self.numa.quadrants_count()
@@ -93,6 +97,13 @@ class CPU:
             "logical_cores": self.get_logical_cores_count(),
             "physical_cores": self.get_physical_cores_count(),
             "numa_domains": self.get_numa_domains_count(),
+            # Mapping of each NUMA domain to its logical cores, so consumers
+            # (e.g. hwgraph) can aggregate per-core metrics by NUMA domain.
+            "numa_nodes": {
+                node: self.get_logical_cores_in_numa_domain(node) for node in range(self.get_numa_domains_count())
+            },
+            # NUMA distance matrix between domains, for topology-aware features.
+            "numa_distances": self.get_numa_distances(),
             "sockets": self.get_sockets_count(),
         }
 

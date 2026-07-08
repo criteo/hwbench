@@ -580,6 +580,27 @@ class Trace:
     def get_sockets_count(self):
         return self.get_cpu()["sockets"]
 
+    def get_numa_nodes(self) -> dict[int, list[int]]:
+        """Return the {numa domain: [logical cores]} mapping.
+
+        Returns an empty dict for older traces that did not record it.
+        """
+        numa_nodes = self.get_cpu().get("numa_nodes")
+        if not numa_nodes:
+            return {}
+        # JSON object keys are strings; expose them as ints.
+        return {int(node): cores for node, cores in numa_nodes.items()}
+
+    def get_numa_distances(self) -> dict[int, list[int]]:
+        """Return the NUMA distance matrix ({source node: [latency to each node]}).
+
+        Returns an empty dict for older traces that did not record it.
+        """
+        distances = self.get_cpu().get("numa_distances")
+        if not distances:
+            return {}
+        return {int(node): latencies for node, latencies in distances.items()}
+
     def get_physical_cores(self):
         return self.get_cpu()["physical_cores"]
 

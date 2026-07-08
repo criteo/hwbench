@@ -19,7 +19,7 @@ from hwbench.bench.monitoring_structs import (
 try:
     from graph.chassis import graph_chassis
     from graph.common import fatal
-    from graph.graph import generic_graph, init_matplotlib, yerr_graph
+    from graph.graph import generic_graph, init_matplotlib, numa_aggregated_components, yerr_graph
     from graph.group import graph_group_env
     from graph.scaling import smp_scaling_graph
     from graph.trace import Event, Trace
@@ -66,6 +66,7 @@ def _task_env_bench(trace_idx, bench_name, output_dir_str):
     count += graph_monitoring_metrics(args, trace, bench_name, output_dir)
     count += graph_fans(args, trace, bench_name, output_dir)
     count += graph_cpu(args, trace, bench_name, output_dir)
+    count += graph_cpu_numa(args, trace, bench_name, output_dir)
     count += graph_pdu(args, trace, bench_name, output_dir)
     count += graph_thermal(args, trace, bench_name, output_dir)
     return count
@@ -496,6 +497,50 @@ def graph_cpu(args, trace: Trace, bench_name: str, output_dir) -> int:
                         title_note=title_note,
                     )
 
+    return rendered_graphs
+
+
+def graph_cpu_numa(args, trace: Trace, bench_name: str, output_dir) -> int:
+    """Render per-core CPU metrics aggregated by NUMA domain (one line per domain).
+
+    Requires the NUMA topology in the trace; older traces without it are skipped.
+    """
+    numa_nodes = trace.get_numa_nodes()
+    if not numa_nodes:
+        print(f"{bench_name}: no NUMA metric present in trace file, skipping.")
+        return 0
+    rendered_graphs = 0
+    bench = trace.bench(bench_name)
+    numa_graphs = {
+        "Core frequency per NUMA domain": MonitoringContextKeys.Freq,
+        "Core IPC per NUMA domain": MonitoringContextKeys.IPC,
+        "CPU Core power consumption per NUMA domain": MonitoringContextKeys.PowerConsumption,
+    }
+    # Like the per-core graphs: one rendering averaging every core of each domain
+    # (all_numa), and one restricted to the cores pinned during this job, grouped
+    # by the domains those pinned cores belong to (pinned_numa).
+    pinned_core_names = bench.pinned_core_names()
+    # Each rendering is a dir suffix, the pinned-core filter, and a title note.
+    renderings = [("all_numa", None, None)]  # type: list
+    if pinned_core_names:
+        pinned_note = f"View limited to the pinned logical cores {bench.pinned_cpu_range()}"
+        renderings.append(("pinned_numa", pinned_core_names, pinned_note))
+
+    for graph_name, metric in numa_graphs.items():
+        for dir_suffix, pinned_cores, title_note in renderings:
+            components = numa_aggregated_components(bench, metric, numa_nodes, pinned_cores)
+            if not components:
+                continue
+            rendered_graphs += generic_graph(
+                args,
+                output_dir,
+                bench,
+                metric,
+                graph_name,
+                dir_suffix=dir_suffix,
+                components=components,
+                title_note=title_note,
+            )
     return rendered_graphs
 
 
