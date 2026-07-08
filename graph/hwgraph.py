@@ -19,7 +19,14 @@ from hwbench.bench.monitoring_structs import (
 try:
     from graph.chassis import graph_chassis
     from graph.common import fatal
-    from graph.graph import generic_graph, init_matplotlib, numa_aggregated_components, yerr_graph
+    from graph.graph import (
+        generic_graph,
+        init_matplotlib,
+        numa_aggregated_components,
+        numa_distance_heatmap,
+        numa_performance_heatmap,
+        yerr_graph,
+    )
     from graph.group import graph_group_env
     from graph.scaling import smp_scaling_graph
     from graph.trace import Event, Trace
@@ -70,6 +77,12 @@ def _task_env_bench(trace_idx, bench_name, output_dir_str):
     count += graph_pdu(args, trace, bench_name, output_dir)
     count += graph_thermal(args, trace, bench_name, output_dir)
     return count
+
+
+def _task_numa_distance(trace_idx, output_dir_str):
+    """Generate the per-host NUMA distance heatmap (once per trace)."""
+    global _pool_args
+    return numa_distance_heatmap(_pool_args, pathlib.Path(output_dir_str), _pool_args.traces[trace_idx])
 
 
 def _task_chassis(bench_name, output_dir_str):
@@ -186,6 +199,8 @@ def _collect_environment_tasks(args, output_dir):
         print(f"environment: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})")
         for bench_name in sorted(benches):
             tasks.append((_task_env_bench, trace_idx, bench_name, str(host_output_dir)))
+        # One NUMA distance heatmap per host, not tied to any benchmark.
+        tasks.append((_task_numa_distance, trace_idx, str(host_output_dir)))
 
     return tasks
 
@@ -516,6 +531,8 @@ def graph_cpu_numa(args, trace: Trace, bench_name: str, output_dir) -> int:
         "Core IPC per NUMA domain": MonitoringContextKeys.IPC,
         "CPU Core power consumption per NUMA domain": MonitoringContextKeys.PowerConsumption,
     }
+    # Metrics that also get a per-domain x time heatmap next to their line graph.
+    heatmap_metrics = {MonitoringContextKeys.Freq, MonitoringContextKeys.IPC}
     # Like the per-core graphs: one rendering averaging every core of each domain
     # (all_numa), and one restricted to the cores pinned during this job, grouped
     # by the domains those pinned cores belong to (pinned_numa).
@@ -541,6 +558,19 @@ def graph_cpu_numa(args, trace: Trace, bench_name: str, output_dir) -> int:
                 components=components,
                 title_note=title_note,
             )
+            # Companion heatmap: NUMA domain x time, color = per-domain value.
+            if metric in heatmap_metrics:
+                rendered_graphs += numa_performance_heatmap(
+                    args,
+                    output_dir,
+                    bench,
+                    metric,
+                    graph_name,
+                    numa_nodes,
+                    dir_suffix=dir_suffix,
+                    pinned_cores=pinned_cores,
+                    title_note=title_note,
+                )
     return rendered_graphs
 
 
