@@ -26,6 +26,11 @@ def init_matplotlib(args):
 
 GRAPH_TYPES = ["perf", "perf_watt", "watts", "cpu_clock"]
 
+# Extra headroom added above the data when no explicit ymax is provided, so the
+# top curve is not merged with the frame. Graphs stay zero-based (comparable
+# across CPUs/products); we only push the top of the axis a bit above the data.
+YMAX_HEADROOM = 1.05
+
 
 class Graph:
     def __init__(
@@ -109,6 +114,14 @@ class Graph:
                 MultipleLocator(y_minor),
             )
 
+        # Keep a zero baseline so graphs stay comparable across CPUs/products,
+        # but when no explicit ymax is given, push the top of the axis slightly
+        # above the data so the highest curve is not merged with the frame.
+        if ymax is None:
+            self.ax.relim()
+            data_top = self.ax.dataLim.ymax
+            if data_top and 0 < data_top < float("inf"):
+                ymax = data_top * YMAX_HEADROOM
         self.ax.set_ylim(None, ymin=0, ymax=ymax, emit=True, auto=True)
         # If we have a 2nd axis, let's prepare it
         if self.ax2:
