@@ -8,7 +8,14 @@ from matplotlib.lines import Line2D
 from matplotlib.offsetbox import AnchoredOffsetbox, HPacker, TextArea
 from matplotlib.ticker import AutoMinorLocator
 
-from graph.graph import GRAPH_TYPES, Graph, numa_aggregated_components, numa_core_blocks, statistics_in_label
+from graph.graph import (
+    GRAPH_TYPES,
+    Graph,
+    get_max_value_string_length,
+    numa_aggregated_components,
+    numa_core_blocks,
+    statistics_in_label,
+)
 from hwbench.bench.monitoring_structs import MonitoringContextKeys
 
 
@@ -430,6 +437,17 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                         "tab:brown",
                         "tab:grey",
                     ]
+                    # Pad the trace name and the values to a common width so the
+                    # per-trace legend table stays aligned even when trace names
+                    # (or values) have different lengths.
+                    max_title_length = max((len(trace_name) for trace_name in v_y_source[perf]), default=0)
+                    max_value_length = max(
+                        (
+                            get_max_value_string_length(np.array(v_y_source[perf][trace_name]))
+                            for trace_name in v_y_source[perf]
+                        ),
+                        default=0,
+                    )
                     # Traces are not ordered by growing cpu cores count
                     # We need to prepare the x_serie to be sorted this way
                     # The y_serie depends on the graph type
@@ -439,7 +457,7 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                         order = np.argsort(workers[trace_name])
                         x_serie = np.array(workers[trace_name])[order]
                         y_serie = np.array(v_y_source[perf][trace_name])[order]
-                        series_label = statistics_in_label(trace_name, y_serie)
+                        series_label = statistics_in_label(trace_name, y_serie, max_title_length, max_value_length)
                         # If we have an error distribution, let's use errorbars
                         if v_err_source is not None:
                             graph.get_ax().errorbar(
