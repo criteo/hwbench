@@ -16,9 +16,10 @@ from .parameters import BenchmarkParameters
 class Benchmarks:
     """A class to list and execute benchmarks to run."""
 
-    def __init__(self, out_dir, jobs_config) -> None:
+    def __init__(self, out_dir, jobs_config, verbose: bool = False) -> None:
         self.jobs_config = jobs_config
         self.out_dir = out_dir
+        self.verbose = verbose
         self.benchs: list[Benchmark] = []
         self.monitoring: Monitoring = None  # type: ignore[assignment]
         self.hardware: BaseHardware | None = None
@@ -175,7 +176,7 @@ class Benchmarks:
             for pdu in self.get_hardware().vendor.get_pdus():
                 pdu.connect_redfish()
                 pdu.detect()
-            self.monitoring = Monitoring(self.out_dir, self.jobs_config, self.get_hardware())
+            self.monitoring = Monitoring(self.out_dir, self.jobs_config, self.get_hardware(), verbose=self.verbose)
 
         # For each stressor, add a benchmark object to the list
         for stressor_count in self.jobs_config.get_stressor_range(job):
