@@ -20,6 +20,7 @@ try:
     from graph.chassis import graph_chassis
     from graph.common import fatal
     from graph.graph import (
+        cpu_distribution_graph,
         generic_graph,
         init_matplotlib,
         numa_aggregated_components,
@@ -514,6 +515,18 @@ def graph_cpu(args, trace: Trace, bench_name: str, output_dir) -> int:
                         filter=filter,
                         names=names,
                         dir_suffix=dir_suffix,
+                        title_note=title_note,
+                    )
+                # Per-core metrics also get a steady-state distribution (violin + box).
+                if filter == "Core":
+                    rendered_graphs += cpu_distribution_graph(
+                        args,
+                        output_dir,
+                        bench,
+                        metric,
+                        graph_name,
+                        dir_suffix=dir_suffix,
+                        names=names,
                         title_note=title_note,
                     )
 
