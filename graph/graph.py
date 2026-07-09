@@ -248,12 +248,17 @@ class Graph:
     def render(self, extra_legend=None):
         """Render the graph to a file.
 
-        extra_legend: an additional, manually placed legend that must be taken
-        into account when computing the tight bounding box.
+        extra_legend: one or more additional, manually placed legends that
+        must be taken into account when computing the tight bounding box.
         """
         # Retrieve the rendering file format
         file_format = self.args.format
-        legends = [extra_legend] if extra_legend else []
+        if extra_legend is None:
+            legends = []
+        elif isinstance(extra_legend, (list, tuple)):
+            legends = list(extra_legend)
+        else:
+            legends = [extra_legend]
 
         # Trace the events passed on the command line
         self.trace_events()
@@ -462,6 +467,107 @@ def numa_distance_heatmap(args, output_dir, trace) -> int:
     numa_nodes = trace.get_numa_nodes()
     legend = numa_cores_legend(graph.get_ax(), [(node, numa_nodes.get(node, [])) for node in nodes])
     _render_numa_heatmap(graph, nodes, matrix, extra_legend=legend)
+    return 1
+
+
+def numa_distribution_graph(
+    args,
+    output_dir,
+    bench: Bench,
+    component_type: MonitoringContextKeys,
+    item_title: str,
+    numa_nodes,
+    dir_suffix=None,
+    pinned_cores=None,
+    title_note=None,
+) -> int:
+    """Render the per-NUMA-domain distribution of a metric at steady state (one violin + box per domain).
+
+    Each domain gets its own violin built from its cores' steady-state (mean
+    over the run) values, so core-to-core uniformity can be compared across
+    domains at a glance -- same idea as cpu_distribution_graph, split by NUMA
+    domain instead of blended into a single body. When pinned_cores is given,
+    only the pinned cores of each domain feed its violin and domains with no
+    pinned core are skipped. The Y axis autoscales to the data.
+    """
+    domains = []
+    for node in sorted(numa_nodes):
+        core_names = {f"Core_{cpu}" for cpu in numa_nodes[node]}
+        if pinned_cores is not None:
+            core_names &= pinned_cores
+        if not core_names:
+            continue
+        cores = bench.get_all_metrics(component_type, names=core_names)
+        if not cores:
+            continue
+        values = [float(np.mean(core.get_mean())) for core in cores]
+        domains.append((node, values))
+    if not domains:
+        return 0
+    unit = bench.get_metric_unit(component_type)
+
+    trace = bench.get_trace()
+    title = f'{item_title} per-NUMA-domain distribution during "{bench.get_bench_name()}" benchmark job\n{args.title}\n\n Stressor: '
+    title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
+    title += f"\n{bench.get_system_title()}"
+    graph_dir = output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{component_type!s}")
+    if dir_suffix:
+        graph_dir = graph_dir.joinpath(dir_suffix)
+    graph = Graph(
+        args,
+        title,
+        "",
+        unit,
+        graph_dir,
+        f"{item_title} - distribution",
+        show_source_file=trace,
+        title_note=title_note,
+    )
+    ax = graph.get_ax()
+    positions = list(range(1, len(domains) + 1))
+    domain_values = [values for _, values in domains]
+    parts = ax.violinplot(domain_values, positions=positions, widths=0.7, showextrema=False)
+    for body in parts["bodies"]:
+        body.set_facecolor("tab:blue")
+        body.set_alpha(0.25)
+    ax.boxplot(
+        domain_values,
+        positions=positions,
+        widths=0.15,
+        showmeans=True,
+        meanline=True,
+        medianprops=dict(color="tab:red"),
+        meanprops=dict(color="tab:green", linestyle="--"),
+        flierprops=dict(marker=".", markersize=3, alpha=0.4),
+    )
+    ax.set_xticks(positions)
+    ax.set_xticklabels([f"NUMA {node}" for node, _ in domains])
+    ax.grid(which="major", axis="y", linewidth=0.6, linestyle="dashed", color="0.7")
+
+    # Left-side box listing each domain's cores in condensed form, like the
+    # heatmap's legend -- useful to see exactly which cores fed each violin,
+    # especially on the pinned view where a domain may keep only a few.
+    pinned_cpus = None
+    if pinned_cores is not None:
+        pinned_cpus = {int(name.split("_")[1]) for name in pinned_cores}
+    node_cores = []
+    for node, _ in domains:
+        cpus = numa_nodes[node]
+        if pinned_cpus is not None:
+            cpus = [cpu for cpu in cpus if cpu in pinned_cpus]
+        node_cores.append((node, cpus))
+    cores_legend = numa_cores_legend(ax, node_cores)
+    stats_legend = ax.legend(
+        handles=[
+            Line2D([], [], color="tab:red", label="median"),
+            Line2D([], [], color="tab:green", linestyle="--", label="mean"),
+        ],
+        loc="upper right",
+        fontsize=8,
+    )
+    ax.add_artist(cores_legend)
+    graph.needs_legend = False
+    graph.render(extra_legend=[cores_legend, stats_legend])
     return 1
 
 

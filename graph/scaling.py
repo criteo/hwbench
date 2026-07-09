@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 from itertools import cycle
 from statistics import stdev
 from typing import Any  # noqa: F401
 
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.lines import Line2D
 from matplotlib.offsetbox import AnchoredOffsetbox, HPacker, TextArea
+from matplotlib.patches import Patch
 from matplotlib.ticker import AutoMinorLocator
 
 from graph.graph import (
@@ -306,6 +311,352 @@ def render_scaling_distributions(args, temp_outdir, job: str, emp: str, has_ipc:
     return rendered
 
 
+# Colours cycled across NUMA domains in the render_numa_scaling_* graphs below, so
+# each domain keeps the same colour everywhere it appears. tab20 gives 20 distinct
+# colours, enough for every domain count seen on real systems so far; it only wraps
+# (and two domains start sharing a colour) past that.
+_NUMA_DOMAIN_COLORS = [matplotlib.colormaps["tab20"](i) for i in range(20)]
+
+# Pale background washes used by render_numa_scaling_ridgelines to mark which CPU
+# package each NUMA domain belongs to, cycled per package. Kept very light so they
+# stay subordinate to the (much more saturated) per-domain ridge colours.
+_NUMA_PACKAGE_BAND_COLORS = ["#eaf1fb", "#fbf1e2", "#eaf7ee", "#f6eef8"]
+
+
+# hwbench does not record which package a NUMA domain sits on, but same-package
+# domains are always much closer to each other than cross-package ones (see the
+# sample matrices in hwbench/environment/numa.py: ~10-12 within a package, 32+
+# across). 20 sits comfortably between the two tiers.
+_NUMA_SAME_PACKAGE_DISTANCE = 20
+
+
+def _numa_domains_by_package(numa_nodes: dict, numa_distances: dict) -> dict | None:
+    """Group NUMA domains into CPU packages, from the distance matrix.
+
+    Connects domains whose mutual distance is below _NUMA_SAME_PACKAGE_DISTANCE
+    (union-find) and returns {domain: package index}. Returns None when there is
+    nothing to distinguish (everything lands in one group, e.g. a single socket)
+    or the matrix is missing/incomplete.
+    """
+    if len(numa_nodes) <= 1 or not numa_distances:
+        return None
+    domains = sorted(numa_nodes)
+    if not all(d in numa_distances and len(numa_distances[d]) > max(domains) for d in domains):
+        return None
+
+    parent = {d: d for d in domains}
+
+    def find(node):
+        while parent[node] != node:
+            parent[node] = parent[parent[node]]
+            node = parent[node]
+        return node
+
+    for d in domains:
+        for o in domains:
+            if d != o and numa_distances[d][o] < _NUMA_SAME_PACKAGE_DISTANCE:
+                root_d, root_o = find(d), find(o)
+                if root_d != root_o:
+                    parent[root_d] = root_o
+
+    groups: dict = {}
+    for d in domains:
+        groups.setdefault(find(d), []).append(d)
+
+    if len(groups) <= 1:
+        return None
+    ordered_groups = sorted(groups.values(), key=min)
+    return {d: package for package, group in enumerate(ordered_groups) for d in group}
+
+
+def _numa_scaling_metrics(has_ipc: bool) -> list:
+    """Metrics rendered by the render_numa_scaling_* graphs below."""
+    metrics = [
+        ("cpu_clock", MonitoringContextKeys.Freq, "Mhz", "Core frequency per NUMA domain"),
+    ]  # type: list
+    if has_ipc:
+        metrics.append(("cpu_ipc", MonitoringContextKeys.IPC, "IPC", "Core IPC per NUMA domain"))
+    metrics.append(
+        (
+            "cpu_core_power",
+            MonitoringContextKeys.PowerConsumption,
+            None,
+            "CPU Core power consumption per NUMA domain",
+        )
+    )
+    return metrics
+
+
+def _numa_scaling_variants(benches: list) -> list:
+    """all_numa always; pinned_numa when at least one run of the sweep pins cores."""
+    variants = [("all_numa", False, None)]  # type: list
+    if any(bench.cpu_pin() for bench in benches):
+        variants.append(("pinned_numa", True, "View limited to the pinned logical cores of each scaling step"))
+    return variants
+
+
+def _collect_numa_step_domain_values(benches: list, context, numa_nodes, use_pinned: bool) -> dict:
+    """Return {worker count: {domain: [per-core steady-state values]}} for one metric/variant."""
+    per_step = {}  # type: dict[int, dict[int, list]]
+    for bench in benches:
+        pinned = bench.pinned_core_names() if use_pinned else None
+        step_domains = {}
+        for node in sorted(numa_nodes):
+            core_names = {f"Core_{cpu}" for cpu in numa_nodes[node]}
+            if pinned is not None:
+                core_names &= pinned
+            if not core_names:
+                continue
+            cores = bench.get_all_metrics(context, names=core_names)
+            if not cores:
+                continue
+            step_domains[node] = [float(np.mean(core.get_mean())) for core in cores]
+        if step_domains:
+            per_step[bench.workers()] = step_domains
+    return per_step
+
+
+def _numa_scaling_cores_by_domain(numa_nodes, domains: list, benches: list, use_pinned: bool) -> dict:
+    """{domain: [cpus]}, restricted to the union of cores pinned across the sweep on the pinned view."""
+    pinned_union = None  # type: set | None
+    if use_pinned:
+        pinned_union = set()
+        for bench in benches:
+            pinned_union |= {int(name.split("_")[1]) for name in (bench.pinned_core_names() or set())}
+    cores_by_domain = {}
+    for node in domains:
+        cpus = numa_nodes[node]
+        if pinned_union is not None:
+            cpus = [cpu for cpu in cpus if cpu in pinned_union]
+        cores_by_domain[node] = cpus
+    return cores_by_domain
+
+
+def _save_standalone_figure(args, fig, output_dir, filename: str) -> None:
+    """Save a figure built without the Graph wrapper (used by grid/multi-axes graphs).
+
+    Mirrors Graph.render()'s save call so standalone figures match the rest of
+    hwgraph's output (same directory creation, format, dpi and tight bbox).
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    fig.savefig(
+        f"{output_dir}/{filename}.{args.format}",
+        format=args.format,
+        dpi=args.dpi,
+        bbox_inches="tight",
+        pad_inches=1,
+    )
+    fig.clear()
+    plt.close(fig)
+
+
+def _gaussian_kde_curve(values: list, sample_points: np.ndarray) -> np.ndarray:
+    """Scipy-free Gaussian KDE (Silverman's rule-of-thumb bandwidth), unnormalized."""
+    values_arr = np.asarray(values, dtype=float)
+    std = float(np.std(values_arr))
+    bandwidth = 1.06 * std * len(values_arr) ** (-1 / 5) if std > 0 else 1.0
+    bandwidth = max(bandwidth, 1e-3)
+    diffs = (sample_points[:, None] - values_arr[None, :]) / bandwidth
+    return np.exp(-0.5 * diffs**2).sum(axis=1)
+
+
+# render_numa_scaling_ridgelines lays out one panel per step, _RIDGELINE_MAX_COLS
+# per row, so the grid (and the figure) grows taller as a sweep has more steps.
+# The header/footer are reserved as a constant number of INCHES rather than a
+# fraction of the figure, so they keep the same size and never shrink to
+# nothing (or balloon) as the number of rows changes.
+_RIDGELINE_PANEL_WIDTH = 3.0
+_RIDGELINE_PANEL_HEIGHT = 3.3
+_RIDGELINE_MAX_COLS = 5
+_RIDGELINE_SUPTITLE_INSET = 0.05  # inches from the top edge to the suptitle anchor
+_RIDGELINE_NOTE_INSET = 1.3  # inches from the top edge to the note (when present)
+_RIDGELINE_HEADER_INCHES = 1.6  # reserved header height: title only
+_RIDGELINE_HEADER_INCHES_NOTE = 2.0  # reserved header height: title + note
+_RIDGELINE_FOOTER_INCHES = 0.5  # reserved footer height: source caption
+_RIDGELINE_FOOTER_INCHES_PACKAGE = 0.85  # reserved footer height: source caption + package legend
+_RIDGELINE_CAPTION_INSET = 0.08  # inches from the bottom edge to the source caption
+_RIDGELINE_PACKAGE_LEGEND_INSET = 0.4  # inches from the bottom edge to the package legend
+
+
+def render_numa_scaling_ridgelines(args, temp_outdir, job: str, emp: str, has_ipc: bool) -> int:
+    """Render the per-NUMA-domain metric distribution at every scaling step.
+
+    For each trace and each per-NUMA metric (frequency, IPC and per-core
+    power, aggregated by domain), one graph lays out one ridgeline panel per
+    scaling step -- every step, not a sample -- in a grid: each panel is a
+    stacked density (ridgeline) per NUMA domain, preserving the full
+    distribution shape (skew, bimodality) that a single averaged value would
+    flatten.
+
+    Like the other per-domain scaling graphs, rendered for all_numa (every
+    core of each domain) and, when the sweep pins cores, pinned_numa. Needs
+    the NUMA topology in each trace; older traces without it are skipped.
+    """
+    rendered = 0
+    for trace in args.traces:
+        # Topology is per-host: read it from this trace, not a shared reference,
+        # so hosts with different NUMA-node counts each render their own domains.
+        numa_nodes = trace.get_numa_nodes()
+        if not numa_nodes:
+            continue
+        # Best-effort: which package each domain sits on, so multi-socket systems get a
+        # background wash marking the boundary; None on a single socket or when the
+        # distance matrix doesn't cleanly cluster (older trace, unexpected encoding).
+        domain_package = _numa_domains_by_package(numa_nodes, trace.get_numa_distances())
+
+        trace_benches = trace.get_benches_by_job_per_emp(job)
+        if emp not in trace_benches or not trace_benches[emp]["bench"]:
+            continue
+        benches = sorted(trace_benches[emp]["bench"], key=lambda b: b.workers())
+        engine = benches[0].get_title_engine_name().replace(" ", "_")
+        trace_slug = trace.get_name().replace(" ", "_").replace("/", "_")
+        variants = _numa_scaling_variants(benches)
+
+        for dirname, context, unit, item_title in _numa_scaling_metrics(has_ipc):
+            for dir_suffix, use_pinned, note in variants:
+                per_step = _collect_numa_step_domain_values(benches, context, numa_nodes, use_pinned)
+                if not per_step:
+                    continue
+                steps = sorted(per_step)
+                domains = sorted({node for step_domains in per_step.values() for node in step_domains})
+                metric_unit = unit or benches[0].get_metric_unit(context)
+                cores_by_domain = _numa_scaling_cores_by_domain(numa_nodes, domains, benches, use_pinned)
+                domain_color = {
+                    node: _NUMA_DOMAIN_COLORS[i % len(_NUMA_DOMAIN_COLORS)] for i, node in enumerate(domains)
+                }
+
+                all_values = [
+                    v for step_domains in per_step.values() for values in step_domains.values() for v in values
+                ]
+                pad = (max(all_values) - min(all_values)) * 0.05 or 1
+                yy = np.linspace(min(all_values) - pad, max(all_values) + pad, 200)
+
+                # Every step gets a panel -- no sampling -- laid out as a grid so the
+                # figure grows in rows rather than becoming arbitrarily wide.
+                cols = min(_RIDGELINE_MAX_COLS, len(steps))
+                rows = -(-len(steps) // cols)  # ceil division
+                header_inches = _RIDGELINE_HEADER_INCHES_NOTE if note else _RIDGELINE_HEADER_INCHES
+                footer_inches = (
+                    _RIDGELINE_FOOTER_INCHES_PACKAGE if domain_package is not None else _RIDGELINE_FOOTER_INCHES
+                )
+                fig_width = _RIDGELINE_PANEL_WIDTH * cols
+                fig_height = _RIDGELINE_PANEL_HEIGHT * rows + header_inches + footer_inches
+                fig, axes = plt.subplots(rows, cols, figsize=(fig_width, fig_height), sharey=True, squeeze=False)
+                flat_axes = axes.flatten()
+
+                for ax, step in zip(flat_axes, steps):
+                    step_domains = per_step[step]
+                    present = [node for node in domains if node in step_domains]
+                    offsets = np.arange(len(present)) * 1.1
+
+                    # Background wash per CPU package, drawn first so the ridges sit on top.
+                    if domain_package is not None:
+                        package_offsets: dict = {}
+                        for offset, node in zip(offsets, present):
+                            package_offsets.setdefault(domain_package[node], []).append(offset)
+                        for package, offs in package_offsets.items():
+                            ax.axvspan(
+                                min(offs) - 0.55,
+                                max(offs) + 0.55,
+                                color=_NUMA_PACKAGE_BAND_COLORS[package % len(_NUMA_PACKAGE_BAND_COLORS)],
+                                zorder=0,
+                            )
+
+                    for offset, node in zip(offsets, present):
+                        density = _gaussian_kde_curve(step_domains[node], yy)
+                        peak = density.max()
+                        if peak > 0:
+                            density = density / peak
+                        ax.fill_betweenx(yy, offset, offset + density, color=domain_color[node], alpha=0.8, zorder=2)
+                        ax.plot(offset + density, yy, color="black", linewidth=0.5, zorder=2)
+                    ax.set_xticks(offsets)
+                    ax.set_xticklabels([f"N{node}" for node in present], rotation=90, fontsize=6)
+                    ax.set_title(f"{step} workers", fontsize=9)
+                    ax.set_xlim(-0.3, (offsets[-1] if len(offsets) else 0) + 1.3)
+                    ax.grid(which="major", axis="y", linewidth=0.4, linestyle="dashed", color="0.85", zorder=1)
+                for ax in flat_axes[len(steps) :]:
+                    ax.axis("off")
+                # Y label on the leftmost panel of every row (sharey makes the scale common).
+                for row in range(rows):
+                    flat_axes[row * cols].set_ylabel(metric_unit)
+
+                node_width = max((len(str(node)) for node in domains), default=1)
+                handles = [Line2D([], [], color=domain_color[node], linewidth=6) for node in domains]
+                labels = [
+                    f"NUMA {node:>{node_width}}"
+                    + (f" (pkg {domain_package[node]})" if domain_package is not None else "")
+                    + f": {numa_core_blocks(cores_by_domain[node])}"
+                    for node in domains
+                ]
+                fig.legend(
+                    handles,
+                    labels,
+                    loc="center left",
+                    bbox_to_anchor=(1.0, 0.5),
+                    title="NUMA domain [cores]",
+                    fontsize=8,
+                )
+                # Separate legend explaining the background wash colour, centered below the
+                # grid (fig.legend keeps every call as its own legend, unlike ax.legend which
+                # replaces the last one).
+                if domain_package is not None:
+                    package_count = len(set(domain_package.values()))
+                    package_handles = [
+                        Patch(
+                            facecolor=_NUMA_PACKAGE_BAND_COLORS[package % len(_NUMA_PACKAGE_BAND_COLORS)],
+                            edgecolor="0.6",
+                        )
+                        for package in range(package_count)
+                    ]
+                    package_labels = [f"CPU package {package}" for package in range(package_count)]
+                    fig.legend(
+                        package_handles,
+                        package_labels,
+                        loc="lower center",
+                        bbox_to_anchor=(0.5, _RIDGELINE_PACKAGE_LEGEND_INSET / fig_height),
+                        ncol=package_count,
+                        fontsize=8,
+                    )
+
+                title = f'{args.title}\n\n{item_title} distribution scaling via "{job}" benchmark job\n\n Stressor: '
+                title += f"{benches[0].get_title_engine_name()} for {benches[0].duration()} seconds"
+                fig.suptitle(title, fontsize=11, y=1 - _RIDGELINE_SUPTITLE_INSET / fig_height)
+                if note:
+                    fig.text(
+                        0.5,
+                        1 - _RIDGELINE_NOTE_INSET / fig_height,
+                        note,
+                        ha="center",
+                        color="darkred",
+                        fontweight="bold",
+                        fontsize=10,
+                    )
+                fig.text(
+                    0.01,
+                    _RIDGELINE_CAPTION_INSET / fig_height,
+                    f"data plotted from {trace.get_filename()}",
+                    fontsize=8,
+                    bbox=dict(boxstyle="round", facecolor="white", alpha=0.6),
+                )
+                fig.tight_layout(
+                    rect=(
+                        0.02,
+                        footer_inches / fig_height,
+                        1,
+                        1 - header_inches / fig_height,
+                    )
+                )
+
+                _save_standalone_figure(
+                    args,
+                    fig,
+                    temp_outdir.joinpath(dirname, dir_suffix),
+                    f"scaling_{dirname}_numa_ridgeline_{trace_slug}_{engine}",
+                )
+                rendered += 1
+    return rendered
+
+
 def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
     """Render line graphs to compare performance scaling."""
     rendered_graphs = 0
@@ -590,5 +941,9 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
 
         # Per-core distribution (violin + box) across the scaling steps.
         rendered_graphs += render_scaling_distributions(args, temp_outdir, job, emp, has_ipc)
+
+        # Per-NUMA-domain distribution across the scaling steps: a ridgeline grid,
+        # one panel per step, one density per domain within each panel.
+        rendered_graphs += render_numa_scaling_ridgelines(args, temp_outdir, job, emp, has_ipc)
 
     return rendered_graphs
