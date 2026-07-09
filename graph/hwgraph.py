@@ -385,7 +385,10 @@ def generate_stats(args) -> None:
                             for metric in metrics:
                                 # If a metric has no measure, let's ignore it
                                 if len(metrics[metric].get_samples()) == 0:
-                                    print(f"{bench_name}: No samples found in {metric_name}.{metric}, ignoring metric.")
+                                    if args.verbose:
+                                        print(
+                                            f"{bench_name}: No samples found in {metric_name}.{metric}, ignoring metric."
+                                        )
                                     continue
                                 else:
                                     max_values = metrics[metric].get_max()
@@ -438,7 +441,8 @@ def graph_monitoring_metrics(args, trace: Trace, bench_name: str, output_dir) ->
             for metric in metrics:
                 # If a metric has no measure, let's ignore it
                 if len(metrics[metric].get_samples()) == 0:
-                    print(f"{bench_name}: No samples found in {metric_name}.{metric}, ignoring metric.")
+                    if args.verbose:
+                        print(f"{bench_name}: No samples found in {metric_name}.{metric}, ignoring metric.")
                 else:
                     try:
                         rendered_graphs += yerr_graph(
