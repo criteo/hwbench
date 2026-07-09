@@ -25,6 +25,7 @@ try:
         init_matplotlib,
         numa_aggregated_components,
         numa_distance_heatmap,
+        numa_distribution_graph,
         numa_performance_heatmap,
         yerr_graph,
     )
@@ -589,6 +590,18 @@ def graph_cpu_numa(args, trace: Trace, bench_name: str, output_dir) -> int:
                     pinned_cores=pinned_cores,
                     title_note=title_note,
                 )
+            # Companion violin: one steady-state distribution per NUMA domain.
+            rendered_graphs += numa_distribution_graph(
+                args,
+                output_dir,
+                bench,
+                metric,
+                graph_name,
+                numa_nodes,
+                dir_suffix=dir_suffix,
+                pinned_cores=pinned_cores,
+                title_note=title_note,
+            )
     return rendered_graphs
 
 
