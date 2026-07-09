@@ -37,7 +37,7 @@ def main():
     init_logging(tuning_out_dir / "hwbench-tuning.log")
 
     hwbench_config = config.Config(args.jobs_config)
-    benches = benchmarks.Benchmarks(out_dir, hwbench_config)
+    benches = benchmarks.Benchmarks(out_dir, hwbench_config, verbose=args.verbose)
 
     problems = env_hw.check_requirements() + benches.check_requirements()
 
@@ -108,6 +108,13 @@ def parse_options():
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Enable or disable tuning: this is useful when you want to test the system as-is.",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="Enable verbose output",
     )
     return parser.parse_args()
 
