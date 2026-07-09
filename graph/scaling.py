@@ -6,6 +6,7 @@ import numpy as np
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.lines import Line2D
 from matplotlib.offsetbox import AnchoredOffsetbox, HPacker, TextArea
+from matplotlib.ticker import AutoMinorLocator
 
 from graph.graph import GRAPH_TYPES, Graph, numa_aggregated_components, numa_core_blocks, statistics_in_label
 from hwbench.bench.monitoring_structs import MonitoringContextKeys
@@ -461,6 +462,10 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                             )
 
                     graph.prepare_axes(8, 4)
+                    # Add a midline between Y ticks to ease value reading (a bit more
+                    # visible than the default minor grid, but still lighter than the major one).
+                    graph.get_ax().yaxis.set_minor_locator(AutoMinorLocator(2))
+                    graph.get_ax().grid(which="minor", axis="y", linewidth=0.6, linestyle="dashed", color="0.6")
                     graph.render()
                     rendered_graphs += 1
 
