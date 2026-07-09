@@ -539,6 +539,79 @@ def numa_performance_heatmap(
     return 1
 
 
+def cpu_distribution_graph(
+    args,
+    output_dir,
+    bench: Bench,
+    component_type: MonitoringContextKeys,
+    item_title: str,
+    dir_suffix=None,
+    names=None,
+    title_note=None,
+) -> int:
+    """Render the per-core distribution of a metric at steady state (violin + box).
+
+    Each core's steady-state value (mean over the run) becomes one point; the
+    violin shows their density and the box shows median/mean/quartiles/outliers,
+    so the core-to-core uniformity is visible at a glance. names restricts the
+    cores (pinned view). The Y axis autoscales to the data (a distribution is
+    unreadable squished against a zero baseline).
+    """
+    components = bench.get_all_metrics(component_type, "Core", names)
+    if not components:
+        return 0
+    unit = bench.get_metric_unit(component_type)
+    values = [float(np.mean(component.get_mean())) for component in components]
+
+    trace = bench.get_trace()
+    title = f'{item_title} per-core distribution during "{bench.get_bench_name()}" benchmark job\n{args.title}\n\n Stressor: '
+    title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
+    title += f"\n{bench.get_system_title()}"
+    graph_dir = output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{component_type!s}")
+    if dir_suffix:
+        graph_dir = graph_dir.joinpath(dir_suffix)
+    graph = Graph(
+        args,
+        title,
+        "",
+        unit,
+        graph_dir,
+        f"{item_title} - distribution",
+        square=True,
+        show_source_file=trace,
+        title_note=title_note,
+    )
+    ax = graph.get_ax()
+    parts = ax.violinplot([values], positions=[1], widths=0.7, showextrema=False)
+    for body in parts["bodies"]:
+        body.set_facecolor("tab:blue")
+        body.set_alpha(0.25)
+    ax.boxplot(
+        [values],
+        positions=[1],
+        widths=0.15,
+        showmeans=True,
+        meanline=True,
+        medianprops=dict(color="tab:red"),
+        meanprops=dict(color="tab:green", linestyle="--"),
+        flierprops=dict(marker=".", markersize=3, alpha=0.4),
+    )
+    ax.set_xticks([1])
+    ax.set_xticklabels([f"{len(values)} cores"])
+    ax.grid(which="major", axis="y", linewidth=0.6, linestyle="dashed", color="0.7")
+    legend = ax.legend(
+        handles=[
+            Line2D([], [], color="tab:red", label="median"),
+            Line2D([], [], color="tab:green", linestyle="--", label="mean"),
+        ],
+        loc="upper right",
+        fontsize=8,
+    )
+    graph.needs_legend = False
+    graph.render(extra_legend=legend)
+    return 1
+
+
 def generic_graph(
     args,
     output_dir,
