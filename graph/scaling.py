@@ -208,6 +208,104 @@ def render_numa_delta_heatmaps(args, temp_outdir, job: str, emp: str) -> int:
     return rendered
 
 
+def render_scaling_distributions(args, temp_outdir, job: str, emp: str, has_ipc: bool) -> int:
+    """Render the per-core metric distribution across the scaling steps.
+
+    For each trace and each per-core metric (frequency, IPC and per-core power),
+    one graph shows how the core-to-core distribution evolves as the sweep grows:
+    X = worker count (one violin + box per scaling step, evenly spaced), Y = the
+    metric. The violin shows the density across cores, the box the median (red),
+    mean (green dashed), quartiles and outliers.
+
+    Where the scaling line graphs plot a single averaged value per step, these
+    expose the spread hidden behind that average -- e.g. cores starting to
+    throttle or diverge only past a given worker count. Like the other per-core
+    scaling graphs they are rendered for all_cores and, when the sweep pins
+    cores, pinned_cores, and the Y axis is autoscaled (a distribution is
+    unreadable squished against a zero baseline).
+    """
+    metrics = [
+        ("cpu_clock", MonitoringContextKeys.Freq, "Mhz", "Core frequency"),
+    ]  # type: list
+    if has_ipc:
+        metrics.append(("cpu_ipc", MonitoringContextKeys.IPC, "IPC", "Core IPC"))
+    metrics.append(("cpu_core_power", MonitoringContextKeys.PowerConsumption, None, "CPU Core power consumption"))
+
+    rendered = 0
+    for trace in args.traces:
+        trace_benches = trace.get_benches_by_job_per_emp(job)
+        if emp not in trace_benches or not trace_benches[emp]["bench"]:
+            continue
+        benches = trace_benches[emp]["bench"]
+        engine = benches[0].get_title_engine_name().replace(" ", "_")
+        trace_slug = trace.get_name().replace(" ", "_").replace("/", "_")
+        # all_cores always; pinned_cores when at least one run of the sweep pins cores.
+        variants = [("all_cores", False, None)]  # type: list
+        if any(bench.cpu_pin() for bench in benches):
+            variants.append(("pinned_cores", True, "View limited to the pinned cores of each scaling step"))
+
+        for dirname, context, unit, item_title in metrics:
+            for dir_suffix, use_pinned, note in variants:
+                data = []  # type: list
+                labels = []  # type: list
+                metric_unit = ""
+                for bench in sorted(benches, key=lambda b: b.workers()):
+                    names = bench.pinned_core_names() if use_pinned else None
+                    components = bench.get_all_metrics(context, "Core", names)
+                    if not components:
+                        continue
+                    data.append([float(np.mean(component.get_mean())) for component in components])
+                    labels.append(bench.workers())
+                    metric_unit = bench.get_metric_unit(context)
+                if not data:
+                    continue
+
+                title = f'{args.title}\n\n{item_title} per-core distribution scaling via "{job}" benchmark job\n\n Stressor: '
+                title += f"{benches[0].get_title_engine_name()} for {benches[0].duration()} seconds"
+                graph = Graph(
+                    args,
+                    title,
+                    "Workers (scaling step)",
+                    unit or metric_unit,
+                    temp_outdir.joinpath(dirname, dir_suffix),
+                    f"scaling_{dirname}_distribution_{trace_slug}_{engine}",
+                    square=True,
+                    show_source_file=trace,
+                    title_note=note,
+                )
+                ax = graph.get_ax()
+                positions = list(range(1, len(data) + 1))
+                parts = ax.violinplot(data, positions=positions, widths=0.7, showextrema=False)
+                for body in parts["bodies"]:
+                    body.set_facecolor("tab:blue")
+                    body.set_alpha(0.25)
+                ax.boxplot(
+                    data,
+                    positions=positions,
+                    widths=0.15,
+                    showmeans=True,
+                    meanline=True,
+                    medianprops=dict(color="tab:red"),
+                    meanprops=dict(color="tab:green", linestyle="--"),
+                    flierprops=dict(marker=".", markersize=3, alpha=0.4),
+                )
+                ax.set_xticks(positions)
+                ax.set_xticklabels(labels)
+                ax.grid(which="major", axis="y", linewidth=0.6, linestyle="dashed", color="0.7")
+                legend = ax.legend(
+                    handles=[
+                        Line2D([], [], color="tab:red", label="median"),
+                        Line2D([], [], color="tab:green", linestyle="--", label="mean"),
+                    ],
+                    loc="upper right",
+                    fontsize=8,
+                )
+                graph.needs_legend = False
+                graph.render(extra_legend=legend)
+                rendered += 1
+    return rendered
+
+
 def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
     """Render line graphs to compare performance scaling."""
     rendered_graphs = 0
@@ -489,5 +587,8 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
 
         # Per-NUMA-domain delta heatmap comparing the two traces (reference vs other).
         rendered_graphs += render_numa_delta_heatmaps(args, temp_outdir, job, emp)
+
+        # Per-core distribution (violin + box) across the scaling steps.
+        rendered_graphs += render_scaling_distributions(args, temp_outdir, job, emp, has_ipc)
 
     return rendered_graphs
