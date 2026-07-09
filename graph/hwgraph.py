@@ -403,7 +403,8 @@ def generate_stats(args) -> None:
     for metric in [MonitoringContextKeys.PowerConsumption]:
         print(f"{str(metric):}")
         for metric_name in PowerConsumptionContextKeys:
-            if max_power[metric_name]:
+            # Only report a max when data was actually found (a bench was recorded).
+            if max_power[metric_name][0]:
                 print(
                     f"    {metric_name} max : {max_power[metric_name][1]:.2f} {bench.get_metric_unit(metric)} in {max_power[metric_name][0]}"
                 )
