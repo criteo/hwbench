@@ -11,7 +11,7 @@ from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.lines import Line2D
 from matplotlib.offsetbox import AnchoredOffsetbox, HPacker, TextArea
 from matplotlib.patches import Patch
-from matplotlib.ticker import AutoMinorLocator
+from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 
 from graph.graph import (
     GRAPH_TYPES,
@@ -308,6 +308,120 @@ def render_scaling_distributions(args, temp_outdir, job: str, emp: str, has_ipc:
                 graph.needs_legend = False
                 graph.render(extra_legend=legend)
                 rendered += 1
+    return rendered
+
+
+def _scaling_perf_value(bench, perf: str) -> float:
+    """Per-step performance value, mirroring add_perf's memrate special-case."""
+    if bench.engine_module() in ["memrate"]:
+        return float(bench.get(perf)["sum_speed"])
+    return float(bench.get(perf))
+
+
+def render_scaling_linearity_deviation(args, temp_outdir, job: str, emp: str) -> int:
+    """Render, per trace, how far measured performance deviates from linear scaling.
+
+    For each trace one graph plots, per scaling step, the signed deviation of the
+    measured performance from the ideal linear projection anchored on the first
+    step (slope = perf0 / workers0, the same anchor as the perf-graph projection
+    lines): deviation = (measured / ideal - 1) * 100. So 0% is perfectly linear, a
+    step running at 80% of the ideal reads -20%, and a superlinear step goes
+    positive. The signed area to the 0% baseline is filled red below (scaling
+    loss) and green above (superlinear), and the worst and final steps are
+    annotated -- summarising the whole sweep's scaling quality at a glance.
+
+    Only rendered when the sweep has more than 3 steps, below which the trend
+    carries little information. Lands in the perf directory next to the
+    performance line graph.
+    """
+    # First pass: compute every trace's deviation series, then derive a single Y
+    # range shared by all the per-trace graphs so they can be compared visually.
+    series = []  # type: list
+    for trace in args.traces:
+        trace_benches = trace.get_benches_by_job_per_emp(job)
+        if emp not in trace_benches or not trace_benches[emp]["bench"]:
+            continue
+        perf = trace_benches[emp]["metrics"][0][0]
+        rows = sorted(trace_benches[emp]["bench"], key=lambda b: b.workers())
+        if len(rows) <= 3:
+            continue
+        workers = np.array([bench.workers() for bench in rows], dtype=float)
+        measured = np.array([_scaling_perf_value(bench, perf) for bench in rows], dtype=float)
+        if workers[0] == 0:
+            continue
+        ideal = (measured[0] / workers[0]) * workers
+        deviation = (measured / ideal - 1.0) * 100.0
+        series.append((trace, rows, workers, deviation))
+
+    if not series:
+        return 0
+
+    # Common Y limits across all traces (always including the 0% baseline).
+    all_dev = np.concatenate([dev for _, _, _, dev in series])
+    dev_min = min(float(all_dev.min()), 0.0)
+    dev_max = max(float(all_dev.max()), 0.0)
+    pad = (dev_max - dev_min) * 0.08 or 1
+    ylim = (dev_min - pad, dev_max + pad)
+
+    rendered = 0
+    for trace, rows, workers, deviation in series:
+        engine = rows[0].get_title_engine_name().replace(" ", "_")
+        trace_slug = trace.get_name().replace(" ", "_").replace("/", "_")
+        title = f'{args.title}\n\nPerformance scaling linearity deviation via "{job}" benchmark job\n\n Stressor: '
+        title += f"{rows[0].get_title_engine_name()} for {rows[0].duration()} seconds"
+        # As the graphs are rendered one trace at a time, add the host info
+        # (serial/product/bios/kernel + processor) like the other per-trace graphs.
+        title += f"\n{rows[0].get_system_title()}"
+        # Same X label as the perf scaling graph: report the logical-cores-per-worker
+        # ratio under "Workers" when it is constant across the sweep.
+        ratios = [bench.workers() / (len(bench.cpu_pin()) or bench.workers()) for bench in rows]
+        xlabel = "Workers"
+        if stdev(ratios) == 0:
+            cores = "core" if ratios[0] == 1 else "cores"
+            xlabel += f"\n({int(ratios[0])} logical {cores} per worker)"
+        graph = Graph(
+            args,
+            title,
+            xlabel,
+            "Deviation from linear scaling [%]  (0 = ideal)",
+            temp_outdir.joinpath("perf"),
+            f"scaling_linearity_deviation_{trace_slug}_{engine}",
+            square=True,
+            show_source_file=trace,
+        )
+        ax = graph.get_ax()
+        # 0% baseline = perfect linear scaling; depth below it is the scaling loss.
+        ax.axhline(0, color="0.3", linewidth=1.2, label="linear performance projection")
+        ax.fill_between(workers, deviation, 0, where=(deviation <= 0), color="tab:red", alpha=0.15, interpolate=True)
+        ax.fill_between(workers, deviation, 0, where=(deviation >= 0), color="tab:green", alpha=0.15, interpolate=True)
+        ax.plot(workers, deviation, color="tab:blue", marker="o", markersize=3, label=trace.get_name())
+        worst = int(np.argmin(deviation))
+        ax.annotate(
+            f"{deviation[worst]:+.0f}%",
+            xy=(workers[worst], deviation[worst]),
+            xytext=(0, -12),
+            textcoords="offset points",
+            ha="center",
+            color="tab:red",
+            fontweight="bold",
+        )
+        # Shared Y range so every trace's graph is directly comparable.
+        ax.set_ylim(*ylim)
+        # Reuse the perf scaling graph's X axis (its prepare_axes(8, 4)): start at 0
+        # with a major tick every 8 workers and a minor every 4, so the two graphs
+        # share the same worker scale and line up when read together.
+        ax.set_xlim(xmin=0)
+        ax.xaxis.set_major_locator(MultipleLocator(8))
+        ax.xaxis.set_minor_locator(MultipleLocator(4))
+        # Grid to ease reading the depth: solid major lines plus a fainter dashed
+        # midline between ticks (Y midline kept between the major Y ticks).
+        ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+        ax.grid(which="major", linewidth=0.7, linestyle="solid", color="0.6")
+        ax.grid(which="minor", linewidth=0.6, linestyle="dashed", color="0.75")
+        legend = ax.legend(loc="lower left", fontsize=8)
+        graph.needs_legend = False
+        graph.render(extra_legend=legend)
+        rendered += 1
     return rendered
 
 
@@ -794,6 +908,8 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 # pinned_* are only set for per-core metrics (cpu_clock, ipc).
                 pinned_y_source = None
                 pinned_err_source = None
+                # The raw performance graph gets an ideal linear-scaling overlay.
+                is_perf_graph = False
                 if "perf_watt" in graph_type:
                     graph_type_title = f"SMP scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
                     y_label = f"{unit} per Watt"
@@ -825,6 +941,7 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                     graph_type_title = f"SMP scaling {graph_type}: {bench.get_title_engine_name()}"
                     outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_source = aggregated_perfs
+                    is_perf_graph = True
 
                 # The per-core metrics (cpu_clock, ipc) are rendered twice: once
                 # averaging every system core, once averaging only the cores
@@ -897,6 +1014,11 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                         ),
                         default=0,
                     )
+                    # Ideal linear-scaling projection lines, collected here as
+                    # (colour, trace name) and appended to the end of the per-trace
+                    # statistics legend (see below) under their own sub-header, so
+                    # they stay in a single, naturally aligned legend box.
+                    projection_specs = []  # type: list
                     # Traces are not ordered by growing cpu cores count
                     # We need to prepare the x_serie to be sorted this way
                     # The y_serie depends on the graph type
@@ -928,12 +1050,67 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                                 marker="o",
                             )
 
+                        # On the raw performance graph, overlay the ideal
+                        # linear-scaling projection for this trace: the line the
+                        # performance would follow if every added worker kept the
+                        # per-worker throughput measured at the first scaling
+                        # step (slope = y0 / x0, i.e. a line through the origin
+                        # and the first point). Same colour as the trace, dotted
+                        # so it reads as a reference, not a measured curve; the
+                        # gap to the measured line is the scaling loss. Only drawn
+                        # when the sweep has more than 3 steps, below which the
+                        # comparison carries little information.
+                        if is_perf_graph and len(x_serie) > 3 and x_serie[0] != 0:
+                            slope = y_serie[0] / x_serie[0]
+                            graph.get_ax().plot(
+                                x_serie,
+                                slope * x_serie,
+                                linestyle=":",
+                                color=color_name,
+                                linewidth=1.5,
+                                alpha=0.9,
+                                zorder=1,
+                            )
+                            projection_specs.append((color_name, trace_name))
+
                     graph.prepare_axes(8, 4)
                     # Add a midline between Y ticks to ease value reading (a bit more
                     # visible than the default minor grid, but still lighter than the major one).
                     graph.get_ax().yaxis.set_minor_locator(AutoMinorLocator(2))
                     graph.get_ax().grid(which="minor", axis="y", linewidth=0.6, linestyle="dashed", color="0.6")
-                    graph.render()
+                    extra_legend = None
+                    if projection_specs:
+                        # Append the projection lines to the END of the per-trace stats
+                        # legend (rather than a second box, which never aligns cleanly
+                        # with the stats table): keeping everything in one legend means
+                        # one width and one set of edges. A blank row separates the two
+                        # blocks, then a centered sub-header introduces the dotted
+                        # projection entries, each labelled with its trace name and
+                        # drawn in that trace's colour.
+                        handles, labels = graph.get_ax().get_legend_handles_labels()
+                        # Centre the sub-header over the label column with leading
+                        # spaces (monospace font, so char count maps to width).
+                        header = "linear performance projection"
+                        label_width = max((len(name) for name in labels + [t for _, t in projection_specs]), default=0)
+                        header_pad = "\x20" * max(0, (label_width - len(header)) // 2)
+                        # Blank separator row between the stats and projection blocks.
+                        handles.append(Line2D([], [], linestyle="none"))
+                        labels.append("\x20")
+                        handles.append(Line2D([], [], linestyle="none"))
+                        labels.append(f"{header_pad}{header}")
+                        for color_name, trace_name in projection_specs:
+                            handles.append(Line2D([], [], linestyle=":", color=color_name, linewidth=1.5, alpha=0.9))
+                            labels.append(trace_name)
+                        extra_legend = graph.get_ax().legend(
+                            handles,
+                            labels,
+                            bbox_to_anchor=(-0.1, 1),
+                            title="component [min; mean; stddev; max]\n",
+                        )
+                        graph.get_ax().add_artist(extra_legend)
+                        # We built the legend ourselves; stop Graph.render() rebuilding one.
+                        graph.needs_legend = False
+                    graph.render(extra_legend=extra_legend)
                     rendered_graphs += 1
 
         # Per-NUMA-domain delta heatmap comparing the two traces (reference vs other).
@@ -941,6 +1118,9 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
 
         # Per-core distribution (violin + box) across the scaling steps.
         rendered_graphs += render_scaling_distributions(args, temp_outdir, job, emp, has_ipc)
+
+        # Per-trace deviation of measured performance from ideal linear scaling.
+        rendered_graphs += render_scaling_linearity_deviation(args, temp_outdir, job, emp)
 
         # Per-NUMA-domain distribution across the scaling steps: a ridgeline grid,
         # one panel per step, one density per domain within each panel.
