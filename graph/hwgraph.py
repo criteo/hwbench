@@ -27,6 +27,7 @@ try:
         numa_distance_heatmap,
         numa_distribution_graph,
         numa_performance_heatmap,
+        write_benchmarks_summary,
         yerr_graph,
     )
     from graph.group import graph_group_env
@@ -349,6 +350,14 @@ def render_traces(args: argparse.Namespace):
 
     compare_traces(args)
     generate_stats(args)
+
+    # Write the per-host benchmarks summary text table before rendering any graph,
+    # so the key to what each benchmark tests is available up front. args.no_env is
+    # True when environmental graphs are enabled (--no-env, store_false, disables).
+    if args.no_env:
+        host_output_dir = output_dir.joinpath("environment", "by_host")
+        for trace in args.traces:
+            write_benchmarks_summary(args, host_output_dir, trace)
 
     # Collect all graph generation tasks
     # (This also performs validation and creates output directories)
