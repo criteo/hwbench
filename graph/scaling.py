@@ -1050,6 +1050,23 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                                 marker="o",
                             )
 
+                        # Annotate the peak (top) value of this trace's line so it
+                        # can be read straight off the graph, drawn in the line's
+                        # own colour and using the same human-readable formatting as
+                        # the Y axis.
+                        if len(y_serie):
+                            peak = int(np.argmax(y_serie))
+                            graph.get_ax().annotate(
+                                graph.human_format(y_serie[peak]),
+                                xy=(x_serie[peak], y_serie[peak]),
+                                xytext=(0, 8),
+                                textcoords="offset points",
+                                ha="center",
+                                color=color_name,
+                                fontweight="bold",
+                                fontsize=8,
+                            )
+
                         # On the raw performance graph, overlay the ideal
                         # linear-scaling projection for this trace: the line the
                         # performance would follow if every added worker kept the
