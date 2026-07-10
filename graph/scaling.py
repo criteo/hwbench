@@ -106,7 +106,7 @@ def render_numa_delta_heatmaps(args, temp_outdir, job: str, emp: str) -> int:
                             # Signed delta: reference minus other.
                             matrix[row, col] = ref - oth
 
-                title = f'{args.title}\n\nSMP scaling NUMA {dirname} delta via "{job}" benchmark job\n'
+                title = f'{args.title}\n\nPerformance scaling NUMA {dirname} delta via "{job}" benchmark job\n'
                 title += f"{unit} performance delta = ({reference.get_name()} (reference) - {other.get_name()})"
                 # Colour legend rendered as a caption below the graph (see below),
                 # with the "red" and "green" words drawn in their respective colour.
@@ -771,17 +771,17 @@ def render_numa_scaling_ridgelines(args, temp_outdir, job: str, emp: str, has_ip
     return rendered
 
 
-def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
+def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
     """Render line graphs to compare performance scaling."""
     rendered_graphs = 0
-    temp_outdir = output_dir.joinpath("smp_scaling")
+    temp_outdir = output_dir.joinpath("scaling")
 
     # We extract the skeleton from the first trace
     # This will give us the name of the engine module parameters and
     # the metrics we need to plot
     benches = args.traces[0].get_benches_by_job_per_emp(job)
     if args.verbose:
-        print(f"SMP scaling: working on job '{job}' : {len(benches.keys())} engine_module_parameter to render")
+        print(f"Performance scaling: working on job '{job}' : {len(benches.keys())} engine_module_parameter to render")
     # For all subjobs sharing the same engine module parameter
     # i.e int128
     for emp in benches:
@@ -808,7 +808,7 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
 
         # If we can't detect several bench on the same emp, it means there was no scaling
         if len(args.traces[0].get_benches_by_job_per_emp(job)[emp]["bench"]) == 1:
-            print(f"SMP scaling: No scaling detected on job '{job}', skipping graph")
+            print(f"Performance scaling: No scaling detected on job '{job}', skipping graph")
             continue
 
         # IPC is not always collected; only aggregate/render it when present.
@@ -911,18 +911,18 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                 # The raw performance graph gets an ideal linear-scaling overlay.
                 is_perf_graph = False
                 if "perf_watt" in graph_type:
-                    graph_type_title = f"SMP scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
+                    graph_type_title = f"Performance scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
                     y_label = f"{unit} per Watt"
                     outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_source = aggregated_perfs_watt
                 elif "watts" in graph_type:
-                    graph_type_title = f"SMP scaling {graph_type}: {args.traces[0].get_metric_name()}"
+                    graph_type_title = f"Performance scaling {graph_type}: {args.traces[0].get_metric_name()}"
                     outfile = f"scaling_watt_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_label = "Watts"
                     y_source = aggregated_watt
                     err_source = aggregated_watt_err
                 elif "cpu_clock" in graph_type:
-                    graph_type_title = f"SMP scaling {graph_type}: {args.traces[0].get_metric_name()}"
+                    graph_type_title = f"Performance scaling {graph_type}: {args.traces[0].get_metric_name()}"
                     outfile = f"scaling_cpu_clock_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_label = "Mhz"
                     y_source = aggregated_cpu_clock
@@ -930,7 +930,7 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                     pinned_y_source = aggregated_cpu_clock_pinned
                     pinned_err_source = aggregated_cpu_clock_pinned_err
                 elif "ipc" in graph_type:
-                    graph_type_title = f"SMP scaling {graph_type}: {bench.get_title_engine_name()}"
+                    graph_type_title = f"Performance scaling {graph_type}: {bench.get_title_engine_name()}"
                     outfile = f"scaling_cpu_ipc_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_label = "IPC"
                     y_source = aggregated_ipc
@@ -938,7 +938,7 @@ def smp_scaling_graph(args, output_dir, job: str, traces_name: list) -> int:
                     pinned_y_source = aggregated_ipc_pinned
                     pinned_err_source = aggregated_ipc_pinned_err
                 else:
-                    graph_type_title = f"SMP scaling {graph_type}: {bench.get_title_engine_name()}"
+                    graph_type_title = f"Performance scaling: {bench.get_title_engine_name()}"
                     outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
                     y_source = aggregated_perfs
                     is_perf_graph = True
