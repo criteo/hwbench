@@ -1,0 +1,2605 @@
+---
+build-info:
+      compiler: 'gcc 14.3.1'
+      stdc-version: '199901L'
+      stdc-hosted: '1'
+
+system-info:
+      stress-ng-version: '0.21.03'
+      run-by: 'root'
+      date-yyyy-mm-dd: '2026:07:12'
+      time-hh-mm-ss: '10:54:21'
+      epoch-secs: 1783853661
+      hostname: 'hwtest-linux88-fr3'
+      sysname: 'Linux'
+      nodename: 'hwtest-linux88-fr3'
+      release: '7.2.0-rc2'
+      version: '#1 SMP PREEMPT Mon Jul  6 12:44:38 UTC 2026'
+      machine: 'x86_64'
+      compiler: 'gcc 14.3.1'
+      libc: 'glibc 2.39'
+      uptime: 155613
+      totalram: 2434403393536
+      freeram: 2423057178624
+      sharedram: 6860800
+      bufferram: 0
+      totalswap: 0
+      freeswap: 0
+      pagesize: 4096
+      cpus: 640
+      cpus-online: 640
+      ticks-per-second: 100
+
+metrics:
+    - stressor: cpu
+      bogo-ops: 3257280
+      bogo-ops-per-second-usr-sys-time: 341.256408
+      bogo-ops-per-second-real-time: 217929.506101
+      wall-clock-time: 14.946485
+      user-time: 9544.586766
+      system-time: 0.376845
+      cpu-usage-per-instance: 99.782699
+      max-rss: 0
+      instances:
+          - instance: 0
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 341.149045
+            bogo-ops-per-second-real-time: 341.098366
+          - instance: 1
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 339.761131
+            bogo-ops-per-second-real-time: 339.750707
+          - instance: 2
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 341.173619
+            bogo-ops-per-second-real-time: 341.169751
+          - instance: 3
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 340.385651
+            bogo-ops-per-second-real-time: 340.387195
+          - instance: 4
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 340.687652
+            bogo-ops-per-second-real-time: 340.689242
+          - instance: 5
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 340.713800
+            bogo-ops-per-second-real-time: 340.715147
+          - instance: 6
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 340.694234
+            bogo-ops-per-second-real-time: 340.695719
+          - instance: 7
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.164464
+            bogo-ops-per-second-real-time: 340.163369
+          - instance: 8
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 340.558262
+            bogo-ops-per-second-real-time: 340.557010
+          - instance: 9
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 341.936822
+            bogo-ops-per-second-real-time: 341.923005
+          - instance: 10
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 339.725193
+            bogo-ops-per-second-real-time: 339.716252
+          - instance: 11
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.721821
+            bogo-ops-per-second-real-time: 341.685811
+          - instance: 12
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 340.417478
+            bogo-ops-per-second-real-time: 340.364976
+          - instance: 13
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 340.464469
+            bogo-ops-per-second-real-time: 340.451736
+          - instance: 14
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.537092
+            bogo-ops-per-second-real-time: 342.513170
+          - instance: 15
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 342.964315
+            bogo-ops-per-second-real-time: 342.963971
+          - instance: 16
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.011549
+            bogo-ops-per-second-real-time: 342.994905
+          - instance: 17
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 340.458251
+            bogo-ops-per-second-real-time: 340.452526
+          - instance: 18
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 340.494018
+            bogo-ops-per-second-real-time: 340.484383
+          - instance: 19
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.089319
+            bogo-ops-per-second-real-time: 343.082152
+          - instance: 20
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.269730
+            bogo-ops-per-second-real-time: 343.263874
+          - instance: 21
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.486554
+            bogo-ops-per-second-real-time: 342.491033
+          - instance: 22
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 340.555742
+            bogo-ops-per-second-real-time: 340.559760
+          - instance: 23
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.095653
+            bogo-ops-per-second-real-time: 343.096435
+          - instance: 24
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.041012
+            bogo-ops-per-second-real-time: 343.034809
+          - instance: 25
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 340.977047
+            bogo-ops-per-second-real-time: 340.970669
+          - instance: 26
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.002271
+            bogo-ops-per-second-real-time: 343.000266
+          - instance: 27
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 341.271017
+            bogo-ops-per-second-real-time: 341.275710
+          - instance: 28
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.185129
+            bogo-ops-per-second-real-time: 343.183581
+          - instance: 29
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.119097
+            bogo-ops-per-second-real-time: 340.123709
+          - instance: 30
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 340.401484
+            bogo-ops-per-second-real-time: 340.397909
+          - instance: 31
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.528530
+            bogo-ops-per-second-real-time: 341.526011
+          - instance: 32
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.389903
+            bogo-ops-per-second-real-time: 342.386575
+          - instance: 33
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.238606
+            bogo-ops-per-second-real-time: 340.234886
+          - instance: 34
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 341.175756
+            bogo-ops-per-second-real-time: 341.162591
+          - instance: 35
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.336556
+            bogo-ops-per-second-real-time: 342.331926
+          - instance: 36
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.020715
+            bogo-ops-per-second-real-time: 343.006265
+          - instance: 37
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 339.834731
+            bogo-ops-per-second-real-time: 339.832776
+          - instance: 38
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.241396
+            bogo-ops-per-second-real-time: 340.241555
+          - instance: 39
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.436925
+            bogo-ops-per-second-real-time: 341.436427
+          - instance: 40
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 341.997036
+            bogo-ops-per-second-real-time: 341.995299
+          - instance: 41
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 339.892496
+            bogo-ops-per-second-real-time: 339.891539
+          - instance: 42
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 340.481989
+            bogo-ops-per-second-real-time: 340.476846
+          - instance: 43
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.580884
+            bogo-ops-per-second-real-time: 341.585297
+          - instance: 44
+            bogo-ops: 5142
+            bogo-ops-per-second-usr-sys-time: 342.732527
+            bogo-ops-per-second-real-time: 342.645959
+          - instance: 45
+            bogo-ops: 3240
+            bogo-ops-per-second-usr-sys-time: 339.813493
+            bogo-ops-per-second-real-time: 215.903346
+          - instance: 46
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.163784
+            bogo-ops-per-second-real-time: 340.159969
+          - instance: 47
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.155848
+            bogo-ops-per-second-real-time: 340.156758
+          - instance: 48
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.775351
+            bogo-ops-per-second-real-time: 341.772494
+          - instance: 49
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.818480
+            bogo-ops-per-second-real-time: 341.819108
+          - instance: 50
+            bogo-ops: 4613
+            bogo-ops-per-second-usr-sys-time: 340.237331
+            bogo-ops-per-second-real-time: 307.627360
+          - instance: 51
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.497925
+            bogo-ops-per-second-real-time: 342.498317
+          - instance: 52
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.847504
+            bogo-ops-per-second-real-time: 341.846434
+          - instance: 53
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.036887
+            bogo-ops-per-second-real-time: 342.040250
+          - instance: 54
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.605474
+            bogo-ops-per-second-real-time: 341.609226
+          - instance: 55
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.566497
+            bogo-ops-per-second-real-time: 341.571000
+          - instance: 56
+            bogo-ops: 4990
+            bogo-ops-per-second-usr-sys-time: 335.800469
+            bogo-ops-per-second-real-time: 332.595326
+          - instance: 57
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.144653
+            bogo-ops-per-second-real-time: 342.135899
+          - instance: 58
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.351796
+            bogo-ops-per-second-real-time: 342.349832
+          - instance: 59
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.079734
+            bogo-ops-per-second-real-time: 342.076731
+          - instance: 60
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.736062
+            bogo-ops-per-second-real-time: 341.737307
+          - instance: 61
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.115110
+            bogo-ops-per-second-real-time: 342.113562
+          - instance: 62
+            bogo-ops: 5688
+            bogo-ops-per-second-usr-sys-time: 379.263792
+            bogo-ops-per-second-real-time: 379.261717
+          - instance: 63
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 341.445305
+            bogo-ops-per-second-real-time: 341.445854
+          - instance: 64
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.303243
+            bogo-ops-per-second-real-time: 343.300860
+          - instance: 65
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.869600
+            bogo-ops-per-second-real-time: 341.864565
+          - instance: 66
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.091375
+            bogo-ops-per-second-real-time: 340.090137
+          - instance: 67
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.184378
+            bogo-ops-per-second-real-time: 342.184794
+          - instance: 68
+            bogo-ops: 5142
+            bogo-ops-per-second-usr-sys-time: 342.897497
+            bogo-ops-per-second-real-time: 342.888465
+          - instance: 69
+            bogo-ops: 6667
+            bogo-ops-per-second-usr-sys-time: 444.572030
+            bogo-ops-per-second-real-time: 444.565565
+          - instance: 70
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 340.974137
+            bogo-ops-per-second-real-time: 340.975926
+          - instance: 71
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.268219
+            bogo-ops-per-second-real-time: 343.269598
+          - instance: 72
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.558655
+            bogo-ops-per-second-real-time: 342.559866
+          - instance: 73
+            bogo-ops: 5165
+            bogo-ops-per-second-usr-sys-time: 344.362283
+            bogo-ops-per-second-real-time: 344.363142
+          - instance: 74
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 341.402570
+            bogo-ops-per-second-real-time: 341.400746
+          - instance: 75
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.671310
+            bogo-ops-per-second-real-time: 342.509974
+          - instance: 76
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 339.655126
+            bogo-ops-per-second-real-time: 339.658372
+          - instance: 77
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.080225
+            bogo-ops-per-second-real-time: 341.080918
+          - instance: 78
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.417981
+            bogo-ops-per-second-real-time: 340.419322
+          - instance: 79
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 338.821440
+            bogo-ops-per-second-real-time: 338.819655
+          - instance: 80
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.184787
+            bogo-ops-per-second-real-time: 341.182838
+          - instance: 81
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 340.011714
+            bogo-ops-per-second-real-time: 340.010049
+          - instance: 82
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 341.606892
+            bogo-ops-per-second-real-time: 341.605039
+          - instance: 83
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.358630
+            bogo-ops-per-second-real-time: 340.356544
+          - instance: 84
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 338.782033
+            bogo-ops-per-second-real-time: 338.782510
+          - instance: 85
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.792104
+            bogo-ops-per-second-real-time: 341.793318
+          - instance: 86
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.912775
+            bogo-ops-per-second-real-time: 341.914065
+          - instance: 87
+            bogo-ops: 5170
+            bogo-ops-per-second-usr-sys-time: 344.773523
+            bogo-ops-per-second-real-time: 344.774558
+          - instance: 88
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.901393
+            bogo-ops-per-second-real-time: 341.902579
+          - instance: 89
+            bogo-ops: 5615
+            bogo-ops-per-second-usr-sys-time: 374.455431
+            bogo-ops-per-second-real-time: 374.457804
+          - instance: 90
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 339.446436
+            bogo-ops-per-second-real-time: 339.414420
+          - instance: 91
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.345305
+            bogo-ops-per-second-real-time: 340.345644
+          - instance: 92
+            bogo-ops: 5688
+            bogo-ops-per-second-usr-sys-time: 379.263286
+            bogo-ops-per-second-real-time: 379.264321
+          - instance: 93
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 338.770443
+            bogo-ops-per-second-real-time: 338.772200
+          - instance: 94
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 341.648288
+            bogo-ops-per-second-real-time: 341.645364
+          - instance: 95
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.704069
+            bogo-ops-per-second-real-time: 342.704380
+          - instance: 96
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.482284
+            bogo-ops-per-second-real-time: 342.483215
+          - instance: 97
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 338.779887
+            bogo-ops-per-second-real-time: 338.778626
+          - instance: 98
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 339.443268
+            bogo-ops-per-second-real-time: 339.431319
+          - instance: 99
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.478172
+            bogo-ops-per-second-real-time: 343.478519
+          - instance: 100
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.310056
+            bogo-ops-per-second-real-time: 340.308219
+          - instance: 101
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 340.544276
+            bogo-ops-per-second-real-time: 340.546286
+          - instance: 102
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.839296
+            bogo-ops-per-second-real-time: 341.840976
+          - instance: 103
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.917064
+            bogo-ops-per-second-real-time: 341.918971
+          - instance: 104
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.857616
+            bogo-ops-per-second-real-time: 342.846970
+          - instance: 105
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 340.768145
+            bogo-ops-per-second-real-time: 340.768675
+          - instance: 106
+            bogo-ops: 5142
+            bogo-ops-per-second-usr-sys-time: 342.873101
+            bogo-ops-per-second-real-time: 342.869534
+          - instance: 107
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.269097
+            bogo-ops-per-second-real-time: 341.269626
+          - instance: 108
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.520894
+            bogo-ops-per-second-real-time: 343.518951
+          - instance: 109
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.288401
+            bogo-ops-per-second-real-time: 342.288983
+          - instance: 110
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.191772
+            bogo-ops-per-second-real-time: 342.193048
+          - instance: 111
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 340.843114
+            bogo-ops-per-second-real-time: 340.845137
+          - instance: 112
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.204781
+            bogo-ops-per-second-real-time: 342.205138
+          - instance: 113
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.149827
+            bogo-ops-per-second-real-time: 341.151311
+          - instance: 114
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.645779
+            bogo-ops-per-second-real-time: 342.646501
+          - instance: 115
+            bogo-ops: 5142
+            bogo-ops-per-second-usr-sys-time: 343.041318
+            bogo-ops-per-second-real-time: 343.041060
+          - instance: 116
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.511772
+            bogo-ops-per-second-real-time: 342.512374
+          - instance: 117
+            bogo-ops: 5142
+            bogo-ops-per-second-usr-sys-time: 343.128465
+            bogo-ops-per-second-real-time: 343.122029
+          - instance: 118
+            bogo-ops: 5142
+            bogo-ops-per-second-usr-sys-time: 343.079312
+            bogo-ops-per-second-real-time: 343.080470
+          - instance: 119
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 341.597593
+            bogo-ops-per-second-real-time: 341.599785
+          - instance: 120
+            bogo-ops: 5142
+            bogo-ops-per-second-usr-sys-time: 343.038663
+            bogo-ops-per-second-real-time: 343.037252
+          - instance: 121
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.681222
+            bogo-ops-per-second-real-time: 343.459244
+          - instance: 122
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.771985
+            bogo-ops-per-second-real-time: 342.770114
+          - instance: 123
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.237604
+            bogo-ops-per-second-real-time: 341.237507
+          - instance: 124
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.777497
+            bogo-ops-per-second-real-time: 342.777645
+          - instance: 125
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.235281
+            bogo-ops-per-second-real-time: 341.236785
+          - instance: 126
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.304066
+            bogo-ops-per-second-real-time: 342.306215
+          - instance: 127
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 341.000550
+            bogo-ops-per-second-real-time: 341.001943
+          - instance: 128
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 341.596750
+            bogo-ops-per-second-real-time: 341.598269
+          - instance: 129
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.676450
+            bogo-ops-per-second-real-time: 343.676622
+          - instance: 130
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.888986
+            bogo-ops-per-second-real-time: 341.891480
+          - instance: 131
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.846655
+            bogo-ops-per-second-real-time: 342.847750
+          - instance: 132
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 341.854208
+            bogo-ops-per-second-real-time: 341.855480
+          - instance: 133
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 341.809428
+            bogo-ops-per-second-real-time: 341.810100
+          - instance: 134
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.399205
+            bogo-ops-per-second-real-time: 342.399817
+          - instance: 135
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 341.556803
+            bogo-ops-per-second-real-time: 341.557118
+          - instance: 136
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.525239
+            bogo-ops-per-second-real-time: 342.525507
+          - instance: 137
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.935528
+            bogo-ops-per-second-real-time: 342.936894
+          - instance: 138
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.379670
+            bogo-ops-per-second-real-time: 342.379994
+          - instance: 139
+            bogo-ops: 5142
+            bogo-ops-per-second-usr-sys-time: 343.235108
+            bogo-ops-per-second-real-time: 343.236923
+          - instance: 140
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.856838
+            bogo-ops-per-second-real-time: 342.857696
+          - instance: 141
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.960461
+            bogo-ops-per-second-real-time: 342.960470
+          - instance: 142
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.041088
+            bogo-ops-per-second-real-time: 342.043039
+          - instance: 143
+            bogo-ops: 5142
+            bogo-ops-per-second-usr-sys-time: 343.183885
+            bogo-ops-per-second-real-time: 343.184682
+          - instance: 144
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.009155
+            bogo-ops-per-second-real-time: 342.009995
+          - instance: 145
+            bogo-ops: 5142
+            bogo-ops-per-second-usr-sys-time: 342.988781
+            bogo-ops-per-second-real-time: 342.990040
+          - instance: 146
+            bogo-ops: 5142
+            bogo-ops-per-second-usr-sys-time: 343.170785
+            bogo-ops-per-second-real-time: 343.170582
+          - instance: 147
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 341.918333
+            bogo-ops-per-second-real-time: 341.888575
+          - instance: 148
+            bogo-ops: 5170
+            bogo-ops-per-second-usr-sys-time: 345.033069
+            bogo-ops-per-second-real-time: 344.998743
+          - instance: 149
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.793114
+            bogo-ops-per-second-real-time: 342.545630
+          - instance: 150
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.566768
+            bogo-ops-per-second-real-time: 342.568727
+          - instance: 151
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.325721
+            bogo-ops-per-second-real-time: 341.326522
+          - instance: 152
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.361651
+            bogo-ops-per-second-real-time: 341.340607
+          - instance: 153
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.914605
+            bogo-ops-per-second-real-time: 342.894210
+          - instance: 154
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 341.037910
+            bogo-ops-per-second-real-time: 341.038517
+          - instance: 155
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.237793
+            bogo-ops-per-second-real-time: 342.239347
+          - instance: 156
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 340.984387
+            bogo-ops-per-second-real-time: 340.984950
+          - instance: 157
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.128449
+            bogo-ops-per-second-real-time: 342.130083
+          - instance: 158
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.452748
+            bogo-ops-per-second-real-time: 342.442581
+          - instance: 159
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.678309
+            bogo-ops-per-second-real-time: 343.680380
+          - instance: 160
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.933559
+            bogo-ops-per-second-real-time: 342.930339
+          - instance: 161
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 340.241202
+            bogo-ops-per-second-real-time: 340.243507
+          - instance: 162
+            bogo-ops: 5142
+            bogo-ops-per-second-usr-sys-time: 343.202416
+            bogo-ops-per-second-real-time: 343.203271
+          - instance: 163
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 340.231391
+            bogo-ops-per-second-real-time: 340.232255
+          - instance: 164
+            bogo-ops: 5165
+            bogo-ops-per-second-usr-sys-time: 344.676792
+            bogo-ops-per-second-real-time: 344.675272
+          - instance: 165
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.032071
+            bogo-ops-per-second-real-time: 342.032491
+          - instance: 166
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.821876
+            bogo-ops-per-second-real-time: 342.823033
+          - instance: 167
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 341.057106
+            bogo-ops-per-second-real-time: 341.057589
+          - instance: 168
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 342.846312
+            bogo-ops-per-second-real-time: 342.847488
+          - instance: 169
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.411429
+            bogo-ops-per-second-real-time: 342.412848
+          - instance: 170
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.487218
+            bogo-ops-per-second-real-time: 342.488870
+          - instance: 171
+            bogo-ops: 5153
+            bogo-ops-per-second-usr-sys-time: 343.957341
+            bogo-ops-per-second-real-time: 343.958146
+          - instance: 172
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 341.624694
+            bogo-ops-per-second-real-time: 341.626510
+          - instance: 173
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.615171
+            bogo-ops-per-second-real-time: 342.616572
+          - instance: 174
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 341.005535
+            bogo-ops-per-second-real-time: 341.005460
+          - instance: 175
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.369786
+            bogo-ops-per-second-real-time: 341.358598
+          - instance: 176
+            bogo-ops: 5153
+            bogo-ops-per-second-usr-sys-time: 344.110452
+            bogo-ops-per-second-real-time: 344.102820
+          - instance: 177
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.745670
+            bogo-ops-per-second-real-time: 340.747491
+          - instance: 178
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.487790
+            bogo-ops-per-second-real-time: 342.488080
+          - instance: 179
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.722464
+            bogo-ops-per-second-real-time: 340.723781
+          - instance: 180
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.393385
+            bogo-ops-per-second-real-time: 342.300118
+          - instance: 181
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 340.879644
+            bogo-ops-per-second-real-time: 340.879156
+          - instance: 182
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.507544
+            bogo-ops-per-second-real-time: 341.502120
+          - instance: 183
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.899184
+            bogo-ops-per-second-real-time: 340.900483
+          - instance: 184
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.762076
+            bogo-ops-per-second-real-time: 340.762328
+          - instance: 185
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.773965
+            bogo-ops-per-second-real-time: 343.775842
+          - instance: 186
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.649285
+            bogo-ops-per-second-real-time: 342.650072
+          - instance: 187
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.803145
+            bogo-ops-per-second-real-time: 343.802548
+          - instance: 188
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.245038
+            bogo-ops-per-second-real-time: 342.246943
+          - instance: 189
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.767675
+            bogo-ops-per-second-real-time: 343.769257
+          - instance: 190
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.566586
+            bogo-ops-per-second-real-time: 342.567554
+          - instance: 191
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.704306
+            bogo-ops-per-second-real-time: 343.705212
+          - instance: 192
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.690935
+            bogo-ops-per-second-real-time: 342.691796
+          - instance: 193
+            bogo-ops: 5159
+            bogo-ops-per-second-usr-sys-time: 344.683871
+            bogo-ops-per-second-real-time: 344.684319
+          - instance: 194
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.908957
+            bogo-ops-per-second-real-time: 343.910522
+          - instance: 195
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 343.136125
+            bogo-ops-per-second-real-time: 343.136501
+          - instance: 196
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 343.029853
+            bogo-ops-per-second-real-time: 343.030093
+          - instance: 197
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 343.019087
+            bogo-ops-per-second-real-time: 343.019946
+          - instance: 198
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 341.788847
+            bogo-ops-per-second-real-time: 341.790352
+          - instance: 199
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.258751
+            bogo-ops-per-second-real-time: 342.261335
+          - instance: 200
+            bogo-ops: 5148
+            bogo-ops-per-second-usr-sys-time: 343.688886
+            bogo-ops-per-second-real-time: 343.680030
+          - instance: 201
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 341.146624
+            bogo-ops-per-second-real-time: 341.141955
+          - instance: 202
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 340.454171
+            bogo-ops-per-second-real-time: 340.452885
+          - instance: 203
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 342.069627
+            bogo-ops-per-second-real-time: 342.069417
+          - instance: 204
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 343.495413
+            bogo-ops-per-second-real-time: 343.043381
+          - instance: 205
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.631377
+            bogo-ops-per-second-real-time: 341.631441
+          - instance: 206
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 340.267641
+            bogo-ops-per-second-real-time: 340.268218
+          - instance: 207
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.610063
+            bogo-ops-per-second-real-time: 341.604874
+          - instance: 208
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.175578
+            bogo-ops-per-second-real-time: 340.175599
+          - instance: 209
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.293269
+            bogo-ops-per-second-real-time: 342.294188
+          - instance: 210
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 341.014846
+            bogo-ops-per-second-real-time: 341.016310
+          - instance: 211
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 340.420632
+            bogo-ops-per-second-real-time: 340.422195
+          - instance: 212
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.747569
+            bogo-ops-per-second-real-time: 342.749146
+          - instance: 213
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 339.703656
+            bogo-ops-per-second-real-time: 339.702741
+          - instance: 214
+            bogo-ops: 5131
+            bogo-ops-per-second-usr-sys-time: 342.790824
+            bogo-ops-per-second-real-time: 342.788410
+          - instance: 215
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 341.170731
+            bogo-ops-per-second-real-time: 341.172740
+          - instance: 216
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.367333
+            bogo-ops-per-second-real-time: 342.368768
+          - instance: 217
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 343.297424
+            bogo-ops-per-second-real-time: 343.294327
+          - instance: 218
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.852301
+            bogo-ops-per-second-real-time: 341.675053
+          - instance: 219
+            bogo-ops: 3612
+            bogo-ops-per-second-usr-sys-time: 342.566831
+            bogo-ops-per-second-real-time: 241.335430
+          - instance: 220
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 341.175289
+            bogo-ops-per-second-real-time: 341.176000
+          - instance: 221
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.170844
+            bogo-ops-per-second-real-time: 342.170422
+          - instance: 222
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.013203
+            bogo-ops-per-second-real-time: 341.014484
+          - instance: 223
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.802217
+            bogo-ops-per-second-real-time: 341.798269
+          - instance: 224
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.258813
+            bogo-ops-per-second-real-time: 340.258974
+          - instance: 225
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.595185
+            bogo-ops-per-second-real-time: 341.596986
+          - instance: 226
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 342.060074
+            bogo-ops-per-second-real-time: 342.056368
+          - instance: 227
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.694538
+            bogo-ops-per-second-real-time: 341.696835
+          - instance: 228
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 342.008024
+            bogo-ops-per-second-real-time: 342.003331
+          - instance: 229
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 339.127887
+            bogo-ops-per-second-real-time: 339.127717
+          - instance: 230
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.759229
+            bogo-ops-per-second-real-time: 341.760022
+          - instance: 231
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 339.283841
+            bogo-ops-per-second-real-time: 338.744878
+          - instance: 232
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.688739
+            bogo-ops-per-second-real-time: 341.689591
+          - instance: 233
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 338.460648
+            bogo-ops-per-second-real-time: 338.389567
+          - instance: 234
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 340.609197
+            bogo-ops-per-second-real-time: 340.610205
+          - instance: 235
+            bogo-ops: 5137
+            bogo-ops-per-second-usr-sys-time: 343.085593
+            bogo-ops-per-second-real-time: 343.066660
+          - instance: 236
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.088861
+            bogo-ops-per-second-real-time: 340.090126
+          - instance: 237
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.080547
+            bogo-ops-per-second-real-time: 340.081915
+          - instance: 238
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.579032
+            bogo-ops-per-second-real-time: 341.579725
+          - instance: 239
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.857854
+            bogo-ops-per-second-real-time: 341.857090
+          - instance: 240
+            bogo-ops: 6301
+            bogo-ops-per-second-usr-sys-time: 420.985453
+            bogo-ops-per-second-real-time: 420.959007
+          - instance: 241
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 340.687924
+            bogo-ops-per-second-real-time: 340.687765
+          - instance: 242
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 340.664493
+            bogo-ops-per-second-real-time: 340.667119
+          - instance: 243
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.457218
+            bogo-ops-per-second-real-time: 342.392125
+          - instance: 244
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 340.577015
+            bogo-ops-per-second-real-time: 340.577902
+          - instance: 245
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 342.100597
+            bogo-ops-per-second-real-time: 342.079786
+          - instance: 246
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.360088
+            bogo-ops-per-second-real-time: 340.361171
+          - instance: 247
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 342.000028
+            bogo-ops-per-second-real-time: 341.997585
+          - instance: 248
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.264635
+            bogo-ops-per-second-real-time: 340.264770
+          - instance: 249
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.961315
+            bogo-ops-per-second-real-time: 341.909719
+          - instance: 250
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 342.391758
+            bogo-ops-per-second-real-time: 342.285663
+          - instance: 251
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.424727
+            bogo-ops-per-second-real-time: 342.426116
+          - instance: 252
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.798448
+            bogo-ops-per-second-real-time: 341.798819
+          - instance: 253
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.458453
+            bogo-ops-per-second-real-time: 342.458674
+          - instance: 254
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.688054
+            bogo-ops-per-second-real-time: 341.688186
+          - instance: 255
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.044768
+            bogo-ops-per-second-real-time: 341.044962
+          - instance: 256
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 339.658424
+            bogo-ops-per-second-real-time: 339.659577
+          - instance: 257
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.539892
+            bogo-ops-per-second-real-time: 342.505289
+          - instance: 258
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 339.869347
+            bogo-ops-per-second-real-time: 339.870883
+          - instance: 259
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.167551
+            bogo-ops-per-second-real-time: 341.168195
+          - instance: 260
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 339.415258
+            bogo-ops-per-second-real-time: 339.416528
+          - instance: 261
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 341.369324
+            bogo-ops-per-second-real-time: 341.370539
+          - instance: 262
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 340.973168
+            bogo-ops-per-second-real-time: 340.973277
+          - instance: 263
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 339.970012
+            bogo-ops-per-second-real-time: 339.970585
+          - instance: 264
+            bogo-ops: 5125
+            bogo-ops-per-second-usr-sys-time: 342.597893
+            bogo-ops-per-second-real-time: 342.558315
+          - instance: 265
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 339.884224
+            bogo-ops-per-second-real-time: 339.885623
+          - instance: 266
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 339.589172
+            bogo-ops-per-second-real-time: 339.589261
+          - instance: 267
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.220751
+            bogo-ops-per-second-real-time: 341.220991
+          - instance: 268
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.767474
+            bogo-ops-per-second-real-time: 341.769492
+          - instance: 269
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 341.290908
+            bogo-ops-per-second-real-time: 341.292384
+          - instance: 270
+            bogo-ops: 5007
+            bogo-ops-per-second-usr-sys-time: 341.953026
+            bogo-ops-per-second-real-time: 334.553987
+          - instance: 271
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.823145
+            bogo-ops-per-second-real-time: 341.823951
+          - instance: 272
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.401188
+            bogo-ops-per-second-real-time: 340.402456
+          - instance: 273
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.134055
+            bogo-ops-per-second-real-time: 340.134629
+          - instance: 274
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.277846
+            bogo-ops-per-second-real-time: 341.277357
+          - instance: 275
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.239758
+            bogo-ops-per-second-real-time: 341.239542
+          - instance: 276
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.937101
+            bogo-ops-per-second-real-time: 341.936688
+          - instance: 277
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.288812
+            bogo-ops-per-second-real-time: 340.288109
+          - instance: 278
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 340.751332
+            bogo-ops-per-second-real-time: 340.752375
+          - instance: 279
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.143508
+            bogo-ops-per-second-real-time: 340.142333
+          - instance: 280
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.391788
+            bogo-ops-per-second-real-time: 340.390252
+          - instance: 281
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 342.258069
+            bogo-ops-per-second-real-time: 342.260050
+          - instance: 282
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 341.850518
+            bogo-ops-per-second-real-time: 341.851664
+          - instance: 283
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.222850
+            bogo-ops-per-second-real-time: 341.218309
+          - instance: 284
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 341.481628
+            bogo-ops-per-second-real-time: 341.482337
+          - instance: 285
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.369463
+            bogo-ops-per-second-real-time: 340.370453
+          - instance: 286
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.612262
+            bogo-ops-per-second-real-time: 340.336878
+          - instance: 287
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 339.987649
+            bogo-ops-per-second-real-time: 338.303804
+          - instance: 288
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.079439
+            bogo-ops-per-second-real-time: 341.076749
+          - instance: 289
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.172841
+            bogo-ops-per-second-real-time: 340.130965
+          - instance: 290
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 340.767803
+            bogo-ops-per-second-real-time: 340.769071
+          - instance: 291
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.096255
+            bogo-ops-per-second-real-time: 338.962155
+          - instance: 292
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 339.131213
+            bogo-ops-per-second-real-time: 338.867724
+          - instance: 293
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 340.867688
+            bogo-ops-per-second-real-time: 340.869796
+          - instance: 294
+            bogo-ops: 4833
+            bogo-ops-per-second-usr-sys-time: 323.275884
+            bogo-ops-per-second-real-time: 323.122484
+          - instance: 295
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 339.419385
+            bogo-ops-per-second-real-time: 339.420544
+          - instance: 296
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 338.300740
+            bogo-ops-per-second-real-time: 338.298878
+          - instance: 297
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 339.392056
+            bogo-ops-per-second-real-time: 339.393420
+          - instance: 298
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.528101
+            bogo-ops-per-second-real-time: 340.528181
+          - instance: 299
+            bogo-ops: 5120
+            bogo-ops-per-second-usr-sys-time: 342.428099
+            bogo-ops-per-second-real-time: 342.426138
+          - instance: 300
+            bogo-ops: 4467
+            bogo-ops-per-second-usr-sys-time: 298.788892
+            bogo-ops-per-second-real-time: 298.785550
+          - instance: 301
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 339.335981
+            bogo-ops-per-second-real-time: 339.338892
+          - instance: 302
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.442958
+            bogo-ops-per-second-real-time: 340.442775
+          - instance: 303
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 339.817106
+            bogo-ops-per-second-real-time: 339.819084
+          - instance: 304
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.518922
+            bogo-ops-per-second-real-time: 340.517049
+          - instance: 305
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 339.309958
+            bogo-ops-per-second-real-time: 339.310305
+          - instance: 306
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.446601
+            bogo-ops-per-second-real-time: 340.441635
+          - instance: 307
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 339.108684
+            bogo-ops-per-second-real-time: 339.106911
+          - instance: 308
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 338.706318
+            bogo-ops-per-second-real-time: 338.708828
+          - instance: 309
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 339.297300
+            bogo-ops-per-second-real-time: 339.295242
+          - instance: 310
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 339.601681
+            bogo-ops-per-second-real-time: 339.601737
+          - instance: 311
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 341.555221
+            bogo-ops-per-second-real-time: 341.557775
+          - instance: 312
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 339.239056
+            bogo-ops-per-second-real-time: 339.239881
+          - instance: 313
+            bogo-ops: 5114
+            bogo-ops-per-second-usr-sys-time: 342.113854
+            bogo-ops-per-second-real-time: 342.084123
+          - instance: 314
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 338.701402
+            bogo-ops-per-second-real-time: 338.700222
+          - instance: 315
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 340.884991
+            bogo-ops-per-second-real-time: 340.886711
+          - instance: 316
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 339.380435
+            bogo-ops-per-second-real-time: 339.382202
+          - instance: 317
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 341.727214
+            bogo-ops-per-second-real-time: 341.692598
+          - instance: 318
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.220786
+            bogo-ops-per-second-real-time: 340.221568
+          - instance: 319
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 338.854611
+            bogo-ops-per-second-real-time: 338.857576
+          - instance: 320
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.223153
+            bogo-ops-per-second-real-time: 340.220900
+          - instance: 321
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 338.861701
+            bogo-ops-per-second-real-time: 338.857759
+          - instance: 322
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.447967
+            bogo-ops-per-second-real-time: 340.445944
+          - instance: 323
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.639747
+            bogo-ops-per-second-real-time: 340.641494
+          - instance: 324
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.309363
+            bogo-ops-per-second-real-time: 340.307034
+          - instance: 325
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 339.156104
+            bogo-ops-per-second-real-time: 339.157527
+          - instance: 326
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.188856
+            bogo-ops-per-second-real-time: 341.190531
+          - instance: 327
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.461605
+            bogo-ops-per-second-real-time: 340.459558
+          - instance: 328
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.176333
+            bogo-ops-per-second-real-time: 341.175079
+          - instance: 329
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.066485
+            bogo-ops-per-second-real-time: 340.069114
+          - instance: 330
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 339.039255
+            bogo-ops-per-second-real-time: 338.694501
+          - instance: 331
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.621537
+            bogo-ops-per-second-real-time: 340.622112
+          - instance: 332
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 341.654255
+            bogo-ops-per-second-real-time: 341.654919
+          - instance: 333
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.279513
+            bogo-ops-per-second-real-time: 341.279670
+          - instance: 334
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.349392
+            bogo-ops-per-second-real-time: 341.347068
+          - instance: 335
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.624044
+            bogo-ops-per-second-real-time: 340.619460
+          - instance: 336
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.421401
+            bogo-ops-per-second-real-time: 341.415739
+          - instance: 337
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.088633
+            bogo-ops-per-second-real-time: 340.086669
+          - instance: 338
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 340.912078
+            bogo-ops-per-second-real-time: 340.910569
+          - instance: 339
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.583459
+            bogo-ops-per-second-real-time: 340.585075
+          - instance: 340
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.518009
+            bogo-ops-per-second-real-time: 341.449443
+          - instance: 341
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.514208
+            bogo-ops-per-second-real-time: 340.511385
+          - instance: 342
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.315466
+            bogo-ops-per-second-real-time: 340.302702
+          - instance: 343
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 338.893403
+            bogo-ops-per-second-real-time: 338.894874
+          - instance: 344
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 338.568924
+            bogo-ops-per-second-real-time: 338.569771
+          - instance: 345
+            bogo-ops: 5108
+            bogo-ops-per-second-usr-sys-time: 341.615023
+            bogo-ops-per-second-real-time: 341.595373
+          - instance: 346
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.250216
+            bogo-ops-per-second-real-time: 340.248592
+          - instance: 347
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 338.782515
+            bogo-ops-per-second-real-time: 338.780706
+          - instance: 348
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 338.888526
+            bogo-ops-per-second-real-time: 338.888585
+          - instance: 349
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.464751
+            bogo-ops-per-second-real-time: 340.463744
+          - instance: 350
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 338.984955
+            bogo-ops-per-second-real-time: 338.983735
+          - instance: 351
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 338.799223
+            bogo-ops-per-second-real-time: 338.791369
+          - instance: 352
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 339.230210
+            bogo-ops-per-second-real-time: 339.217002
+          - instance: 353
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.407077
+            bogo-ops-per-second-real-time: 340.063827
+          - instance: 354
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.670975
+            bogo-ops-per-second-real-time: 340.670042
+          - instance: 355
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.506829
+            bogo-ops-per-second-real-time: 340.491154
+          - instance: 356
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.759791
+            bogo-ops-per-second-real-time: 340.728806
+          - instance: 357
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.604970
+            bogo-ops-per-second-real-time: 340.596087
+          - instance: 358
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.529855
+            bogo-ops-per-second-real-time: 340.480927
+          - instance: 359
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.596060
+            bogo-ops-per-second-real-time: 340.575873
+          - instance: 360
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.651144
+            bogo-ops-per-second-real-time: 340.623981
+          - instance: 361
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.450279
+            bogo-ops-per-second-real-time: 340.397068
+          - instance: 362
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.323436
+            bogo-ops-per-second-real-time: 340.323001
+          - instance: 363
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 339.986062
+            bogo-ops-per-second-real-time: 339.985521
+          - instance: 364
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.522765
+            bogo-ops-per-second-real-time: 340.517564
+          - instance: 365
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.292650
+            bogo-ops-per-second-real-time: 340.295113
+          - instance: 366
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 339.149047
+            bogo-ops-per-second-real-time: 339.151500
+          - instance: 367
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.067951
+            bogo-ops-per-second-real-time: 340.070177
+          - instance: 368
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.200441
+            bogo-ops-per-second-real-time: 340.198395
+          - instance: 369
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 338.899460
+            bogo-ops-per-second-real-time: 338.894204
+          - instance: 370
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 338.522789
+            bogo-ops-per-second-real-time: 338.526156
+          - instance: 371
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.272980
+            bogo-ops-per-second-real-time: 340.274318
+          - instance: 372
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 339.149569
+            bogo-ops-per-second-real-time: 339.151035
+          - instance: 373
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.423960
+            bogo-ops-per-second-real-time: 340.426450
+          - instance: 374
+            bogo-ops: 6200
+            bogo-ops-per-second-usr-sys-time: 415.077795
+            bogo-ops-per-second-real-time: 415.072143
+          - instance: 375
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.405914
+            bogo-ops-per-second-real-time: 340.406025
+          - instance: 376
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 338.474424
+            bogo-ops-per-second-real-time: 338.473647
+          - instance: 377
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 339.798635
+            bogo-ops-per-second-real-time: 339.027484
+          - instance: 378
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.657002
+            bogo-ops-per-second-real-time: 340.654640
+          - instance: 379
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 341.243803
+            bogo-ops-per-second-real-time: 341.245123
+          - instance: 380
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.827659
+            bogo-ops-per-second-real-time: 340.829849
+          - instance: 381
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 341.123491
+            bogo-ops-per-second-real-time: 341.123094
+          - instance: 382
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.457093
+            bogo-ops-per-second-real-time: 340.455436
+          - instance: 383
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 341.221255
+            bogo-ops-per-second-real-time: 341.220826
+          - instance: 384
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.743597
+            bogo-ops-per-second-real-time: 340.745003
+          - instance: 385
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.776738
+            bogo-ops-per-second-real-time: 340.777729
+          - instance: 386
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.724464
+            bogo-ops-per-second-real-time: 340.722341
+          - instance: 387
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 338.605166
+            bogo-ops-per-second-real-time: 338.604799
+          - instance: 388
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 341.408032
+            bogo-ops-per-second-real-time: 341.383038
+          - instance: 389
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 338.897169
+            bogo-ops-per-second-real-time: 338.898547
+          - instance: 390
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.517186
+            bogo-ops-per-second-real-time: 341.469326
+          - instance: 391
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.490940
+            bogo-ops-per-second-real-time: 340.491437
+          - instance: 392
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.636696
+            bogo-ops-per-second-real-time: 341.630912
+          - instance: 393
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 339.371320
+            bogo-ops-per-second-real-time: 338.803857
+          - instance: 394
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.575667
+            bogo-ops-per-second-real-time: 340.575435
+          - instance: 395
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 338.734172
+            bogo-ops-per-second-real-time: 338.733240
+          - instance: 396
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 338.741432
+            bogo-ops-per-second-real-time: 338.741336
+          - instance: 397
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.818943
+            bogo-ops-per-second-real-time: 340.819404
+          - instance: 398
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 341.254221
+            bogo-ops-per-second-real-time: 341.253398
+          - instance: 399
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.541256
+            bogo-ops-per-second-real-time: 340.540106
+          - instance: 400
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.630292
+            bogo-ops-per-second-real-time: 341.632319
+          - instance: 401
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.291422
+            bogo-ops-per-second-real-time: 340.289798
+          - instance: 402
+            bogo-ops: 5103
+            bogo-ops-per-second-usr-sys-time: 341.546627
+            bogo-ops-per-second-real-time: 341.548310
+          - instance: 403
+            bogo-ops: 5249
+            bogo-ops-per-second-usr-sys-time: 351.481963
+            bogo-ops-per-second-real-time: 351.483155
+          - instance: 404
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 339.098567
+            bogo-ops-per-second-real-time: 339.098376
+          - instance: 405
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.689849
+            bogo-ops-per-second-real-time: 340.684925
+          - instance: 406
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 339.356287
+            bogo-ops-per-second-real-time: 339.108058
+          - instance: 407
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 339.880811
+            bogo-ops-per-second-real-time: 339.880235
+          - instance: 408
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 339.277710
+            bogo-ops-per-second-real-time: 339.276076
+          - instance: 409
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.315974
+            bogo-ops-per-second-real-time: 340.316946
+          - instance: 410
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.305943
+            bogo-ops-per-second-real-time: 340.307728
+          - instance: 411
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 338.956589
+            bogo-ops-per-second-real-time: 338.955994
+          - instance: 412
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.675724
+            bogo-ops-per-second-real-time: 340.677835
+          - instance: 413
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 339.511473
+            bogo-ops-per-second-real-time: 339.329564
+          - instance: 414
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 338.984867
+            bogo-ops-per-second-real-time: 338.984135
+          - instance: 415
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 338.828046
+            bogo-ops-per-second-real-time: 338.828012
+          - instance: 416
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 340.927355
+            bogo-ops-per-second-real-time: 340.929275
+          - instance: 417
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.606298
+            bogo-ops-per-second-real-time: 340.605751
+          - instance: 418
+            bogo-ops: 4928
+            bogo-ops-per-second-usr-sys-time: 332.198614
+            bogo-ops-per-second-real-time: 330.199194
+          - instance: 419
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 338.860348
+            bogo-ops-per-second-real-time: 338.858190
+          - instance: 420
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.189855
+            bogo-ops-per-second-real-time: 340.188058
+          - instance: 421
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.823361
+            bogo-ops-per-second-real-time: 340.813993
+          - instance: 422
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.652381
+            bogo-ops-per-second-real-time: 340.651521
+          - instance: 423
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 339.630376
+            bogo-ops-per-second-real-time: 339.630016
+          - instance: 424
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.623270
+            bogo-ops-per-second-real-time: 340.621876
+          - instance: 425
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.272822
+            bogo-ops-per-second-real-time: 340.274831
+          - instance: 426
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.204732
+            bogo-ops-per-second-real-time: 340.202876
+          - instance: 427
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 338.715776
+            bogo-ops-per-second-real-time: 338.711840
+          - instance: 428
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 341.014339
+            bogo-ops-per-second-real-time: 341.013346
+          - instance: 429
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 338.894563
+            bogo-ops-per-second-real-time: 338.896200
+          - instance: 430
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 338.488425
+            bogo-ops-per-second-real-time: 338.486153
+          - instance: 431
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 338.888682
+            bogo-ops-per-second-real-time: 338.883982
+          - instance: 432
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 338.608712
+            bogo-ops-per-second-real-time: 338.607823
+          - instance: 433
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 338.852312
+            bogo-ops-per-second-real-time: 338.852312
+          - instance: 434
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 338.122214
+            bogo-ops-per-second-real-time: 338.123391
+          - instance: 435
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 341.566170
+            bogo-ops-per-second-real-time: 341.538539
+          - instance: 436
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.487686
+            bogo-ops-per-second-real-time: 340.489961
+          - instance: 437
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.117431
+            bogo-ops-per-second-real-time: 340.116146
+          - instance: 438
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 338.636017
+            bogo-ops-per-second-real-time: 338.634998
+          - instance: 439
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 341.588718
+            bogo-ops-per-second-real-time: 341.561387
+          - instance: 440
+            bogo-ops: 4450
+            bogo-ops-per-second-usr-sys-time: 298.220655
+            bogo-ops-per-second-real-time: 298.220357
+          - instance: 441
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.441182
+            bogo-ops-per-second-real-time: 340.440090
+          - instance: 442
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.710436
+            bogo-ops-per-second-real-time: 340.709383
+          - instance: 443
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 341.477405
+            bogo-ops-per-second-real-time: 341.479926
+          - instance: 444
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.735247
+            bogo-ops-per-second-real-time: 340.734281
+          - instance: 445
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 341.527309
+            bogo-ops-per-second-real-time: 341.526159
+          - instance: 446
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 339.242209
+            bogo-ops-per-second-real-time: 339.242212
+          - instance: 447
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 341.629517
+            bogo-ops-per-second-real-time: 341.629068
+          - instance: 448
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 339.383903
+            bogo-ops-per-second-real-time: 339.383365
+          - instance: 449
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.115926
+            bogo-ops-per-second-real-time: 340.117379
+          - instance: 450
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 339.303684
+            bogo-ops-per-second-real-time: 339.304855
+          - instance: 451
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.513316
+            bogo-ops-per-second-real-time: 340.513326
+          - instance: 452
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 341.226792
+            bogo-ops-per-second-real-time: 341.226610
+          - instance: 453
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 338.512943
+            bogo-ops-per-second-real-time: 338.512607
+          - instance: 454
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 339.488516
+            bogo-ops-per-second-real-time: 339.439956
+          - instance: 455
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.374918
+            bogo-ops-per-second-real-time: 340.374562
+          - instance: 456
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 338.701493
+            bogo-ops-per-second-real-time: 338.700846
+          - instance: 457
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.882251
+            bogo-ops-per-second-real-time: 340.882037
+          - instance: 458
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 338.875627
+            bogo-ops-per-second-real-time: 338.877010
+          - instance: 459
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.490812
+            bogo-ops-per-second-real-time: 340.488758
+          - instance: 460
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.498823
+            bogo-ops-per-second-real-time: 340.496338
+          - instance: 461
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 340.875191
+            bogo-ops-per-second-real-time: 340.874765
+          - instance: 462
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.660964
+            bogo-ops-per-second-real-time: 340.661632
+          - instance: 463
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 338.748618
+            bogo-ops-per-second-real-time: 338.748327
+          - instance: 464
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.638350
+            bogo-ops-per-second-real-time: 340.638099
+          - instance: 465
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.523861
+            bogo-ops-per-second-real-time: 340.524303
+          - instance: 466
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.572533
+            bogo-ops-per-second-real-time: 340.571460
+          - instance: 467
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 339.934232
+            bogo-ops-per-second-real-time: 339.934501
+          - instance: 468
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.704008
+            bogo-ops-per-second-real-time: 340.703799
+          - instance: 469
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.188495
+            bogo-ops-per-second-real-time: 340.190082
+          - instance: 470
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.460667
+            bogo-ops-per-second-real-time: 340.459668
+          - instance: 471
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.204230
+            bogo-ops-per-second-real-time: 340.203500
+          - instance: 472
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.458021
+            bogo-ops-per-second-real-time: 340.458210
+          - instance: 473
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 339.485260
+            bogo-ops-per-second-real-time: 339.484952
+          - instance: 474
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 339.034084
+            bogo-ops-per-second-real-time: 339.033195
+          - instance: 475
+            bogo-ops: 5097
+            bogo-ops-per-second-usr-sys-time: 341.638745
+            bogo-ops-per-second-real-time: 341.631121
+          - instance: 476
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 338.851656
+            bogo-ops-per-second-real-time: 338.850178
+          - instance: 477
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.498754
+            bogo-ops-per-second-real-time: 340.500060
+          - instance: 478
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 339.159323
+            bogo-ops-per-second-real-time: 339.157581
+          - instance: 479
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 341.465800
+            bogo-ops-per-second-real-time: 341.459048
+          - instance: 480
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 341.421923
+            bogo-ops-per-second-real-time: 341.421808
+          - instance: 481
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 341.326057
+            bogo-ops-per-second-real-time: 341.325733
+          - instance: 482
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 341.177143
+            bogo-ops-per-second-real-time: 341.178681
+          - instance: 483
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.633484
+            bogo-ops-per-second-real-time: 340.635605
+          - instance: 484
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 341.208565
+            bogo-ops-per-second-real-time: 341.209887
+          - instance: 485
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 341.315417
+            bogo-ops-per-second-real-time: 341.315220
+          - instance: 486
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 338.677788
+            bogo-ops-per-second-real-time: 338.677752
+          - instance: 487
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 341.378562
+            bogo-ops-per-second-real-time: 341.375979
+          - instance: 488
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 338.763746
+            bogo-ops-per-second-real-time: 338.762776
+          - instance: 489
+            bogo-ops: 5041
+            bogo-ops-per-second-usr-sys-time: 338.169336
+            bogo-ops-per-second-real-time: 338.167680
+          - instance: 490
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 338.765722
+            bogo-ops-per-second-real-time: 338.765825
+          - instance: 491
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 338.513452
+            bogo-ops-per-second-real-time: 338.490770
+          - instance: 492
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.445800
+            bogo-ops-per-second-real-time: 340.444945
+          - instance: 493
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 338.358668
+            bogo-ops-per-second-real-time: 338.316526
+          - instance: 494
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.303988
+            bogo-ops-per-second-real-time: 340.301421
+          - instance: 495
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.771293
+            bogo-ops-per-second-real-time: 340.770603
+          - instance: 496
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 339.561762
+            bogo-ops-per-second-real-time: 339.555363
+          - instance: 497
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 338.748822
+            bogo-ops-per-second-real-time: 338.748814
+          - instance: 498
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 338.910259
+            bogo-ops-per-second-real-time: 338.910336
+          - instance: 499
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.281696
+            bogo-ops-per-second-real-time: 340.281554
+          - instance: 500
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.096666
+            bogo-ops-per-second-real-time: 340.095842
+          - instance: 501
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.545037
+            bogo-ops-per-second-real-time: 340.497569
+          - instance: 502
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 341.486208
+            bogo-ops-per-second-real-time: 341.486739
+          - instance: 503
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.148037
+            bogo-ops-per-second-real-time: 340.148763
+          - instance: 504
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 341.554824
+            bogo-ops-per-second-real-time: 341.553974
+          - instance: 505
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 341.497203
+            bogo-ops-per-second-real-time: 341.495554
+          - instance: 506
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 341.498417
+            bogo-ops-per-second-real-time: 341.497263
+          - instance: 507
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 341.601164
+            bogo-ops-per-second-real-time: 341.600172
+          - instance: 508
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.606953
+            bogo-ops-per-second-real-time: 340.578128
+          - instance: 509
+            bogo-ops: 5283
+            bogo-ops-per-second-usr-sys-time: 354.288745
+            bogo-ops-per-second-real-time: 354.289118
+          - instance: 510
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 339.078335
+            bogo-ops-per-second-real-time: 339.076276
+          - instance: 511
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.528676
+            bogo-ops-per-second-real-time: 340.528253
+          - instance: 512
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 341.227969
+            bogo-ops-per-second-real-time: 340.958216
+          - instance: 513
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.482344
+            bogo-ops-per-second-real-time: 340.481191
+          - instance: 514
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.819487
+            bogo-ops-per-second-real-time: 340.819579
+          - instance: 515
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 339.557435
+            bogo-ops-per-second-real-time: 339.557100
+          - instance: 516
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 338.799981
+            bogo-ops-per-second-real-time: 338.798974
+          - instance: 517
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 338.838202
+            bogo-ops-per-second-real-time: 338.838653
+          - instance: 518
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.571661
+            bogo-ops-per-second-real-time: 340.571289
+          - instance: 519
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.906628
+            bogo-ops-per-second-real-time: 340.903293
+          - instance: 520
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.674329
+            bogo-ops-per-second-real-time: 340.676398
+          - instance: 521
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 339.433632
+            bogo-ops-per-second-real-time: 339.434636
+          - instance: 522
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.684922
+            bogo-ops-per-second-real-time: 340.616598
+          - instance: 523
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.759361
+            bogo-ops-per-second-real-time: 340.758140
+          - instance: 524
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.628305
+            bogo-ops-per-second-real-time: 340.600526
+          - instance: 525
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.537428
+            bogo-ops-per-second-real-time: 340.536844
+          - instance: 526
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 339.026682
+            bogo-ops-per-second-real-time: 339.026349
+          - instance: 527
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.859667
+            bogo-ops-per-second-real-time: 340.859566
+          - instance: 528
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 339.138382
+            bogo-ops-per-second-real-time: 339.137600
+          - instance: 529
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.687690
+            bogo-ops-per-second-real-time: 340.687819
+          - instance: 530
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.629951
+            bogo-ops-per-second-real-time: 340.631615
+          - instance: 531
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 339.059310
+            bogo-ops-per-second-real-time: 339.057889
+          - instance: 532
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 341.625740
+            bogo-ops-per-second-real-time: 341.467436
+          - instance: 533
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 339.553627
+            bogo-ops-per-second-real-time: 339.555631
+          - instance: 534
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 339.609758
+            bogo-ops-per-second-real-time: 339.581187
+          - instance: 535
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 338.745792
+            bogo-ops-per-second-real-time: 338.745840
+          - instance: 536
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 338.752546
+            bogo-ops-per-second-real-time: 338.750671
+          - instance: 537
+            bogo-ops: 5091
+            bogo-ops-per-second-usr-sys-time: 341.562455
+            bogo-ops-per-second-real-time: 341.553072
+          - instance: 538
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 340.151060
+            bogo-ops-per-second-real-time: 339.447100
+          - instance: 539
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 339.604842
+            bogo-ops-per-second-real-time: 339.101297
+          - instance: 540
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.260260
+            bogo-ops-per-second-real-time: 340.260049
+          - instance: 541
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.749886
+            bogo-ops-per-second-real-time: 340.738793
+          - instance: 542
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 340.349916
+            bogo-ops-per-second-real-time: 339.659114
+          - instance: 543
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.854773
+            bogo-ops-per-second-real-time: 340.853459
+          - instance: 544
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.134274
+            bogo-ops-per-second-real-time: 340.134799
+          - instance: 545
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.739843
+            bogo-ops-per-second-real-time: 340.740370
+          - instance: 546
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.271498
+            bogo-ops-per-second-real-time: 340.198869
+          - instance: 547
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.571570
+            bogo-ops-per-second-real-time: 340.571431
+          - instance: 548
+            bogo-ops: 5041
+            bogo-ops-per-second-usr-sys-time: 340.288743
+            bogo-ops-per-second-real-time: 338.558722
+          - instance: 549
+            bogo-ops: 5041
+            bogo-ops-per-second-usr-sys-time: 338.301918
+            bogo-ops-per-second-real-time: 338.302452
+          - instance: 550
+            bogo-ops: 5024
+            bogo-ops-per-second-usr-sys-time: 339.107887
+            bogo-ops-per-second-real-time: 337.322963
+          - instance: 551
+            bogo-ops: 5041
+            bogo-ops-per-second-usr-sys-time: 338.333683
+            bogo-ops-per-second-real-time: 338.333498
+          - instance: 552
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.466335
+            bogo-ops-per-second-real-time: 340.466205
+          - instance: 553
+            bogo-ops: 5041
+            bogo-ops-per-second-usr-sys-time: 338.302803
+            bogo-ops-per-second-real-time: 338.294360
+          - instance: 554
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.742771
+            bogo-ops-per-second-real-time: 340.744848
+          - instance: 555
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 340.980446
+            bogo-ops-per-second-real-time: 340.980036
+          - instance: 556
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 339.207787
+            bogo-ops-per-second-real-time: 339.208524
+          - instance: 557
+            bogo-ops: 4799
+            bogo-ops-per-second-usr-sys-time: 340.884940
+            bogo-ops-per-second-real-time: 322.114640
+          - instance: 558
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 338.808636
+            bogo-ops-per-second-real-time: 338.808994
+          - instance: 559
+            bogo-ops: 4765
+            bogo-ops-per-second-usr-sys-time: 338.694756
+            bogo-ops-per-second-real-time: 320.079841
+          - instance: 560
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 340.619803
+            bogo-ops-per-second-real-time: 339.953360
+          - instance: 561
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 338.910923
+            bogo-ops-per-second-real-time: 338.846004
+          - instance: 562
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 340.613982
+            bogo-ops-per-second-real-time: 339.973601
+          - instance: 563
+            bogo-ops: 4771
+            bogo-ops-per-second-usr-sys-time: 339.206104
+            bogo-ops-per-second-real-time: 320.486847
+          - instance: 564
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.564260
+            bogo-ops-per-second-real-time: 340.479972
+          - instance: 565
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 339.206983
+            bogo-ops-per-second-real-time: 338.793428
+          - instance: 566
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 340.160826
+            bogo-ops-per-second-real-time: 340.161252
+          - instance: 567
+            bogo-ops: 4771
+            bogo-ops-per-second-usr-sys-time: 339.532669
+            bogo-ops-per-second-real-time: 320.449870
+          - instance: 568
+            bogo-ops: 4827
+            bogo-ops-per-second-usr-sys-time: 340.435508
+            bogo-ops-per-second-real-time: 324.161176
+          - instance: 569
+            bogo-ops: 4816
+            bogo-ops-per-second-usr-sys-time: 340.628773
+            bogo-ops-per-second-real-time: 323.533219
+          - instance: 570
+            bogo-ops: 5041
+            bogo-ops-per-second-usr-sys-time: 339.005939
+            bogo-ops-per-second-real-time: 338.367290
+          - instance: 571
+            bogo-ops: 4878
+            bogo-ops-per-second-usr-sys-time: 340.442187
+            bogo-ops-per-second-real-time: 327.700757
+          - instance: 572
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 338.920711
+            bogo-ops-per-second-real-time: 338.918693
+          - instance: 573
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.539139
+            bogo-ops-per-second-real-time: 340.541303
+          - instance: 574
+            bogo-ops: 5041
+            bogo-ops-per-second-usr-sys-time: 339.026139
+            bogo-ops-per-second-real-time: 338.406954
+          - instance: 575
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.417290
+            bogo-ops-per-second-real-time: 340.394520
+          - instance: 576
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 341.809919
+            bogo-ops-per-second-real-time: 341.492182
+          - instance: 577
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.436723
+            bogo-ops-per-second-real-time: 340.406629
+          - instance: 578
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.439444
+            bogo-ops-per-second-real-time: 340.439868
+          - instance: 579
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 339.975650
+            bogo-ops-per-second-real-time: 339.911161
+          - instance: 580
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.919618
+            bogo-ops-per-second-real-time: 340.918971
+          - instance: 581
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.534540
+            bogo-ops-per-second-real-time: 340.534278
+          - instance: 582
+            bogo-ops: 4973
+            bogo-ops-per-second-usr-sys-time: 340.184683
+            bogo-ops-per-second-real-time: 334.222715
+          - instance: 583
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 339.683882
+            bogo-ops-per-second-real-time: 339.679323
+          - instance: 584
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.681337
+            bogo-ops-per-second-real-time: 340.648780
+          - instance: 585
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.656290
+            bogo-ops-per-second-real-time: 340.659113
+          - instance: 586
+            bogo-ops: 5018
+            bogo-ops-per-second-usr-sys-time: 338.678098
+            bogo-ops-per-second-real-time: 337.040576
+          - instance: 587
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 338.984235
+            bogo-ops-per-second-real-time: 338.984370
+          - instance: 588
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.598814
+            bogo-ops-per-second-real-time: 340.594029
+          - instance: 589
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 339.937631
+            bogo-ops-per-second-real-time: 339.937964
+          - instance: 590
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 340.661770
+            bogo-ops-per-second-real-time: 339.057151
+          - instance: 591
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 339.204589
+            bogo-ops-per-second-real-time: 339.206524
+          - instance: 592
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 341.108799
+            bogo-ops-per-second-real-time: 341.112923
+          - instance: 593
+            bogo-ops: 5041
+            bogo-ops-per-second-usr-sys-time: 338.885266
+            bogo-ops-per-second-real-time: 338.706860
+          - instance: 594
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 341.277898
+            bogo-ops-per-second-real-time: 341.212942
+          - instance: 595
+            bogo-ops: 5041
+            bogo-ops-per-second-usr-sys-time: 338.950639
+            bogo-ops-per-second-real-time: 338.947550
+          - instance: 596
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 341.460796
+            bogo-ops-per-second-real-time: 340.989373
+          - instance: 597
+            bogo-ops: 5041
+            bogo-ops-per-second-usr-sys-time: 338.861870
+            bogo-ops-per-second-real-time: 338.861286
+          - instance: 598
+            bogo-ops: 5035
+            bogo-ops-per-second-usr-sys-time: 338.814046
+            bogo-ops-per-second-real-time: 338.334979
+          - instance: 599
+            bogo-ops: 5086
+            bogo-ops-per-second-usr-sys-time: 341.676460
+            bogo-ops-per-second-real-time: 341.671671
+          - instance: 600
+            bogo-ops: 4799
+            bogo-ops-per-second-usr-sys-time: 338.730147
+            bogo-ops-per-second-real-time: 322.588054
+          - instance: 601
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 340.360389
+            bogo-ops-per-second-real-time: 340.359710
+          - instance: 602
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 340.720363
+            bogo-ops-per-second-real-time: 340.245632
+          - instance: 603
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.547558
+            bogo-ops-per-second-real-time: 340.547500
+          - instance: 604
+            bogo-ops: 5080
+            bogo-ops-per-second-usr-sys-time: 341.491461
+            bogo-ops-per-second-real-time: 341.423985
+          - instance: 605
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 340.843738
+            bogo-ops-per-second-real-time: 340.843255
+          - instance: 606
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 339.133096
+            bogo-ops-per-second-real-time: 339.132848
+          - instance: 607
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 340.771113
+            bogo-ops-per-second-real-time: 340.322254
+          - instance: 608
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.651391
+            bogo-ops-per-second-real-time: 340.653021
+          - instance: 609
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 341.671625
+            bogo-ops-per-second-real-time: 341.216745
+          - instance: 610
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 339.074598
+            bogo-ops-per-second-real-time: 339.074642
+          - instance: 611
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 340.808320
+            bogo-ops-per-second-real-time: 340.355886
+          - instance: 612
+            bogo-ops: 5041
+            bogo-ops-per-second-usr-sys-time: 338.865470
+            bogo-ops-per-second-real-time: 338.861932
+          - instance: 613
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 340.405608
+            bogo-ops-per-second-real-time: 340.318370
+          - instance: 614
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 339.202058
+            bogo-ops-per-second-real-time: 339.203638
+          - instance: 615
+            bogo-ops: 5035
+            bogo-ops-per-second-usr-sys-time: 338.363105
+            bogo-ops-per-second-real-time: 338.352890
+          - instance: 616
+            bogo-ops: 5035
+            bogo-ops-per-second-usr-sys-time: 338.918682
+            bogo-ops-per-second-real-time: 338.472422
+          - instance: 617
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 340.487085
+            bogo-ops-per-second-real-time: 340.037821
+          - instance: 618
+            bogo-ops: 5035
+            bogo-ops-per-second-usr-sys-time: 338.380433
+            bogo-ops-per-second-real-time: 338.357454
+          - instance: 619
+            bogo-ops: 4979
+            bogo-ops-per-second-usr-sys-time: 340.074443
+            bogo-ops-per-second-real-time: 334.495213
+          - instance: 620
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 341.699414
+            bogo-ops-per-second-real-time: 341.195316
+          - instance: 621
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.681360
+            bogo-ops-per-second-real-time: 340.649075
+          - instance: 622
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 340.401694
+            bogo-ops-per-second-real-time: 340.402228
+          - instance: 623
+            bogo-ops: 4771
+            bogo-ops-per-second-usr-sys-time: 340.221166
+            bogo-ops-per-second-real-time: 320.867601
+          - instance: 624
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 340.638886
+            bogo-ops-per-second-real-time: 340.197053
+          - instance: 625
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 341.677941
+            bogo-ops-per-second-real-time: 340.944143
+          - instance: 626
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 340.883812
+            bogo-ops-per-second-real-time: 340.460235
+          - instance: 627
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.866054
+            bogo-ops-per-second-real-time: 340.866649
+          - instance: 628
+            bogo-ops: 4934
+            bogo-ops-per-second-usr-sys-time: 336.184222
+            bogo-ops-per-second-real-time: 331.771852
+          - instance: 629
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 340.692809
+            bogo-ops-per-second-real-time: 340.694683
+          - instance: 630
+            bogo-ops: 5058
+            bogo-ops-per-second-usr-sys-time: 340.335740
+            bogo-ops-per-second-real-time: 340.283799
+          - instance: 631
+            bogo-ops: 5052
+            bogo-ops-per-second-usr-sys-time: 339.675900
+            bogo-ops-per-second-real-time: 339.674264
+          - instance: 632
+            bogo-ops: 5063
+            bogo-ops-per-second-usr-sys-time: 340.482800
+            bogo-ops-per-second-real-time: 340.481846
+          - instance: 633
+            bogo-ops: 5069
+            bogo-ops-per-second-usr-sys-time: 341.393815
+            bogo-ops-per-second-real-time: 341.008808
+          - instance: 634
+            bogo-ops: 5046
+            bogo-ops-per-second-usr-sys-time: 339.154614
+            bogo-ops-per-second-real-time: 339.153885
+          - instance: 635
+            bogo-ops: 5041
+            bogo-ops-per-second-usr-sys-time: 339.333589
+            bogo-ops-per-second-real-time: 338.961292
+          - instance: 636
+            bogo-ops: 5041
+            bogo-ops-per-second-usr-sys-time: 339.024292
+            bogo-ops-per-second-real-time: 339.023241
+          - instance: 637
+            bogo-ops: 5075
+            bogo-ops-per-second-usr-sys-time: 341.630799
+            bogo-ops-per-second-real-time: 341.245567
+          - instance: 638
+            bogo-ops: 5035
+            bogo-ops-per-second-usr-sys-time: 338.910127
+            bogo-ops-per-second-real-time: 338.614314
+          - instance: 639
+            bogo-ops: 5041
+            bogo-ops-per-second-usr-sys-time: 338.888592
+            bogo-ops-per-second-real-time: 338.888779
+
+...

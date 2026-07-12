@@ -22,6 +22,8 @@ class StressNGStream(StressNG):
             "--timeout",
             str(self.parameters.get_runtime()),
             "--metrics",
+            "--yaml",
+            f"{self.name}.yaml",
             "--stream",
             str(self.parameters.get_engine_instances_count()),
         ]
