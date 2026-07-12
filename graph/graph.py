@@ -174,6 +174,9 @@ class Graph:
 
     def set_title(self, title, show_source_file=None, title_note=None):
         """Set the graph title"""
+        # Tracked so render() can hand it to savefig's bbox_extra_artists: the box
+        # sits below the axes and can otherwise be cropped out by bbox_inches="tight".
+        self.source_text = None
         # When a note is present, push the main title up to leave room for the
         # note, which is rendered just above the axes in bold dark red.
         self.ax.set_title(title, pad=28 if title_note else None)
@@ -192,7 +195,7 @@ class Graph:
         if show_source_file:
             # place a text box in upper left in axes coords
             props = dict(boxstyle="round", facecolor="white", alpha=0.5)
-            self.ax.text(
+            self.source_text = self.ax.text(
                 0,
                 -0.1,
                 f"data plotted from {show_source_file.get_filename()}",
@@ -259,6 +262,11 @@ class Graph:
             legends = list(extra_legend)
         else:
             legends = [extra_legend]
+
+        # Keep the "data plotted from" box in the tight bounding box: it sits below
+        # the axes and can otherwise be cropped out by bbox_inches="tight".
+        if self.source_text is not None:
+            legends.append(self.source_text)
 
         # Trace the events passed on the command line
         self.trace_events()
