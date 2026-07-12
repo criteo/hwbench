@@ -355,9 +355,9 @@ def render_scaling_perf_distributions(args, temp_outdir, job: str, emp: str) -> 
 
     This mirrors the per-core distribution graphs rendered under all_cores /
     pinned_cores, but is built from the stressor's own individual results rather
-    than the monitoring, and lands in the perf directory next to the performance
-    line graph. The Y axis is autoscaled (a distribution is unreadable squished
-    against a zero baseline). Nothing is rendered when no trace exposes detail.
+    than the monitoring, and lands in the perf/per_worker_distribution directory.
+    The Y axis is autoscaled (a distribution is unreadable squished against a zero
+    baseline). Nothing is rendered when no trace exposes detail.
     """
     rendered = 0
     for trace in args.traces:
@@ -392,7 +392,7 @@ def render_scaling_perf_distributions(args, temp_outdir, job: str, emp: str) -> 
                 title,
                 "Workers (scaling step)",
                 metric_name,
-                temp_outdir.joinpath("perf"),
+                temp_outdir.joinpath("perf", "per_worker_distribution"),
                 f"scaling_perf_distribution_{clean_metric}_{trace_slug}_{engine}",
                 square=True,
                 show_source_file=trace,
@@ -460,8 +460,7 @@ def render_scaling_linearity_deviation(args, temp_outdir, job: str, emp: str) ->
     annotated -- summarising the whole sweep's scaling quality at a glance.
 
     Only rendered when the sweep has more than 3 steps, below which the trend
-    carries little information. Lands in the perf directory next to the
-    performance line graph.
+    carries little information. Lands in the perf/linearity_deviation directory.
     """
     # First pass: compute every trace's deviation series, then derive a single Y
     # range shared by all the per-trace graphs so they can be compared visually.
@@ -513,7 +512,7 @@ def render_scaling_linearity_deviation(args, temp_outdir, job: str, emp: str) ->
             title,
             xlabel,
             "Deviation from linear scaling [%]  (0 = ideal)",
-            temp_outdir.joinpath("perf"),
+            temp_outdir.joinpath("perf", "linearity_deviation"),
             f"scaling_linearity_deviation_{trace_slug}_{engine}",
             square=True,
             show_source_file=trace,
