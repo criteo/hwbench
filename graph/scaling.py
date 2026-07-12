@@ -296,13 +296,23 @@ def render_scaling_distributions(args, temp_outdir, job: str, emp: str, has_ipc:
                 )
                 ax.set_xticks(positions)
                 ax.set_xticklabels(labels)
-                ax.grid(which="major", axis="y", linewidth=0.6, linestyle="dashed", color="0.7")
+                # Same two-tier Y grid as the linearity-deviation graph (solid
+                # major lines plus a fainter dashed midline between the major Y
+                # ticks), but no X grid: vertical lines would cut through the
+                # violins and hide their shape.
+                ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+                ax.grid(which="major", axis="y", linewidth=0.7, linestyle="solid", color="0.6")
+                ax.grid(which="minor", axis="y", linewidth=0.6, linestyle="dashed", color="0.75")
+                # Same legend as the linearity-deviation graph (lower left, trace
+                # name), on top of the median/mean key: the blue violins are this
+                # trace's data.
                 legend = ax.legend(
                     handles=[
+                        Patch(facecolor="tab:blue", alpha=0.25, label=trace.get_name()),
                         Line2D([], [], color="tab:red", label="median"),
                         Line2D([], [], color="tab:green", linestyle="--", label="mean"),
                     ],
-                    loc="upper right",
+                    loc="lower left",
                     fontsize=8,
                 )
                 graph.needs_legend = False
@@ -405,13 +415,23 @@ def render_scaling_perf_distributions(args, temp_outdir, job: str, emp: str) -> 
             )
             ax.set_xticks(positions)
             ax.set_xticklabels(labels)
-            ax.grid(which="major", axis="y", linewidth=0.6, linestyle="dashed", color="0.7")
+            # Same two-tier Y grid as the linearity-deviation graph (solid major
+            # lines plus a fainter dashed midline between the major Y ticks), but
+            # no X grid: vertical lines would cut through the violins and hide
+            # their shape.
+            ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+            ax.grid(which="major", axis="y", linewidth=0.7, linestyle="solid", color="0.6")
+            ax.grid(which="minor", axis="y", linewidth=0.6, linestyle="dashed", color="0.75")
+            # Same legend as the linearity-deviation graph (lower left, trace
+            # name), on top of the median/mean key: the blue violins are this
+            # trace's data.
             legend = ax.legend(
                 handles=[
+                    Patch(facecolor="tab:blue", alpha=0.25, label=trace.get_name()),
                     Line2D([], [], color="tab:red", label="median"),
                     Line2D([], [], color="tab:green", linestyle="--", label="mean"),
                 ],
-                loc="upper right",
+                loc="lower left",
                 fontsize=8,
             )
             graph.needs_legend = False
