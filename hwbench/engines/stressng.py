@@ -94,6 +94,8 @@ class StressNG(ExternalBench):
             "--timeout",
             str(self.parameters.get_runtime()),
             "--metrics",
+            "--yaml",
+            f"{self.name}.yaml",
         ]
 
         return self.get_taskset(args)
