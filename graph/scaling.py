@@ -311,6 +311,115 @@ def render_scaling_distributions(args, temp_outdir, job: str, emp: str, has_ipc:
     return rendered
 
 
+def _bench_detail_metrics(bench) -> dict:
+    """Return the per-instance stress-ng detail metrics of a bench, if any.
+
+    stress-ng exposes, through its YAML output, one value per individual worker
+    instance under the bench "detail" key (e.g. per-instance "bogo op/s").
+    Returns a mapping metric-name -> list of per-instance values, keeping only
+    non-empty numeric lists; an empty dict when the bench carries no such detail
+    (older runs, non-stress-ng engines, or a skipped job).
+    """
+    if bench.skipped():
+        return {}
+    detail = bench.get("detail")
+    if not isinstance(detail, dict):
+        return {}
+    metrics = {}  # type: dict[str, list]
+    for name, values in detail.items():
+        if isinstance(values, list) and values and all(isinstance(v, (int, float)) for v in values):
+            metrics[name] = [float(v) for v in values]
+    return metrics
+
+
+def render_scaling_perf_distributions(args, temp_outdir, job: str, emp: str) -> int:
+    """Render the per-instance performance distribution across the scaling steps.
+
+    When stress-ng exposes its individual per-worker results (the bench "detail"
+    metrics, e.g. per-instance "bogo op/s" extracted from its YAML output), one
+    graph per trace and per detail metric shows how the instance-to-instance
+    spread evolves as the sweep grows: X = worker count (one violin + box per
+    scaling step, evenly spaced), Y = the metric. The violin shows the density
+    across the individual stressor instances, the box the median (red), mean
+    (green dashed), quartiles and outliers.
+
+    This mirrors the per-core distribution graphs rendered under all_cores /
+    pinned_cores, but is built from the stressor's own individual results rather
+    than the monitoring, and lands in the perf directory next to the performance
+    line graph. The Y axis is autoscaled (a distribution is unreadable squished
+    against a zero baseline). Nothing is rendered when no trace exposes detail.
+    """
+    rendered = 0
+    for trace in args.traces:
+        trace_benches = trace.get_benches_by_job_per_emp(job)
+        if emp not in trace_benches or not trace_benches[emp]["bench"]:
+            continue
+        benches = sorted(trace_benches[emp]["bench"], key=lambda b: b.workers())
+        engine = benches[0].get_title_engine_name().replace(" ", "_")
+        trace_slug = trace.get_name().replace(" ", "_").replace("/", "_")
+
+        # Collect, per detail metric, one per-instance distribution per scaling step.
+        per_metric = {}  # type: dict[str, dict[str, list]]
+        for bench in benches:
+            for name, values in _bench_detail_metrics(bench).items():
+                series = per_metric.setdefault(name, {"data": [], "labels": []})
+                series["data"].append(values)
+                series["labels"].append(bench.workers())
+
+        for metric_name, series in per_metric.items():
+            data = series["data"]
+            labels = series["labels"]
+            clean_metric = metric_name.replace(" ", "_").replace("/", "")
+            title = (
+                f'{args.title}\n\nPerformance per worker distribution scaling via "{job}" benchmark job\n\n Stressor: '
+            )
+            title += f"{benches[0].get_title_engine_name()} for {benches[0].duration()} seconds"
+            # Rendered one trace at a time, so add the host info like the other
+            # per-trace graphs (serial/product/bios/kernel + processor).
+            title += f"\n{benches[0].get_system_title()}"
+            graph = Graph(
+                args,
+                title,
+                "Workers (scaling step)",
+                metric_name,
+                temp_outdir.joinpath("perf"),
+                f"scaling_perf_distribution_{clean_metric}_{trace_slug}_{engine}",
+                square=True,
+                show_source_file=trace,
+            )
+            ax = graph.get_ax()
+            positions = list(range(1, len(data) + 1))
+            parts = ax.violinplot(data, positions=positions, widths=0.7, showextrema=False)
+            for body in parts["bodies"]:
+                body.set_facecolor("tab:blue")
+                body.set_alpha(0.25)
+            ax.boxplot(
+                data,
+                positions=positions,
+                widths=0.15,
+                showmeans=True,
+                meanline=True,
+                medianprops=dict(color="tab:red"),
+                meanprops=dict(color="tab:green", linestyle="--"),
+                flierprops=dict(marker=".", markersize=3, alpha=0.4),
+            )
+            ax.set_xticks(positions)
+            ax.set_xticklabels(labels)
+            ax.grid(which="major", axis="y", linewidth=0.6, linestyle="dashed", color="0.7")
+            legend = ax.legend(
+                handles=[
+                    Line2D([], [], color="tab:red", label="median"),
+                    Line2D([], [], color="tab:green", linestyle="--", label="mean"),
+                ],
+                loc="upper right",
+                fontsize=8,
+            )
+            graph.needs_legend = False
+            graph.render(extra_legend=legend)
+            rendered += 1
+    return rendered
+
+
 def _scaling_perf_value(bench, perf: str) -> float:
     """Per-step performance value, mirroring add_perf's memrate special-case."""
     if bench.engine_module() in ["memrate"]:
@@ -1138,6 +1247,10 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
 
         # Per-trace deviation of measured performance from ideal linear scaling.
         rendered_graphs += render_scaling_linearity_deviation(args, temp_outdir, job, emp)
+
+        # Per-instance distribution (violin + box) of the stressor's individual
+        # results across the scaling steps, when the engine exposes them.
+        rendered_graphs += render_scaling_perf_distributions(args, temp_outdir, job, emp)
 
         # Per-NUMA-domain distribution across the scaling steps: a ridgeline grid,
         # one panel per step, one density per domain within each panel.

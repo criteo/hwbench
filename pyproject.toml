@@ -18,6 +18,7 @@ dependencies = [
   "redfish",
   "packaging",
   "pyudev>=0.24.3",
+  "pyyaml>=6.0",
 ]
 
 [project.urls]
@@ -37,6 +38,7 @@ dev = [
   "pytest>=8.3.3",
   "ruff>=0.7.1",
   "types-cachetools>=5.5.0.20240820",
+  "types-pyyaml>=6.0.12",
   "uv>=0.4.27",
 ]
 

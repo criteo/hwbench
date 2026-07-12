@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import pathlib
 import re
+
+import yaml
 
 from hwbench.bench.benchmark import ExternalBench
 from hwbench.bench.engine import EngineBase, EngineModuleBase
@@ -130,16 +133,62 @@ class StressNG(ExternalBench):
             r"\s+(?P<rss_max>[0-9\.]+)"
         )
 
+    def yaml_output_file(self) -> pathlib.Path:
+        """Path of the YAML metrics file emitted by stress-ng (see run_cmd)."""
+        return self.out_dir / f"{self.name}.yaml"
+
+    def parse_yaml_per_instance(self) -> dict:
+        """Extract the per-instance bogo-ops from the stress-ng YAML output.
+
+        stress-ng reports, under each stressor of the "metrics:" section, an
+        "instances:" list holding a per-second bogo-ops rate per instance:
+
+            metrics:
+                - stressor: cpu
+                  bogo-ops: 3257280
+                  ...
+                  instances:
+                      - instance: 0
+                        bogo-ops: 5120
+                        bogo-ops-per-second-real-time: 341.098366
+                        ...
+
+        We keep the per-instance metric so it can be inspected/plotted later.
+        The YAML file is optional (older stress-ng, or a skipped run); when it
+        is missing we simply return an empty dict and change nothing.
+        """
+        yaml_file = self.yaml_output_file()
+        if not yaml_file.exists():
+            return {}
+
+        with yaml_file.open() as f:
+            data = yaml.safe_load(f)
+
+        bogo_ops: list[float] = []
+        for stressor in (data or {}).get("metrics", []):
+            for instance in stressor.get("instances", []):
+                if "bogo-ops-per-second-real-time" in instance:
+                    bogo_ops.append(float(instance["bogo-ops-per-second-real-time"]))
+
+        if not bogo_ops:
+            return {}
+
+        return {"detail": {"bogo op/s": bogo_ops}}
+
     def parse_cmd(self, stdout: bytes, stderr: bytes):
         """Generic stress-ng output parsing to extract performance metrics."""
         for line in (stdout or stderr).splitlines():
             stats = self.stats_parse().search(str(line))
             if stats:
                 s = stats.groupdict()
-                return self.parameters.get_result_format() | {
-                    "bogo ops/s": float(s["bogo_ops_sec"]),
-                    "effective_runtime": float(s["real_time"]),
-                }
+                return (
+                    self.parameters.get_result_format()
+                    | {
+                        "bogo ops/s": float(s["bogo_ops_sec"]),
+                        "effective_runtime": float(s["real_time"]),
+                    }
+                    | self.parse_yaml_per_instance()
+                )
 
         h.fatal("Unable to detect stress-ng reporting metrics")
 

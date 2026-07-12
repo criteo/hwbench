@@ -9,6 +9,7 @@ from hwbench.bench.parameters import BenchmarkParameters
 from hwbench.environment.mock import MockHardware
 
 from .stressng import Engine as StressNG
+from .stressng_cpu import EngineModuleCpu, StressNGCPU
 from .stressng_memrate import EngineModuleMemrate, StressNGMemrate
 from .stressng_qsort import EngineModuleQsort, StressNGQsort
 from .stressng_stream import EngineModuleStream, StressNGStream
@@ -89,6 +90,80 @@ class TestParse(unittest.TestCase):
                     for key in test_target.parameters.get_result_format():
                         output.pop(key, None)
                     assert output == json.loads((d / "output").read_bytes())
+
+    def test_yaml_per_instance_parsing(self):
+        """When stress-ng emits a YAML file, the per-instance bogo-ops are kept."""
+        # The YAML file is named "<engine><stressor>.yaml" in out_dir, so we point
+        # out_dir at the fixture directory and use the matching stressor parameter.
+        d = pathlib.Path("./hwbench/tests/parsing/stressng/v02103b")
+        engine = mock_engine("v17")
+        params = BenchmarkParameters(
+            d,
+            "stressng",
+            0,
+            "",
+            5,
+            "matrixprod",
+            "",
+            MockHardware(),
+            "none",
+            None,
+            "bypass",
+            "none",
+        )
+        module = EngineModuleCpu(engine, "cpu")
+        test_target = StressNGCPU(module, params)
+
+        assert test_target.name == "stressngmatrixprod"
+        assert test_target.yaml_output_file() == d / "stressngmatrixprod.yaml"
+
+        stdout = (d / "stdout").read_bytes()
+        stderr = (d / "stderr").read_bytes()
+        output = test_target.parse_cmd(stdout, stderr)
+
+        # The generic metrics are still parsed from stdout.
+        assert output["bogo ops/s"] == 217929.51
+        assert output["effective_runtime"] == 14.95
+
+        # The per-instance bogo-ops/s (real time) are extracted from the YAML file.
+        bogo_ops = output["detail"]["bogo op/s"]
+        assert len(bogo_ops) == 640
+        assert bogo_ops[:6] == [
+            341.098366,
+            339.750707,
+            341.169751,
+            340.387195,
+            340.689242,
+            340.715147,
+        ]
+        # The per-instance rates sum up to roughly the aggregated bogo ops/s.
+        assert sum(bogo_ops) == pytest.approx(217929.51, abs=2)
+
+    def test_yaml_absent_keeps_result(self):
+        """Without a YAML file (e.g. older stress-ng), the result is unchanged."""
+        d = pathlib.Path("./hwbench/tests/parsing/stressng/v17")
+        engine = mock_engine("v17")
+        params = BenchmarkParameters(
+            d,
+            "stressng",
+            0,
+            "",
+            5,
+            "",
+            "",
+            MockHardware(),
+            "none",
+            None,
+            "bypass",
+            "none",
+        )
+        module = EngineModuleCpu(engine, "cpu")
+        test_target = StressNGCPU(module, params)
+
+        assert not test_target.yaml_output_file().exists()
+
+        output = test_target.parse_cmd((d / "stdout").read_bytes(), (d / "stderr").read_bytes())
+        assert "detail" not in output
 
     def test_stressng_methods(self):
         test_dir = pathlib.Path("./hwbench/tests/parsing/stressngmethods")
