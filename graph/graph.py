@@ -668,7 +668,12 @@ def numa_distribution_graph(
     )
     ax.set_xticks(positions)
     ax.set_xticklabels([f"NUMA {node}" for node, _ in domains])
-    ax.grid(which="major", axis="y", linewidth=0.6, linestyle="dashed", color="0.7")
+    # Same two-tier Y grid as the linearity-deviation graph (solid major lines
+    # plus a fainter dashed midline between the major Y ticks), but no X grid:
+    # vertical lines would cut through the violins and hide their shape.
+    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.grid(which="major", axis="y", linewidth=0.7, linestyle="solid", color="0.6")
+    ax.grid(which="minor", axis="y", linewidth=0.6, linestyle="dashed", color="0.75")
 
     # Left-side box listing each domain's cores in condensed form, like the
     # heatmap's legend -- useful to see exactly which cores fed each violin,
@@ -830,7 +835,12 @@ def cpu_distribution_graph(
     )
     ax.set_xticks([1])
     ax.set_xticklabels([f"{len(values)} cores"])
-    ax.grid(which="major", axis="y", linewidth=0.6, linestyle="dashed", color="0.7")
+    # Same two-tier Y grid as the linearity-deviation graph (solid major lines
+    # plus a fainter dashed midline between the major Y ticks), but no X grid:
+    # vertical lines would cut through the violins and hide their shape.
+    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.grid(which="major", axis="y", linewidth=0.7, linestyle="solid", color="0.6")
+    ax.grid(which="minor", axis="y", linewidth=0.6, linestyle="dashed", color="0.75")
     legend = ax.legend(
         handles=[
             Line2D([], [], color="tab:red", label="median"),
