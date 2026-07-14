@@ -33,7 +33,7 @@ try:
     from graph.group import graph_group_env
     from graph.scaling import performance_scaling_graph
     from graph.trace import Event, Trace
-    from graph.versus import max_versus_graph
+    from graph.versus import max_versus_graph, render_versus_scorecard, write_scaling_comparison
     from hwbench.bench.monitoring_structs import (
         PowerCategories,
     )
@@ -104,6 +104,15 @@ def _task_scaling(job, output_dir_str, traces_name):
     """Generate performance scaling graphs for a job."""
     global _pool_args
     return performance_scaling_graph(_pool_args, pathlib.Path(output_dir_str), job, traces_name)
+
+
+def _task_scaling_comparison(output_dir_str):
+    """Write the traces-comparison summary + exec-summary radar (reference = first trace)."""
+    global _pool_args
+    output_dir = pathlib.Path(output_dir_str)
+    count = write_scaling_comparison(_pool_args, output_dir)
+    count += render_versus_scorecard(_pool_args, output_dir)
+    return count
 
 
 def _task_versus(job, output_dir_str, traces_name):
@@ -238,6 +247,9 @@ def _collect_plot_tasks(args, output_dir):
             print(f"Max versus: rendering {len(jobs)} jobs")
             for job in jobs:
                 tasks.append((_task_versus, job, str(output_dir), traces_name))
+            # One text report comparing every trace to the first (reference),
+            # covering all benchmarks at once (max_versus/benchmarks_summary.txt).
+            tasks.append((_task_scaling_comparison, str(output_dir)))
         else:
             print("Max versus: skipped as at least 2 traces are necessary for this mode")
 
