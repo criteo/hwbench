@@ -475,10 +475,17 @@ def render_scaling_linearity_deviation(args, temp_outdir, job: str, emp: str) ->
             continue
         workers = np.array([bench.workers() for bench in rows], dtype=float)
         measured = np.array([_scaling_perf_value(bench, perf) for bench in rows], dtype=float)
-        if workers[0] == 0:
+        # No valid anchor for the linear projection when the first step has no
+        # throughput (e.g. an incomplete run reporting effective_runtime=0, hence
+        # 0 perf): ideal would be all-zeros and measured/ideal would be NaN/Inf.
+        if workers[0] == 0 or measured[0] <= 0:
             continue
         ideal = (measured[0] / workers[0]) * workers
         deviation = (measured / ideal - 1.0) * 100.0
+        # Skip if any step still produced a non-finite deviation, so the shared
+        # Y range below can't become NaN/Inf (which crashes set_ylim).
+        if not np.all(np.isfinite(deviation)):
+            continue
         series.append((trace, rows, workers, deviation))
 
     if not series:
