@@ -250,14 +250,14 @@ def _bench_perf_cov(bench) -> float | None:
     return float(arr.std() / mean * 100.0)
 
 
-def _trace_job_metrics(trace, job: str) -> dict:
-    """Per engine-module-parameter full-load metrics for one trace's job.
+def _trace_job_step_metrics(trace, job: str) -> dict:
+    """Per engine-module-parameter, per scaling-step metrics for one trace's job.
 
-    For each emp (e.g. float128) report, at the full-load (max workers) step:
-    performance, CPU package power, average core clock, worker count, the
-    per-worker performance spread (CoV%) and the scaling linearity efficiency
-    (full-load performance vs the ideal linear projection anchored on the first
-    step).
+    For each emp (e.g. float128) return {worker count: metrics} covering every
+    scaling step, where metrics holds: performance, CPU package power, average
+    core clock, IPC, worker count, the per-worker performance spread (CoV%) and
+    the scaling linearity efficiency at that step (step performance vs the ideal
+    linear projection anchored on the first step -- so the first step reads 100%).
     """
     metric_name = trace.get_metric_name()
     out = {}  # type: dict
@@ -269,22 +269,37 @@ def _trace_job_metrics(trace, job: str) -> dict:
         unit = info["metrics"][1]
         workers = [b.workers() for b in benches]
         perf = [_scaling_perf_value(b, perf_key) for b in benches]
-        last = len(benches) - 1
-        # Linearity: full-load perf / (first-step slope x workers). 100% = perfect.
-        lin_full = None
-        if workers[0] > 0 and perf[0] > 0:
-            lin_full = perf[last] / ((perf[0] / workers[0]) * workers[last]) * 100
-        out[emp] = {
-            "engine_module": benches[last].engine_module(),
-            "unit": unit,
-            "workers": workers[last],
-            "perf": perf[last],
-            "power": _bench_power(benches[last], metric_name),
-            "clock": _bench_avg_core_clock(benches[last]),
-            "ipc": _bench_avg_ipc(benches[last]),
-            "cov": _bench_perf_cov(benches[last]),
-            "lin_full": lin_full,
-        }
+        # First-step slope for the linear projection; None when the first step has
+        # no throughput (an anchor of 0 would make every linearity undefined).
+        slope = (perf[0] / workers[0]) if (workers[0] > 0 and perf[0] > 0) else None
+        per_step = {}  # type: dict
+        for i, bench in enumerate(benches):
+            lin_full = perf[i] / (slope * workers[i]) * 100 if slope else None
+            per_step[bench.workers()] = {
+                "engine_module": bench.engine_module(),
+                "unit": unit,
+                "workers": workers[i],
+                "perf": perf[i],
+                "power": _bench_power(bench, metric_name),
+                "clock": _bench_avg_core_clock(bench),
+                "ipc": _bench_avg_ipc(bench),
+                "cov": _bench_perf_cov(bench),
+                "lin_full": lin_full,
+            }
+        out[emp] = per_step
+    return out
+
+
+def _trace_job_metrics(trace, job: str) -> dict:
+    """Per engine-module-parameter full-load metrics for one trace's job.
+
+    The full-load (max workers) step of _trace_job_step_metrics, kept as the
+    reference point for the single-report comparison and the scorecard.
+    """
+    out = {}  # type: dict
+    for emp, per_step in _trace_job_step_metrics(trace, job).items():
+        if per_step:
+            out[emp] = per_step[max(per_step)]
     return out
 
 
@@ -308,48 +323,32 @@ def _geomean(values) -> float | None:
     return float(np.exp(np.mean(np.log(vals)))) if vals else None
 
 
-def write_scaling_comparison(args, output_dir) -> int:
-    """Write max_versus/benchmarks_summary.txt comparing every trace to the first one.
+def _render_traces_comparison(
+    args,
+    traces,
+    metrics,
+    cores,
+    sweep,
+    *,
+    scope_title: str,
+    columns_scope: str,
+    aggregate_scope: str,
+    ref_missing_reason: str,
+) -> str:
+    """Build the traces-comparison report text shared by the full-load and the
+    per-step reports.
 
-    In scaling mode the first trace on the command line is the reference. For each
-    benchmark type (engine module / variant) the report lists, at the full-load
-    (max workers) step: total performance and its ratio to the reference,
-    performance per physical core and its ratio, CPU package power and clock with
-    their ratios, and -- when the per-worker detail is available -- the
-    performance homogeneity (CoV%, lower is more uniform). Each trace also carries
-    its scaling linearity efficiency (full-load performance vs the ideal linear
-    projection from the first step). A closing aggregate section gives the
-    geometric mean of the ratios across all benchmarks. Returns 1 when written.
+    metrics maps {trace name: {(job, emp): metrics}} already reduced to the scope
+    being reported (full load, or one scaling step); a benchmark absent from a
+    trace's mapping is rendered as N/A. cores/sweep are per-trace. The scope_*
+    strings tailor the wording (heading suffix, the "Columns" note and the
+    aggregate header) and ref_missing_reason explains, in a per-section note, why
+    a benchmark the reference lacks is excluded from the aggregate. Returns the
+    whole report as text.
     """
-    traces = args.traces
-    if not traces:
-        return 0
-    ref = traces[0]
-
-    # Reference defines the benchmark order (job, then emp in encounter order).
-    jobs = []  # type: list[str]
-    for name in sorted(ref.bench_list()):
-        job = ref.bench(name).job_name()
-        if job not in jobs:
-            jobs.append(job)
-
-    # Per trace: {(job, emp): metrics}, physical-core count and worker sweep.
-    metrics = {}  # type: dict
-    cores = {}  # type: dict
-    sweep = {}  # type: dict
-    for trace in traces:
-        tm = {}  # type: dict
-        for job in jobs:
-            for emp, m in _trace_job_metrics(trace, job).items():
-                tm[(job, emp)] = m
-        metrics[trace.get_name()] = tm
-        cores[trace.get_name()] = trace.get_cpu()["physical_cores"]
-        allw = [trace.bench(n).workers() for n in trace.bench_list()]
-        sweep[trace.get_name()] = (min(allw), max(allw)) if allw else (0, 0)
-
-    ref_name = ref.get_name()
+    ref_name = traces[0].get_name()
     # Benchmark keys: those of the reference first (in job order), then any extra
-    # benchmark other traces ran but the reference did not (e.g. AVX-512 on a CPU
+    # benchmark other traces have but the reference does not (e.g. AVX-512 on a CPU
     # that lacks it). The latter are reported as N/A and excluded from the aggregate.
     ordered = list(metrics[ref_name].keys())
     for tm in metrics.values():
@@ -379,8 +378,8 @@ def write_scaling_comparison(args, output_dir) -> int:
     left = {"Trace"}
 
     def _bench_row(tname, i, m, ref_m):
-        """One table row. ref_m is None when the reference didn't run this
-        benchmark -- then every ratio is reported as N/A."""
+        """One table row. ref_m is None when the reference has no value for this
+        benchmark in this scope -- then every ratio is reported as N/A."""
         ct, cr = cores[tname], cores[ref_name]
         pc = m["perf"] / ct if ct else None
 
@@ -412,19 +411,19 @@ def write_scaling_comparison(args, output_dir) -> int:
     # Build every row first so column widths are shared across all blocks.
     blocks = []  # type: list
     for key in ordered:
-        ref_m = metrics[ref_name].get(key)  # None when the reference didn't run it
-        # Engine/unit come from the reference, or any trace that ran the benchmark.
+        ref_m = metrics[ref_name].get(key)  # None when the reference has no value here
+        # Engine/unit come from the reference, or any trace that has the benchmark.
         sample = ref_m or next(m for tm in metrics.values() if (m := tm.get(key)))
         rows = []
         for i, trace in enumerate(traces):
             tname = trace.get_name()
             m = metrics[tname].get(key)
             if m is None:
-                # Trace did not run (or fully skipped) this benchmark.
+                # Trace has no value for this benchmark in this scope.
                 rows.append({h: ("N/A" if h != "Trace" else tname + ("*" if i == 0 else "")) for h in headers})
                 continue
             rows.append(_bench_row(tname, i, m, ref_m))
-        note = None if ref_m else f"reference {ref_name} did not run this benchmark; excluded from the aggregate"
+        note = None if ref_m else f"reference {ref_name} {ref_missing_reason}; excluded from the aggregate"
         blocks.append((f"{sample['engine_module']}/{key[1]}", sample["unit"], rows, note))
 
     widths = {h: len(h) for h in headers}
@@ -441,7 +440,7 @@ def write_scaling_comparison(args, output_dir) -> int:
 
     sep = "  ".join("-" * widths[h] for h in headers)
 
-    lines = ["Traces comparison (scaling)", args.title, "", f"Reference : {ref_name}", ""]
+    lines = [f"Traces comparison (scaling){scope_title}", args.title, "", f"Reference : {ref_name}", ""]
     for i, trace in enumerate(traces):
         cpu = trace.get_cpu()
         tname = trace.get_name()
@@ -456,9 +455,9 @@ def write_scaling_comparison(args, output_dir) -> int:
     power_label = power_metrics[0] if len(power_metrics) == 1 else "the per-trace selected power metric"
 
     lines.append("")
-    lines.append("Columns (all values taken at full load = the max workers each trace scaled to):")
+    lines.append(f"Columns ({columns_scope}):")
     lines.append("  Trace     = trace logical name; '*' marks the reference (first trace).")
-    lines.append("  Wrk       = worker count at full load.")
+    lines.append("  Wrk       = worker count for this section.")
     lines.append("  Perf      = benchmark performance (unit shown per section); Δperf = ratio to the reference.")
     lines.append("  Perf/core = performance per physical CPU core (physical cores, not SMT threads or workers);")
     lines.append("              Δperf/core = ratio to the reference.")
@@ -470,8 +469,8 @@ def write_scaling_comparison(args, output_dir) -> int:
     lines.append("  CoV       = Coefficient of Variation (std-dev / mean, %) of the per-worker performance:")
     lines.append("              how evenly the workers performed (lower = more homogeneous, 0% = identical);")
     lines.append("              from the stress-ng per-worker detail, '-' when absent.")
-    lines.append("  Linearity = deviation from perfect linear scaling at full load, as in the scaling graphs:")
-    lines.append("              (full-load perf / ideal linear projection from the first step) - 100%.")
+    lines.append("  Linearity = deviation from perfect linear scaling, as in the scaling graphs:")
+    lines.append("              (perf / ideal linear projection from the first step) - 100%.")
     lines.append("              0% = perfectly linear, negative = scaling loss, positive = superlinear.")
     lines.append("")
 
@@ -484,7 +483,7 @@ def write_scaling_comparison(args, output_dir) -> int:
         lines += [_line(row) for row in rows]
         lines.append("")
 
-    # Aggregate: geometric mean of the full-load ratios across every benchmark,
+    # Aggregate: geometric mean of the ratios across every benchmark in scope,
     # plus the mean per-worker homogeneity.
     # Same column order as the per-benchmark tables (minus the absolute values,
     # which don't aggregate): Δperf, Δperf/core, Δpower, Perf/W, Δclock, ΔIPC, CoV, Linearity.
@@ -504,8 +503,8 @@ def write_scaling_comparison(args, output_dir) -> int:
         for key in ordered:
             m = metrics[tname].get(key)
             ref_m = metrics[ref_name].get(key)
-            # Skip benchmarks the reference didn't run (reported as N/A above and
-            # excluded from the aggregate).
+            # Skip benchmarks the reference has no value for (reported as N/A above
+            # and excluded from the aggregate).
             if not m or not ref_m:
                 continue
             if ref_m["perf"]:
@@ -546,18 +545,141 @@ def write_scaling_comparison(args, output_dir) -> int:
     def _agg_line(cells):
         return "  ".join(_agg_cell(h, cells[h]) for h in agg_headers)
 
-    lines.append("### Aggregate (geometric mean of full-load ratios across all benchmarks)")
+    lines.append(f"### Aggregate (geometric mean of {aggregate_scope} across all benchmarks)")
     lines.append(_agg_line({h: h for h in agg_headers}))
     lines.append("  ".join("-" * agg_widths[h] for h in agg_headers))
     lines += [_agg_line(row) for row in agg_rows]
 
-    text = "\n".join(line.rstrip() for line in lines) + "\n"
+    return "\n".join(line.rstrip() for line in lines) + "\n"
+
+
+def _comparison_jobs(ref) -> list:
+    """Benchmark job names in the reference's order (job, then emp encounter order)."""
+    jobs = []  # type: list[str]
+    for name in sorted(ref.bench_list()):
+        job = ref.bench(name).job_name()
+        if job not in jobs:
+            jobs.append(job)
+    return jobs
+
+
+def _trace_cores_and_sweep(trace) -> tuple:
+    """(physical core count, (min workers, max workers)) for one trace."""
+    allw = [trace.bench(n).workers() for n in trace.bench_list()]
+    return trace.get_cpu()["physical_cores"], ((min(allw), max(allw)) if allw else (0, 0))
+
+
+def write_scaling_comparison(args, output_dir) -> int:
+    """Write max_versus/benchmarks_summary.txt comparing every trace to the first one.
+
+    In scaling mode the first trace on the command line is the reference. For each
+    benchmark type (engine module / variant) the report lists, at the full-load
+    (max workers) step: total performance and its ratio to the reference,
+    performance per physical core and its ratio, CPU package power and clock with
+    their ratios, and -- when the per-worker detail is available -- the
+    performance homogeneity (CoV%, lower is more uniform). Each trace also carries
+    its scaling linearity efficiency (full-load performance vs the ideal linear
+    projection from the first step). A closing aggregate section gives the
+    geometric mean of the ratios across all benchmarks. Returns 1 when written.
+    """
+    traces = args.traces
+    if not traces:
+        return 0
+    jobs = _comparison_jobs(traces[0])
+
+    # Per trace: {(job, emp): full-load metrics}, physical-core count and sweep.
+    metrics = {}  # type: dict
+    cores = {}  # type: dict
+    sweep = {}  # type: dict
+    for trace in traces:
+        tm = {}  # type: dict
+        for job in jobs:
+            for emp, m in _trace_job_metrics(trace, job).items():
+                tm[(job, emp)] = m
+        metrics[trace.get_name()] = tm
+        cores[trace.get_name()], sweep[trace.get_name()] = _trace_cores_and_sweep(trace)
+
+    text = _render_traces_comparison(
+        args,
+        traces,
+        metrics,
+        cores,
+        sweep,
+        scope_title="",
+        columns_scope="all values taken at full load = the max workers each trace scaled to",
+        aggregate_scope="full-load ratios",
+        ref_missing_reason="did not run this benchmark",
+    )
     versus_dir = output_dir.joinpath("max_versus")
     versus_dir.mkdir(parents=True, exist_ok=True)
     summary_file = versus_dir.joinpath("benchmarks_summary.txt")
     summary_file.write_text(text)
     print(f"Performance scaling: wrote traces comparison to {summary_file}")
     return 1
+
+
+def write_scaling_step_comparisons(args, output_dir) -> int:
+    """Write one traces comparison per scaling step under scaling/.
+
+    Same format and columns as max_versus/benchmarks_summary.txt, but instead of a
+    single report at full load, one file per scaling step (worker count) --
+    scaling/summary/benchmarks_summary_<N>_workers.txt -- each comparing every
+    trace to the first (reference) using the values measured at that step. A trace
+    with no run at a given worker count is reported as N/A in that step's file.
+    Returns the number of files written (0 with fewer than two traces).
+    """
+    traces = args.traces
+    if len(traces) < 2:
+        return 0
+    jobs = _comparison_jobs(traces[0])
+
+    # Per trace: {(job, emp): {workers: metrics}}, physical-core count and sweep,
+    # plus the union of every worker count seen across traces/benchmarks.
+    step_metrics = {}  # type: dict
+    cores = {}  # type: dict
+    sweep = {}  # type: dict
+    all_steps = set()  # type: set
+    for trace in traces:
+        tm = {}  # type: dict
+        for job in jobs:
+            for emp, per_step in _trace_job_step_metrics(trace, job).items():
+                tm[(job, emp)] = per_step
+                all_steps.update(per_step)
+        step_metrics[trace.get_name()] = tm
+        cores[trace.get_name()], sweep[trace.get_name()] = _trace_cores_and_sweep(trace)
+
+    if not all_steps:
+        return 0
+
+    summary_dir = output_dir.joinpath("scaling", "summary")
+    summary_dir.mkdir(parents=True, exist_ok=True)
+    steps = sorted(all_steps)
+    # Zero-pad the worker count in the filename so the files list in sweep order.
+    width = len(str(steps[-1]))
+    written = 0
+    for n in steps:
+        # This step's metrics: {trace name: {(job, emp): metrics}}, keeping only the
+        # benchmarks each trace actually ran at n workers.
+        metrics = {
+            tname: {key: per_step[n] for key, per_step in tm.items() if n in per_step}
+            for tname, tm in step_metrics.items()
+        }
+        text = _render_traces_comparison(
+            args,
+            traces,
+            metrics,
+            cores,
+            sweep,
+            scope_title=f" - {n} workers",
+            columns_scope=f"all values taken at this scaling step = {n} workers",
+            aggregate_scope=f"ratios at {n} workers",
+            ref_missing_reason=f"has no result at {n} workers",
+        )
+        summary_file = summary_dir.joinpath(f"benchmarks_summary_{n:0{width}d}_workers.txt")
+        summary_file.write_text(text)
+        written += 1
+    print(f"Performance scaling: wrote {written} per-step traces comparison(s) to {summary_dir}")
+    return written
 
 
 def _aggregate_metrics(traces) -> tuple[list, str, dict]:
