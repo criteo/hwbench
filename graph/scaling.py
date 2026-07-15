@@ -1157,7 +1157,7 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                     # Traces are not ordered by growing cpu cores count
                     # We need to prepare the x_serie to be sorted this way
                     # The y_serie depends on the graph type
-                    for trace_name, color_name, e_color in zip(aggregated_perfs[perf], colors, cycle(e_colors)):
+                    for trace_name, color_name, e_color in zip(aggregated_perfs[perf], cycle(colors), cycle(e_colors)):
                         # Each trace can have different numbers of workers based on the hardware setup
                         # So let's consider the list of x values per trace.
                         order = np.argsort(workers[trace_name])
