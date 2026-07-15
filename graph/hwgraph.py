@@ -33,7 +33,12 @@ try:
     from graph.group import graph_group_env
     from graph.scaling import performance_scaling_graph
     from graph.trace import Event, Trace
-    from graph.versus import max_versus_graph, render_versus_scorecard, write_scaling_comparison
+    from graph.versus import (
+        max_versus_graph,
+        render_versus_scorecard,
+        write_scaling_comparison,
+        write_scaling_step_comparisons,
+    )
     from hwbench.bench.monitoring_structs import (
         PowerCategories,
     )
@@ -107,11 +112,13 @@ def _task_scaling(job, output_dir_str, traces_name):
 
 
 def _task_scaling_comparison(output_dir_str):
-    """Write the traces-comparison summary + exec-summary radar (reference = first trace)."""
+    """Write the traces-comparison summaries + exec-summary scorecard (reference = first trace)."""
     global _pool_args
     output_dir = pathlib.Path(output_dir_str)
     count = write_scaling_comparison(_pool_args, output_dir)
     count += render_versus_scorecard(_pool_args, output_dir)
+    # Same comparison, but one file per scaling step under scaling/.
+    count += write_scaling_step_comparisons(_pool_args, output_dir)
     return count
 
 
@@ -247,8 +254,9 @@ def _collect_plot_tasks(args, output_dir):
             print(f"Max versus: rendering {len(jobs)} jobs")
             for job in jobs:
                 tasks.append((_task_versus, job, str(output_dir), traces_name))
-            # One text report comparing every trace to the first (reference),
-            # covering all benchmarks at once (max_versus/benchmarks_summary.txt).
+            # Text reports comparing every trace to the first (reference): one at
+            # full load covering all benchmarks (max_versus/benchmarks_summary.txt)
+            # plus one per scaling step under scaling/.
             tasks.append((_task_scaling_comparison, str(output_dir)))
         else:
             print("Max versus: skipped as at least 2 traces are necessary for this mode")
