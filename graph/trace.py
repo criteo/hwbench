@@ -227,7 +227,7 @@ class Bench:
         d = self.get_trace().get_dmi()
         c = self.get_trace().get_cpu()
         k = self.get_trace().get_kernel()
-        title = f"System: {d['serial']} {d['product']} Bios v{d['bios']['version']} Linux Kernel {k['release']}"
+        title = f"System:{d['serial']} {d['product']} Bios:v{d['bios']['version']} Linux Kernel:{k['release']}"
         title += (
             f"\nProcessor: {c.get('sockets', 1)}x {c['model']} - "
             f"{c['physical_cores']} physical cores and {c['numa_domains']} NUMA domains"
@@ -299,6 +299,9 @@ class Bench:
         cpu_clock=None,
         cpu_clock_err=None,
         cpu_clock_cores=None,
+        ipc=None,
+        ipc_err=None,
+        ipc_cores=None,
         index=None,
     ) -> None:
         """Extract performance and power efficiency"""
@@ -422,6 +425,40 @@ class Bench:
                         cpu_clock_err.append(metric)
                     else:
                         cpu_clock_err[index] = metric
+
+            # Same approach as cpu_clock but for the CPU IPC (may be absent).
+            if ipc is not None:
+                try:
+                    mm = self.get_monitoring_metric(MonitoringContextKeys.IPC)
+                except KeyError:
+                    mm = {}
+                mean_values = []
+                min_values = []
+                max_values = []
+                for ipc_metric in mm:
+                    if ipc_metric != "CPU":
+                        continue
+                    # All cores by default, or only the pinned ones when ipc_cores is set.
+                    for core in mm[ipc_metric]:
+                        if ipc_cores is not None and core not in ipc_cores:
+                            continue
+                        min_values.append(min(mm[ipc_metric][core].get_min()))
+                        mean_values.append(mean(mm[ipc_metric][core].get_mean()))
+                        max_values.append(max(mm[ipc_metric][core].get_max()))
+                if mean_values:
+                    min_value = min(min_values)
+                    mean_value = mean(mean_values)
+                    max_value = max(max_values)
+                    if index is None:
+                        ipc.append(mean_value)
+                    else:
+                        ipc[index] = mean_value
+                    if ipc_err is not None:
+                        metric = (mean_value - min_value, max_value - mean_value)
+                        if index is None:
+                            ipc_err.append(metric)
+                        else:
+                            ipc_err[index] = metric
 
         except ValueError:
             fatal(f"No {perf} found in {self.get_bench_name()}")
@@ -579,6 +616,27 @@ class Trace:
 
     def get_sockets_count(self):
         return self.get_cpu()["sockets"]
+
+    def get_numa_nodes(self) -> dict[int, list[int]]:
+        """Return the {numa domain: [logical cores]} mapping.
+
+        Returns an empty dict for older traces that did not record it.
+        """
+        numa_nodes = self.get_cpu().get("numa_nodes")
+        if not numa_nodes:
+            return {}
+        # JSON object keys are strings; expose them as ints.
+        return {int(node): cores for node, cores in numa_nodes.items()}
+
+    def get_numa_distances(self) -> dict[int, list[int]]:
+        """Return the NUMA distance matrix ({source node: [latency to each node]}).
+
+        Returns an empty dict for older traces that did not record it.
+        """
+        distances = self.get_cpu().get("numa_distances")
+        if not distances:
+            return {}
+        return {int(node): latencies for node, latencies in distances.items()}
 
     def get_physical_cores(self):
         return self.get_cpu()["physical_cores"]

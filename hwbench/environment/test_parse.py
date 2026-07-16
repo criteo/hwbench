@@ -141,6 +141,13 @@ class TestParseCPU:
         assert test_target.count() == 8
         for domain in range(0, test_target.count()):
             assert len(test_target.get_cores(domain)) == 16
+        # Full 8x8 distance matrix: local node is 10, node 0<->1 is 11, rest 12
+        distances = test_target.get_distances()
+        assert len(distances) == 8
+        assert distances[0] == [10, 11, 12, 12, 12, 12, 12, 12]
+        for domain in range(0, test_target.count()):
+            assert len(distances[domain]) == 8
+            assert distances[domain][domain] == 10
 
     def test_parsing_numa_20_domains_with_llc(self):
         d = pathlib.Path("./hwbench/tests/parsing/numa/20domainsllc")
@@ -160,6 +167,12 @@ class TestParseCPU:
         assert test_target.get_numa_nodes_in_quadrant(1) == [5, 6, 7, 8, 9]
         assert test_target.get_numa_nodes_in_quadrant(2) == [10, 11, 12, 13, 14]
         assert test_target.get_numa_nodes_in_quadrant(3) == [15, 16, 17, 18, 19]
+        # Full 20x20 distance matrix with a local distance of 10 on the diagonal
+        distances = test_target.get_distances()
+        assert len(distances) == 20
+        for domain in range(0, test_target.count()):
+            assert len(distances[domain]) == 20
+            assert distances[domain][domain] == 10
 
 
 class TestParseIpmitool:

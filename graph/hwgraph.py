@@ -19,11 +19,26 @@ from hwbench.bench.monitoring_structs import (
 try:
     from graph.chassis import graph_chassis
     from graph.common import fatal
-    from graph.graph import generic_graph, init_matplotlib, yerr_graph
+    from graph.graph import (
+        cpu_distribution_graph,
+        generic_graph,
+        init_matplotlib,
+        numa_aggregated_components,
+        numa_distance_heatmap,
+        numa_distribution_graph,
+        numa_performance_heatmap,
+        write_benchmarks_summary,
+        yerr_graph,
+    )
     from graph.group import graph_group_env
-    from graph.scaling import smp_scaling_graph
+    from graph.scaling import performance_scaling_graph
     from graph.trace import Event, Trace
-    from graph.versus import max_versus_graph
+    from graph.versus import (
+        max_versus_graph,
+        render_versus_scorecard,
+        write_scaling_comparison,
+        write_scaling_step_comparisons,
+    )
     from hwbench.bench.monitoring_structs import (
         PowerCategories,
     )
@@ -66,9 +81,16 @@ def _task_env_bench(trace_idx, bench_name, output_dir_str):
     count += graph_monitoring_metrics(args, trace, bench_name, output_dir)
     count += graph_fans(args, trace, bench_name, output_dir)
     count += graph_cpu(args, trace, bench_name, output_dir)
+    count += graph_cpu_numa(args, trace, bench_name, output_dir)
     count += graph_pdu(args, trace, bench_name, output_dir)
     count += graph_thermal(args, trace, bench_name, output_dir)
     return count
+
+
+def _task_numa_distance(trace_idx, output_dir_str):
+    """Generate the per-host NUMA distance heatmap (once per trace)."""
+    global _pool_args
+    return numa_distance_heatmap(_pool_args, pathlib.Path(output_dir_str), _pool_args.traces[trace_idx])
 
 
 def _task_chassis(bench_name, output_dir_str):
@@ -84,9 +106,20 @@ def _task_group(bench_name, output_dir_str):
 
 
 def _task_scaling(job, output_dir_str, traces_name):
-    """Generate SMP scaling graphs for a job."""
+    """Generate performance scaling graphs for a job."""
     global _pool_args
-    return smp_scaling_graph(_pool_args, pathlib.Path(output_dir_str), job, traces_name)
+    return performance_scaling_graph(_pool_args, pathlib.Path(output_dir_str), job, traces_name)
+
+
+def _task_scaling_comparison(output_dir_str):
+    """Write the traces-comparison summaries + exec-summary scorecard (reference = first trace)."""
+    global _pool_args
+    output_dir = pathlib.Path(output_dir_str)
+    count = write_scaling_comparison(_pool_args, output_dir)
+    count += render_versus_scorecard(_pool_args, output_dir)
+    # Same comparison, but one file per scaling step under scaling/.
+    count += write_scaling_step_comparisons(_pool_args, output_dir)
+    return count
 
 
 def _task_versus(job, output_dir_str, traces_name):
@@ -185,6 +218,8 @@ def _collect_environment_tasks(args, output_dir):
         print(f"environment: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})")
         for bench_name in sorted(benches):
             tasks.append((_task_env_bench, trace_idx, bench_name, str(host_output_dir)))
+        # One NUMA distance heatmap per host, not tied to any benchmark.
+        tasks.append((_task_numa_distance, trace_idx, str(host_output_dir)))
 
     return tasks
 
@@ -204,10 +239,10 @@ def _collect_plot_tasks(args, output_dir):
     traces_name = [trace.get_name() for trace in args.traces]
 
     if not args.no_scaling:
-        print("SMP scaling: disabled by user")
+        print("Performance scaling: disabled by user")
     else:
         # Let's generate the scaling graphs
-        print(f"SMP scaling: rendering {len(jobs)} jobs")
+        print(f"Performance scaling: rendering {len(jobs)} jobs")
         for job in jobs:
             tasks.append((_task_scaling, job, str(output_dir), traces_name))
 
@@ -219,6 +254,10 @@ def _collect_plot_tasks(args, output_dir):
             print(f"Max versus: rendering {len(jobs)} jobs")
             for job in jobs:
                 tasks.append((_task_versus, job, str(output_dir), traces_name))
+            # Text reports comparing every trace to the first (reference): one at
+            # full load covering all benchmarks (max_versus/benchmarks_summary.txt)
+            # plus one per scaling step under scaling/.
+            tasks.append((_task_scaling_comparison, str(output_dir)))
         else:
             print("Max versus: skipped as at least 2 traces are necessary for this mode")
 
@@ -332,6 +371,14 @@ def render_traces(args: argparse.Namespace):
     compare_traces(args)
     generate_stats(args)
 
+    # Write the per-host benchmarks summary text table before rendering any graph,
+    # so the key to what each benchmark tests is available up front. args.no_env is
+    # True when environmental graphs are enabled (--no-env, store_false, disables).
+    if args.no_env:
+        host_output_dir = output_dir.joinpath("environment", "by_host")
+        for trace in args.traces:
+            write_benchmarks_summary(args, host_output_dir, trace)
+
     # Collect all graph generation tasks
     # (This also performs validation and creates output directories)
     tasks = []
@@ -369,7 +416,10 @@ def generate_stats(args) -> None:
                             for metric in metrics:
                                 # If a metric has no measure, let's ignore it
                                 if len(metrics[metric].get_samples()) == 0:
-                                    print(f"{bench_name}: No samples found in {metric_name}.{metric}, ignoring metric.")
+                                    if args.verbose:
+                                        print(
+                                            f"{bench_name}: No samples found in {metric_name}.{metric}, ignoring metric."
+                                        )
                                     continue
                                 else:
                                     max_values = metrics[metric].get_max()
@@ -384,7 +434,8 @@ def generate_stats(args) -> None:
     for metric in [MonitoringContextKeys.PowerConsumption]:
         print(f"{str(metric):}")
         for metric_name in PowerConsumptionContextKeys:
-            if max_power[metric_name]:
+            # Only report a max when data was actually found (a bench was recorded).
+            if max_power[metric_name][0]:
                 print(
                     f"    {metric_name} max : {max_power[metric_name][1]:.2f} {bench.get_metric_unit(metric)} in {max_power[metric_name][0]}"
                 )
@@ -422,7 +473,8 @@ def graph_monitoring_metrics(args, trace: Trace, bench_name: str, output_dir) ->
             for metric in metrics:
                 # If a metric has no measure, let's ignore it
                 if len(metrics[metric].get_samples()) == 0:
-                    print(f"{bench_name}: No samples found in {metric_name}.{metric}, ignoring metric.")
+                    if args.verbose:
+                        print(f"{bench_name}: No samples found in {metric_name}.{metric}, ignoring metric.")
                 else:
                     try:
                         rendered_graphs += yerr_graph(
@@ -495,7 +547,90 @@ def graph_cpu(args, trace: Trace, bench_name: str, output_dir) -> int:
                         dir_suffix=dir_suffix,
                         title_note=title_note,
                     )
+                # Per-core metrics also get a steady-state distribution (violin + box).
+                if filter == "Core":
+                    rendered_graphs += cpu_distribution_graph(
+                        args,
+                        output_dir,
+                        bench,
+                        metric,
+                        graph_name,
+                        dir_suffix=dir_suffix,
+                        names=names,
+                        title_note=title_note,
+                    )
 
+    return rendered_graphs
+
+
+def graph_cpu_numa(args, trace: Trace, bench_name: str, output_dir) -> int:
+    """Render per-core CPU metrics aggregated by NUMA domain (one line per domain).
+
+    Requires the NUMA topology in the trace; older traces without it are skipped.
+    """
+    numa_nodes = trace.get_numa_nodes()
+    if not numa_nodes:
+        print(f"{bench_name}: no NUMA metric present in trace file, skipping.")
+        return 0
+    rendered_graphs = 0
+    bench = trace.bench(bench_name)
+    numa_graphs = {
+        "Core frequency per NUMA domain": MonitoringContextKeys.Freq,
+        "Core IPC per NUMA domain": MonitoringContextKeys.IPC,
+        "CPU Core power consumption per NUMA domain": MonitoringContextKeys.PowerConsumption,
+    }
+    # Metrics that also get a per-domain x time heatmap next to their line graph.
+    heatmap_metrics = {MonitoringContextKeys.Freq, MonitoringContextKeys.IPC}
+    # Like the per-core graphs: one rendering averaging every core of each domain
+    # (all_numa), and one restricted to the cores pinned during this job, grouped
+    # by the domains those pinned cores belong to (pinned_numa).
+    pinned_core_names = bench.pinned_core_names()
+    # Each rendering is a dir suffix, the pinned-core filter, and a title note.
+    renderings = [("all_numa", None, None)]  # type: list
+    if pinned_core_names:
+        pinned_note = f"View limited to the pinned logical cores {bench.pinned_cpu_range()}"
+        renderings.append(("pinned_numa", pinned_core_names, pinned_note))
+
+    for graph_name, metric in numa_graphs.items():
+        for dir_suffix, pinned_cores, title_note in renderings:
+            components = numa_aggregated_components(bench, metric, numa_nodes, pinned_cores)
+            if not components:
+                continue
+            rendered_graphs += generic_graph(
+                args,
+                output_dir,
+                bench,
+                metric,
+                graph_name,
+                dir_suffix=dir_suffix,
+                components=components,
+                title_note=title_note,
+            )
+            # Companion heatmap: NUMA domain x time, color = per-domain value.
+            if metric in heatmap_metrics:
+                rendered_graphs += numa_performance_heatmap(
+                    args,
+                    output_dir,
+                    bench,
+                    metric,
+                    graph_name,
+                    numa_nodes,
+                    dir_suffix=dir_suffix,
+                    pinned_cores=pinned_cores,
+                    title_note=title_note,
+                )
+            # Companion violin: one steady-state distribution per NUMA domain.
+            rendered_graphs += numa_distribution_graph(
+                args,
+                output_dir,
+                bench,
+                metric,
+                graph_name,
+                numa_nodes,
+                dir_suffix=dir_suffix,
+                pinned_cores=pinned_cores,
+                title_note=title_note,
+            )
     return rendered_graphs
 
 
@@ -559,7 +694,7 @@ power_metric : the name of a power metric, from the monitoring, to be used for '
         required=True,
     )
     parser_graph.add_argument("--no-env", help="Disable environmental graphs", action="store_false")
-    parser_graph.add_argument("--no-scaling", help="Disable 'SMP scaling' graphs", action="store_false")
+    parser_graph.add_argument("--no-scaling", help="Disable 'Performance scaling' graphs", action="store_false")
     parser_graph.add_argument("--no-versus", help="Disable 'max versus' graphs", action="store_false")
     parser_graph.add_argument("--no-stats", help="Disable stats", action="store_false")
     parser_graph.add_argument("--title", help="Title of the graph")
