@@ -33,9 +33,18 @@ class External(ABC):
     def parse_version(self, stdout: bytes, stderr: bytes) -> str:
         return ""
 
+    @property
+    def output_basename(self) -> str:
+        """Basename of this run's output files (stdout/stderr/version-*).
+
+        Defaults to the command name; benchmarks override it to stay unique
+        across the many runs a single job expands into (see ExternalBench).
+        """
+        return self.name
+
     def _write_output(self, name: str, content: bytes):
         if len(content) > 0:
-            self.out_dir.joinpath(f"{self.name}-{name}").write_bytes(content)
+            self.out_dir.joinpath(f"{self.output_basename}-{name}").write_bytes(content)
 
     def run(self):
         """Returns the output of parse_cmd (a json-able type)"""

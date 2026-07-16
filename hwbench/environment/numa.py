@@ -40,6 +40,9 @@ class NUMA(External):
             numa_distance = re.findall(r"(\d+): (.*)", line)
             if numa_distance:
                 for source, latencies in numa_distance:
+                    # Keep the full distance matrix (source node -> latency to each
+                    # node); useful to reason about node locality/topology.
+                    self.distances[int(source)] = [int(latency) for latency in latencies.split()]
                     quadrant = self.__is_numa_node_in_quadrant(source)
                     numa_dest = -1
                     for latency in latencies.split():
@@ -65,12 +68,17 @@ class NUMA(External):
         super().__init__(out_dir)
         self.numa_domains: dict[int, list[int]] = {}
         self.quadrants: list[list[int]] = []
+        self.distances: dict[int, list[int]] = {}
 
     def count(self) -> int:
         return len(self.numa_domains)
 
     def get_cores(self, numa_domain) -> list[int]:
         return self.numa_domains.get(numa_domain, [])
+
+    def get_distances(self) -> dict[int, list[int]]:
+        """Return the NUMA distance matrix: {source node: [latency to each node]}."""
+        return self.distances
 
     def quadrants_count(self) -> int:
         return len(self.quadrants)

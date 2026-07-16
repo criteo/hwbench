@@ -1,0 +1,11 @@
+stress-ng: info:  [205686] setting to a 15 secs run per stressor
+stress-ng: info:  [205686] dispatching hogs: 640 cpu
+stress-ng: info:  [205686] note: boost is disabled and this may impact top performance; setting /sys/devices/system/cpu/cpufreq/boost to 1 may improve performance.
+stress-ng: metrc: [205686] stressor       bogo ops real time  usr time  sys time   bogo ops/s     bogo ops/s CPU used per       RSS Max
+stress-ng: metrc: [205686]                           (secs)    (secs)    (secs)   (real time) (usr+sys time) instance (%)          (KB)
+stress-ng: metrc: [205686] cpu             3257280     14.95   9544.59      0.38    217929.51         341.26        99.78             0
+stress-ng: info:  [205686] skipped: 0
+stress-ng: info:  [205686] passed: 640: cpu (640)
+stress-ng: info:  [205686] failed: 0
+stress-ng: info:  [205686] metrics untrustworthy: 0
+stress-ng: info:  [205686] successful run completed in 15.02 secs
