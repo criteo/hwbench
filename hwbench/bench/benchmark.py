@@ -80,6 +80,16 @@ class ExternalBench(External):
         self.engine_module = engine_module
         self.skip = False
 
+    @property
+    def output_basename(self) -> str:
+        # Prefix the output files with the per-benchmark id used as the
+        # results.json key (get_name_with_position()). A single job expands via
+        # the scaling matrix (hosting_cpu_cores_scaling / stressor_range) into
+        # many runs that share the same engine `name`; without this prefix they
+        # all write into the same out_dir under the same filenames and only the
+        # last iteration survives.
+        return f"{self.parameters.get_name_with_position()}_{self.name}"
+
     def get_taskset(self, args):
         # Let's pin the CPU if needed
         if self.parameters.get_pinned_cpu():
