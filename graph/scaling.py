@@ -213,6 +213,42 @@ def render_numa_delta_heatmaps(args, temp_outdir, job: str, emp: str) -> int:
     return rendered
 
 
+def _scaling_step_labels(step_benches: list, default_xlabel: str) -> tuple[list, str]:
+    """Pick meaningful X labels for a per-step distribution graph.
+
+    Each violin/box is one scaling step. Normally a step is identified by its
+    worker count. A per-core sweep (hosting_cpu_cores_scaling=iterate) keeps the
+    worker count constant across steps and instead pins a different single core
+    each time, so the worker labels would all be identical and meaningless; in
+    that case identify each step by its pinned core and relabel the axis.
+    """
+    workers = [bench.workers() for bench in step_benches]
+    pins = [bench.cpu_pin() for bench in step_benches]
+    if len(set(workers)) == 1 and all(len(pin) == 1 for pin in pins):
+        return [pin[0] for pin in pins], "Pinned core (scaling step)"
+    return workers, default_xlabel
+
+
+def _set_scaling_xticks(ax, positions: list, labels: list, max_labels: int = 24) -> None:
+    """Set the X ticks, thinning to at most ``max_labels`` evenly-spaced entries.
+
+    A many-step sweep (e.g. one step per core) has far too many steps to label
+    every violin; drawing a tick per step renders as an unreadable smear. Keep at
+    most ``max_labels`` evenly-spaced labels, always including the first and last
+    step so the range stays anchored.
+    """
+    count = len(positions)
+    if count <= max_labels:
+        shown = list(range(count))
+    else:
+        step = (count + max_labels - 1) // max_labels
+        shown = list(range(0, count, step))
+        if shown[-1] != count - 1:
+            shown.append(count - 1)
+    ax.set_xticks([positions[i] for i in shown])
+    ax.set_xticklabels([str(labels[i]) for i in shown])
+
+
 def render_scaling_distributions(args, temp_outdir, job: str, emp: str, has_ipc: bool) -> int:
     """Render the per-core metric distribution across the scaling steps.
 
@@ -252,7 +288,7 @@ def render_scaling_distributions(args, temp_outdir, job: str, emp: str, has_ipc:
         for dirname, context, unit, item_title in metrics:
             for dir_suffix, use_pinned, note in variants:
                 data = []  # type: list
-                labels = []  # type: list
+                step_benches = []  # type: list
                 metric_unit = ""
                 for bench in sorted(benches, key=lambda b: b.workers()):
                     names = bench.pinned_core_names() if use_pinned else None
@@ -260,17 +296,18 @@ def render_scaling_distributions(args, temp_outdir, job: str, emp: str, has_ipc:
                     if not components:
                         continue
                     data.append([float(np.mean(component.get_mean())) for component in components])
-                    labels.append(bench.workers())
+                    step_benches.append(bench)
                     metric_unit = bench.get_metric_unit(context)
                 if not data:
                     continue
+                labels, xlabel = _scaling_step_labels(step_benches, "Workers (scaling step)")
 
                 title = f'{args.title}\n\n{item_title} per-core distribution scaling via "{job}" benchmark job\n\n Stressor: '
                 title += f"{benches[0].get_title_engine_name()} for {benches[0].duration()} seconds"
                 graph = Graph(
                     args,
                     title,
-                    "Workers (scaling step)",
+                    xlabel,
                     unit or metric_unit,
                     temp_outdir.joinpath(dirname, dir_suffix),
                     f"scaling_{dirname}_distribution_{trace_slug}_{engine}",
@@ -294,8 +331,7 @@ def render_scaling_distributions(args, temp_outdir, job: str, emp: str, has_ipc:
                     meanprops=dict(color="tab:green", linestyle="--"),
                     flierprops=dict(marker=".", markersize=3, alpha=0.4),
                 )
-                ax.set_xticks(positions)
-                ax.set_xticklabels(labels)
+                _set_scaling_xticks(ax, positions, labels)
                 # Same two-tier Y grid as the linearity-deviation graph (solid
                 # major lines plus a fainter dashed midline between the major Y
                 # ticks), but no X grid: vertical lines would cut through the
@@ -372,13 +408,13 @@ def render_scaling_perf_distributions(args, temp_outdir, job: str, emp: str) -> 
         per_metric = {}  # type: dict[str, dict[str, list]]
         for bench in benches:
             for name, values in _bench_detail_metrics(bench).items():
-                series = per_metric.setdefault(name, {"data": [], "labels": []})
+                series = per_metric.setdefault(name, {"data": [], "benches": []})
                 series["data"].append(values)
-                series["labels"].append(bench.workers())
+                series["benches"].append(bench)
 
         for metric_name, series in per_metric.items():
             data = series["data"]
-            labels = series["labels"]
+            labels, xlabel = _scaling_step_labels(series["benches"], "Workers (scaling step)")
             clean_metric = metric_name.replace(" ", "_").replace("/", "")
             title = (
                 f'{args.title}\n\nPerformance per worker distribution scaling via "{job}" benchmark job\n\n Stressor: '
@@ -390,7 +426,7 @@ def render_scaling_perf_distributions(args, temp_outdir, job: str, emp: str) -> 
             graph = Graph(
                 args,
                 title,
-                "Workers (scaling step)",
+                xlabel,
                 metric_name,
                 temp_outdir.joinpath("perf", "per_worker_distribution"),
                 f"scaling_perf_distribution_{clean_metric}_{trace_slug}_{engine}",
@@ -413,8 +449,7 @@ def render_scaling_perf_distributions(args, temp_outdir, job: str, emp: str) -> 
                 meanprops=dict(color="tab:green", linestyle="--"),
                 flierprops=dict(marker=".", markersize=3, alpha=0.4),
             )
-            ax.set_xticks(positions)
-            ax.set_xticklabels(labels)
+            _set_scaling_xticks(ax, positions, labels)
             # Same two-tier Y grid as the linearity-deviation graph (solid major
             # lines plus a fainter dashed midline between the major Y ticks), but
             # no X grid: vertical lines would cut through the violins and hide
@@ -511,7 +546,9 @@ def render_scaling_linearity_deviation(args, temp_outdir, job: str, emp: str) ->
         # ratio under "Workers" when it is constant across the sweep.
         ratios = [bench.workers() / (len(bench.cpu_pin()) or bench.workers()) for bench in rows]
         xlabel = "Workers"
-        if stdev(ratios) == 0:
+        # A single-step sweep has one ratio, which is trivially constant;
+        # stdev() needs at least two points, so short-circuit that case.
+        if ratios and (len(ratios) < 2 or stdev(ratios) == 0):
             cores = "core" if ratios[0] == 1 else "cores"
             xlabel += f"\n({int(ratios[0])} logical {cores} per worker)"
         graph = Graph(
@@ -942,9 +979,28 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
         perf_list, unit = benches[emp]["metrics"]
 
         # If we can't detect several bench on the same emp, it means there was no scaling
-        if len(args.traces[0].get_benches_by_job_per_emp(job)[emp]["bench"]) == 1:
+        emp_benches = args.traces[0].get_benches_by_job_per_emp(job)[emp]["bench"]
+        if len(emp_benches) == 1:
             print(f"Performance scaling: No scaling detected on job '{job}', skipping graph")
             continue
+
+        # The per-worker line graphs plot performance as a function of the worker
+        # count, keeping a single (deduplicated) point per distinct worker count.
+        # They are only meaningful when the worker count both varies and uniquely
+        # identifies each benchmark. A per-core sweep (hosting_cpu_cores_scaling=
+        # iterate) pins one core per run with a constant worker count, so every bench
+        # collapses onto the same X point while the aggregated data keeps one entry
+        # per bench - the two diverge and the error-bar arrays no longer match the
+        # plotted points. Skip only those line graphs in that case; the per-core
+        # distribution graphs below do not use the workers axis and stay valid.
+        worker_counts = [bench.workers() for bench in emp_benches]
+        render_workers_scaling = len(set(worker_counts)) == len(worker_counts)
+        if not render_workers_scaling:
+            print(
+                f"Performance scaling: job '{job}' does not scale on the workers axis "
+                "(worker counts are not unique, e.g. a per-core sweep), skipping the "
+                "per-worker line graphs"
+            )
 
         # IPC is not always collected; only aggregate/render it when present.
         try:
@@ -953,7 +1009,8 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
             has_ipc = False
 
         # For each metric we need to plot
-        for perf in perf_list:
+        # (only needed to feed the per-worker line graphs; skipped for per-core sweeps)
+        for perf in perf_list if render_workers_scaling else []:
             if perf not in aggregated_perfs:
                 aggregated_perfs[perf] = {}
                 aggregated_perfs_watt[perf] = {}
@@ -1030,7 +1087,9 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                         any_pinned = True
 
         # Let's render all graphs types (IPC only when the trace collected it)
-        for graph_type in GRAPH_TYPES + (["cpu_ipc"] if has_ipc else []):
+        # These are the per-worker line graphs; skipped for per-core sweeps where the
+        # workers axis does not vary (see render_workers_scaling above).
+        for graph_type in (GRAPH_TYPES + (["cpu_ipc"] if has_ipc else [])) if render_workers_scaling else []:
             # Let's render each performance graph
             graph_type_title = ""
 
@@ -1105,7 +1164,11 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                     title += f"{bench.get_title_engine_name()} for {bench.duration()} seconds"
                     xlabel = "Workers"
                     # If we have a constant ratio between cores & workers, let's report them under the Xaxis
-                    if stdev(logical_core_per_worker) == 0:
+                    # A single-step sweep has one ratio, which is trivially constant;
+                    # stdev() needs at least two points, so short-circuit that case.
+                    if logical_core_per_worker and (
+                        len(logical_core_per_worker) < 2 or stdev(logical_core_per_worker) == 0
+                    ):
                         cores = "cores"
                         if logical_core_per_worker[0] == 1:
                             cores = "core"
@@ -1169,7 +1232,11 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                             graph.get_ax().errorbar(
                                 x_serie,
                                 y_serie,
-                                yerr=np.array(v_err_source[perf][trace_name]).T,
+                                # Reorder the error pairs with the same worker-count
+                                # ordering applied to x_serie/y_serie before transposing
+                                # to matplotlib's (2, n) shape, so each bar stays attached
+                                # to its own point.
+                                yerr=np.array(v_err_source[perf][trace_name])[order].T,
                                 ecolor=e_color,
                                 color=color_name,
                                 capsize=4,

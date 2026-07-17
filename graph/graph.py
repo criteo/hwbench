@@ -583,7 +583,7 @@ def write_benchmarks_summary(args, output_dir, trace) -> int:
         ),
     ]
     label_width = max(len(label) for label, _ in info)
-    lines = [f"Benchmarks summary - {trace.get_name()}", args.title, ""]
+    lines = [f"Benchmarks summary - {trace.get_name()}", args.title or "", ""]
     lines += [f"{label:<{label_width}} : {value}" for label, value in info]
 
     if numa_nodes:
