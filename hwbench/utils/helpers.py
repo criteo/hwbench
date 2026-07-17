@@ -50,28 +50,22 @@ def cpu_list_to_range(cpu_list: list[int]) -> str:
 
     It was made specifically for formatting a CPU cores list
     """
-    cpu_list.sort()
+    if not cpu_list:
+        return ""
+
+    cpu_list = sorted(cpu_list)
     output: list[str] = []
-    previous_entry: int | None = cpu_list[0]
+    start = previous = cpu_list[0]
 
-    for i in range(1, len(cpu_list)):
-        current_entry = cpu_list[i]
-        is_immediately_next = current_entry - 1 == cpu_list[i - 1]
-        needs_compression = cpu_list[i - 1] != previous_entry
+    for current in cpu_list[1:]:
+        if current == previous + 1:
+            previous = current
+            continue
+        output.append(str(start) if start == previous else f"{start}-{previous}")
+        start = previous = current
 
-        if not is_immediately_next:
-            if needs_compression:
-                output.append(f"{previous_entry}-{cpu_list[i - 1]}")
-            else:
-                output.append(str(previous_entry))
-            previous_entry = current_entry
-
-        # Specifically handle the last entry in the list
-        if i == len(cpu_list) - 1:
-            if cpu_list[i] != previous_entry:
-                output.append(f"{previous_entry}-{current_entry}")
-            else:
-                output.append(str(current_entry))
+    # Flush the last pending range
+    output.append(str(start) if start == previous else f"{start}-{previous}")
 
     return ", ".join(output)
 
