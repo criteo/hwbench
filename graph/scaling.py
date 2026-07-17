@@ -682,11 +682,18 @@ def _numa_scaling_variants(benches: list) -> list:
 
 
 def _collect_numa_step_domain_values(benches: list, context, numa_nodes, use_pinned: bool) -> dict:
-    """Return {worker count: {domain: [per-core steady-state values]}} for one metric/variant."""
+    """Return {worker count: {domain: [per-core steady-state values]}} for one metric/variant.
+
+    Benches sharing a worker count are merged into the same step (their per-domain
+    values are accumulated) rather than overwriting each other. A per-core sweep
+    (hosting_cpu_cores_scaling=iterate) runs many single-core benchmarks all at the
+    same worker count; without merging, only the last bench would survive and the
+    pinned view would collapse to that one bench's single NUMA domain.
+    """
     per_step = {}  # type: dict[int, dict[int, list]]
     for bench in benches:
         pinned = bench.pinned_core_names() if use_pinned else None
-        step_domains = {}
+        step_domains = per_step.setdefault(bench.workers(), {})
         for node in sorted(numa_nodes):
             core_names = {f"Core_{cpu}" for cpu in numa_nodes[node]}
             if pinned is not None:
@@ -696,10 +703,9 @@ def _collect_numa_step_domain_values(benches: list, context, numa_nodes, use_pin
             cores = bench.get_all_metrics(context, names=core_names)
             if not cores:
                 continue
-            step_domains[node] = [float(np.mean(core.get_mean())) for core in cores]
-        if step_domains:
-            per_step[bench.workers()] = step_domains
-    return per_step
+            step_domains.setdefault(node, []).extend(float(np.mean(core.get_mean())) for core in cores)
+    # Drop any worker count that ended up contributing no domain data at all.
+    return {step: domains for step, domains in per_step.items() if domains}
 
 
 def _numa_scaling_cores_by_domain(numa_nodes, domains: list, benches: list, use_pinned: bool) -> dict:
