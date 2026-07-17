@@ -1,8 +1,14 @@
+from __future__ import annotations
+
 import pathlib
+from typing import TYPE_CHECKING
 
 from hwbench.environment.hardware import BaseHardware
 
 from .monitoring import Monitoring
+
+if TYPE_CHECKING:
+    from .benchmark import Benchmark
 
 
 class BenchmarkParameters:
@@ -38,6 +44,9 @@ class BenchmarkParameters:
         self.skip_method = skip_method
         self.sync_start = sync_start
         self.custom_parameters: dict[str, str] = kwargs
+        # Set once the owning Benchmark is built (see set_benchmark); until then
+        # get_name_with_position() falls back to the bare job name.
+        self.benchmark: Benchmark | None = None
 
     def get_benchmark(self):
         return self.benchmark

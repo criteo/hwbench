@@ -35,9 +35,10 @@ class ThreadWithReturnValue(Thread):
 class Monitoring:
     """A class to perform monitoring."""
 
-    def __init__(self, out_dir, config, hardware: BaseHardware):
+    def __init__(self, out_dir, config, hardware: BaseHardware, verbose: bool = False):
         self.config = config
         self.out_dir = out_dir
+        self.verbose = verbose
         self.hardware = hardware
         self.vendor = hardware.get_vendor()
         self.metrics = MonitoringData()
@@ -114,7 +115,8 @@ class Monitoring:
         if self.turbostat:
             # Reinitialize turbostat metrics after reset (fast, doesn't run turbostat)
             self.turbostat.reinitialize_metrics()
-            print("Monitoring/turbostat: starting background monitoring with EOL-triggered sampling")
+            if self.verbose:
+                print("Monitoring/turbostat: starting background monitoring with EOL-triggered sampling")
             self.turbostat.start_background()
 
     def predown(self):
@@ -124,7 +126,8 @@ class Monitoring:
         the background turbostat process.
         """
         if self.turbostat:
-            print("Monitoring/turbostat: stopping background monitoring")
+            if self.verbose:
+                print("Monitoring/turbostat: stopping background monitoring")
             self.turbostat.stop_background()
 
     def __monitor_bmc(self):
