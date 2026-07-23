@@ -389,12 +389,10 @@ def numa_cores_legend(ax, node_cores):
     )
 
 
-def _render_numa_heatmap(graph, nodes, matrix, diagonal_values=None, extra_legend=None) -> None:
+def _render_numa_heatmap(graph, nodes, matrix, extra_legend=None) -> None:
     """Draw a NUMA domain x domain distance matrix onto graph.
 
-    Cells are colored/annotated by the inter-domain distance. When
-    diagonal_values is given, the diagonal (whose self-distance is constant and
-    uninformative) instead shows the per-domain value in bold.
+    Cells are colored/annotated by the inter-domain distance.
     """
     ax = graph.get_ax()
     image = ax.imshow(matrix, cmap="viridis")
@@ -408,10 +406,7 @@ def _render_numa_heatmap(graph, nodes, matrix, diagonal_values=None, extra_legen
     threshold = (matrix.max() + matrix.min()) / 2
     for i in range(len(nodes)):
         for j in range(len(nodes)):
-            if i == j and diagonal_values is not None:
-                text, weight = f"{diagonal_values[i]:.0f}", "bold"
-            else:
-                text, weight = f"{matrix[i, j]:.0f}", "normal"
+            text, weight = f"{matrix[i, j]:.0f}", "normal"
             ax.text(
                 j,
                 i,
