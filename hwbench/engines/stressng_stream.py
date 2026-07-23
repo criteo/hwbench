@@ -23,7 +23,7 @@ class StressNGStream(StressNG):
             str(self.parameters.get_runtime()),
             "--metrics",
             "--yaml",
-            f"{self.name}.yaml",
+            f"{self.output_basename}.yaml",
             "--stream",
             str(self.parameters.get_engine_instances_count()),
         ]
