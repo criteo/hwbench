@@ -57,6 +57,23 @@ class TestNuma(tbc.TestCommon):
         for index, numa_node in enumerate(cumulative_numa_nodes):
             assert self.get_bench_parameters(9 + index).get_pinned_cpu() == numa_node
 
+    def test_numa_dump(self):
+        """The CPU dump exposes the NUMA topology: node->cores and distance matrix."""
+        dump = self.hw.get_cpu().dump()
+        # NUMA node -> logical cores mapping
+        assert dump["numa_domains"] == 8
+        assert set(dump["numa_nodes"].keys()) == set(range(8))
+        assert dump["numa_nodes"][0] == self.NUMA0
+        assert dump["numa_nodes"][1] == self.NUMA1
+        assert dump["numa_nodes"][7] == self.NUMA7
+        # NUMA distance matrix: 8x8, local node is 10, node 0<->1 is 11, rest 12
+        distances = dump["numa_distances"]
+        assert len(distances) == 8
+        assert distances[0] == [10, 11, 12, 12, 12, 12, 12, 12]
+        for domain in range(8):
+            assert len(distances[domain]) == 8
+            assert distances[domain][domain] == 10
+
     def test_numa(self):
         """Check numa syntax"""
         assert self.hw.logical_core_count() == 128
