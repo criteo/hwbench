@@ -262,6 +262,9 @@ class Config:
                     )
                     if message:
                         h.fatal(f"Job {section_name}: keyword {directive}: {message}")
+                    # An engine custom parameter has no validate_<directive> in
+                    # config_syntax; move on to the next directive instead of
+                    # returning, which would leave the remaining ones unvalidated.
                     continue
                 else:
                     h.fatal(f"Job {section_name}: invalid keyword {directive}")
@@ -279,35 +282,4 @@ class Config:
 
     def parse_range(self, input: str) -> list[Any]:
         """A function to parse the range syntax from a configuration directive."""
-        result: list[int | str | list[int]] = []
-        # FIXME: implement 'all'
-        # group1 group2...
-        groups_count = len(input.split(" "))
-
-        for group in input.split(" "):
-            # syntax: <x>,<y>
-            current_group: list[Any] = []
-            # Let's remove the [] if any
-            for item in group.split(","):
-                # syntax: <x>-<y>
-                if "-" in item:
-                    ranges = item.split("-")
-                    if len(ranges) != 2:
-                        h.fatal(f"Invalid range '{item}' in '{input}': a range is <first>-<last>")
-                    if not ranges[0].isnumeric() or not ranges[1].isnumeric():
-                        h.fatal(f"Non-numeric range {ranges} in '{input}'")
-                    first, last = int(ranges[0]), int(ranges[1])
-                    if first > last:
-                        h.fatal(f"Reversed range '{item}' in '{input}': write the smaller value first, {last}-{first}")
-                    current_group.extend(range(first, last + 1))
-                else:
-                    # syntax: <x>
-                    item_group: str | int = item
-                    if item.isnumeric():
-                        item_group = int(item)
-                    current_group.append(item_group)
-            if groups_count > 1:
-                result.append(current_group)
-            else:
-                result = current_group
-        return result
+        return h.parse_range(input)

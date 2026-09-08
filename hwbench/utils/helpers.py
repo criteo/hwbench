@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import datetime
 import logging
+import os
 import sys
 from datetime import timedelta
 from shutil import which
-from typing import NoReturn
+from typing import Any, NoReturn
 
 
 class MissingBinary(Exception):
@@ -14,6 +15,23 @@ class MissingBinary(Exception):
 
     def __str__(self):
         return f"Binary {self.binary} is not available on the system"
+
+
+class MissingHardware(Exception):
+    """A device an engine needs is not present on the system."""
+
+    def __init__(self, reason):
+        self.reason = reason
+
+    def __str__(self):
+        return str(self.reason)
+
+
+def english_env() -> dict[str, str]:
+    """The environment to run a tool in, so its output does not depend on the locale."""
+    env = os.environ.copy()
+    env["LC_ALL"] = "C"
+    return env
 
 
 def fatal(message) -> NoReturn:
@@ -82,3 +100,45 @@ def versiontuple(v: str) -> tuple[int, ...]:
     Convert a version string to a tuple of integers that allows very basic version comparisons
     """
     return tuple(map(int, (v.split("."))))
+
+
+def parse_range(input: str) -> list[Any]:
+    """Parse the range syntax used by configuration directives.
+
+    Space-separated items are groups, and a multi-group input returns a list of
+    lists. Inside a group, ',' separates items and 'x-y' expands to an inclusive
+    numeric range. Numeric items are converted to int, everything else is kept
+    as a string.
+    """
+    result: list[int | str | list[int]] = []
+    # FIXME: implement 'all'
+    # group1 group2...
+    groups_count = len(input.split(" "))
+
+    for group in input.split(" "):
+        # syntax: <x>,<y>
+        current_group: list[Any] = []
+        # Let's remove the [] if any
+        for item in group.split(","):
+            # syntax: <x>-<y>
+            if "-" in item:
+                ranges = item.split("-")
+                if len(ranges) != 2:
+                    fatal(f"Invalid range '{item}' in '{input}': a range is <first>-<last>")
+                if not ranges[0].isnumeric() or not ranges[1].isnumeric():
+                    fatal(f"Non-numeric range {ranges} in '{input}'")
+                first, last = int(ranges[0]), int(ranges[1])
+                if first > last:
+                    fatal(f"Reversed range '{item}' in '{input}': write the smaller value first, {last}-{first}")
+                current_group.extend(range(first, last + 1))
+            else:
+                # syntax: <x>
+                item_group: str | int = item
+                if item.isnumeric():
+                    item_group = int(item)
+                current_group.append(item_group)
+        if groups_count > 1:
+            result.append(current_group)
+        else:
+            result = current_group
+    return result

@@ -5,6 +5,7 @@ import pytest
 
 from hwbench.bench import test_benchmarks_common as tbc
 from hwbench.environment.mock import MockHardware
+from hwbench.utils import helpers
 
 
 class TestParseConfig(tbc.TestCommon):
@@ -83,3 +84,12 @@ class TestParseConfig(tbc.TestCommon):
         for invalid in ["1-2-3", "1-8-2", "7-4", "0-3 7-4", "1-"]:
             with pytest.raises(SystemExit):
                 self.get_jobs_config().parse_range(invalid)
+
+    def test_range_list_input_helper(self):
+        """Check the shared range parser, used by engines without a Config object."""
+        assert helpers.parse_range("1") == [1]
+        assert helpers.parse_range("0-3") == [0, 1, 2, 3]
+        assert helpers.parse_range("0 0,1 0-3") == [[0], [0, 1], [0, 1, 2, 3]]
+        assert helpers.parse_range("fp32,bf16") == ["fp32", "bf16"]
+        with pytest.raises(SystemExit):
+            helpers.parse_range("bad-range")
