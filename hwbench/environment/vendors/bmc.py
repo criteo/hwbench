@@ -3,10 +3,14 @@ from __future__ import annotations
 import functools
 import os.path
 import pathlib
+from collections.abc import Iterator
 from typing import Any
 
 from hwbench.bench.monitoring_structs import (
+    GPU_DESTINATIONS,
     FansContext,
+    Frequency,
+    MonitoringContexts,
     MonitorMetric,
     Power,
     PowerCategories,
@@ -14,11 +18,38 @@ from hwbench.bench.monitoring_structs import (
     PowerSuppliesContext,
     Temperature,
     ThermalContext,
+    UnitMetric,
+    Utilization,
 )
 from hwbench.utils import helpers as h
 from hwbench.utils.external import External
 
 from .monitoring_device import MonitoringDevice
+
+# Redfish PhysicalContext values denoting an accelerator, see
+# https://redfish.dmtf.org/schemas/v1/PhysicalContext.json#/definitions/PhysicalContext
+GPU_PHYSICAL_CONTEXTS = ("GPU", "Accelerator", "GPUSubsystem")
+
+# Where each quantity belongs in the monitoring contexts, shared with the
+# all-smi monitoring so the two report into the same places.
+# Redfish ProcessorMetrics property -> quantity
+PROCESSOR_METRICS: dict[str, type[UnitMetric]] = {
+    "TemperatureCelsius": Temperature,
+    "ConsumedPowerWatt": Power,
+    "BandwidthPercent": Utilization,
+    "OperatingSpeedMHz": Frequency,
+}
+
+# Prefix of the accelerator metrics read from the BMC, deliberately distinct
+# from the GPU_<index> ones all-smi reports: both numberings are unrelated.
+BMC_GPU_PREFIX = "BMC_GPU_"
+
+# Redfish Sensor ReadingType -> quantity
+SENSOR_READING_TYPES: dict[str, type[UnitMetric]] = {
+    "Temperature": Temperature,
+    "Power": Power,
+    "Frequency": Frequency,
+}
 
 
 class BMC(MonitoringDevice, External):
@@ -27,6 +58,10 @@ class BMC(MonitoringDevice, External):
         External.__init__(self, out_dir)
         self.bmc = {}  # type: dict[str, str]
         self.bmc_section = None
+        # Whether '$expand' proved usable on a given collection. Remembered so a
+        # service that advertises it without honouring it is probed once, not on
+        # every monitoring iteration.
+        self.expand_works = {}  # type: dict[str, bool]
 
         # For testing purposes, vendor can be None
         if self.vendor:
@@ -82,16 +117,105 @@ class BMC(MonitoringDevice, External):
         bmc_password = self.vendor.monitoring_config_file.get(sections[0], "password")
         return super().connect_redfish(bmc_username, bmc_password, self.get_url())
 
+    def _get_members(self, url: str, log_failure=True) -> list[str]:
+        """Return the item urls of a Redfish collection."""
+        collection = self.get_redfish_url(url, log_failure)
+        if not isinstance(collection, dict):
+            return []
+        return [
+            member["@odata.id"]
+            for member in collection.get("Members", [])
+            if isinstance(member, dict) and isinstance(member.get("@odata.id"), str)
+        ]
+
+    @functools.cache
+    def _supports_expand(self) -> bool:
+        """Return True if the service advertises the '$expand=.' query parameter.
+
+        'NoLinks' is the capability for '.', which expands the subordinate
+        resources only; 'ExpandAll' is the broader '*'. Advertised in the service
+        root, see the ExpandQuery object of the Redfish specification.
+        """
+        root = self.get_redfish_url("/redfish/v1", False)
+        if not isinstance(root, dict):
+            return False
+        expand = root.get("ProtocolFeaturesSupported", {}).get("ExpandQuery", {})
+        if not isinstance(expand, dict):
+            return False
+        return bool(expand.get("NoLinks") or expand.get("ExpandAll"))
+
+    def _expanded_members(self, url: str) -> list[dict] | None:
+        """Return the member bodies of a collection in a single request.
+
+        '$expand' inlines every member of a collection, turning one request per
+        member into one request for the whole collection. It is an optional
+        feature, and it is unevenly implemented: a service may not advertise it,
+        may reject the request, or may accept it and answer unexpanded. So the
+        answer is validated rather than trusted, and None is returned whenever
+        anything is off, meaning the caller must walk the members itself.
+        """
+        if not self._supports_expand() or self.expand_works.get(url) is False:
+            return None
+
+        separator = "&" if "?" in url else "?"
+        collection = self.get_redfish_url(f"{url}{separator}$expand=.", False)
+        members = collection.get("Members") if isinstance(collection, dict) else None
+        # A member is only expanded if it carries more than its own reference. An
+        # empty list proves nothing -- a service dropping the members it does not
+        # want to expand answers exactly that -- so it is not taken for an
+        # expansion, or the caller would read no member at all.
+        expanded = (
+            isinstance(members, list)
+            and bool(members)
+            and all(isinstance(member, dict) and set(member) > {"@odata.id"} for member in members)
+        )
+        self.expand_works[url] = expanded
+        return members if expanded else None
+
+    def _member_bodies(self, collection_url: str, wanted: set[str] | None = None) -> Iterator[tuple[str, dict]]:
+        """Yield (url, body) of the members of a collection.
+
+        <wanted> restricts the walk to those members, which is what re-reading a
+        few known items of a large collection needs; None yields every member.
+        Both go through '$expand' when the service honours it, and fall back to
+        one request per member when it does not.
+        """
+        expanded = self._expanded_members(collection_url)
+        if expanded is not None:
+            for body in expanded:
+                url = body.get("@odata.id", "")
+                if wanted is None or url in wanted:
+                    yield url, body
+            return
+
+        for url in wanted if wanted is not None else self._get_members(collection_url, False):
+            body = self.get_redfish_url(url, False)
+            if isinstance(body, dict):
+                yield url, body
+
     @functools.cache
     def _get_chassis(self) -> list[str]:
         # List all available Chassis item URLs
-        chlist = self.get_redfish_url("/redfish/v1/Chassis")
-        chassis = []
-        if isinstance(chlist, dict) and "Members" in chlist and isinstance(chlist["Members"], list):
-            for member in chlist["Members"]:
-                if "@odata.id" in member and isinstance(member["@odata.id"], str):
-                    chassis.append(member["@odata.id"])
-        return chassis
+        return self._get_members("/redfish/v1/Chassis")
+
+    @functools.cache
+    def _get_systems(self) -> list[str]:
+        # List all available ComputerSystem item URLs
+        return self._get_members("/redfish/v1/Systems", False)
+
+    def _collection_items(self, parents: list[str], item: str) -> Iterator[tuple[str, str, dict]]:
+        """Walk the <item> collection of each parent resource.
+
+        Yields (collection url, item url, item body); the collection url lets a
+        caller re-read those items later in a single expanded request.
+        """
+        for parent_url in parents:
+            parent = self.get_redfish_url(parent_url, False)
+            collection_url = self._chassis_item_url(parent, item)
+            if not collection_url:
+                continue
+            for url, body in self._member_bodies(collection_url):
+                yield collection_url, url, body
 
     def _chassis_item_url(self, chassis, name: str) -> str:
         if isinstance(chassis, dict) and name in chassis:
@@ -199,6 +323,104 @@ class BMC(MonitoringDevice, External):
                 power_supplies.BMC[psu["Name"]] = Power(psu_name)
             power_supplies.BMC[psu["Name"]].add(psu["PowerInputWatts"])
         return power_supplies
+
+    @functools.cache
+    def _get_gpu_processors(self) -> dict[str, str]:
+        """Auto-detect the accelerators exposed as Processors.
+
+        Returns the ProcessorMetrics url of each GPU, keyed by its Redfish id.
+        Note that Redfish ids do not have to match the CUDA numbering.
+        """
+        gpus = {}
+        for _, url, processor in self._collection_items(self._get_systems(), "Processors"):
+            if processor.get("ProcessorType") != "GPU":
+                continue
+            # 'Metrics' is the current name, 'ProcessorMetrics' the older one.
+            metrics_url = self._chassis_item_url(processor, "Metrics") or self._chassis_item_url(
+                processor, "ProcessorMetrics"
+            )
+            if metrics_url:
+                gpus[str(processor.get("Id", os.path.basename(url.rstrip("/"))))] = metrics_url
+        return gpus
+
+    @functools.cache
+    def _get_gpu_sensors(self) -> dict[str, set[str]]:
+        """Auto-detect the Chassis Sensors reported in a GPU physical context.
+
+        Returns the GPU sensor urls grouped by the collection holding them, so
+        that reading them back costs one request per collection when the service
+        supports '$expand'.
+
+        Only consulted when no accelerator was found as a Processor: without
+        expansion this walk GETs every sensor of every chassis to read its
+        PhysicalContext, which is by far the most expensive detection hwbench
+        does, and a BMC exposing ProcessorMetrics already describes the same GPUs
+        more precisely.
+        """
+        if self._get_gpu_processors():
+            return {}
+        sensors: dict[str, set[str]] = {}
+        for collection_url, url, sensor in self._collection_items(self._get_chassis(), "Sensors"):
+            if sensor.get("PhysicalContext") in GPU_PHYSICAL_CONTEXTS:
+                # A set: _member_bodies() tests every member of the collection
+                # against it on every monitoring iteration.
+                sensors.setdefault(collection_url, set()).add(url)
+        return sensors
+
+    def read_gpus(self, contexts: MonitoringContexts) -> MonitoringContexts:
+        """Return the accelerator metrics from the server.
+
+        Only the vendor neutral DMTF resources are used: the Processors of a
+        ComputerSystem whose ProcessorType is GPU, and, when the BMC exposes
+        none, the Chassis Sensors reported in a GPU physical context. A BMC
+        exposing neither simply reports nothing, which is why this is not fatal:
+        the all-smi monitoring covers the same quantities from the host side.
+
+        Metrics are named BMC_GPU_<redfish id> to stay distinct from the
+        GPU_<index> ones all-smi reports, as both numberings are unrelated.
+        """
+
+        def record(name: str, quantity: type[UnitMetric], value) -> None:
+            destination = GPU_DESTINATIONS[quantity](contexts)
+            if name not in destination:
+                destination[name] = quantity(name)
+            destination[name].add(float(value))
+
+        for gpu_id, metrics_url in self._get_gpu_processors().items():
+            metrics = self.get_redfish_url(metrics_url, False)
+            if not isinstance(metrics, dict):
+                continue
+            name = f"{BMC_GPU_PREFIX}{gpu_id}"
+            for key, quantity in PROCESSOR_METRICS.items():
+                if metrics.get(key) is not None:
+                    record(name, quantity, metrics[key])
+
+        for collection_url, sensor_urls in self._get_gpu_sensors().items():
+            for sensor_url, sensor in self._member_bodies(collection_url, sensor_urls):
+                # Voltage, Current, Rotational, ... have nothing to be correlated
+                # with today: ignore them rather than reporting a unitless value.
+                reading_type = SENSOR_READING_TYPES.get(sensor.get("ReadingType", ""))
+                if reading_type is None or sensor.get("Reading") is None:
+                    continue
+                sensor_name = sensor.get("Name", os.path.basename(sensor_url.rstrip("/")))
+                name = f"{BMC_GPU_PREFIX}{sensor_name}"
+                record(name, reading_type, sensor["Reading"])
+
+        return contexts
+
+    def get_gpus_count(self) -> int:
+        """Return the number of accelerators the BMC describes.
+
+        Built from the same cached discovery read_gpus() walks, so it counts
+        what the BMC exposes rather than what landed in the contexts, which also
+        hold the components the host side monitoring registered.
+        """
+        sensors = {sensor for sensors in self._get_gpu_sensors().values() for sensor in sensors}
+        return len(self._get_gpu_processors()) + len(sensors)
+
+    def has_gpus(self) -> bool:
+        """Return True if the BMC exposes any accelerator metric."""
+        return bool(self._get_gpu_processors() or self._get_gpu_sensors())
 
     def detect(self):
         """Detect monitoring device"""

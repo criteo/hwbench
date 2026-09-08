@@ -108,6 +108,13 @@ class Monitoring:
         self.vendor.get_bmc().read_power_supplies(self.metrics.contexts.PowerSupplies)
         check_monitoring("BMC", MonitoringContextKeys.PowerSupplies, self.metrics.contexts.PowerSupplies)
 
+        # - checking if the bmc exposes accelerator metrics
+        # Not going through check_monitoring() either: most BMCs expose none,
+        # and the all-smi monitoring covers the same quantities host side.
+        self.vendor.get_bmc().read_gpus(self.metrics.contexts)
+        if bmc.has_gpus():
+            print(f"Monitoring/BMC: GPU metrics: {bmc.get_gpus_count()}xGPU")
+
         # - checking if pdu monitoring works
         if pdus:
             for pdu in pdus:
@@ -162,6 +169,9 @@ class Monitoring:
         self.vendor.get_bmc().read_fans(self.metrics.contexts.Fans)
         self.vendor.get_bmc().read_power_consumption(self.metrics.contexts.PowerConsumption)
         self.vendor.get_bmc().read_power_supplies(self.metrics.contexts.PowerSupplies)
+        # A no-op on a BMC exposing no accelerator: both collections it walks are
+        # cached and empty there.
+        self.vendor.get_bmc().read_gpus(self.metrics.contexts)
 
     def __monitor_pdus(self):
         """Monitor the PDU metrics"""
