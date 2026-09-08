@@ -1,4 +1,4 @@
-"""The scaling shared by selected_cpus_scaling and stressor_range_scaling."""
+"""The scaling shared by selected_cpus_scaling, selected_gpus_scaling and stressor_range_scaling."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 # The values each keyword accepts: plus_<x> stands for plus_1, plus_2...
 SCALINGS = {
     "selected_cpus_scaling": ["iterate", "none", "plus_<x>", "curve"],
+    "selected_gpus_scaling": ["none", "iterate", "plus_<x>", "curve"],
     "stressor_range_scaling": ["plus_<x>", "curve"],
 }
 
@@ -17,15 +18,17 @@ SCALINGS = {
 def scaling(keyword: str, value: str, items: list[Any], cpu: CPU | None = None) -> list[list[int]]:
     """Return, for each step of a scaling, the indexes of the items it takes.
 
-    The items are the groups of selected_cpus, or the counts of stressor_range, in the
-    order they are written. A CPU step merges its groups, a stressor step runs the count of
-    its last index.
+    The items are the groups of selected_cpus or selected_gpus, or the counts of
+    stressor_range, in the order they are written. A CPU or GPU step merges its groups, a
+    stressor step runs the count of its last index.
     - iterate: one item per step
     - none: all the items in a single step
     - plus_<x>: the first x items, then the first 2x items... the item count must be a
       multiple of x
     - curve: the first 1, 2, 3, 4, 8, 16 then +16 items, and all of them; with the cpu, the
       last group of each socket too, so a full socket is measured before the next one
+
+    plus_<x> and curve need groups of cpus, while each GPU of a flat list is an item.
 
     A single item gives a single step, whatever the value. Raises ValueError with the
     message to report when the value is unknown for this keyword, or impossible for these
@@ -42,14 +45,16 @@ def scaling(keyword: str, value: str, items: list[Any], cpu: CPU | None = None) 
         raise ValueError("invalid syntax, nothing usable was found in the value")
     if count == 1:
         return [[0]]
-    groups = keyword == "selected_cpus_scaling" and isinstance(items[0], list)
+    # The selection the keyword scales, None for stressor_range
+    selection = {"selected_cpus_scaling": "cpus", "selected_gpus_scaling": "gpus"}.get(keyword)
+    groups = selection is not None and isinstance(items[0], list)
     if groups and any(not item for item in items):
-        raise ValueError("invalid syntax, a group of cpus is empty, like a reversed range 7-4")
+        raise ValueError(f"invalid syntax, a group of {selection} is empty, like a reversed range 7-4")
     if value == "iterate":
         return [[index] for index in range(count)]
     if value == "none":
         if groups:
-            raise ValueError("none needs a single group of cpus, got several")
+            raise ValueError(f"none needs a single group of {selection}, got several")
         return [list(range(count))]
     if keyword == "selected_cpus_scaling" and not groups:
         raise ValueError(f"{value} needs groups to accumulate, like selected_cpus=each-core")
@@ -61,7 +66,7 @@ def scaling(keyword: str, value: str, items: list[Any], cpu: CPU | None = None) 
         steps = set(range(int(increment), count + 1, int(increment)))
     else:
         steps = {1, 2, 3, 4, 8, 16, count} | set(range(32, count + 1, 16))
-        if groups and cpu:
+        if groups and cpu and selection == "cpus":
             steps |= {
                 index + 1
                 for index in range(count - 1)

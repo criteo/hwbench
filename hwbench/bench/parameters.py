@@ -28,11 +28,14 @@ class BenchmarkParameters:
         monitoring: Monitoring,
         skip_method: str,
         sync_start: str,
+        *,
+        pinned_gpus: list[int] | None = None,
         **kwargs,
     ):
         self.out_dir = out_dir
         self.job_name = job_name
         self.pinned_cpu = pinned_cpu
+        self.pinned_gpus = pinned_gpus or []
         self.engine_instances = engine_instances
         self.engine_module_parameter = engine_module_parameter
         self.engine_module_parameter_base = engine_module_parameter_base
@@ -58,6 +61,10 @@ class BenchmarkParameters:
         if self.pinned_cpu == "none":
             return ""
         return self.pinned_cpu
+
+    def get_pinned_gpus(self) -> list[int]:
+        """Return the GPUs the benchmark loads, empty for a benchmark loading none."""
+        return self.pinned_gpus
 
     def get_name(self) -> str:
         return self.job_name

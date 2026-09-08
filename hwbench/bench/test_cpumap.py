@@ -228,3 +228,44 @@ class TestCpuMap(tbc.TestCommon):
             "  [...]  benchmarks not pinned on this socket are not shown"
             not in cpumap.render(self.benches).splitlines()
         )
+
+
+class TestGpuMap(tbc.TestCommon):
+    def test_map(self):
+        """A GPU job is mapped on its GPUs, not on the CPU cores it is not pinned on."""
+        gpus = tbc.fake_gpus(4)
+        self.load_mocked_hardware(
+            cpucores="./hwbench/tests/parsing/cpu_cores/v2321",
+            cpuinfo="./hwbench/tests/parsing/cpu_info/v2321",
+            numa="./hwbench/tests/parsing/numa/8domainsllc",
+        )
+        self.jobs_config = config.Config("./hwbench/config/pantheon.conf")
+        self.jobs_config.set_hardware(self.hw)
+        self.benches = benchmarks.Benchmarks(".", self.jobs_config, dry_run=True)
+        self.benches.set_hardware(self.hw)
+        self.parse_jobs_config(gpus=gpus)
+        with (
+            patch("hwbench.environment.hardware.list_gpus", return_value=gpus),
+            patch("hwbench.bench.cpumap.list_gpus", return_value=gpus),
+        ):
+            lines = cpumap.render(self.benches).splitlines()
+
+        # No CPU map, hence no CPU legend
+        assert lines[:6] == [
+            "gpu map legend: one column per GPU",
+            "  #  the GPU is loaded",
+            "  .  the GPU is idle",
+            "",
+            "AMD EPYC 8534P 64-Core Processor: 1 socket(s), 64 physical cores, 128 logical cpus, "
+            "8 NUMA domains, 4 quadrants",
+            "GPUs: 4x Fake GPU",
+        ]
+        start = lines.index("engine_module_parameter=memory_read") + 2
+        assert lines[start : start + 5] == [
+            "gpu              0123  stressors  engine/module/parameter               gpus",
+            "gpu_ladder_5     #...          1  pantheon/memory/memory_read           0",
+            "gpu_ladder_6     ##..          2  pantheon/memory/memory_read           0-1",
+            "gpu_ladder_7     ###.          3  pantheon/memory/memory_read           0-2",
+            "gpu_ladder_8     ####          4  pantheon/memory/memory_read           0-3",
+        ]
+        assert "burn_two_gpus_3  .#..          1  pantheon/core/fp64_virus              1" in lines

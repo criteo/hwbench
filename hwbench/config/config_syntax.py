@@ -1,6 +1,7 @@
 import re
 
 from hwbench.bench import scaling
+from hwbench.bench.engine import Resource
 
 from . import config_helpers
 
@@ -114,6 +115,28 @@ def validate_selected_cpus_scaling(config, section_name, value) -> str:
         scaling.scaling(
             "selected_cpus_scaling", value, config.get_selected_cpus(section_name), config.get_hardware().get_cpu()
         )
+    except ValueError as error:
+        return str(error)
+    return ""
+
+
+def validate_selected_gpus(config, section_name, value) -> str:
+    """Validate the selected gpus syntax."""
+    # Space separated groups of GPUs, ranges of GPUs or 'all', separated by commas
+    for group in value.lower().split(" "):
+        for item in group.split(","):
+            if item != "all" and not re.fullmatch(r"[0-9]+(-[0-9]+)?", item):
+                return f"Unhandled string '{item}' in selected gpus"
+    return ""
+
+
+def validate_selected_gpus_scaling(config, section_name, value) -> str:
+    """Validate the selected gpus scaling syntax, against the gpu groups of the job."""
+    # Every job inherits the default, only the ones loading the GPUs have them resolved
+    if not config.uses(section_name, Resource.GPU):
+        return ""
+    try:
+        scaling.scaling("selected_gpus_scaling", value, config.get_selected_gpus(section_name))
     except ValueError as error:
         return str(error)
     return ""

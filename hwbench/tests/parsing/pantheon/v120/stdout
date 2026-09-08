@@ -1,0 +1,25 @@
+[2026-09-08 18:27:40] [PANTHEON] Detected Platform: CUDA. Kernel build cache is current at /root/.cache/pantheongpu/builds/1.2.0/cuda-sm90; skipping compilation.
+
+============================================================
+PANTHEON SYSTEM DETECTED (v1.2.0)
+============================================================
+GPU 0: [NVIDIA] NVIDIA H100 80GB HBM3 | 81559 MB VRAM | UUID: GPU-1a2b3c4d-0000-0000-0000-000000000000
+GPU 1: [NVIDIA] NVIDIA H100 80GB HBM3 | 81559 MB VRAM | UUID: GPU-1a2b3c4d-0000-0000-0000-000000000001
+GPU 2: [NVIDIA] NVIDIA H100 80GB HBM3 | 81559 MB VRAM | UUID: GPU-1a2b3c4d-0000-0000-0000-000000000002
+============================================================
+
+[2026-09-08 18:27:40] [PANTHEON] Run ID: 20260908-182740
+[2026-09-08 18:27:40] [PANTHEON] --- STARTING TEST: TENSOR_VIRUS ---
+[2026-09-08 18:27:40] [PANTHEON] Collecting RAS and PCIe reliability snapshots for tensor_virus...
+[2026-09-08 18:27:40] [PANTHEON] Launching tensor_virus on GPU 0 (Alloc: 99% VRAM)...
+[2026-09-08 18:27:40] [PANTHEON] Launching tensor_virus on GPU 1 (Alloc: 99% VRAM)...
+[2026-09-08 18:27:40] [PANTHEON] Launching tensor_virus on GPU 2 (Alloc: 99% VRAM)...
+[2026-09-08 18:28:10] [PANTHEON] Running FP16 Tensor Core State Verification Pass...
+[2026-09-08 18:28:10] Verification: PASS (0 errors)
+[2026-09-08 18:28:10] [RESULT] GPU 0 | 989.512 TFLOPS | 71.4C Avg / 78C Max | 698.21W Avg / 712W Max
+[2026-09-08 18:28:10] [RESULT] GPU 1 | 812.338 TFLOPS | 84.9C Avg / 90C Max | 640.07W Avg / 700W Max
+[2026-09-08 18:28:10] [ERROR] GPU 2 tensor_virus failed at launch: CUDA error: out of memory
+[2026-09-08 18:28:10] [PANTHEON] Incremental report saved: database/pantheon_report_20260908-182740_0001_tensor_virus_gpu0.json
+[2026-09-08 18:28:13] [PANTHEON] --- FINISHED TEST: TENSOR_VIRUS ---
+[2026-09-08 18:28:13] [PANTHEON] Generating Database Snapshot...
+[2026-09-08 18:28:13] [PANTHEON] Snapshot saved to: database/pantheon_report_20260908-182740.json

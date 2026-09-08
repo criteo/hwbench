@@ -4,7 +4,8 @@ import datetime
 import time
 from datetime import timedelta
 
-from hwbench.bench.engine import EngineModuleBase
+from hwbench.bench.engine import EngineModuleBase, Resource
+from hwbench.environment import all_smi
 from hwbench.environment.hardware import BaseHardware
 from hwbench.utils import helpers as h
 
@@ -12,6 +13,11 @@ from . import scaling
 from .benchmark import Benchmark
 from .monitoring import Monitoring
 from .parameters import BenchmarkParameters
+
+
+def merge(items: list) -> list[int]:
+    """Merge the groups, or the single items, of a scaling step: one shared by two groups is kept once."""
+    return sorted({value for item in items for value in (item if isinstance(item, list) else [item])})
 
 
 class Benchmarks:
@@ -57,16 +63,25 @@ class Benchmarks:
         return self.jobs_config
 
     def check_requirements(self) -> list[Exception]:
-        """Check if all the binaries required by the benchmarks are present."""
+        """Check if all the binaries and devices required by the benchmarks are present."""
         problems = []
+        checked = set()
         # For each job in the jobs_config file
         for job in self.jobs_config.get_sections():
             # Get the engine for this job
-            _, engine_module = self.get_engine(job)
+            engine_name, engine_module = self.get_engine(job)
+            # Once per engine: checking the version runs the binary
+            if engine_name in checked:
+                continue
+            checked.add(engine_name)
             if hasattr(engine_module.engine.__class__, "check_requirements") and callable(
                 engine_module.engine.check_requirements
             ):
                 problems += engine_module.engine.check_requirements()
+        # all-smi is what finds the GPUs: mandatory to load them, merely used to
+        # inventory and monitor them otherwise
+        if any(self.jobs_config.uses(job, Resource.GPU) for job in self.jobs_config.get_sections()):
+            problems += all_smi.check_requirements()
         return problems
 
     def parse_jobs_config(self, validate_parameters=True):
@@ -92,16 +107,23 @@ class Benchmarks:
             selected_cpus = self.jobs_config.get_selected_cpus(job)
             selected_cpus_scaling = self.jobs_config.get_selected_cpus_scaling(job)
 
+            # The GPUs each benchmark loads, one list per step of the gpu scaling
+            pinned_gpus: list[list[int] | None] = [None]
+            if self.jobs_config.uses(job, Resource.GPU):
+                selected_gpus = self.jobs_config.get_selected_gpus(job)
+                selected_gpus_scaling = self.jobs_config.get_selected_gpus_scaling(job)
+                pinned_gpus = [
+                    merge([selected_gpus[index] for index in step])
+                    for step in self.scaling(job, "selected_gpus_scaling", selected_gpus_scaling, selected_gpus)
+                ]
+
             # Let's create benchmark jobs, one pinning per step of the cpu scaling
             for step in self.scaling(job, "selected_cpus_scaling", selected_cpus_scaling, selected_cpus):
                 items = [selected_cpus[index] for index in step]
-                if len(items) == 1:
-                    # A single group, or a single cpu, as written
-                    pinned_cpu = items[0]
-                else:
-                    # The step merges its groups, or its cpus: a cpu shared by two groups is pinned once
-                    pinned_cpu = sorted({cpu for item in items for cpu in (item if isinstance(item, list) else [item])})
-                self.__schedule_benchmarks(job, stressor_range_scaling, pinned_cpu, validate_parameters)
+                # A single group, or a single cpu, is kept as written
+                pinned_cpu = items[0] if len(items) == 1 else merge(items)
+                for gpus in pinned_gpus:
+                    self.__schedule_benchmarks(job, stressor_range_scaling, pinned_cpu, gpus, validate_parameters)
 
     def scaling(self, job: str, keyword: str, value: str, items: list) -> list[list[int]]:
         """Return the steps of a scaling, the job file being already validated."""
@@ -110,7 +132,7 @@ class Benchmarks:
         except ValueError as error:
             h.fatal(f"Job {job}: keyword {keyword}: {error}")
 
-    def __schedule_benchmarks(self, job, stressor_range_scaling, pinned_cpu, validate_parameters: bool):
+    def __schedule_benchmarks(self, job, stressor_range_scaling, pinned_cpu, pinned_gpus, validate_parameters: bool):
         """Iterate on engine module parameters to schedule benchmarks."""
         stressor_range = self.jobs_config.get_stressor_range(job)
         # Each step runs the stressor count of its last index, in the order they are written
@@ -119,10 +141,10 @@ class Benchmarks:
             for step in self.scaling(job, "stressor_range_scaling", stressor_range_scaling, stressor_range)
         ]
         for emp in self.jobs_config.get_engine_module_parameter(job):
-            self.__schedule_benchmark(job, pinned_cpu, emp, stressor_counts, validate_parameters)
+            self.__schedule_benchmark(job, pinned_cpu, pinned_gpus, emp, stressor_counts, validate_parameters)
 
     def __schedule_benchmark(
-        self, job, pinned_cpu, engine_module_parameter, stressor_counts: list, validate_parameters: bool
+        self, job, pinned_cpu, pinned_gpus, engine_module_parameter, stressor_counts: list, validate_parameters: bool
     ):
         """Schedule benchmark."""
         runtime = self.jobs_config.get_runtime(job)
@@ -148,25 +170,20 @@ class Benchmarks:
                     if isinstance(pinned_cpu, int):
                         pinned_cpu = [pinned_cpu]
                     stressor_count = len(pinned_cpu)
+            if pinned_gpus:
+                # A GPU engine runs one worker per GPU it loads
+                stressor_count = len(pinned_gpus)
+            # 'all' means every parameter of the engine module, one benchmark
+            # each. Both cases then share the same expansion: an engine
+            # generating benchmarks of its own must be honoured whichever way
+            # its module parameter was named, or a job asking for 'all' would
+            # silently lose the engine custom parameters.
             if engine_module_parameter == "all":
-                for individual_emp in engine_module.get_module_parameters():
-                    parameters = BenchmarkParameters(
-                        self.out_dir,
-                        job,
-                        stressor_count,
-                        pinned_cpu,
-                        runtime,
-                        individual_emp,
-                        self.jobs_config.get_engine_module_parameter_base(job),
-                        self.get_hardware(),
-                        monitoring_config,
-                        self.monitoring,
-                        self.jobs_config.get_skip_method(job),
-                        self.jobs_config.get_sync_start(job),
-                    )
-                    benchmark = Benchmark(self.count_benchmarks(), engine_module, parameters)
-                    self.add_benchmark(benchmark, validate_parameters)
+                module_parameters = engine_module.get_module_parameters()
             else:
+                module_parameters = [engine_module_parameter]
+
+            for emp in module_parameters:
                 benchs = engine_module.generate_benchmarks(self.jobs_config.to_dict()[job])
                 if benchs == []:
                     raise ValueError(f"No benchmarks generated for job {job}. Please check configuration")
@@ -177,13 +194,14 @@ class Benchmarks:
                         stressor_count,
                         pinned_cpu,
                         runtime,
-                        engine_module_parameter,
+                        emp,
                         self.jobs_config.get_engine_module_parameter_base(job),
                         self.get_hardware(),
                         monitoring_config,
                         self.monitoring,
                         self.jobs_config.get_skip_method(job),
                         self.jobs_config.get_sync_start(job),
+                        pinned_gpus=pinned_gpus,
                         **bench,
                     )
                     benchmark = Benchmark(self.count_benchmarks(), engine_module, parameters)
@@ -231,6 +249,13 @@ class Benchmarks:
     def run(self):
         results = {}
         print(self.summary())
+        # Let the engines do their one-off setup before the first measurement,
+        # rather than inside the monitored window of the benchmark that happens
+        # to run first.
+        for benchmark in self.get_benchmarks():
+            if not benchmark.get_enginemodule().fully_skipped_job(benchmark.get_parameters()):
+                benchmark.get_enginemodule().warmup(benchmark.get_parameters())
+
         # Run every benchmark of the list
         for benchmark in self.get_benchmarks():
             bench_name = benchmark.get_parameters().get_name()
@@ -268,6 +293,8 @@ class Benchmarks:
                 )
                 if param.get_pinned_cpu():
                     print(f"pinned_cpu={param.get_pinned_cpu()}", file=f)
+                if param.get_pinned_gpus():
+                    print(f"pinned_gpus={param.get_pinned_gpus()}", file=f)
                 print(f"stressor_instances={param.get_engine_instances_count()}", file=f)
                 print(f"cmdline={' '.join(em.run_cmd(param))}", file=f)
                 print("", file=f)

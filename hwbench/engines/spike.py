@@ -6,7 +6,7 @@ from statistics import mean
 
 from hwbench.bench import monitoring_structs
 from hwbench.bench.benchmark import ExternalBench
-from hwbench.bench.engine import EngineBase, EngineModuleBase
+from hwbench.bench.engine import EngineBase, EngineModuleBase, Resource
 from hwbench.bench.parameters import BenchmarkParameters
 from hwbench.utils import helpers as h
 
@@ -40,6 +40,8 @@ class EngineModuleCPUSpike(EngineModuleBase):
 
 class Engine(EngineBase):
     """The main spike class."""
+
+    resources = (Resource.CPU,)
 
     def __init__(self, fake_stdout=None):
         super().__init__("spike", "stress-ng")

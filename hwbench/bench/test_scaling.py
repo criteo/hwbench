@@ -23,6 +23,21 @@ def test_scaling():
     assert scaling.scaling("stressor_range_scaling", "plus_2", [4]) == [[0]]
 
 
+def test_gpu_scaling():
+    """Each GPU of a flat list is an item: the GPUs accumulate one at a time, without groups."""
+    gpus = list(range(8))
+    assert steps("selected_gpus_scaling", "curve", gpus) == [1, 2, 3, 4, 8]
+    assert steps("selected_gpus_scaling", "plus_2", gpus) == [2, 4, 6, 8]
+    assert steps("selected_gpus_scaling", "iterate", gpus) == [1] * 8
+    assert steps("selected_gpus_scaling", "none", gpus) == [8]
+    with pytest.raises(ValueError, match="none needs a single group of gpus, got several"):
+        scaling.scaling("selected_gpus_scaling", "none", [[0, 1], [2, 3]])
+    with pytest.raises(ValueError, match="plus_3 needs a multiple of 3 items, got 8"):
+        scaling.scaling("selected_gpus_scaling", "plus_3", gpus)
+    # The sockets of the cpu do not cut a GPU curve
+    assert steps("selected_gpus_scaling", "curve", [[gpu] for gpu in gpus], FakeSockets(2)) == [1, 2, 3, 4, 8]
+
+
 class FakeSockets:
     """A cpu of identical sockets, core n being logical cpu n."""
 

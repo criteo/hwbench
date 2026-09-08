@@ -42,6 +42,7 @@ class Benchmark:
             "custom_parameters": self.parameters.get_custom_parameters(),
             "timeout": self.parameters.get_runtime(),
             "cpu_pin": self.parameters.get_pinned_cpu(),
+            "gpu_pin": self.parameters.get_pinned_gpus(),
             "workers": self.parameters.get_engine_instances_count(),
             "job_number": self.get_job_number(),
             "job_name": self.parameters.get_name(),
@@ -135,13 +136,17 @@ class ExternalBench(External):
             else:
                 h.fatal(f"Unsupported get_pinned_cpu() format :{type(p.get_pinned_cpu())}")
 
+        gpu_location = ""
+        if p.get_pinned_gpus():
+            gpu_location = f" on GPU [{h.cpu_list_to_range(p.get_pinned_gpus())}]"
+
         monitoring = ""
         if self.parameters.get_monitoring():
             monitoring = "(M)"
         print(
             f"[{p.get_name_with_position()}] {self.engine_module.get_full_name(p.get_engine_module_parameter())}"
             f"{monitoring}: "
-            f"{p.get_engine_instances_count():3d} stressor{cpu_location} for {p.get_runtime()}s{status}"
+            f"{p.get_engine_instances_count():3d} stressor{cpu_location}{gpu_location} for {p.get_runtime()}s{status}"
         )
 
     def post_run(self, run):
