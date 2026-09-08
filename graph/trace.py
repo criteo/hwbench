@@ -409,22 +409,26 @@ class Bench:
                         min_values.append(min(mm[freq_metric][core].get_min()))
                         mean_values.append(mean(mm[freq_metric][core].get_mean()))
                         max_values.append(max(mm[freq_metric][core].get_max()))
+
+                # The CPU frequency is collected by turbostat, which only runs on
+                # x86_64: like the IPC below, it can legitimately be missing.
+                if mean_values:
                     min_value = min(min_values)
                     mean_value = mean(mean_values)
                     max_value = max(max_values)
 
-                if index is None:
-                    cpu_clock.append(mean_value)
-                else:
-                    cpu_clock[index] = mean_value
-
-                # If we want to keep the error distribution to plot error bars
-                if cpu_clock_err is not None:
-                    metric = (mean_value - min_value, max_value - mean_value)
                     if index is None:
-                        cpu_clock_err.append(metric)
+                        cpu_clock.append(mean_value)
                     else:
-                        cpu_clock_err[index] = metric
+                        cpu_clock[index] = mean_value
+
+                    # If we want to keep the error distribution to plot error bars
+                    if cpu_clock_err is not None:
+                        metric = (mean_value - min_value, max_value - mean_value)
+                        if index is None:
+                            cpu_clock_err.append(metric)
+                        else:
+                            cpu_clock_err[index] = metric
 
             # Same approach as cpu_clock but for the CPU IPC (may be absent).
             if ipc is not None:

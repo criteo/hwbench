@@ -25,10 +25,9 @@ from hwbench.bench.monitoring_structs import MonitoringContextKeys
 
 
 def _bench_has_ipc(bench) -> bool:
-    try:
-        return bool(bench.get_monitoring_metric(MonitoringContextKeys.IPC))
-    except KeyError:
-        return False
+    # The IPC context is always serialized, even when turbostat could not
+    # collect it, so the per-core components have to be counted.
+    return bool(bench.get_all_metrics(MonitoringContextKeys.IPC, "Core"))
 
 
 def render_numa_delta_heatmaps(args, temp_outdir, job: str, emp: str) -> int:
@@ -249,6 +248,14 @@ def _set_scaling_xticks(ax, positions: list, labels: list, max_labels: int = 24)
     ax.set_xticklabels([str(labels[i]) for i in shown])
 
 
+def benches_have_cpu_clock(args, job: str, emp: str) -> bool:
+    """Return True if the first trace collected the per-core CPU frequency."""
+    trace_benches = args.traces[0].get_benches_by_job_per_emp(job)
+    if emp not in trace_benches or not trace_benches[emp]["bench"]:
+        return False
+    return bool(trace_benches[emp]["bench"][0].get_all_metrics(MonitoringContextKeys.Freq, "Core"))
+
+
 def render_scaling_distributions(args, temp_outdir, job: str, emp: str, has_ipc: bool) -> int:
     """Render the per-core metric distribution across the scaling steps.
 
@@ -265,9 +272,9 @@ def render_scaling_distributions(args, temp_outdir, job: str, emp: str, has_ipc:
     cores, pinned_cores, and the Y axis is autoscaled (a distribution is
     unreadable squished against a zero baseline).
     """
-    metrics = [
-        ("cpu_clock", MonitoringContextKeys.Freq, "Mhz", "Core frequency"),
-    ]  # type: list
+    metrics = []  # type: list
+    if benches_have_cpu_clock(args, job, emp):
+        metrics.append(("cpu_clock", MonitoringContextKeys.Freq, "Mhz", "Core frequency"))
     if has_ipc:
         metrics.append(("cpu_ipc", MonitoringContextKeys.IPC, "IPC", "Core IPC"))
     metrics.append(("cpu_core_power", MonitoringContextKeys.PowerConsumption, None, "CPU Core power consumption"))
@@ -1026,11 +1033,12 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                 )
                 break
 
-        # IPC is not always collected; only aggregate/render it when present.
-        try:
-            has_ipc = bool(benches[emp]["bench"][0].get_monitoring_metric(MonitoringContextKeys.IPC))
-        except KeyError:
-            has_ipc = False
+        # The IPC and the CPU frequency both come from turbostat, which only runs
+        # on x86_64, and the IPC additionally needs a CPU exposing the counter.
+        # Their context is always serialized, even empty, so the components have
+        # to be counted rather than the context itself.
+        has_ipc = bool(benches[emp]["bench"][0].get_all_metrics(MonitoringContextKeys.IPC, "Core"))
+        has_cpu_clock = bool(benches[emp]["bench"][0].get_all_metrics(MonitoringContextKeys.Freq, "Core"))
 
         # For each metric we need to plot
         # (only needed to feed the per-worker line graphs; skipped for per-core sweeps)
@@ -1053,15 +1061,20 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                 workers[trace.get_name()] = []
                 # Let's iterate on each Bench from this trace file matching this emp
                 for bench in trace.get_benches_by_job_per_emp(job)[emp]["bench"]:
-                    # Workers list may be different between traces
-                    # Let's keep a unique list of workers
-                    if bench.workers() not in workers[trace.get_name()]:
-                        workers[trace.get_name()].append(bench.workers())
-                        pin = len(bench.cpu_pin())
-                        # If there is no cpu_pin, we'll have the same number of workers
-                        if pin == 0:
-                            pin = bench.workers()
-                        logical_core_per_worker.append(bench.workers() / pin)
+                    # Workers list may be different between traces, so the X
+                    # serie is kept per trace. One entry per bench, even when two
+                    # benches share the same worker count: the Y series below are
+                    # appended per bench and the two must stay aligned. Deduping
+                    # here dropped every bench but the first, and left
+                    # logical_core_per_worker with a single value, which made the
+                    # stdev() below raise on any job iterating over the cores at a
+                    # fixed stressor count.
+                    workers[trace.get_name()].append(bench.workers())
+                    pin = len(bench.cpu_pin())
+                    # If there is no cpu_pin, we'll have the same number of workers
+                    if pin == 0:
+                        pin = bench.workers() or 1
+                    logical_core_per_worker.append(bench.workers() / pin)
 
                     # for each performance metric we have to plot,
                     # let's prepare the data set to plot
@@ -1110,10 +1123,13 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                     if bench.cpu_pin():
                         any_pinned = True
 
-        # Let's render all graphs types (IPC only when the trace collected it)
+        # Let's render all graphs types, skipping the CPU ones the trace did not collect
         # These are the per-worker line graphs; skipped for per-core sweeps where the
         # workers axis does not vary (see render_workers_scaling above).
-        for graph_type in (GRAPH_TYPES + (["cpu_ipc"] if has_ipc else [])) if render_workers_scaling else []:
+        graph_types = [graph_type for graph_type in GRAPH_TYPES if graph_type != "cpu_clock" or has_cpu_clock]
+        if has_ipc:
+            graph_types.append("cpu_ipc")
+        for graph_type in graph_types if render_workers_scaling else []:
             # Let's render each performance graph
             graph_type_title = ""
 
@@ -1225,6 +1241,12 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                         "tab:brown",
                         "tab:grey",
                     ]
+                    if not any(v_y_source[perf][trace_name] for trace_name in v_y_source[perf]):
+                        # Nothing was aggregated for this graph type, i.e. a
+                        # metric none of the traces collected.
+                        if args.verbose:
+                            print(f"SMP scaling: no {graph_type} data on job '{job}', skipping graph")
+                        continue
                     # Pad the trace name and the values to a common width so the
                     # per-trace legend table stays aligned even when trace names
                     # (or values) have different lengths.
@@ -1248,6 +1270,14 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                         # Each trace can have different numbers of workers based on the hardware setup
                         # So let's consider the list of x values per trace.
                         order = np.argsort(workers[trace_name])
+                        # A metric one trace collected and another did not (i.e
+                        # the cpu clock of an aarch64 host, which has no
+                        # turbostat) aggregates nothing for that trace: it has no
+                        # serie to align on the X one, so it is left out.
+                        if len(v_y_source[perf][trace_name]) != len(order):
+                            if args.verbose:
+                                print(f"SMP scaling: no {graph_type} data for trace '{trace_name}', skipping it")
+                            continue
                         x_serie = np.array(workers[trace_name])[order]
                         y_serie = np.array(v_y_source[perf][trace_name])[order]
                         series_label = statistics_in_label(trace_name, y_serie, max_title_length, max_value_length)

@@ -110,7 +110,10 @@ def graph_chassis(args, bench_name, output_dir) -> int:
 
     # Let's plot two different graphs, one by SERVER, one by SERVERINCHASSIS
     graphs_to_plot = [PowerCategories.SERVER]
-    if len(serverinchassis_serie) > 0:
+    # One entry per trace is created for both categories at once, so the dict is
+    # not empty on a server reporting no ServerInChassis power: the series it
+    # holds are. Plotting them would index an empty array.
+    if any(serverinchassis_serie.values()):
         graphs_to_plot.append(PowerCategories.SERVERINCHASSIS)
 
     # Let's iterate to plot the two types of graph
