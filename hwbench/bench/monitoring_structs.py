@@ -229,6 +229,11 @@ class PowerSuppliesContextKeys(StrEnum):
 # Redfish readers and by hwgraph.
 GPU_FAMILY = "GPU"
 
+# Component name prefix of the cpu cores, the counterpart of GPU_FAMILY. Note
+# that it is not the key the contexts split the cores under, which is 'CPU'
+# (Freq.CPU holds Core_<n>): the two namespaces only coincide for the GPUs.
+CORE_FAMILY = "Core"
+
 
 def gpu_component_name(index: int | str) -> str:
     """Monitoring component name of an accelerator.

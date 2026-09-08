@@ -11,8 +11,9 @@ from matplotlib.pylab import Axes
 from matplotlib.ticker import AutoMinorLocator, FuncFormatter, MultipleLocator
 
 from graph.common import fatal
-from graph.trace import Bench
-from hwbench.bench.monitoring_structs import MonitoringContextKeys, MonitorMetric
+from graph.trace import Bench, gpu_description
+from hwbench.bench.engine import Resource
+from hwbench.bench.monitoring_structs import CORE_FAMILY, MonitoringContextKeys, MonitorMetric
 from hwbench.utils.helpers import cpu_list_to_range
 
 MEAN = "mean"
@@ -500,7 +501,9 @@ def write_benchmarks_summary(args, output_dir, trace) -> int:
 
     One row per benchmark (e.g. avx_0, avx_1, ...): the job it belongs to, the
     engine/module and variant (engine_module_parameter) it exercises, the worker
-    count, core pinning and per-run duration. It is a per-host, plain-text
+    count, the components it loaded and per-run duration. A column describing a
+    kind of component (the pinned cores, the GPUs, the disk) is only present when
+    the engine of a benchmark of the trace loads that kind. It is a per-host, plain-text
     companion to the environmental graphs -- a quick key to what each benchmark
     actually tested, in benchmark (job_number) order. Written to
     benchmarks_summary.txt; returns 1 when written.
@@ -516,40 +519,60 @@ def write_benchmarks_summary(args, output_dir, trace) -> int:
     numa_nodes = trace.get_numa_nodes()
     core_to_node = {core: node for node, cores in numa_nodes.items() for core in cores}
 
+    def cpu_columns(bench) -> dict[str, str]:
+        if not bench.cpu_pin():
+            return {"Pinned cores": "no", "NUMA nodes": "no"}
+        # NUMA domains the pinned cores belong to (condensed and bracketed, node
+        # numbers padded to 2 digits so ranges align, e.g. "[ 0- 3]").
+        nodes = sorted({core_to_node[core] for core in bench.cpu_pin() if core in core_to_node})
+        return {
+            # Condensed list of pinned cores with digits padded to 3 columns so
+            # the ranges stay aligned even with 3-digit core numbers.
+            "Pinned cores": numa_core_blocks(bench.cpu_pin()),
+            "NUMA nodes": f"[{_int_ranges(nodes, width=2)}]" if nodes else "-",
+        }
+
+    def gpu_columns(bench) -> dict[str, str]:
+        return {"GPUs": f"[{cpu_list_to_range(bench.gpu_list())}]" if bench.gpu_list() else "no"}
+
+    def disk_columns(bench) -> dict[str, str]:
+        return {"Disk": (bench.get("custom_parameters") or {}).get("disk") or "no"}
+
+    # The columns of each kind of component, in the order they are shown
+    resource_columns = {
+        Resource.CPU: (["Pinned cores", "NUMA nodes"], cpu_columns),
+        Resource.GPU: (["GPUs"], gpu_columns),
+        Resource.DISK: (["Disk"], disk_columns),
+    }
+    used = {resource for name in ordered for resource in trace.bench(name).resources()}
+    resources = [resource for resource in resource_columns if resource in used]
+
     headers = [
         "Benchmark",
         "Job",
         "Engine / module",
         "Variant",
         "Workers",
-        "Pinned cores",
-        "NUMA nodes",
+        *[column for resource in resources for column in resource_columns[resource][0]],
         "Duration (s)",
     ]
     right_aligned = {"Workers", "NUMA nodes", "Duration (s)"}
     rows = []  # type: list
     for bench_name in ordered:
         bench = trace.bench(bench_name)
-        # NUMA domains the pinned cores belong to (condensed and bracketed, node
-        # numbers padded to 2 digits so ranges align, e.g. "[ 0- 3]").
-        numa_span = "no"
-        if bench.cpu_pin():
-            nodes = sorted({core_to_node[core] for core in bench.cpu_pin() if core in core_to_node})
-            numa_span = f"[{_int_ranges(nodes, width=2)}]" if nodes else "-"
-        rows.append(
-            {
-                "Benchmark": bench_name,
-                "Job": bench.job_name(),
-                "Engine / module": f"{bench.engine()} / {bench.engine_module()}",
-                "Variant": bench.engine_module_parameter(),
-                "Workers": str(bench.workers()),
-                # Condensed list of pinned cores with digits padded to 3 columns so
-                # the ranges stay aligned even with 3-digit core numbers, or "no".
-                "Pinned cores": numa_core_blocks(bench.cpu_pin()) if bench.cpu_pin() else "no",
-                "NUMA nodes": numa_span,
-                "Duration (s)": str(int(round(bench.duration()))),
-            }
-        )
+        row = {
+            "Benchmark": bench_name,
+            "Job": bench.job_name(),
+            "Engine / module": f"{bench.engine()} / {bench.engine_module()}",
+            "Variant": bench.engine_module_parameter(),
+            "Workers": str(bench.workers()),
+            "Duration (s)": str(int(round(bench.duration()))),
+        }
+        for resource in resources:
+            columns, values = resource_columns[resource]
+            # A benchmark not loading this kind of component has nothing to show in its columns
+            row |= values(bench) if resource in bench.resources() else dict.fromkeys(columns, "-")
+        rows.append(row)
 
     widths = {header: len(header) for header in headers}
     for row in rows:
@@ -576,6 +599,7 @@ def write_benchmarks_summary(args, output_dir, trace) -> int:
             f"{cpu.get('sockets', 1)}x {cpu['model']} - "
             f"{cpu['physical_cores']} physical cores and {cpu['numa_domains']} NUMA domains",
         ),
+        *gpu_description(trace.get_gpus()),
     ]
     label_width = max(len(label) for label, _ in info)
     lines = [f"Benchmarks summary - {trace.get_name()}", args.title or "", ""]
@@ -586,6 +610,19 @@ def write_benchmarks_summary(args, output_dir, trace) -> int:
         lines.append("")
         lines.append(f"NUMA nodes ({len(numa_nodes)}):")
         lines += [f"  NUMA {node:>{node_width}} : {numa_core_blocks(numa_nodes[node])}" for node in sorted(numa_nodes)]
+
+    gpus = trace.get_gpus()
+    if gpus:
+        # Where each GPU sits, so a misbehaving one can be found in the chassis
+        indexes = sorted(gpus, key=int)
+        gpu_width = max(len(index) for index in indexes)
+        locator_width = max(len(gpus[index].get("locator") or "unknown") for index in indexes)
+        lines.append("")
+        lines.append(f"GPUs ({len(gpus)}):")
+        lines += [
+            f"  GPU {index:>{gpu_width}} : {gpus[index].get('locator') or 'unknown':<{locator_width}}  {gpus[index].get('uuid')}"
+            for index in indexes
+        ]
 
     lines += ["", _line({header: header for header in headers}), "  ".join("-" * widths[header] for header in headers)]
     lines += [_line(row) for row in rows]
@@ -614,7 +651,7 @@ def numa_distribution_graph(
 
     Each domain gets its own violin built from its cores' steady-state (mean
     over the run) values, so core-to-core uniformity can be compared across
-    domains at a glance -- same idea as cpu_distribution_graph, split by NUMA
+    domains at a glance -- same idea as component_distribution_graph, split by NUMA
     domain instead of blended into a single body. When pinned_cores is given,
     only the pinned cores of each domain feed its violin and domains with no
     pinned core are skipped. The Y axis autoscales to the data.
@@ -779,7 +816,7 @@ def numa_performance_heatmap(
     return 1
 
 
-def cpu_distribution_graph(
+def component_distribution_graph(
     args,
     output_dir,
     bench: Bench,
@@ -788,23 +825,36 @@ def cpu_distribution_graph(
     dir_suffix=None,
     names=None,
     title_note=None,
+    filter="Core",
+    components=None,
+    item_name="core",
 ) -> int:
-    """Render the per-core distribution of a metric at steady state (violin + box).
+    """Render the per-component distribution of a metric at steady state (violin + box).
 
-    Each core's steady-state value (mean over the run) becomes one point; the
-    violin shows their density and the box shows median/mean/quartiles/outliers,
-    so the core-to-core uniformity is visible at a glance. names restricts the
-    cores (pinned view). The Y axis autoscales to the data (a distribution is
-    unreadable squished against a zero baseline).
+    Each component's steady-state value (mean over the run) becomes one point;
+    the violin shows their density and the box shows median/mean/quartiles/
+    outliers, so the component-to-component uniformity is visible at a glance.
+    names restricts the components (pinned view). The Y axis autoscales to the
+    data (a distribution is unreadable squished against a zero baseline).
+
+    It defaults to the cpu cores; pass filter/components and item_name to render
+    another kind of component, i.e the GPUs.
     """
-    components = bench.get_all_metrics(component_type, "Core", names)
+    if components is None:
+        components = bench.get_all_metrics(component_type, filter, names)
+    else:
+        # get_all_metrics() already drops the components that never reported a
+        # sample -- all-smi registers those for the metrics a GPU does not
+        # support -- but a caller-supplied list has not been through it, and
+        # averaging an empty serie would inject a NaN into the distribution.
+        components = [component for component in components if component.get_mean()]
     if not components:
         return 0
-    unit = bench.get_metric_unit(component_type)
+    unit = components[0].get_unit() or bench.get_metric_unit(component_type)
     values = [float(np.mean(component.get_mean())) for component in components]
 
     trace = bench.get_trace()
-    title = f'{item_title} per-core distribution during "{bench.get_bench_name()}" benchmark job\n{args.title}\n\n Stressor: '
+    title = f'{item_title} per-{item_name} distribution during "{bench.get_bench_name()}" benchmark job\n{args.title}\n\n Stressor: '
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
     title += f"\n{bench.get_system_title()}"
     graph_dir = output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{component_type!s}")
@@ -837,7 +887,7 @@ def cpu_distribution_graph(
         flierprops=dict(marker=".", markersize=3, alpha=0.4),
     )
     ax.set_xticks([1])
-    ax.set_xticklabels([f"{len(values)} cores"])
+    ax.set_xticklabels([f"{len(values)} {item_name}s"])
     # Same two-tier Y grid as the linearity-deviation graph (solid major lines
     # plus a fainter dashed midline between the major Y ticks), but no X grid:
     # vertical lines would cut through the violins and hide their shape.
@@ -882,7 +932,10 @@ def generic_graph(
         return 0
 
     samples_count = bench.get_samples_count()
-    unit = bench.get_metric_unit(component_type)
+    # The unit of the components being rendered, not the one of the first metric
+    # of the context: a context can hold several units (i.e. the GPU context
+    # holds a percentage and a memory size).
+    unit = components[0].get_unit() or bench.get_metric_unit(component_type)
     if not unit:
         raise Exception(f"Could not find unit for metric {item_title}")
 
@@ -950,9 +1003,15 @@ def generic_graph(
         if second_axis:
             for entry in bench.get_monitoring_metric(second_axis).values():
                 for sensor, measure in entry.items():
-                    # We don't plot the Cores here
-                    # We don't plot sensor on y2 if already plot on y1
-                    if sensor in data_serie or sensor.startswith("Core"):
+                    # We don't plot sensor on y2 if already plot on y1. Only a
+                    # sensor of the very same context can be: the same component
+                    # name lives in several contexts (Freq.GPU_0, Thermal.GPU_0,
+                    # PowerConsumption.GPU_0) and those are distinct metrics.
+                    # The cores are named rather than derived from 'filter':
+                    # they are the only family numerous enough to swamp y2, and
+                    # excluding the family of y1 would drop the very sensor a
+                    # '<GPU metric>_vs_Thermal' graph is drawn for.
+                    if (second_axis == component_type and sensor in data_serie) or sensor.startswith(CORE_FAMILY):
                         continue
                     if sensor not in data2_serie:
                         data2_serie[sensor] = []
@@ -985,7 +1044,9 @@ def generic_graph(
     order = np.argsort(time_serie)
     x_serie = np.array(time_serie)[order]
 
-    if second_axis:
+    # data2_serie is empty when every sensor of the second axis was filtered out
+    # (all of them already on y1, or all of them cores): nothing to plot there.
+    if second_axis and data2_serie:
         max_title_length = max(len(data2_item) for data2_item in data2_serie)
         max_value_length = max(
             get_max_value_string_length(np.array(data2_serie[data2_item])) for data2_item in data2_serie

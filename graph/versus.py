@@ -7,7 +7,8 @@ import numpy as np
 
 from graph.graph import GRAPH_TYPES, Graph
 from graph.scaling import _scaling_perf_value
-from hwbench.bench.monitoring_structs import MonitoringContextKeys
+from graph.trace import GPU_SCALING_UNIT, gpu_description
+from hwbench.bench.monitoring_structs import CORE_FAMILY, GPU_FAMILY, MonitoringContextKeys
 
 
 def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
@@ -94,7 +95,13 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
 
         # The CPU frequency comes from turbostat, which only runs on x86_64: its
         # context is always serialized, even empty, so count the components.
-        has_cpu_clock = bool(benches[emp]["bench"][0].get_all_metrics(MonitoringContextKeys.Freq, "Core"))
+        reference = benches[emp]["bench"][0]
+        has_cpu_clock = reference.has_metrics(MonitoringContextKeys.Freq, CORE_FAMILY)
+
+        # The per-unit breakdown is per whatever the engine actually loads.
+        scaling_unit = reference.scaling_unit()
+        unit_name = scaling_unit.item_name
+        worker_name = scaling_unit.axis_label.lower()
 
         for graph_type in GRAPH_TYPES:
             if graph_type == "cpu_clock" and not has_cpu_clock:
@@ -142,17 +149,21 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                 # A per-core breakdown is meaningless for the CPU clock (it is
                 # already an average across cores), so only emit the total there.
                 max_perf_types = ["max_perf_total"]
+                per_unit_type = f"max_perf_per_{unit_name}"
                 if graph_type != "cpu_clock":
-                    max_perf_types.append("max_perf_per_core")
+                    max_perf_types.append(per_unit_type)
                 for max_perf_type in max_perf_types:
                     title = f'{args.title}\n\n{graph_type_title} during "{job}" benchmark\n'
-                    if max_perf_type == "max_perf_per_core":
-                        title += f"\nPer core maximum performance during {bench.duration()} seconds"
-                        y_max_per_core = [0] * len(y_max[perf])
-                        # Let's compute the performance per physical core
+                    if max_perf_type == per_unit_type:
+                        title += f"\nPer {unit_name} maximum performance during {bench.duration()} seconds"
+                        y_max_per_unit = [0.0] * len(y_max[perf])
+                        # Per physical core, or per GPU when the benchmark loads
+                        # the accelerators: the unit knows which.
                         for ymax_nb in range(len(y_max[perf])):
-                            y_max_per_core[ymax_nb] = y_max[perf][ymax_nb] / args.traces[ymax_nb].get_physical_cores()
-                        y_serie = np.array(y_max_per_core)
+                            units = scaling_unit.count(args.traces[ymax_nb], max_workers[perf][ymax_nb])
+                            if units > 0:
+                                y_max_per_unit[ymax_nb] = y_max[perf][ymax_nb] / units
+                        y_serie = np.array(y_max_per_unit)
                     elif graph_type == "cpu_clock":
                         title += f"\nClock reached at maximum performance during {bench.duration()} seconds"
                         y_serie = np.array(y_max[perf])
@@ -193,7 +204,7 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                         if max_workers[perf][trace_nb] < 0:
                             bar_labels[trace_nb] += "\nbenchmark skipped"
                         else:
-                            bar_labels[trace_nb] += f"\n{max_workers[perf][trace_nb]} workers"
+                            bar_labels[trace_nb] += f"\n{max_workers[perf][trace_nb]} {worker_name}"
                     graph.get_ax().axes.xaxis.set_ticks(traces_name)
                     graph.get_ax().set_xticklabels(bar_labels)
 
@@ -218,13 +229,27 @@ def _bench_power(bench, metric_name: str) -> float | None:
     return float(np.mean(means)) if len(means) else None
 
 
-def _bench_avg_core_clock(bench) -> float | None:
+def _bench_avg_cpu_clock(bench) -> float | None:
     """Mean core frequency (MHz) averaged over all cores of a bench, or None."""
-    cores = bench.get_all_metrics(MonitoringContextKeys.Freq, "Core")
+    cores = bench.get_all_metrics(MonitoringContextKeys.Freq, CORE_FAMILY)
     if not cores:
         return None
     per_core = [float(np.mean(c.get_mean())) for c in cores if len(c.get_mean())]
     return float(np.mean(per_core)) if per_core else None
+
+
+def _bench_avg_gpu_clock(bench) -> float | None:
+    """Mean clock (MHz) of the GPUs a bench loaded, or None."""
+    gpus = bench.get_all_metrics(MonitoringContextKeys.Freq, GPU_FAMILY, bench.gpu_names())
+    per_gpu = [float(np.mean(g.get_mean())) for g in gpus if len(g.get_mean())]
+    return float(np.mean(per_gpu)) if per_gpu else None
+
+
+def _bench_avg_gpu_temperature(bench) -> float | None:
+    """Mean temperature (°C) of the GPUs a bench loaded, or None."""
+    gpus = bench.get_all_metrics(MonitoringContextKeys.Thermal, GPU_FAMILY, bench.gpu_names())
+    per_gpu = [float(np.mean(g.get_mean())) for g in gpus if len(g.get_mean())]
+    return float(np.mean(per_gpu)) if per_gpu else None
 
 
 def _bench_avg_ipc(bench) -> float | None:
@@ -285,11 +310,18 @@ def _trace_job_step_metrics(trace, job: str) -> dict:
             # First-step slope for the linear projection; None when the first step has
             # no throughput (an anchor of 0 would make every linearity undefined).
             slope = (perf[0] / workers[0]) if (workers[0] > 0 and perf[0] > 0) else None
+            # A single step has nothing to be linear against: it would read a perfect +0%
+            scaled = len(set(workers)) > 1
             per_step = {}  # type: dict
             for i, bench in enumerate(benches):
-                lin_full = perf[i] / (slope * workers[i]) * 100 if slope else None
+                lin_full = perf[i] / (slope * workers[i]) * 100 if slope and scaled else None
+                scaling_unit = bench.scaling_unit()
                 per_step[bench.workers()] = {
                     "engine_module": bench.engine_module(),
+                    # What a worker is (a cpu thread or a GPU), and how many of those
+                    # the performance is normalized by, see ScalingUnit
+                    "unit_name": scaling_unit.item_name,
+                    "units": scaling_unit.count(trace, workers[i]),
                     # Which perf metric this section reports, named in its header.
                     "perf_key": perf_key,
                     # A job exposing several metrics stays out of the aggregate:
@@ -300,7 +332,14 @@ def _trace_job_step_metrics(trace, job: str) -> dict:
                     "workers": workers[i],
                     "perf": perf[i],
                     "power": _bench_power(bench, metric_name),
-                    "clock": _bench_avg_core_clock(bench),
+                    # The clock of what the benchmark loads: its cores, or its GPUs
+                    "clock": _bench_avg_gpu_clock(bench)
+                    if scaling_unit.family == GPU_FAMILY
+                    else _bench_avg_cpu_clock(bench),
+                    # What the host CPU does meanwhile, whatever the benchmark loads
+                    "cpu_clock": _bench_avg_cpu_clock(bench),
+                    "cpu_power": _bench_power(bench, "CPU.package"),
+                    "temp": _bench_avg_gpu_temperature(bench) if scaling_unit.family == GPU_FAMILY else None,
                     "ipc": _bench_avg_ipc(bench),
                     "cov": _bench_perf_cov(bench),
                     "lin_full": lin_full,
@@ -375,49 +414,64 @@ def _render_traces_comparison(
             if key not in ordered:
                 ordered.append(key)
 
+    # A report where every benchmark loads the GPUs describes the accelerators: the
+    # CPU columns (per core performance, core clock, IPC, per-worker spread) say
+    # nothing about them.
+    kinds = {m["unit_name"] for tm in metrics.values() for m in tm.values()}
+    has_gpu = GPU_SCALING_UNIT.item_name in kinds
+    gpu_only = kinds == {GPU_SCALING_UNIT.item_name}
+    # A report mixing both kinds of benchmark normalizes each by what it loads
+    unit_name = "GPU" if gpu_only else "unit" if has_gpu else "core"
+    wrk = "GPUs" if gpu_only else "Wrk"
+    per_unit, delta_per_unit = f"Perf/{unit_name}", f"Δperf/{unit_name}"
+
     # IPC columns are only shown when at least one trace collected IPC.
-    has_ipc = any(m.get("ipc") is not None for tm in metrics.values() for m in tm.values())
+    collected_ipc = any(m.get("ipc") is not None for tm in metrics.values() for m in tm.values())
+    has_ipc = collected_ipc and not gpu_only
 
     headers = [
         "Trace",
-        "Wrk",
+        wrk,
         "Perf",
         "Δperf",
-        "Perf/core",
-        "Δperf/core",
+        per_unit,
+        delta_per_unit,
         "Power",
         "Δpower",
         "Perf/W",
         "Clock",
         "Δclock",
     ]
+    if has_gpu:
+        headers += ["Temp"]
     if has_ipc:
         headers += ["IPC", "ΔIPC"]
-    headers += ["CoV", "Linearity"]
+    headers += ["Linearity"] if gpu_only else ["CoV", "Linearity"]
     left = {"Trace"}
 
     def _bench_row(tname, i, m, ref_m):
         """One table row. ref_m is None when the reference has no value for this
         benchmark in this scope -- then every ratio is reported as N/A."""
-        ct, cr = cores[tname], cores[ref_name]
+        ct = m["units"]
         pc = m["perf"] / ct if ct else None
 
         def R(value, ref_value):
             return "N/A" if ref_m is None else _ratio(value, ref_value)
 
-        ref_pc = ref_m["perf"] / cr if (ref_m and cr) else None
+        ref_pc = ref_m["perf"] / ref_m["units"] if (ref_m and ref_m["units"]) else None
         ref_ppw = ref_m["perf"] / ref_m["power"] if (ref_m and ref_m["power"]) else None
         return {
             "Trace": tname + ("*" if i == 0 else ""),
-            "Wrk": str(m["workers"]),
+            wrk: str(m["workers"]),
             "Perf": _hf(m["perf"]),
             "Δperf": R(m["perf"], ref_m["perf"] if ref_m else None),
-            "Perf/core": _hf(pc) if pc is not None else "-",
-            "Δperf/core": R(pc, ref_pc),
+            per_unit: _hf(pc) if pc is not None else "-",
+            delta_per_unit: R(pc, ref_pc),
             "Power": f"{m['power']:.0f}W" if m["power"] is not None else "n/a",
             "Δpower": R(m["power"], ref_m["power"] if ref_m else None),
             "Perf/W": R(m["perf"] / m["power"] if m["power"] else None, ref_ppw),
             "Clock": f"{m['clock']:.0f}M" if m["clock"] is not None else "n/a",
+            "Temp": f"{m['temp']:.0f}C" if m["temp"] is not None else "n/a",
             "Δclock": R(m["clock"], ref_m["clock"] if ref_m else None),
             "IPC": f"{m['ipc']:.2f}" if m["ipc"] is not None else "n/a",
             "ΔIPC": R(m["ipc"], ref_m["ipc"] if ref_m else None),
@@ -455,11 +509,48 @@ def _render_traces_comparison(
             )
         )
 
+    # A benchmark loading the GPUs also stresses the host CPU feeding them: its
+    # power, clock and IPC get a table of their own under each GPU one.
+    host_headers = ["Trace", "CPU power", "Δpower", "Clock", "Δclock"] + (["IPC", "ΔIPC"] if collected_ipc else [])
+    host_blocks = []  # type: list
+    if gpu_only:
+        for key in ordered:
+            ref_m = metrics[ref_name].get(key)
+            rows = []
+            for i, trace in enumerate(traces):
+                tname = trace.get_name()
+                m = metrics[tname].get(key)
+                label = tname + ("*" if i == 0 else "")
+                if m is None:
+                    rows.append({h: ("N/A" if h != "Trace" else label) for h in host_headers})
+                    continue
+
+                def HR(name, ref_m=ref_m, m=m):
+                    return "N/A" if ref_m is None else _ratio(m[name], ref_m[name])
+
+                rows.append(
+                    {
+                        "Trace": label,
+                        "CPU power": f"{m['cpu_power']:.0f}W" if m["cpu_power"] is not None else "n/a",
+                        "Δpower": HR("cpu_power"),
+                        "Clock": f"{m['cpu_clock']:.0f}M" if m["cpu_clock"] is not None else "n/a",
+                        "Δclock": HR("cpu_clock"),
+                        "IPC": f"{m['ipc']:.2f}" if m["ipc"] is not None else "n/a",
+                        "ΔIPC": HR("ipc"),
+                    }
+                )
+            host_blocks.append(rows)
+
     widths = {h: len(h) for h in headers}
     for _, _, rows, _, _ in blocks:
         for row in rows:
             for h in headers:
                 widths[h] = max(widths[h], len(row[h]))
+    host_widths = {h: len(h) for h in host_headers}
+    for rows in host_blocks:
+        for row in rows:
+            for h in host_headers:
+                host_widths[h] = max(host_widths[h], len(row[h]))
 
     def _cell(h, v):
         return str(v).ljust(widths[h]) if h in left else str(v).rjust(widths[h])
@@ -475,10 +566,19 @@ def _render_traces_comparison(
         tname = trace.get_name()
         smin, smax = sweep[tname]
         tag = "(ref) " if i == 0 else "      "
+        # The first line of the description holds what every accelerator shares
+        description = gpu_description(trace.get_gpus())
+        gpus = description[0][1] if description else "no GPU reported"
+        if gpu_only:
+            lines.append(f"  {tag}{tname:<22} {gpus}   scaling {smin}->{smax} GPUs")
+            lines.append(f"  {'':6}{'':<22} host: {cpu.get('sockets', 1)}x {cpu['model']} - {cpu['numa_domains']} NUMA")
+            continue
         lines.append(
             f"  {tag}{tname:<22} {cpu.get('sockets', 1)}x {cpu['model']} - "
             f"{cores[tname]:>3} cores / {cpu['numa_domains']:>2} NUMA   scaling {smin}->{smax} workers"
         )
+        if has_gpu:
+            lines.append(f"  {'':6}{'':<22} {gpus}")
     # Name the selected power metric; note it if it varies across traces.
     power_metrics = sorted({trace.get_metric_name() for trace in traces})
     power_label = power_metrics[0] if len(power_metrics) == 1 else "the per-trace selected power metric"
@@ -486,25 +586,52 @@ def _render_traces_comparison(
     lines.append("")
     lines.append(f"Columns ({columns_scope}):")
     lines.append("  Trace     = trace logical name; '*' marks the reference (first trace).")
-    lines.append("  Wrk       = worker count for this section.")
+    lines.append(f"  {wrk:<9} = {'number of GPUs loaded' if gpu_only else 'worker count'} for this section.")
     lines.append("  Perf      = benchmark performance; the section header names the perf metric and its")
     lines.append("              unit, one section per metric; Δperf = ratio to the reference.")
-    lines.append("  Perf/core = performance per physical CPU core (physical cores, not SMT threads or workers);")
-    lines.append("              Δperf/core = ratio to the reference.")
+    if gpu_only:
+        lines.append(f"  {per_unit:<9} = performance per GPU loaded; {delta_per_unit} = ratio to the reference.")
+    elif has_gpu:
+        lines.append(
+            f"  {per_unit:<9} = performance per physical CPU core for a CPU benchmark, per GPU loaded for a GPU"
+        )
+        lines.append(f"              one; {delta_per_unit} = ratio to the reference.")
+    else:
+        lines.append("  Perf/core = performance per physical CPU core (physical cores, not SMT threads or workers);")
+        lines.append("              Δperf/core = ratio to the reference.")
     lines.append(f"  Power     = mean {power_label} power in Watts; Δpower = ratio to the reference.")
     lines.append("  Perf/W    = performance per watt, as a ratio to the reference (Δperf / Δpower).")
-    lines.append("  Clock     = mean CPU core frequency in MHz; Δclock = ratio to the reference.")
+    if gpu_only:
+        lines.append("  Clock     = mean clock in MHz of the GPUs loaded; Δclock = ratio to the reference.")
+    elif has_gpu:
+        lines.append("  Clock     = mean frequency in MHz of the CPU cores, or of the GPUs loaded for a GPU benchmark;")
+        lines.append("              Δclock = ratio to the reference.")
+    else:
+        lines.append("  Clock     = mean CPU core frequency in MHz; Δclock = ratio to the reference.")
+    if has_gpu:
+        lines.append("  Temp      = mean temperature in °C of the GPUs loaded, 'n/a' when not reported.")
+    if gpu_only:
+        lines.append("  Host CPU  = a second table per section: the mean CPU package power ('n/a' when not")
+        lines.append("              collected), core frequency and IPC of the host while the GPUs ran.")
     if has_ipc:
         lines.append("  IPC       = mean instructions per cycle across cores; ΔIPC = ratio to the reference.")
-    lines.append("  CoV       = Coefficient of Variation (std-dev / mean, %) of the per-worker performance:")
-    lines.append("              how evenly the workers performed (lower = more homogeneous, 0% = identical);")
-    lines.append("              from the stress-ng per-worker detail, '-' when absent.")
+    if not gpu_only:
+        lines.append("  CoV       = Coefficient of Variation (std-dev / mean, %) of the per-worker performance:")
+        lines.append("              how evenly the workers performed (lower = more homogeneous, 0% = identical);")
+        lines.append("              from the stress-ng per-worker detail, '-' when absent.")
     lines.append("  Linearity = deviation from perfect linear scaling, as in the scaling graphs:")
     lines.append("              (perf / ideal linear projection from the first step) - 100%.")
-    lines.append("              0% = perfectly linear, negative = scaling loss, positive = superlinear.")
+    lines.append("              0% = perfectly linear, negative = scaling loss, positive = superlinear;")
+    lines.append("              '-' for a benchmark run at a single step, which has no scaling to measure.")
     lines.append("")
 
-    for title, unit, rows, note, _ in blocks:
+    def _host_line(cells):
+        return "  ".join(
+            (str(cells[h]).ljust(host_widths[h]) if h == "Trace" else str(cells[h]).rjust(host_widths[h]))
+            for h in host_headers
+        )
+
+    for index, (title, unit, rows, note, _) in enumerate(blocks):
         lines.append(f"### {title}  [{unit}]")
         if note:
             lines.append(f"(note: {note})")
@@ -512,15 +639,21 @@ def _render_traces_comparison(
         lines.append(sep)
         lines += [_line(row) for row in rows]
         lines.append("")
+        if host_blocks:
+            lines.append(f"Host CPU during {title}:")
+            lines.append(_host_line({h: h for h in host_headers}))
+            lines.append("  ".join("-" * host_widths[h] for h in host_headers))
+            lines += [_host_line(row) for row in host_blocks[index]]
+            lines.append("")
 
     # Aggregate: geometric mean of the ratios across every benchmark in scope,
     # plus the mean per-worker homogeneity.
     # Same column order as the per-benchmark tables (minus the absolute values,
     # which don't aggregate): Δperf, Δperf/core, Δpower, Perf/W, Δclock, ΔIPC, CoV, Linearity.
-    agg_headers = ["Trace", "Δperf", "Δperf/core", "Δpower", "Perf/W", "Δclock"]
+    agg_headers = ["Trace", "Δperf", delta_per_unit, "Δpower", "Perf/W", "Δclock"]
     if has_ipc:
         agg_headers += ["ΔIPC"]
-    agg_headers += ["CoV", "Linearity"]
+    agg_headers += ["Linearity"] if gpu_only else ["CoV", "Linearity"]
     agg_widths = {h: len(h) for h in agg_headers}
     agg_rows = []
 
@@ -544,8 +677,8 @@ def _render_traces_comparison(
                 continue
             if ref_m["perf"]:
                 pr.append(m["perf"] / ref_m["perf"])
-            if cores[tname] and cores[ref_name] and ref_m["perf"]:
-                pcr.append((m["perf"] / cores[tname]) / (ref_m["perf"] / cores[ref_name]))
+            if m["units"] and ref_m["units"] and ref_m["perf"]:
+                pcr.append((m["perf"] / m["units"]) / (ref_m["perf"] / ref_m["units"]))
             if m["power"] and ref_m["power"]:
                 wr.append(m["power"] / ref_m["power"])
             if m["clock"] and ref_m["clock"]:
@@ -560,13 +693,14 @@ def _render_traces_comparison(
         row = {
             "Trace": tname + ("*" if i == 0 else ""),
             "Δperf": _fmt_ratio(gperf),
-            "Δperf/core": _fmt_ratio(_geomean(pcr)),
+            delta_per_unit: _fmt_ratio(_geomean(pcr)),
             "Δpower": _fmt_ratio(gpow),
             "Δclock": _fmt_ratio(_geomean(cr)),
             "Perf/W": f"{gperf / gpow:.2f}x" if gperf and gpow else "-",
             "Linearity": f"{np.mean(lins) - 100:+.0f}%" if lins else "-",
-            "CoV": f"{np.mean(covs):.1f}%" if covs else "-",
         }
+        if not gpu_only:
+            row["CoV"] = f"{np.mean(covs):.1f}%" if covs else "-"
         if has_ipc:
             row["ΔIPC"] = _fmt_ratio(_geomean(ipcr))
         agg_rows.append(row)

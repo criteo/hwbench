@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import argparse
 import os
 import pathlib
@@ -10,6 +12,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from graph.graph import InvalidValue
 from hwbench.bench.monitoring_structs import (
+    CORE_FAMILY,
     FansContextKeys,
     MonitorContextKeys,
     MonitoringContextKeys,
@@ -20,7 +23,7 @@ try:
     from graph.chassis import graph_chassis
     from graph.common import fatal
     from graph.graph import (
-        cpu_distribution_graph,
+        component_distribution_graph,
         generic_graph,
         init_matplotlib,
         numa_aggregated_components,
@@ -32,7 +35,7 @@ try:
     )
     from graph.group import graph_group_env
     from graph.scaling import performance_scaling_graph
-    from graph.trace import Event, Trace
+    from graph.trace import CPU_SCALING_UNIT, GPU_SCALING_UNIT, Event, ScalingUnit, Trace
     from graph.versus import (
         max_versus_graph,
         render_versus_scorecard,
@@ -82,6 +85,7 @@ def _task_env_bench(trace_idx, bench_name, output_dir_str):
     count += graph_fans(args, trace, bench_name, output_dir)
     count += graph_cpu(args, trace, bench_name, output_dir)
     count += graph_cpu_numa(args, trace, bench_name, output_dir)
+    count += graph_gpu(args, trace, bench_name, output_dir)
     count += graph_pdu(args, trace, bench_name, output_dir)
     count += graph_thermal(args, trace, bench_name, output_dir)
     return count
@@ -507,58 +511,142 @@ def graph_fans(args, trace: Trace, bench_name: str, output_dir) -> int:
     return rendered_graphs
 
 
+def graph_component_family(
+    args,
+    output_dir,
+    bench,
+    context: MonitoringContextKeys,
+    item_title: str,
+    unit: ScalingUnit,
+    renderings: list,
+    components: list | None = None,
+) -> int:
+    """Render one metric of one component family: time series + distribution.
+
+    'unit' is the ScalingUnit of the family being rendered -- not necessarily the
+    one the benchmark scales on -- and carries which components to filter on and
+    how to name them.
+
+    'renderings' is a list of (dir_suffix, names, title_note): the same metric is
+    plotted once per entry, each in its own subdirectory, so a view restricted to
+    the components a benchmark actually used never collides with the full one.
+    """
+    rendered_graphs = 0
+    filter = unit.family
+    for dir_suffix, names, title_note in renderings:
+        # The full view is rendered from the list the caller already resolved;
+        # a restricted view is that same list filtered, so the context is walked
+        # once per metric instead of once per graph.
+        rendered = components
+        if names is not None and components is not None:
+            rendered = [component for component in components if component.get_name() in names]
+        for second_axis in [None, MonitoringContextKeys.Thermal, MonitoringContextKeys.PowerConsumption]:
+            rendered_graphs += generic_graph(
+                args,
+                output_dir,
+                bench,
+                context,
+                item_title,
+                second_axis,
+                filter=filter,
+                names=names,
+                dir_suffix=dir_suffix,
+                title_note=title_note,
+                components=rendered,
+            )
+        rendered_graphs += component_distribution_graph(
+            args,
+            output_dir,
+            bench,
+            context,
+            item_title,
+            filter=filter,
+            names=names,
+            dir_suffix=dir_suffix,
+            title_note=title_note,
+            item_name=unit.item_name,
+            components=rendered,
+        )
+    return rendered_graphs
+
+
 def graph_cpu(args, trace: Trace, bench_name: str, output_dir) -> int:
     rendered_graphs = 0
     bench = trace.bench(bench_name)
-    cpu_graphs = {}
-    cpu_graphs["CPU Core power consumption"] = {MonitoringContextKeys.PowerConsumption: "Core"}
-    cpu_graphs["Package power consumption"] = {MonitoringContextKeys.PowerConsumption: "package"}
-    cpu_graphs["Core frequency"] = {MonitoringContextKeys.Freq: "Core"}
-    cpu_graphs["Core IPC"] = {MonitoringContextKeys.IPC: "Core"}
+    cpu_graphs = [
+        ("CPU Core power consumption", MonitoringContextKeys.PowerConsumption, "Core"),
+        ("Package power consumption", MonitoringContextKeys.PowerConsumption, "package"),
+        ("Core frequency", MonitoringContextKeys.Freq, "Core"),
+        ("Core IPC", MonitoringContextKeys.IPC, "Core"),
+    ]
     # Per-core metrics (filter "Core") are rendered twice: once for all the
     # cores of the system, once restricted to the cores that were pinned during
-    # this benchmark job. Each rendering lands in its own subdirectory so the
-    # two outputs never collide.
+    # this benchmark job.
     pinned_core_names = bench.pinned_core_names()
-
     pinned_note = f"View limited to the pinned logical cores {bench.pinned_cpu_range()}"
 
-    for graph_name in cpu_graphs:
-        # Let's render the performance, perf_per_temp, perf_per_watt graphs
-        for metric, filter in cpu_graphs[graph_name].items():
-            if filter == "Core":
-                renderings = [("all_cores", None, None)]  # type: list
-                if pinned_core_names:
-                    renderings.append(("pinned_cores", pinned_core_names, pinned_note))
-            else:
-                # Non per-core metrics (e.g. package power) keep a single rendering.
-                renderings = [(None, None, None)]
-            for dir_suffix, names, title_note in renderings:
-                for second_axis in [None, MonitoringContextKeys.Thermal, MonitoringContextKeys.PowerConsumption]:
-                    rendered_graphs += generic_graph(
-                        args,
-                        output_dir,
-                        bench,
-                        metric,
-                        graph_name,
-                        second_axis,
-                        filter=filter,
-                        names=names,
-                        dir_suffix=dir_suffix,
-                        title_note=title_note,
-                    )
-                # Per-core metrics also get a steady-state distribution (violin + box).
-                if filter == "Core":
-                    rendered_graphs += cpu_distribution_graph(
-                        args,
-                        output_dir,
-                        bench,
-                        metric,
-                        graph_name,
-                        dir_suffix=dir_suffix,
-                        names=names,
-                        title_note=title_note,
-                    )
+    for item_title, context, filter in cpu_graphs:
+        if filter == CORE_FAMILY:
+            renderings = [("all_cores", None, None)]  # type: list
+            if pinned_core_names:
+                renderings.append(("pinned_cores", pinned_core_names, pinned_note))
+        else:
+            # Non per-core metrics (e.g. package power) keep a single rendering,
+            # and no distribution: there is a single component to distribute.
+            rendered_graphs += sum(
+                generic_graph(args, output_dir, bench, context, item_title, second_axis, filter=filter)
+                for second_axis in [None, MonitoringContextKeys.Thermal, MonitoringContextKeys.PowerConsumption]
+            )
+            continue
+        rendered_graphs += graph_component_family(
+            args, output_dir, bench, context, item_title, CPU_SCALING_UNIT, renderings
+        )
+
+    return rendered_graphs
+
+
+def graph_gpu(args, trace: Trace, bench_name: str, output_dir) -> int:
+    """Render the per-GPU environment metrics.
+
+    Built like graph_cpu(), with one difference: GPUs are never pinned, so the
+    restricted view is the GPUs the benchmark used rather than the pinned cores.
+    The components come from two independent sources -- all-smi reports
+    GPU_<index> while the BMC reports BMC_GPU_<redfish id>. Both live in the
+    "GPU" family of their context and are plotted together.
+    """
+    rendered_graphs = 0
+    bench = trace.bench(bench_name)
+    gpu_graphs = [
+        ("GPU power consumption", MonitoringContextKeys.PowerConsumption),
+        ("GPU frequency", MonitoringContextKeys.Freq),
+        ("GPU temperature", MonitoringContextKeys.Thermal),
+        ("GPU utilization", MonitoringContextKeys.Utilization),
+        ("GPU memory usage", MonitoringContextKeys.Memory),
+    ]
+
+    # Only a subset of the GPUs is loaded by a pantheon benchmark, so, like the
+    # pinned cores of graph_cpu(), they get their own rendering: the idle GPUs
+    # would otherwise flatten the used ones. The subset only covers the
+    # all-smi metrics, as Redfish ids cannot be mapped to accelerator indexes.
+    #
+    # The unit is the GPU one, not bench.scaling_unit(): this renders the GPU
+    # family whatever the benchmark scales on, and the unit of a CPU benchmark
+    # would name the restricted view after its pinned cores.
+    used_gpu_names = bench.gpu_names()
+    used_note = f"View limited to the GPUs used by this benchmark {bench.gpu_list()}"
+
+    for item_title, context in gpu_graphs:
+        components = bench.get_all_metrics(context, GPU_SCALING_UNIT.family)
+        if not components:
+            continue
+
+        renderings = [(None, None, None)]  # type: list
+        if used_gpu_names and any(component.get_name() not in used_gpu_names for component in components):
+            renderings.append((GPU_SCALING_UNIT.subset_dir, used_gpu_names, used_note))
+
+        rendered_graphs += graph_component_family(
+            args, output_dir, bench, context, item_title, GPU_SCALING_UNIT, renderings, components=components
+        )
 
     return rendered_graphs
 

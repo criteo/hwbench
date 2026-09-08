@@ -1,13 +1,21 @@
 from __future__ import annotations
 
 import dataclasses
+import functools
+import importlib
 import json
 import pathlib
+from enum import StrEnum
 from statistics import mean
-from typing import Any
+from typing import Any, Callable
 
 from graph.common import fatal
+from hwbench.bench.engine import Resource
 from hwbench.bench.monitoring_structs import (
+    CORE_FAMILY,
+    GPU_FAMILY,
+    FreqContextKeys,
+    IPCContextKeys,
     MonitoringContextKeys,
     MonitoringContexts,
     MonitoringMetadata,
@@ -16,6 +24,7 @@ from hwbench.bench.monitoring_structs import (
     Power,
     PowerSuppliesContextKeys,
     Temperature,
+    gpu_component_name,
 )
 from hwbench.utils.helpers import cpu_list_to_range
 
@@ -24,6 +33,159 @@ MIN = "min"
 MAX = "max"
 MEAN = "mean"
 
+
+@dataclasses.dataclass(frozen=True)
+class ScalingUnit:
+    """What one worker of a benchmark is, from the renderers point of view.
+
+    item_name  : the component a per-component view is named after
+    axis_label : the label of the scaling axis
+    family     : the component family the scaling acts on
+    subset     : the components a given benchmark used, None for all of them
+    count      : how many units a trace offers, to normalize a performance by
+    per_worker : the extra axis annotation, when one unit is not one worker
+    """
+
+    item_name: str
+    axis_label: str
+    family: str
+    subset: Callable[[Bench], set | None]
+    # Directory and note of the view restricted to the components a benchmark used
+    subset_dir: str
+    subset_note: str
+    count: Callable[[Trace, int], int]
+    per_worker: Callable[[float], str]
+
+
+def logical_cores_per_worker(ratio: float) -> str:
+    """Annotate the scaling axis with the cores a cpu worker got."""
+    cores = "core" if ratio == 1 else "cores"
+    return f"({int(ratio)} logical {cores} per worker)"
+
+
+CPU_SCALING_UNIT = ScalingUnit(
+    "core",
+    "Workers",
+    CORE_FAMILY,
+    lambda bench: bench.pinned_core_names(),
+    "pinned_cores",
+    "View limited to the pinned cores of each scaling step",
+    # A cpu worker is a thread, so the performance of a trace is normalized by
+    # the cores it has, not by the workers a step ran.
+    lambda trace, workers: trace.get_physical_cores(),
+    logical_cores_per_worker,
+)
+GPU_SCALING_UNIT = ScalingUnit(
+    "gpu",
+    "GPUs",
+    GPU_FAMILY,
+    lambda bench: bench.gpu_names(),
+    "used_gpus",
+    "View limited to the GPUs used at each scaling step",
+    # One worker is one accelerator, and how many a server holds is irrelevant:
+    # what matters is how many the step loaded.
+    lambda trace, workers: workers,
+    # A worker that is not a cpu thread has no core ratio to report.
+    lambda ratio: "",
+)
+
+# The properties of an accelerator worth showing next to its results, as
+# all-smi names them in its vendor details.
+GPU_PROPERTIES = {
+    "Driver": "Driver Version",
+    "CUDA": "CUDA Version",
+    "VBIOS": "vbios_version",
+    "ECC": "ecc_mode_current",
+}
+
+
+def gpu_description(gpus: dict[str, dict[str, Any]]) -> list[tuple[str, str]]:
+    """Describe the accelerators of a trace, as (label, text) lines.
+
+    The first line holds what every accelerator shares, like
+    ('GPU', '8x NVIDIA B200, Driver: 610.57.04, CUDA: 13.3, ECC: enabled'). A
+    property differing between them, like a VBIOS, gets one more line per value
+    naming the GPUs having it: ('GPU 0-3', 'VBIOS: 97.00.FA.00.02').
+    """
+    if not gpus:
+        return []
+    properties = {}
+    for index, gpu in gpus.items():
+        detail = gpu.get("detail") or {}
+        properties[int(index)] = {"model": gpu.get("name")} | {
+            # Traces collected before the quotes were stripped by hwbench keep them
+            label: str(detail[key]).strip('"')
+            for label, key in GPU_PROPERTIES.items()
+            if detail.get(key)
+        }
+    labels = ["model", *GPU_PROPERTIES]
+    shared = {label for label in labels if len({str(props.get(label)) for props in properties.values()}) == 1}
+
+    def describe(values: dict[str, Any]) -> list[str]:
+        """Return the model as is, the other properties with their label."""
+        return [
+            str(value) if label == "model" else f"{label}: {value.lower() if label == 'ECC' else value}"
+            for label, value in values.items()
+            if value is not None
+        ]
+
+    first = next(iter(properties.values()))
+    # The models differ when they are not shared: they are then given per group
+    head = f"{len(properties)}x {first['model']}" if "model" in shared else f"{len(properties)} GPUs"
+    common = describe({label: first.get(label) for label in GPU_PROPERTIES if label in shared})
+    lines = [("GPU", ", ".join([head, *common]))]
+    groups: dict[tuple, list[int]] = {}
+    for position, props in sorted(properties.items()):
+        groups.setdefault(tuple(props.get(label) for label in labels if label not in shared), []).append(position)
+    if len(groups) > 1:
+        varying = [label for label in labels if label not in shared]
+        for values, indexes in groups.items():
+            lines.append((f"GPU {cpu_list_to_range(indexes)}", ", ".join(describe(dict(zip(varying, values))))))
+    return lines
+
+
+@functools.cache
+def engine_resources(engine: str) -> tuple[Resource, ...]:
+    """Return the kinds of component an engine loads, as hwbench declares them."""
+    try:
+        return importlib.import_module(f"hwbench.engines.{engine}").Engine.resources
+    except ModuleNotFoundError:
+        return ()
+
+
+def stressng_perf_metrics(bench: Bench) -> tuple[list, str]:
+    """The stress-ng performance metric, which depends on the engine module."""
+    em = bench.engine_module()
+    if em in ["cpu", "qsort", "vnni"]:
+        return ["bogo ops/s"], "Bogo op/s"
+    if em in ["memrate"]:
+        perf_list = []
+        for size in [8, 16, 32, 64, 128, 256, 512, 1024]:
+            perf_list.append(f"write{size}")
+            perf_list.append(f"read{size}")
+        return perf_list, "MB/s"
+    if em in ["stream"]:
+        return ["sum_total", "sum_write", "sum_read"], "MB/s"
+    fatal(f"Unsupported {em} engine module")
+
+
+def pantheon_perf_metrics(bench: Bench) -> tuple[list, str]:
+    """The pantheon performance metric: the sum over the loaded accelerators.
+
+    It scales with the number of GPUs of each step. The unit comes from the run:
+    the pantheon workloads do not all measure the same thing, the compute ones
+    report TFLOPS and the memory ones GB/s.
+    """
+    return ["score"], bench.get("score_unit") or "Score"
+
+
+# What performance metric an engine reports, and in which unit. An engine whose
+# metric depends on the run gets it from the bench rather than from a constant.
+PERF_METRICS: dict[str, Callable[[Bench], tuple[list, str]]] = {
+    "sleep": lambda bench: (["bogo ops/s"], "Bogo op/s"),
+    "stressng": stressng_perf_metrics,
+    "pantheon": pantheon_perf_metrics,
+}
 
 METRIC_AXIS = {
     "Percent": (110, 10, 5),
@@ -124,10 +286,13 @@ class Bench:
                         self.metrics[metric][component_family] = {}
                         for measure in m[metric][component_family]:
                             original_measure = m[metric][component_family][measure]
+                            # Power and Temperature carry their unit in the class,
+                            # their second argument is a first sample: passing the
+                            # unit there would record it as a value.
                             if original_measure["unit"] == "Watts":
-                                mm = Power(measure, original_measure["unit"])
+                                mm = Power(measure)
                             elif original_measure["unit"] == "Celsius":
-                                mm = Temperature(measure, original_measure["unit"])
+                                mm = Temperature(measure)
                             else:
                                 mm = MonitorMetric(measure, original_measure["unit"])
                             mm.load_from_dict(original_measure, measure)
@@ -187,14 +352,20 @@ class Bench:
                 for component_name, component in metric.items():
                     if names is not None and component_name not in names:
                         continue
-                    if not filter:
+                    if filter and filter not in component_name:
+                        continue
+                    # A component can be registered without ever reporting a
+                    # sample (all-smi does that for the metrics a GPU does not
+                    # support): there is nothing to render for it.
+                    if component.get_mean():
                         metrics.append(component)
-                    else:
-                        if filter in component_name:
-                            metrics.append(component)
         except KeyError:
             pass
         return metrics
+
+    def has_metrics(self, metric_type: MonitoringContextKeys, filter=None) -> bool:
+        """Return True if any component of this type reported samples."""
+        return bool(self.get_all_metrics(metric_type, filter))
 
     def pinned_core_names(self) -> set | None:
         """Return the set of monitoring component names matching the pinned cores.
@@ -232,6 +403,8 @@ class Bench:
             f"\nProcessor: {c.get('sockets', 1)}x {c['model']} - "
             f"{c['physical_cores']} physical cores and {c['numa_domains']} NUMA domains"
         )
+        for label, text in gpu_description(self.get_trace().get_gpus()):
+            title += f"\n{label}: {text}"
         return title
 
     def job_name(self) -> str:
@@ -258,32 +431,43 @@ class Bench:
         """Return the number of workers."""
         return self.get("workers")
 
+    def scaling_unit(self) -> ScalingUnit:
+        """Return what one 'worker' of this benchmark is.
+
+        The engines do not all stress the same kind of component, and the
+        renderers need to name it, label the scaling axis with it and restrict a
+        view to the ones a given benchmark used.
+        """
+        return GPU_SCALING_UNIT if Resource.GPU in self.resources() else CPU_SCALING_UNIT
+
+    def resources(self) -> tuple[Resource, ...]:
+        """Return the kinds of component this benchmark loads."""
+        return engine_resources(self.engine())
+
+    def gpu_list(self) -> list[int]:
+        """Return the indexes of the GPUs used by this benchmark."""
+        if self.get("gpu_pin") is not None:
+            return self.get("gpu_pin")
+        # Traces collected before selected_gpus was a hwbench keyword
+        gpu_list = (self.get("custom_parameters") or {}).get("gpu_list", "")
+        return [int(gpu) for gpu in gpu_list.split(",") if gpu]
+
+    def gpu_names(self) -> set | None:
+        """Return the monitoring component names matching the GPUs of this benchmark.
+
+        Returns None when the benchmark uses no GPU, so callers can fall back to
+        rendering every GPU of the system.
+        """
+        gpus = self.gpu_list()
+        if not gpus:
+            return None
+        return {gpu_component_name(gpu) for gpu in gpus}
+
     def prepare_perf_metrics(self) -> tuple[list, str]:
         """Preparing a list of metrics and units based on the executed benchmark"""
-        perf_list = []
-        unit = ""
-        em = self.engine_module()
-        # Preparing the performance metric to graph
-        if self.engine() not in ["stressng", "sleep"]:
+        if self.engine() not in PERF_METRICS:
             fatal(f"Unsupported {self.engine()} engine")
-        if self.engine() == "stressng":
-            if em in ["cpu", "qsort", "vnni"]:
-                perf_list = ["bogo ops/s"]
-                unit = "Bogo op/s"
-            elif em in ["memrate"]:
-                for size in [8, 16, 32, 64, 128, 256, 512, 1024]:
-                    perf_list.append(f"write{size}")
-                    perf_list.append(f"read{size}")
-                unit = "MB/s"
-            elif em in ["stream"]:
-                perf_list = ["sum_total", "sum_write", "sum_read"]
-                unit = "MB/s"
-            else:
-                fatal(f"Unsupported {em} engine module")
-        elif self.engine() == "sleep":
-            perf_list = ["bogo ops/s"]
-            unit = "Bogo op/s"
-        return perf_list, unit
+        return PERF_METRICS[self.engine()](self)
 
     def get_trace(self):
         """Return the Trace object associated to this benchmark"""
@@ -388,84 +572,69 @@ class Bench:
                     else:
                         watt_err[index] = metric
 
-            if cpu_clock is not None:
-                mm = self.get_monitoring_metric(MonitoringContextKeys.Freq)
-                mean_values = []
-                min_values = []
-                max_values = []
-
-                for freq_metric in mm:
-                    if freq_metric != "CPU":
-                        continue
-                    # By default we compute metrics over all the system cores.
-                    # When cpu_clock_cores is provided, we restrict the computation
-                    # to the cores that were pinned during this benchmark.
-                    for core in mm[freq_metric]:
-                        if cpu_clock_cores is not None and core not in cpu_clock_cores:
-                            continue
-                        # MIN of min ?
-                        # Mean of mean ?
-                        # Max of max ?
-                        min_values.append(min(mm[freq_metric][core].get_min()))
-                        mean_values.append(mean(mm[freq_metric][core].get_mean()))
-                        max_values.append(max(mm[freq_metric][core].get_max()))
-
-                # The CPU frequency is collected by turbostat, which only runs on
-                # x86_64: like the IPC below, it can legitimately be missing.
-                if mean_values:
-                    min_value = min(min_values)
-                    mean_value = mean(mean_values)
-                    max_value = max(max_values)
-
-                    if index is None:
-                        cpu_clock.append(mean_value)
-                    else:
-                        cpu_clock[index] = mean_value
-
-                    # If we want to keep the error distribution to plot error bars
-                    if cpu_clock_err is not None:
-                        metric = (mean_value - min_value, max_value - mean_value)
-                        if index is None:
-                            cpu_clock_err.append(metric)
-                        else:
-                            cpu_clock_err[index] = metric
-
-            # Same approach as cpu_clock but for the CPU IPC (may be absent).
-            if ipc is not None:
-                try:
-                    mm = self.get_monitoring_metric(MonitoringContextKeys.IPC)
-                except KeyError:
-                    mm = {}
-                mean_values = []
-                min_values = []
-                max_values = []
-                for ipc_metric in mm:
-                    if ipc_metric != "CPU":
-                        continue
-                    # All cores by default, or only the pinned ones when ipc_cores is set.
-                    for core in mm[ipc_metric]:
-                        if ipc_cores is not None and core not in ipc_cores:
-                            continue
-                        min_values.append(min(mm[ipc_metric][core].get_min()))
-                        mean_values.append(mean(mm[ipc_metric][core].get_mean()))
-                        max_values.append(max(mm[ipc_metric][core].get_max()))
-                if mean_values:
-                    min_value = min(min_values)
-                    mean_value = mean(mean_values)
-                    max_value = max(max_values)
-                    if index is None:
-                        ipc.append(mean_value)
-                    else:
-                        ipc[index] = mean_value
-                    if ipc_err is not None:
-                        metric = (mean_value - min_value, max_value - mean_value)
-                        if index is None:
-                            ipc_err.append(metric)
-                        else:
-                            ipc_err[index] = metric
+            # Both come from turbostat, which only runs on x86_64, so both can
+            # legitimately be missing.
+            self.__aggregate_family(
+                MonitoringContextKeys.Freq, FreqContextKeys.CPU, cpu_clock, cpu_clock_err, cpu_clock_cores, index
+            )
+            self.__aggregate_family(MonitoringContextKeys.IPC, IPCContextKeys.CPU, ipc, ipc_err, ipc_cores, index)
 
         except ValueError:
             fatal(f"No {perf} found in {self.get_bench_name()}")
+
+    def __aggregate_family(
+        self,
+        context: MonitoringContextKeys,
+        family: StrEnum,
+        target: list | None,
+        target_err: list | None,
+        names: set | None,
+        index: int | None,
+    ) -> None:
+        """Average a per-component metric over one family, into target[index].
+
+        family is the key the context is split by, i.e. FreqContextKeys.CPU for
+        the cpu cores, which is not the 'Core_<n>' prefix their components are
+        named after. names restricts the computation to the components used
+        during the benchmark (the pinned cores, the burnt GPUs); None averages
+        every component of the family. Nothing is recorded when none reported
+        the metric.
+        """
+        if target is None:
+            return
+
+        try:
+            components = self.get_monitoring_metric(context)
+        except KeyError:
+            return
+
+        min_values = []
+        mean_values = []
+        max_values = []
+        for name, metric in components.get(str(family), {}).items():
+            if names is not None and name not in names:
+                continue
+            # MIN of min ? Mean of mean ? Max of max ?
+            min_values.append(min(metric.get_min()))
+            mean_values.append(mean(metric.get_mean()))
+            max_values.append(max(metric.get_max()))
+
+        if not mean_values:
+            return
+
+        mean_value = mean(mean_values)
+        if index is None:
+            target.append(mean_value)
+        else:
+            target[index] = mean_value
+
+        # If we want to keep the error distribution to plot error bars
+        if target_err is not None:
+            metric_err = (mean_value - min(min_values), max(max_values) - mean_value)
+            if index is None:
+                target_err.append(metric_err)
+            else:
+                target_err[index] = metric_err
 
     def get_time_interval(self):
         return self.metrics[MonitoringMetadataKeys.iteration_time]
@@ -495,6 +664,12 @@ class Bench:
                 "avg_",
                 "sum_",
                 "memset",
+                # The performance of the accelerators, and everything the
+                # stressor measured about them, is what differs between two
+                # servers running the same job.
+                "score",
+                "pantheon_results",
+                "effective_runtime",
             ]
 
             # Skipping network results
@@ -647,6 +822,10 @@ class Trace:
 
     def get_kernel(self):
         return self.get_environment().get("kernel")
+
+    def get_gpus(self) -> dict[str, dict[str, Any]]:
+        """Return the accelerator inventory, empty for a trace without any."""
+        return self.get_hardware().get("gpus") or {}
 
     def get_chassis_serial(self):
         return self.get_dmi()["chassis"]["serial"]
