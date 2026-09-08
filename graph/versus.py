@@ -92,7 +92,13 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
 
                 index = index + 1
 
+        # The CPU frequency comes from turbostat, which only runs on x86_64: its
+        # context is always serialized, even empty, so count the components.
+        has_cpu_clock = bool(benches[emp]["bench"][0].get_all_metrics(MonitoringContextKeys.Freq, "Core"))
+
         for graph_type in GRAPH_TYPES:
+            if graph_type == "cpu_clock" and not has_cpu_clock:
+                continue
             # Let's render each performance graph
             graph_type_title = ""
 
