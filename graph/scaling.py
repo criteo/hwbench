@@ -21,13 +21,12 @@ from graph.graph import (
     numa_core_blocks,
     statistics_in_label,
 )
-from hwbench.bench.monitoring_structs import MonitoringContextKeys
+from graph.trace import CPU_SCALING_UNIT, GPU_SCALING_UNIT, ScalingUnit
+from hwbench.bench.monitoring_structs import CORE_FAMILY, MonitoringContextKeys
 
 
 def _bench_has_ipc(bench) -> bool:
-    # The IPC context is always serialized, even when turbostat could not
-    # collect it, so the per-core components have to be counted.
-    return bool(bench.get_all_metrics(MonitoringContextKeys.IPC, "Core"))
+    return bench.has_metrics(MonitoringContextKeys.IPC, CORE_FAMILY)
 
 
 def render_numa_delta_heatmaps(args, temp_outdir, job: str, emp: str) -> int:
@@ -248,74 +247,90 @@ def _set_scaling_xticks(ax, positions: list, labels: list, max_labels: int = 24)
     ax.set_xticklabels([str(labels[i]) for i in shown])
 
 
-def benches_have_cpu_clock(args, job: str, emp: str) -> bool:
-    """Return True if the first trace collected the per-core CPU frequency."""
-    trace_benches = args.traces[0].get_benches_by_job_per_emp(job)
-    if emp not in trace_benches or not trace_benches[emp]["bench"]:
-        return False
-    return bool(trace_benches[emp]["bench"][0].get_all_metrics(MonitoringContextKeys.Freq, "Core"))
+# (scaling unit of the family, directory, context, title) of every per-component
+# metric a scaling sweep can distribute. The ScalingUnit carries the component
+# family and how to name it, so a metric never has to know which kind of
+# component it is on.
+DISTRIBUTIONS: list[tuple[ScalingUnit, str, MonitoringContextKeys, str]] = [
+    (CPU_SCALING_UNIT, "cpu_clock", MonitoringContextKeys.Freq, "Core frequency"),
+    (CPU_SCALING_UNIT, "cpu_ipc", MonitoringContextKeys.IPC, "Core IPC"),
+    (CPU_SCALING_UNIT, "cpu_core_power", MonitoringContextKeys.PowerConsumption, "CPU Core power consumption"),
+    (GPU_SCALING_UNIT, "gpu_power", MonitoringContextKeys.PowerConsumption, "GPU power consumption"),
+    (GPU_SCALING_UNIT, "gpu_clock", MonitoringContextKeys.Freq, "GPU frequency"),
+    (GPU_SCALING_UNIT, "gpu_temperature", MonitoringContextKeys.Thermal, "GPU temperature"),
+    (GPU_SCALING_UNIT, "gpu_utilization", MonitoringContextKeys.Utilization, "GPU utilization"),
+]
 
 
-def render_scaling_distributions(args, temp_outdir, job: str, emp: str, has_ipc: bool) -> int:
-    """Render the per-core metric distribution across the scaling steps.
+def render_scaling_distributions(args, temp_outdir, job: str, emp: str) -> int:
+    """Render the per-component metric distribution across the scaling steps.
 
-    For each trace and each per-core metric (frequency, IPC and per-core power),
-    one graph shows how the core-to-core distribution evolves as the sweep grows:
-    X = worker count (one violin + box per scaling step, evenly spaced), Y = the
-    metric. The violin shows the density across cores, the box the median (red),
-    mean (green dashed), quartiles and outliers.
+    For each trace and each per-component metric (see DISTRIBUTIONS: the core
+    frequency, IPC and power, and the GPU power, clock, temperature and
+    utilization), one graph shows how the component-to-component distribution
+    evolves as the sweep grows: X = worker count (one violin + box per scaling
+    step, evenly spaced), Y = the metric. The violin shows the density across
+    components, the box the median (red), mean (green dashed), quartiles and
+    outliers.
 
     Where the scaling line graphs plot a single averaged value per step, these
     expose the spread hidden behind that average -- e.g. cores starting to
-    throttle or diverge only past a given worker count. Like the other per-core
-    scaling graphs they are rendered for all_cores and, when the sweep pins
-    cores, pinned_cores, and the Y axis is autoscaled (a distribution is
-    unreadable squished against a zero baseline).
+    throttle or diverge only past a given worker count. The family the sweep
+    scales on is also rendered restricted to the components each step used (the
+    pinned cores, or the burnt GPUs), and the Y axis is autoscaled (a
+    distribution is unreadable squished against a zero baseline).
     """
-    metrics = []  # type: list
-    if benches_have_cpu_clock(args, job, emp):
-        metrics.append(("cpu_clock", MonitoringContextKeys.Freq, "Mhz", "Core frequency"))
-    if has_ipc:
-        metrics.append(("cpu_ipc", MonitoringContextKeys.IPC, "IPC", "Core IPC"))
-    metrics.append(("cpu_core_power", MonitoringContextKeys.PowerConsumption, None, "CPU Core power consumption"))
-
     rendered = 0
     for trace in args.traces:
         trace_benches = trace.get_benches_by_job_per_emp(job)
         if emp not in trace_benches or not trace_benches[emp]["bench"]:
             continue
-        benches = trace_benches[emp]["bench"]
+        benches = sorted(trace_benches[emp]["bench"], key=lambda bench: bench.workers())
         engine = benches[0].get_title_engine_name().replace(" ", "_")
         trace_slug = trace.get_name().replace(" ", "_").replace("/", "_")
-        # all_cores always; pinned_cores when at least one run of the sweep pins cores.
-        variants = [("all_cores", False, None)]  # type: list
-        if any(bench.cpu_pin() for bench in benches):
-            variants.append(("pinned_cores", True, "View limited to the pinned cores of each scaling step"))
+        unit = benches[0].scaling_unit()
+        # One set per bench, resolved once: it is a fresh set of component names
+        # per call, and the loops below would otherwise rebuild it per metric.
+        subsets = [unit.subset(bench) for bench in benches]
 
-        for dirname, context, unit, item_title in metrics:
-            for dir_suffix, use_pinned, note in variants:
+        # The CPU distributions come from turbostat, which does not run
+        # everywhere; the GPU ones need an accelerator. An absent metric yields
+        # no component and is skipped below.
+        for family_unit, dirname, context, item_title in DISTRIBUTIONS:
+            family = family_unit.family
+            # The full view always, named after the family it distributes. The
+            # restricted one -- the cores each step pinned, or the GPUs it burnt
+            # -- only for the family the sweep scales on: without it the
+            # components it never touched dominate the distribution, while the
+            # other family did not vary and has no subset to speak of.
+            views = [(f"all_{family_unit.item_name}s", False, None)]  # type: list
+            if family_unit is unit and any(subsets):
+                views.append((unit.subset_dir, True, unit.subset_note))
+            for dir_suffix, use_subset, note in views:
                 data = []  # type: list
                 step_benches = []  # type: list
                 metric_unit = ""
-                for bench in sorted(benches, key=lambda b: b.workers()):
-                    names = bench.pinned_core_names() if use_pinned else None
-                    components = bench.get_all_metrics(context, "Core", names)
+                for bench, subset in zip(benches, subsets):
+                    components = bench.get_all_metrics(context, family, subset if use_subset else None)
                     if not components:
                         continue
                     data.append([float(np.mean(component.get_mean())) for component in components])
                     step_benches.append(bench)
-                    metric_unit = bench.get_metric_unit(context)
+                    metric_unit = components[0].get_unit()
                 if not data:
                     continue
-                labels, xlabel = _scaling_step_labels(step_benches, "Workers (scaling step)")
+                labels, xlabel = _scaling_step_labels(step_benches, f"{unit.axis_label} (scaling step)")
 
-                title = f'{args.title}\n\n{item_title} per-core distribution scaling via "{job}" benchmark job\n\n Stressor: '
+                title = (
+                    f"{args.title}\n\n{item_title} per-{family_unit.item_name} distribution scaling "
+                    f'via "{job}" benchmark job\n\n Stressor: '
+                )
                 title += f"{benches[0].get_title_engine_name()} for {benches[0].duration()} seconds"
                 graph = Graph(
                     args,
                     title,
                     xlabel,
-                    unit or metric_unit,
+                    metric_unit,
                     temp_outdir.joinpath(dirname, dir_suffix),
                     f"scaling_{dirname}_distribution_{trace_slug}_{engine}",
                     square=True,
@@ -1037,8 +1052,9 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
         # on x86_64, and the IPC additionally needs a CPU exposing the counter.
         # Their context is always serialized, even empty, so the components have
         # to be counted rather than the context itself.
-        has_ipc = bool(benches[emp]["bench"][0].get_all_metrics(MonitoringContextKeys.IPC, "Core"))
-        has_cpu_clock = bool(benches[emp]["bench"][0].get_all_metrics(MonitoringContextKeys.Freq, "Core"))
+        reference = benches[emp]["bench"][0]
+        has_ipc = _bench_has_ipc(reference)
+        has_cpu_clock = reference.has_metrics(MonitoringContextKeys.Freq, CORE_FAMILY)
 
         # For each metric we need to plot
         # (only needed to feed the per-worker line graphs; skipped for per-core sweeps)
@@ -1063,12 +1079,10 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                 for bench in trace.get_benches_by_job_per_emp(job)[emp]["bench"]:
                     # Workers list may be different between traces, so the X
                     # serie is kept per trace. One entry per bench, even when two
-                    # benches share the same worker count: the Y series below are
-                    # appended per bench and the two must stay aligned. Deduping
-                    # here dropped every bench but the first, and left
-                    # logical_core_per_worker with a single value, which made the
-                    # stdev() below raise on any job iterating over the cores at a
-                    # fixed stressor count.
+                    # benches share the same worker count (a pantheon 'iterate'
+                    # sweep burns one GPU at a time, so every step has a single
+                    # worker): the Y series below are appended per bench and the
+                    # two must stay aligned.
                     workers[trace.get_name()].append(bench.workers())
                     pin = len(bench.cpu_pin())
                     # If there is no cpu_pin, we'll have the same number of workers
@@ -1202,17 +1216,19 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
 
                     title = f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job\n\n Stressor: '
                     title += f"{bench.get_title_engine_name()} for {bench.duration()} seconds"
-                    xlabel = "Workers"
-                    # If we have a constant ratio between cores & workers, let's report them under the Xaxis
+                    scaling_unit = bench.scaling_unit()
+                    xlabel = scaling_unit.axis_label
+                    # If we have a constant ratio between cores & workers, let's
+                    # report them under the Xaxis. Whether that ratio means
+                    # anything is the unit's to say.
                     # A single-step sweep has one ratio, which is trivially constant;
                     # stdev() needs at least two points, so short-circuit that case.
                     if logical_core_per_worker and (
                         len(logical_core_per_worker) < 2 or stdev(logical_core_per_worker) == 0
                     ):
-                        cores = "cores"
-                        if logical_core_per_worker[0] == 1:
-                            cores = "core"
-                        xlabel += f"\n({int(logical_core_per_worker[0])} logical {cores} per worker)"
+                        ratio_note = scaling_unit.per_worker(logical_core_per_worker[0])
+                        if ratio_note:
+                            xlabel += f"\n{ratio_note}"
 
                     graph = Graph(
                         args,
@@ -1270,10 +1286,10 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                         # Each trace can have different numbers of workers based on the hardware setup
                         # So let's consider the list of x values per trace.
                         order = np.argsort(workers[trace_name])
-                        # A metric one trace collected and another did not (i.e
-                        # the cpu clock of an aarch64 host, which has no
-                        # turbostat) aggregates nothing for that trace: it has no
-                        # serie to align on the X one, so it is left out.
+                        # A metric one trace collected and another did not (i.e the
+                        # cpu clock of an aarch64 host, which has no turbostat)
+                        # aggregates nothing for that trace: it has no serie to
+                        # align on the X one, so it is left out of the graph.
                         if len(v_y_source[perf][trace_name]) != len(order):
                             if args.verbose:
                                 print(f"SMP scaling: no {graph_type} data for trace '{trace_name}', skipping it")
@@ -1390,7 +1406,7 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
         rendered_graphs += render_numa_delta_heatmaps(args, temp_outdir, job, emp)
 
         # Per-core distribution (violin + box) across the scaling steps.
-        rendered_graphs += render_scaling_distributions(args, temp_outdir, job, emp, has_ipc)
+        rendered_graphs += render_scaling_distributions(args, temp_outdir, job, emp)
 
         # Per-trace deviation of measured performance from ideal linear scaling.
         rendered_graphs += render_scaling_linearity_deviation(args, temp_outdir, job, emp)

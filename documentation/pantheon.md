@@ -177,6 +177,20 @@ the same rows in a spreadsheet, `results/<run>/time_series.csv` for its per samp
 # Graphing
 
 `hwgraph` still requires the power metric of its `--traces <file>:<name>:<power_metric>`
-argument to exist, so a GPU trace must be collected with `monitor=all` on a server whose BMC or
-CPU power is readable. `PowerConsumption.GPU.GPU_0` is also a valid choice once the all-smi
-monitoring is active.
+argument to exist, so a GPU trace must be collected with `monitor=all`. Use `hwgraph list
+--trace <file>` to see the available ones: `BMC.Server` is the usual choice, and
+`GPU.GPU_0` is also valid once the all-smi monitoring is active.
+
+The performance metric plotted is `score`, the sum over the loaded accelerators, so it scales
+with the GPU count of each step, and its axis is labelled with the unit of the workload. The X
+axis of the scaling graphs is that GPU count.
+
+Per-GPU metrics are rendered twice, the same way the CPU ones are rendered for all cores and for
+the pinned cores: once over every accelerator of the server, once restricted to the ones the
+benchmark actually used (`used_gpus`). The restricted view is the useful one on a scaling job,
+where the idle accelerators would otherwise dominate the distribution. It only covers the all-smi
+metrics, since Redfish ids cannot be mapped to accelerator indexes.
+
+Comparing two traces with `hwgraph versus` skips the pantheon results themselves, since they are
+what differs between two servers running the same job, and reports the performance per
+accelerator rather than per core.
