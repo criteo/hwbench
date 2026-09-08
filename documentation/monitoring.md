@@ -16,6 +16,7 @@ Depending on the source, power, frequency, thermal or cooling metrics are collec
     - [Dell driver](#dell-driver)
     - [HPE driver](#hpe-driver)
     - [Metrics listed at startup](#metrics-listed-at-startup)
+    - [Accelerators](#accelerators)
   - [PDU](#pdu)
     - [driver](#driver), [url](#url), [outlet](#outlet), [outletgroup](#outletgroup), [separator](#separator), [pdu_id](#pdu_id), [group](#group)
 - [Turbostat](#turbostat)
@@ -175,6 +176,15 @@ supplies, and the server in its chassis and the infrastructure from the iDRAC at
 
 Since the detection happens at each start, the monitoring follows the hardware actually
 present: a replaced fan or an added power supply is picked up by the next run.
+
+### Accelerators
+If the BMC exposes accelerators, their metrics are collected too, using only the vendor neutral resources:
+- the `Processors` of a `ComputerSystem` whose `ProcessorType` is `GPU`, through their `ProcessorMetrics` (temperature, consumed power, bandwidth and operating speed)
+- when the BMC exposes none of those, the `Chassis` `Sensors` carrying a `GPU`, `Accelerator` or `GPUSubsystem` physical context. That walk reads every sensor of every chassis, so it is only done when the Processors did not already describe the accelerators.
+
+Collections are read with the Redfish `$expand` query parameter when the service root advertises it, which returns a whole collection in a single request instead of one request per member. Support is optional and unevenly implemented, so the answer is checked rather than trusted: a service that does not advertise it, rejects the request, or accepts it and answers unexpanded falls back to reading the members one by one. A service that advertises it without honouring it is probed once, not on every monitoring iteration.
+
+They are named `BMC_GPU_<redfish id>`, deliberately distinct from the `GPU_<n>` metrics all-smi reports: the Redfish ids of a BMC do not have to match the accelerator numbering. A BMC exposing none of those resources simply reports nothing.
 
 > ℹ️ **Info**
 >

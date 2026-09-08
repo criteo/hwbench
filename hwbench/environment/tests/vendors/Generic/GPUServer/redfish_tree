@@ -1,0 +1,190 @@
+# A minimal Redfish tree of a 2 GPUs server, keyed by url.
+# The accelerators are exposed twice, the way real BMCs do:
+# - as Processors of the ComputerSystem, with their ProcessorMetrics
+# - as Chassis Sensors carrying a GPU PhysicalContext
+#
+# The service root advertises the '$expand=.' query parameter, and the
+# '<collection>?$expand=.' entries are the answers it returns: the collection
+# members with their bodies inlined, which is what lets hwbench read a whole
+# collection in a single request. Drop either to exercise the fallback.
+{
+    "/redfish/v1/Systems": {
+        "Members": [
+            {
+                "@odata.id": "/redfish/v1/Systems/System.Embedded.1"
+            }
+        ]
+    },
+    "/redfish/v1/Systems/System.Embedded.1": {
+        "Processors": {
+            "@odata.id": "/redfish/v1/Systems/System.Embedded.1/Processors"
+        }
+    },
+    "/redfish/v1/Systems/System.Embedded.1/Processors": {
+        "Members": [
+            {
+                "@odata.id": "/redfish/v1/Systems/System.Embedded.1/Processors/CPU.Socket.1"
+            },
+            {
+                "@odata.id": "/redfish/v1/Systems/System.Embedded.1/Processors/GPU1"
+            },
+            {
+                "@odata.id": "/redfish/v1/Systems/System.Embedded.1/Processors/GPU2"
+            }
+        ]
+    },
+    "/redfish/v1/Systems/System.Embedded.1/Processors/CPU.Socket.1": {
+        "Id": "CPU.Socket.1",
+        "ProcessorType": "CPU",
+        "Metrics": {
+            "@odata.id": "/redfish/v1/Systems/System.Embedded.1/Processors/CPU.Socket.1/Metrics"
+        }
+    },
+    "/redfish/v1/Systems/System.Embedded.1/Processors/GPU1": {
+        "Id": "GPU1",
+        "ProcessorType": "GPU",
+        "Metrics": {
+            "@odata.id": "/redfish/v1/Systems/System.Embedded.1/Processors/GPU1/Metrics"
+        }
+    },
+    "/redfish/v1/Systems/System.Embedded.1/Processors/GPU1/Metrics": {
+        "TemperatureCelsius": 71.5,
+        "ConsumedPowerWatt": 698,
+        "BandwidthPercent": 99.4,
+        "OperatingSpeedMHz": 1980
+    },
+    "/redfish/v1/Systems/System.Embedded.1/Processors/GPU2": {
+        "Id": "GPU2",
+        "ProcessorType": "GPU",
+        "ProcessorMetrics": {
+            "@odata.id": "/redfish/v1/Systems/System.Embedded.1/Processors/GPU2/ProcessorMetrics"
+        }
+    },
+    "/redfish/v1/Systems/System.Embedded.1/Processors/GPU2/ProcessorMetrics": {
+        "TemperatureCelsius": 84,
+        "ConsumedPowerWatt": None
+    },
+    "/redfish/v1/Chassis": {
+        "Members": [
+            {
+                "@odata.id": "/redfish/v1/Chassis/Chassis.1"
+            }
+        ]
+    },
+    "/redfish/v1/Chassis/Chassis.1": {
+        "Sensors": {
+            "@odata.id": "/redfish/v1/Chassis/Chassis.1/Sensors"
+        }
+    },
+    "/redfish/v1/Chassis/Chassis.1/Sensors": {
+        "Members": [
+            {
+                "@odata.id": "/redfish/v1/Chassis/Chassis.1/Sensors/GPUSubsystemPwr"
+            },
+            {
+                "@odata.id": "/redfish/v1/Chassis/Chassis.1/Sensors/GPU1Inlet"
+            },
+            {
+                "@odata.id": "/redfish/v1/Chassis/Chassis.1/Sensors/GPU1Volt"
+            },
+            {
+                "@odata.id": "/redfish/v1/Chassis/Chassis.1/Sensors/CPU1Temp"
+            }
+        ]
+    },
+    "/redfish/v1/Chassis/Chassis.1/Sensors/GPUSubsystemPwr": {
+        "Name": "GPU Subsystem Power",
+        "PhysicalContext": "GPUSubsystem",
+        "ReadingType": "Power",
+        "Reading": 1402
+    },
+    "/redfish/v1/Chassis/Chassis.1/Sensors/GPU1Inlet": {
+        "Name": "GPU1 Inlet Temp",
+        "PhysicalContext": "Accelerator",
+        "ReadingType": "Temperature",
+        "Reading": 38
+    },
+    "/redfish/v1/Chassis/Chassis.1/Sensors/GPU1Volt": {
+        "Name": "GPU1 Voltage",
+        "PhysicalContext": "GPU",
+        "ReadingType": "Voltage",
+        "Reading": 12.1
+    },
+    "/redfish/v1/Chassis/Chassis.1/Sensors/CPU1Temp": {
+        "Name": "CPU1 Temp",
+        "PhysicalContext": "CPU",
+        "ReadingType": "Temperature",
+        "Reading": 55
+    },
+    "/redfish/v1": {
+        "ProtocolFeaturesSupported": {
+            "ExpandQuery": {
+                "ExpandAll": False,
+                "Levels": True,
+                "MaxLevels": 2,
+                "Links": False,
+                "NoLinks": True
+            }
+        }
+    },
+    "/redfish/v1/Systems/System.Embedded.1/Processors?$expand=.": {
+        "Members": [
+            {
+                "@odata.id": "/redfish/v1/Systems/System.Embedded.1/Processors/CPU.Socket.1",
+                "Id": "CPU.Socket.1",
+                "ProcessorType": "CPU",
+                "Metrics": {
+                    "@odata.id": "/redfish/v1/Systems/System.Embedded.1/Processors/CPU.Socket.1/Metrics"
+                }
+            },
+            {
+                "@odata.id": "/redfish/v1/Systems/System.Embedded.1/Processors/GPU1",
+                "Id": "GPU1",
+                "ProcessorType": "GPU",
+                "Metrics": {
+                    "@odata.id": "/redfish/v1/Systems/System.Embedded.1/Processors/GPU1/Metrics"
+                }
+            },
+            {
+                "@odata.id": "/redfish/v1/Systems/System.Embedded.1/Processors/GPU2",
+                "Id": "GPU2",
+                "ProcessorType": "GPU",
+                "ProcessorMetrics": {
+                    "@odata.id": "/redfish/v1/Systems/System.Embedded.1/Processors/GPU2/ProcessorMetrics"
+                }
+            }
+        ]
+    },
+    "/redfish/v1/Chassis/Chassis.1/Sensors?$expand=.": {
+        "Members": [
+            {
+                "@odata.id": "/redfish/v1/Chassis/Chassis.1/Sensors/GPUSubsystemPwr",
+                "Name": "GPU Subsystem Power",
+                "PhysicalContext": "GPUSubsystem",
+                "ReadingType": "Power",
+                "Reading": 1402
+            },
+            {
+                "@odata.id": "/redfish/v1/Chassis/Chassis.1/Sensors/GPU1Inlet",
+                "Name": "GPU1 Inlet Temp",
+                "PhysicalContext": "Accelerator",
+                "ReadingType": "Temperature",
+                "Reading": 38
+            },
+            {
+                "@odata.id": "/redfish/v1/Chassis/Chassis.1/Sensors/GPU1Volt",
+                "Name": "GPU1 Voltage",
+                "PhysicalContext": "GPU",
+                "ReadingType": "Voltage",
+                "Reading": 12.1
+            },
+            {
+                "@odata.id": "/redfish/v1/Chassis/Chassis.1/Sensors/CPU1Temp",
+                "Name": "CPU1 Temp",
+                "PhysicalContext": "CPU",
+                "ReadingType": "Temperature",
+                "Reading": 55
+            }
+        ]
+    }
+}
