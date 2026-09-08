@@ -1,15 +1,19 @@
-import os
+from __future__ import annotations
+
 import pathlib
 import subprocess
 from abc import ABC, abstractmethod
 
-from .helpers import fatal
+from .helpers import english_env, fatal
 
 
 class External(ABC):
     # TODO: class settings (timeout, type of test, number of jobs, etc.)
     def __init__(self, out_dir: pathlib.Path):
         self.out_dir = out_dir
+        # Exit status of the last run(); some tools report a meaningful verdict
+        # through it (i.e pantheon exits 1 when a GPU failed its workload).
+        self.returncode: int | None = None
 
     @abstractmethod
     def run_cmd(self) -> list[str]:
@@ -48,15 +52,14 @@ class External(ABC):
 
     def run(self):
         """Returns the output of parse_cmd (a json-able type)"""
-        english_env = os.environ.copy()
-        english_env["LC_ALL"] = "C"
+        env = english_env()
         try:
             if self.run_cmd_version():
                 ver = subprocess.run(
                     self.run_cmd_version(),
                     capture_output=True,
                     cwd=self.out_dir,
-                    env=english_env,
+                    env=env,
                     stdin=subprocess.DEVNULL,
                 )
                 self._write_output("version-stdout", ver.stdout)
@@ -66,7 +69,7 @@ class External(ABC):
                 self.run_cmd(),
                 capture_output=True,
                 cwd=self.out_dir,
-                env=english_env,
+                env=env,
                 stdin=subprocess.DEVNULL,
             )
         except FileNotFoundError as e:
@@ -75,6 +78,8 @@ class External(ABC):
 
         self._write_output("stdout", out.stdout)
         self._write_output("stderr", out.stderr)
+
+        self.returncode = out.returncode
 
         return self.parse_cmd(out.stdout, out.stderr)
 
