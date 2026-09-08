@@ -1,0 +1,26 @@
+{
+    "0": {
+        "index": 0,
+        "uuid": "Intel-GPU-0000:00:02.0",
+        "name": "Intel Arc Graphics (Core Ultra / Meteor Lake)",
+        "device_type": "GPU",
+        "memory_total_mb": 0,
+        "detail": {
+            "Architecture": "Xe-LPG (Meteor Lake)",
+            "Device ID": "0x7d55",
+            "Driver": "i915",
+            "Memory": "Shared system memory (no dedicated VRAM)",
+            "Metrics Source": "sysfs (engine counters)",
+            "PCI Bus": "0000:00:02.0",
+            "SYCL Capable": "Yes",
+            "Source: Fan": "unavailable",
+            "Source: Frequency": "unavailable",
+            "Source: Memory": "unavailable/shared system memory",
+            "Source: Power": "unavailable",
+            "Source: Temperature": "unavailable",
+            "Source: Utilization": "unavailable",
+            "Utilization": "Engine counters unavailable (kernel does not expose engine busy)",
+            "Variant": "Integrated"
+        }
+    }
+}
