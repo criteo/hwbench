@@ -2,12 +2,28 @@ from __future__ import annotations
 
 import abc
 import pathlib
-from typing import Callable
+import subprocess
+from enum import StrEnum
+from typing import Any, Callable
 
 from hwbench.utils.external import External
-from hwbench.utils.helpers import MissingBinary, is_binary_available
+from hwbench.utils.helpers import (
+    IncompatibleVersion,
+    MissingBinary,
+    english_env,
+    is_binary_available,
+    version_compatible,
+)
 
 from .parameters import BenchmarkParameters
+
+
+class Resource(StrEnum):
+    """A kind of component a benchmark loads."""
+
+    CPU = "cpu"
+    GPU = "gpu"
+    DISK = "disk"
 
 
 class EngineModuleBase(abc.ABC):
@@ -41,12 +57,24 @@ class EngineModuleBase(abc.ABC):
         return ""
 
     # Used to allow an engine to expand to a matrix of multiple benchmarks
-    # Every entry is a dict containing custom parameters for each instance
-    def generate_benchmarks(self, config: dict[str, str]) -> list[dict[str, str]]:
+    # Every entry is a dict containing custom parameters for each instance.
+    # A 'workers' entry is consumed by Benchmarks to size the run instead of
+    # being reported as a custom parameter.
+    def generate_benchmarks(self, config: dict[str, str]) -> list[dict[str, Any]]:
         return [{}]
 
     def fully_skipped_job(self, p) -> bool:
         raise NotImplementedError
+
+    def warmup(self, p: BenchmarkParameters) -> None:
+        """One-off setup, run before the first benchmark is measured.
+
+        Called for every benchmark before any of them starts, so an engine whose
+        tool does expensive work on first use can get it out of the way instead
+        of paying for it inside the monitored window of the first run. An engine
+        doing this must make it idempotent: it is called once per benchmark, and
+        Benchmarks instantiates one engine object per job.
+        """
 
     def init(self):
         pass
@@ -57,6 +85,15 @@ class EngineModuleBase(abc.ABC):
 
 
 class EngineBase(External):
+    # The kinds of component the benchmarks of this engine load. A class
+    # attribute, so it is known without instantiating the engine: it decides
+    # which requirements to check, how the GPUs are expanded and how the
+    # benchmarks are reported, by hwbench and hwgraph alike.
+    resources: tuple[Resource, ...] = ()
+    # The oldest release of the binary this engine supports, checked before the
+    # run starts; empty when any release goes.
+    min_version = ""
+
     def __init__(self, name: str, binary: str, modules: dict[str, EngineModuleBase] | None = None):
         if modules is None:
             modules = {}
@@ -74,7 +111,16 @@ class EngineBase(External):
     def check_requirements(self) -> list[Exception]:
         if not is_binary_available(self.get_binary()):
             return [MissingBinary(self.binary)]
+        if self.min_version:
+            version = self.read_version()
+            if not version_compatible(version, self.min_version):
+                return [IncompatibleVersion(self.binary, version, self.min_version)]
         return []
+
+    def read_version(self) -> str:
+        """Run the version command of the binary and return the release it reports."""
+        out = subprocess.run(self.run_cmd_version(), capture_output=True, env=english_env(), stdin=subprocess.DEVNULL)
+        return self.parse_version(out.stdout, out.stderr)
 
     def init(self):
         for module in self.modules.values():

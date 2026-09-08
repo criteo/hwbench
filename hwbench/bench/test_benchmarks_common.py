@@ -63,13 +63,16 @@ class TestCommon(unittest.TestCase):
     def get_benches(self):
         return self.benches
 
-    def parse_jobs_config(self, validate_parameters=True):
+    def parse_jobs_config(self, validate_parameters=True, gpus=None):
         # We need to mock turbostat when parsing config with monitoring
         # We mock the run() and check_version() command to get a constant output
+        # The GPUs of the machine running the tests are hidden too, so the
+        # expansion does not depend on the test host.
         with patch("hwbench.environment.turbostat.Turbostat.check_version") as cv:
             cv.return_value = True
             with (
                 patch("hwbench.environment.turbostat.Turbostat.run") as ts,
+                patch("hwbench.environment.hardware.list_gpus", return_value=gpus or {}),
                 open("hwbench/tests/parsing/turbostat/run") as f,
             ):
                 ts.return_value = ast.literal_eval(f.read())
@@ -81,6 +84,10 @@ class TestCommon(unittest.TestCase):
     def bench_name(self, index) -> str:
         """Return the benchmark name"""
         return self.get_bench_parameters(index).get_name()
+
+    def gpu_list(self, index) -> list[int]:
+        """Return the GPUs a benchmark was given."""
+        return self.get_bench_parameters(index).get_pinned_gpus()
 
     def bench_em(self, index) -> str:
         """Return the benchmark engine module name"""
@@ -103,3 +110,18 @@ class TestCommon(unittest.TestCase):
         assert self.bench_name(index) == name
         assert self.bench_em(index) == engine_module
         assert self.bench_emp(index) == engine_module_parameter
+
+
+def fake_gpus(count: int) -> dict[str, dict]:
+    """Return the inventory of a fake <count> accelerators host."""
+    return {
+        str(index): {
+            "index": index,
+            "uuid": f"GPU-fake-{index}",
+            "name": "Fake GPU",
+            "device_type": "GPU",
+            "memory_total_mb": 81559,
+            "detail": {},
+        }
+        for index in range(count)
+    }

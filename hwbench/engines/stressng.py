@@ -7,7 +7,7 @@ import re
 import yaml
 
 from hwbench.bench.benchmark import ExternalBench
-from hwbench.bench.engine import EngineBase, EngineModuleBase
+from hwbench.bench.engine import EngineBase, EngineModuleBase, Resource
 from hwbench.bench.parameters import BenchmarkParameters
 from hwbench.utils import helpers as h
 
@@ -27,6 +27,8 @@ class EngineModulePinnable(EngineModuleBase):
 
 class Engine(EngineBase):
     """The main stressn2 class."""
+
+    resources = (Resource.CPU,)
 
     def __init__(self):
         from .stressng_cpu import EngineModuleCpu

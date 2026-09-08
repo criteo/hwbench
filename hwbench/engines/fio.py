@@ -7,7 +7,7 @@ import subprocess
 from typing import Any
 
 from hwbench.bench.benchmark import ExternalBench
-from hwbench.bench.engine import EngineBase, EngineModuleBase
+from hwbench.bench.engine import EngineBase, EngineModuleBase, Resource
 from hwbench.bench.parameters import BenchmarkParameters
 from hwbench.environment.block_devices import Block_Devices
 from hwbench.utils.helpers import fatal, versiontuple
@@ -57,6 +57,8 @@ class EngineModuleCmdline(EngineModuleBase):
 
 class Engine(EngineBase):
     """The main fio class."""
+
+    resources = (Resource.DISK,)
 
     def __init__(self, fake_stdout=None):
         super().__init__("fio", "fio")

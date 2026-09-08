@@ -1,11 +1,15 @@
-"""Render the expanded benchmarks as an ASCII map of their CPU pinning, one line per benchmark."""
+"""Render the expanded benchmarks as an ASCII map of their CPU pinning, or of their GPUs, one line per benchmark."""
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from hwbench.environment.all_smi import list_gpus
 from hwbench.utils import helpers as h
+
+from .engine import Resource
 
 if TYPE_CHECKING:
     from hwbench.environment.cpu import CPU
@@ -40,6 +44,21 @@ def legend(glyphs: set[str], threads_per_core: int = 1, cut: bool = False) -> li
     return ["map legend: one column per physical core"] + [f"  {glyph:<{width}}  {text}" for glyph, text in entries]
 
 
+def gpu_legend() -> list[str]:
+    """Return the legend of the GPU maps."""
+    return [
+        "gpu map legend: one column per GPU",
+        "  #  the GPU is loaded",
+        "  .  the GPU is idle",
+    ]
+
+
+def gpu_topology() -> str:
+    """Return the accelerators of the target machine, by model."""
+    models = Counter(gpu.get("name") or "unknown GPU" for gpu in list_gpus().values())
+    return "GPUs: " + ", ".join(f"{count}x {name}" for name, count in models.items())
+
+
 def number_rows(numbers: list[int | None], digits: int) -> list[str]:
     """Return numbers written vertically, one character per column, most significant digit first.
 
@@ -66,6 +85,26 @@ def cpus_to_str(cpus: list[int]) -> str:
     if not cpus:
         return "no pinning"
     return h.cpu_list_to_range(cpus)
+
+
+class GpuMap:
+    """The GPUs of the target machine, as the columns of the map."""
+
+    def __init__(self, gpus: list[int]):
+        self.columns = gpus
+
+    def rulers(self, label_width: int, text_header: str) -> list[str]:
+        """Return the header lines: the GPU numbers, one line per digit."""
+        digits = len(str(max(self.columns + [0])))
+        rows = number_rows(list(self.columns), digits)
+        return [
+            f"{'gpu' if row == 0 else '':<{label_width}}{text}" + (f"  {text_header}" if row == 0 else "")
+            for row, text in enumerate(rows)
+        ]
+
+    def line(self, loaded: list[int]) -> str:
+        """Return the map of one benchmark."""
+        return "".join("#" if gpu in loaded else "." for gpu in self.columns)
 
 
 class CpuMap:
@@ -173,6 +212,7 @@ class Row:
     stressors: int
     engine: str
     skipped: bool
+    gpus: list[int]
 
     @classmethod
     def from_benchmark(cls, bench: Benchmark) -> Row:
@@ -185,11 +225,16 @@ class Row:
             stressors=params.get_engine_instances_count(),
             engine=engine_module.get_full_name(params.get_engine_module_parameter()),
             skipped=engine_module.fully_skipped_job(params),
+            gpus=params.get_pinned_gpus(),
         )
 
     def text(self) -> str:
         """Return the logical cpus column."""
         return cpus_to_str(self.pinned) + (" (skipped)" if self.skipped else "")
+
+    def gpu_text(self) -> str:
+        """Return the gpus column."""
+        return h.cpu_list_to_range(self.gpus) + (" (skipped)" if self.skipped else "")
 
 
 # A run of empty lines is cut from this length on: the first and last ones are kept around "[...]"
@@ -217,6 +262,7 @@ def cut_empty_lines(lines: list[tuple[bool, str]]) -> list[str]:
 def render(benches: Benchmarks, width: int | None = None) -> str:
     """Return the map of every benchmark, grouped by job, in the order they will run."""
     cpu_map = CpuMap(benches.get_hardware().get_cpu())
+    gpu_map = GpuMap(benches.get_hardware().get_gpus())
     config = benches.get_jobs_config()
     job_config = config.to_dict()
     rows = [Row.from_benchmark(bench) for bench in benches.get_benchmarks()]
@@ -237,10 +283,12 @@ def render(benches: Benchmarks, width: int | None = None) -> str:
     output = []
     glyphs: set[str] = set()
     cut = False
+    gpu_jobs = cpu_jobs = False
     for job in config.get_sections():
         job_rows = [row for row in rows if row.job == job]
         if not job_rows:
             continue
+        uses_gpus = config.uses(job, Resource.GPU)
         count = len(job_rows)
         # Fully skipped benchmarks do not run, so they are not part of the job duration
         skipped = len([row for row in job_rows if row.skipped])
@@ -257,10 +305,24 @@ def render(benches: Benchmarks, width: int | None = None) -> str:
             *[
                 f"runtime = {job_runtime}" if keyword == "runtime" else f"{keyword}={value}"
                 for keyword, value in job_config[job].items()
-                if value
+                # Every job inherits the GPU selection, only the ones loading the GPUs use it
+                if value and (uses_gpus or not keyword.startswith("selected_gpus"))
             ],
             "",
         ]
+        if uses_gpus:
+            # A GPU engine is not pinned on the CPUs: the map is the one of its GPUs
+            gpu_jobs = True
+            output += gpu_map.rulers(
+                label_width, f"{'stressors':>9}  {'engine/module/parameter':<{engine_width}}  gpus"
+            )
+            output += [
+                f"{row.name:<{label_width}}{gpu_map.line(row.gpus)}  {row.stressors:>9}  "
+                f"{row.engine:<{engine_width}}  {row.gpu_text()}"
+                for row in job_rows
+            ]
+            continue
+        cpu_jobs = True
         for number, block in enumerate(blocks):
             if number:
                 output.append("")
@@ -283,5 +345,11 @@ def render(benches: Benchmarks, width: int | None = None) -> str:
     # The legend comes first, before the run summary, so it is read before the maps
     cpu = cpu_map.cpu
     threads_per_core = cpu.get_logical_cores_count() // cpu.get_physical_cores_count()
-    header = [*legend(glyphs, threads_per_core, cut), "", cpu_map.topology(), benches.summary(estimated_end=False)]
+    header = [*legend(glyphs, threads_per_core, cut), ""] if cpu_jobs else []
+    if gpu_jobs:
+        header += [*gpu_legend(), ""]
+    header.append(cpu_map.topology())
+    if gpu_map.columns:
+        header.append(gpu_topology())
+    header.append(benches.summary(estimated_end=False))
     return "\n".join(header + output)

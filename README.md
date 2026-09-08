@@ -22,11 +22,12 @@ This context will be attached to the performance metrics for later analysis.
 
 ### Can run any type of benchmark
 hwbench is using *engines* to define how to execute a particular external application.
-The current version of hwbench supports 3 different engines.
+The current version of hwbench supports 5 different engines.
 - [stress-ng](https://github.com/ColinIanKing/stress-ng): no need to present this very popular low-level benchmarking tool
 - spike: a custom engine used to make fans spike. Very useful to study the cooling strategy of a server.
 - sleep: a stupid sleep call used to observe how the system is behaving in idle mode
 - [fio](https://github.com/axboe/fio): a flexible storage benchmarking tool, see [documentation](./documentation/fio.md)
+- [pantheon](https://github.com/pantheongpu/pantheon): a vendor agnostic GPU stress and diagnostics suite, see [documentation](./documentation/pantheon.md)
 
 Benchmark performance metrics are extracted and saved for later analysis.
 
@@ -86,8 +87,10 @@ You can install both of them on the server, but `hwgraph` requires some graphics
 
 #### Optional
 - AMISCE Utility (for some ODM servers): please contact your hardware vendor to get a copy
+- all-smi >= 0.26.0 (for GPU servers)
 - ilorest (for HPE servers)
 - ipmitool
+- pantheon >= 1.2.0 (for GPU servers)
 - stress-ng >= 0.17.04
 
 ### Requirements to run hwgraph

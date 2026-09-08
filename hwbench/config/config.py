@@ -6,7 +6,7 @@ import os
 import re
 from typing import Any
 
-from hwbench.bench.engine import EngineBase
+from hwbench.bench.engine import EngineBase, Resource
 from hwbench.environment import hardware as env_hw
 from hwbench.utils import helpers as h
 
@@ -35,6 +35,8 @@ class Config:
             "stressor_range_scaling": "plus_1",
             "selected_cpus": "none",
             "selected_cpus_scaling": "iterate",
+            "selected_gpus": "all",
+            "selected_gpus_scaling": "none",
             "engine_module_parameter_base": "",
             "skip_method": "bypass",
             "sync_start": "none",
@@ -78,6 +80,8 @@ class Config:
             "stressor_range_scaling",
             "selected_cpus",
             "selected_cpus_scaling",
+            "selected_gpus",
+            "selected_gpus_scaling",
             "thermal_start",
             "fans_start",
             "skip_method",
@@ -218,6 +222,27 @@ class Config:
     def get_selected_cpus_scaling(self, section_name) -> str:
         """Return the selected cpus scaling of a section."""
         return self.get_directive(section_name, "selected_cpus_scaling")
+
+    def uses(self, section_name, resource: Resource) -> bool:
+        """Return whether the benchmarks of a section load a kind of component."""
+        return resource in self.load_engine(self.get_engine(section_name)).resources
+
+    def get_selected_gpus(self, section_name) -> list[Any]:
+        """Return the selected gpus of a section, a list of GPUs or a list of groups."""
+        detected = self.hardware.get_gpus()
+        sg = self.get_directive(section_name, "selected_gpus")
+        # 'all' is every detected GPU, written as a hand-written list would be
+        sg = sg.replace("all", ",".join(str(gpu) for gpu in detected))
+        selected_gpus = self.parse_range(sg) if sg else []
+        for group in selected_gpus:
+            for gpu in group if isinstance(group, list) else [group]:
+                if gpu not in detected:
+                    h.fatal(f"GPU {gpu} does not exist, detected GPUs are {detected}")
+        return selected_gpus
+
+    def get_selected_gpus_scaling(self, section_name) -> str:
+        """Return the selected gpus scaling of a section."""
+        return self.get_directive(section_name, "selected_gpus_scaling")
 
     def get_skip_method(self, section_name) -> str:
         """Return the skipping method of a section."""
