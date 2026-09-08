@@ -5,6 +5,7 @@ import time
 from threading import Thread
 from typing import Any
 
+from hwbench.environment.all_smi import AllSMIMonitoring, get_version, list_gpus
 from hwbench.environment.hardware import BaseHardware
 from hwbench.environment.turbostat import CPUSTATS, Turbostat
 from hwbench.utils import helpers as h
@@ -44,6 +45,7 @@ class Monitoring:
         self.metrics = MonitoringData()
         self.executor: ThreadWithReturnValue
         self.turbostat: Turbostat | None = None
+        self.all_smi: AllSMIMonitoring | None = None
         self.prepare()
 
     def __get_metrics(self) -> MonitoringData:
@@ -76,6 +78,16 @@ class Monitoring:
             check_monitoring("turbostat", MonitoringContextKeys.Freq, self.metrics.contexts.Freq)
             if self.turbostat.has(CPUSTATS.IPC):
                 check_monitoring("turbostat", MonitoringContextKeys.IPC, self.metrics.contexts.IPC)
+
+        # - checking if the GPU monitoring works
+        # Not going through check_monitoring(): it is fatal on an empty context
+        # and a server without any GPU is perfectly legitimate. A job loading the
+        # GPUs already required all-smi, see Benchmarks.check_requirements().
+        gpus = list_gpus()
+        if gpus:
+            self.all_smi = AllSMIMonitoring(self.metrics.contexts, gpus)
+            print(f"Monitoring/all-smi: Detected release {get_version()}")
+            print(f"Monitoring/all-smi: initialize {self.all_smi.get_gpus_count()} GPUs")
 
         print(f"Monitoring/BMC: initialize {v.name()} vendor with {bmc.get_driver_name()} {bmc.get_detect_string()}")
 
@@ -112,12 +124,22 @@ class Monitoring:
             precision_s: Sampling interval in seconds (used for timeouts only)
         """
         self.__reset_metrics()
+        if self.all_smi:
+            # Reinitialize the GPU metrics after the reset, then start the
+            # exporter the monitoring loop will poll. Its readers take about
+            # 800ms to initialize, so it is only awaited once turbostat is up.
+            self.all_smi.reinitialize_metrics()
+            if self.verbose:
+                print("Monitoring/all-smi: starting the accelerator metrics exporter")
+            self.all_smi.start()
         if self.turbostat:
             # Reinitialize turbostat metrics after reset (fast, doesn't run turbostat)
             self.turbostat.reinitialize_metrics()
             if self.verbose:
                 print("Monitoring/turbostat: starting background monitoring with EOL-triggered sampling")
             self.turbostat.start_background()
+        if self.all_smi:
+            self.all_smi.wait_ready()
 
     def predown(self):
         """Stop turbostat monitoring after a benchmark run.
@@ -129,6 +151,10 @@ class Monitoring:
             if self.verbose:
                 print("Monitoring/turbostat: stopping background monitoring")
             self.turbostat.stop_background()
+        if self.all_smi:
+            if self.verbose:
+                print("Monitoring/all-smi: stopping the accelerator metrics exporter")
+            self.all_smi.stop()
 
     def __monitor_bmc(self):
         """Monitor the bmc metrics"""
@@ -183,6 +209,8 @@ class Monitoring:
         self.metrics.contexts.Monitor.BMC = {"Polling": MonitorMetric("Polling", "ms")}
         self.metrics.contexts.Monitor.PDU = {"Polling": MonitorMetric("Polling", "ms")}
         self.metrics.contexts.Monitor.CPU = {"Polling": MonitorMetric("Polling", "ms")}
+        if self.all_smi:
+            self.metrics.contexts.Monitor.GPU = {"Polling": MonitorMetric("Polling", "ms")}
 
         # When will we hit "duration_s" ?
         end_of_run_ns = start_monitoring_ns + (duration_s * 1e9)
@@ -211,6 +239,12 @@ class Monitoring:
             self.__monitor_bmc()
             # Let's monitor the time spent at monitoring the BMC, in milliseconds
             self.metrics.contexts.Monitor.BMC["Polling"].add((time.monotonic_ns() - start_bmc_ns) * 1e-6)
+
+            if self.all_smi:
+                start_gpu_ns = time.monotonic_ns()
+                self.all_smi.sample()
+                # Let's monitor the time spent at monitoring the GPUs, in milliseconds
+                self.metrics.contexts.Monitor.GPU["Polling"].add((time.monotonic_ns() - start_gpu_ns) * 1e-6)
 
             if self.vendor.get_pdus():
                 start_pdu_ns = time.monotonic_ns()
@@ -264,3 +298,5 @@ class Monitoring:
         self.metrics = MonitoringData()
         if self.turbostat:
             self.turbostat.monitoring_contexts = self.metrics.contexts
+        if self.all_smi:
+            self.all_smi.monitoring_contexts = self.metrics.contexts

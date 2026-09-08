@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import dataclasses
 import statistics
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum
-from typing import Any
+from typing import Any, Callable
 
 
 @dataclass
@@ -97,14 +98,34 @@ class MonitorMetric:
         self.samples = []
 
 
-class Temperature(MonitorMetric):
+class UnitMetric(MonitorMetric):
+    """A MonitorMetric whose unit is fixed by its class."""
+
+    UNIT = ""
+
     def __init__(self, name: str, value: float | None = None) -> None:
-        super().__init__(name, "Celsius", value=value if value is not None else sys.float_info.max)
+        super().__init__(name, self.UNIT, value=sys.float_info.max if value is None else value)
 
 
-class Power(MonitorMetric):
-    def __init__(self, name: str, value: float | None = None) -> None:
-        super().__init__(name, "Watts", value=value if value is not None else sys.float_info.max)
+class Temperature(UnitMetric):
+    UNIT = "Celsius"
+
+
+class Power(UnitMetric):
+    UNIT = "Watts"
+
+
+class Utilization(UnitMetric):
+    # 'Percent' is the unit hwgraph clamps the axis of, see METRIC_AXIS.
+    UNIT = "Percent"
+
+
+class Memory(UnitMetric):
+    UNIT = "MiB"
+
+
+class Frequency(UnitMetric):
+    UNIT = "Mhz"
 
 
 class PowerCategories(Enum):
@@ -154,15 +175,21 @@ class MonitoringMetadataKeys(StrEnum):
 
 
 @dataclass
-class FansContext:
-    """Fans monitoring context"""
-
-    Fan: dict[str, MonitorMetric] = field(default_factory=dict)
+class MetricContext:
+    """A monitoring context: one dict of metrics per device family."""
 
     def compact_all(self) -> None:
         """Compact all metrics in this context"""
-        for metric in self.Fan.values():
-            metric.compact()
+        for context_field in dataclasses.fields(self):
+            for metric in getattr(self, context_field.name).values():
+                metric.compact()
+
+
+@dataclass
+class FansContext(MetricContext):
+    """Fans monitoring context"""
+
+    Fan: dict[str, MonitorMetric] = field(default_factory=dict)
 
 
 class FansContextKeys(StrEnum):
@@ -170,43 +197,59 @@ class FansContextKeys(StrEnum):
 
 
 @dataclass
-class PowerConsumptionContext:
+class PowerConsumptionContext(MetricContext):
     """Power consumption monitoring context"""
 
     CPU: dict[str, MonitorMetric] = field(default_factory=dict)
+    GPU: dict[str, MonitorMetric] = field(default_factory=dict)
     BMC: dict[str, MonitorMetric] = field(default_factory=dict)
     PDU: dict[str, MonitorMetric] = field(default_factory=dict)
-
-    def compact_all(self) -> None:
-        """Compact all metrics in this context"""
-        for metric in self.CPU.values():
-            metric.compact()
-        for metric in self.BMC.values():
-            metric.compact()
-        for metric in self.PDU.values():
-            metric.compact()
 
 
 class PowerConsumptionContextKeys(StrEnum):
     CPU = "CPU"
+    GPU = "GPU"
     BMC = "BMC"
     PDU = "PDU"
 
 
 @dataclass
-class PowerSuppliesContext:
+class PowerSuppliesContext(MetricContext):
     """Power supplies monitoring context"""
 
     BMC: dict[str, MonitorMetric] = field(default_factory=dict)
 
-    def compact_all(self) -> None:
-        """Compact all metrics in this context"""
-        for metric in self.BMC.values():
-            metric.compact()
-
 
 class PowerSuppliesContextKeys(StrEnum):
     BMC = "BMC"
+
+
+# The component family the GPU metrics are reported under: the field name of
+# the fixed contexts, and the Thermal key. Shared by the all-smi and the
+# Redfish readers and by hwgraph.
+GPU_FAMILY = "GPU"
+
+
+def gpu_component_name(index: int | str) -> str:
+    """Monitoring component name of an accelerator.
+
+    'GPU_<n>' mirrors the 'Core_<n>' convention used for the CPU cores, so the
+    same substring filtering works on both. Shared with hwgraph, which has to
+    map a benchmark's GPU list back to the metrics it produced.
+    """
+    return f"{GPU_FAMILY}_{index}"
+
+
+# Quantity -> the GPU family of the context it belongs to. Both accelerator
+# readers, all-smi host side and Redfish BMC side, report into the same places,
+# so where a quantity lives is stated once here rather than once per reader.
+GPU_DESTINATIONS: dict[type[UnitMetric], Callable[[MonitoringContexts], dict[str, MonitorMetric]]] = {
+    Temperature: lambda contexts: contexts.Thermal[GPU_FAMILY],
+    Power: lambda contexts: contexts.PowerConsumption.GPU,
+    Utilization: lambda contexts: contexts.Utilization.GPU,
+    Frequency: lambda contexts: contexts.Freq.GPU,
+    Memory: lambda contexts: contexts.Memory.GPU,
+}
 
 
 ThermalContext = defaultdict[str, dict[str, MonitorMetric]]
@@ -220,31 +263,23 @@ def ThermalContextFactory() -> ThermalContext:
 
 
 @dataclass
-class FreqContext:
-    """CPU frequency monitoring context"""
+class FreqContext(MetricContext):
+    """CPU and GPU frequency monitoring context"""
 
     CPU: dict[str, MonitorMetric] = field(default_factory=dict)
-
-    def compact_all(self) -> None:
-        """Compact all metrics in this context"""
-        for metric in self.CPU.values():
-            metric.compact()
+    GPU: dict[str, MonitorMetric] = field(default_factory=dict)
 
 
 class FreqContextKeys(StrEnum):
     CPU = "CPU"
+    GPU = "GPU"
 
 
 @dataclass
-class IPCContext:
+class IPCContext(MetricContext):
     """CPU IPC monitoring context"""
 
     CPU: dict[str, MonitorMetric] = field(default_factory=dict)
-
-    def compact_all(self) -> None:
-        """Compact all metrics in this context"""
-        for metric in self.CPU.values():
-            metric.compact()
 
 
 class IPCContextKeys(StrEnum):
@@ -252,27 +287,42 @@ class IPCContextKeys(StrEnum):
 
 
 @dataclass
-class MonitorContext:
+class UtilizationContext(MetricContext):
+    """Occupancy monitoring context"""
+
+    GPU: dict[str, MonitorMetric] = field(default_factory=dict)
+
+
+class UtilizationContextKeys(StrEnum):
+    GPU = "GPU"
+
+
+@dataclass
+class MemoryContext(MetricContext):
+    """Memory usage monitoring context"""
+
+    GPU: dict[str, MonitorMetric] = field(default_factory=dict)
+
+
+class MemoryContextKeys(StrEnum):
+    GPU = "GPU"
+
+
+@dataclass
+class MonitorContext(MetricContext):
     """Monitoring context"""
 
     BMC: dict[str, MonitorMetric] = field(default_factory=dict)
     PDU: dict[str, MonitorMetric] = field(default_factory=dict)
     CPU: dict[str, MonitorMetric] = field(default_factory=dict)
-
-    def compact_all(self) -> None:
-        """Compact all metrics in this context"""
-        for metric in self.BMC.values():
-            metric.compact()
-        for metric in self.PDU.values():
-            metric.compact()
-        for metric in self.CPU.values():
-            metric.compact()
+    GPU: dict[str, MonitorMetric] = field(default_factory=dict)
 
 
 class MonitorContextKeys(StrEnum):
     BMC = "BMC"
     PDU = "PDU"
     CPU = "CPU"
+    GPU = "GPU"
 
 
 @dataclass
@@ -285,19 +335,21 @@ class MonitoringContexts:
     Thermal: ThermalContext = field(default_factory=ThermalContextFactory)
     Freq: FreqContext = field(default_factory=FreqContext)
     IPC: IPCContext = field(default_factory=IPCContext)
+    Utilization: UtilizationContext = field(default_factory=UtilizationContext)
+    Memory: MemoryContext = field(default_factory=MemoryContext)
     Monitor: MonitorContext = field(default_factory=MonitorContext)
 
     def compact_all(self) -> None:
         """Compact all metrics in all contexts"""
-        self.Fans.compact_all()
-        self.PowerConsumption.compact_all()
-        self.PowerSupplies.compact_all()
-        for chassis in self.Thermal.values():
-            for metric in chassis.values():
-                metric.compact()
-        self.Freq.compact_all()
-        self.IPC.compact_all()
-        self.Monitor.compact_all()
+        for context_field in dataclasses.fields(self):
+            context = getattr(self, context_field.name)
+            if isinstance(context, MetricContext):
+                context.compact_all()
+            else:
+                # Thermal is a defaultdict keyed by Redfish PhysicalContext
+                for family in context.values():
+                    for metric in family.values():
+                        metric.compact()
 
 
 class MonitoringContextKeys(StrEnum):
@@ -307,6 +359,8 @@ class MonitoringContextKeys(StrEnum):
     Thermal = "Thermal"
     Freq = "Freq"
     IPC = "IPC"
+    Utilization = "Utilization"
+    Memory = "Memory"
     Monitor = "Monitor"
 
 

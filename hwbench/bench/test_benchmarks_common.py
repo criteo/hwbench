@@ -1,10 +1,13 @@
 import ast
+import dataclasses
 import pathlib
 import unittest
+from functools import reduce
 from unittest.mock import patch
 
 import pytest
 
+from hwbench.bench.monitoring_structs import MonitoringContextKeys
 from hwbench.config import config
 from hwbench.environment.cpu import MockCPU
 from hwbench.environment.cpu_cores import CPU_CORES
@@ -67,16 +70,24 @@ class TestCommon(unittest.TestCase):
         # We need to mock turbostat when parsing config with monitoring
         # We mock the run() and check_version() command to get a constant output
         # The GPUs of the machine running the tests are hidden too, so the
-        # expansion does not depend on the test host.
+        # monitoring metrics do not depend on the test host.
         with patch("hwbench.environment.turbostat.Turbostat.check_version") as cv:
             cv.return_value = True
             with (
                 patch("hwbench.environment.turbostat.Turbostat.run") as ts,
+                patch("hwbench.bench.monitoring.list_gpus", return_value=gpus or {}),
                 patch("hwbench.environment.hardware.list_gpus", return_value=gpus or {}),
                 open("hwbench/tests/parsing/turbostat/run") as f,
             ):
                 ts.return_value = ast.literal_eval(f.read())
                 return self.benches.parse_jobs_config(validate_parameters)
+
+    def monitoring_members(self, monitoring, metric: MonitoringContextKeys) -> int:
+        """Return the number of components a monitoring context holds."""
+        if monitoring is None:
+            return 0
+        data = dataclasses.asdict(monitoring.metrics.contexts)[str(metric)]
+        return reduce(lambda acc, family: acc + len(family), data.values(), 0)
 
     def get_jobs_config(self) -> config.Config:
         return self.jobs_config
