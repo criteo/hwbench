@@ -8,6 +8,8 @@ from datetime import timedelta
 from shutil import which
 from typing import Any, NoReturn
 
+from packaging.version import InvalidVersion, Version
+
 
 class MissingBinary(Exception):
     def __init__(self, binary):
@@ -15,6 +17,29 @@ class MissingBinary(Exception):
 
     def __str__(self):
         return f"Binary {self.binary} is not available on the system"
+
+
+class IncompatibleVersion(Exception):
+    """A binary is older than the release hwbench supports."""
+
+    def __init__(self, binary, version, minimum):
+        self.binary = binary
+        self.version = version
+        self.minimum = minimum
+
+    def __str__(self):
+        return f"Binary {self.binary} {self.version or '(unknown release)'} is too old, expecting >= {self.minimum}"
+
+
+def version_compatible(version: str, minimum: str) -> bool:
+    """Return whether a release is at least the minimal one, an unparsable release never is.
+
+    packaging.Version handles the pre-release suffixes, like 1.3.0-rc1.
+    """
+    try:
+        return Version(version) >= Version(minimum)
+    except InvalidVersion:
+        return False
 
 
 class MissingHardware(Exception):

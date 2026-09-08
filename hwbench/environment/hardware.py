@@ -7,6 +7,7 @@ from hwbench.utils import helpers
 from hwbench.utils.external import External_Simple
 from hwbench.utils.helpers import MissingBinary
 
+from .all_smi import AllSMI, list_gpus
 from .base import BaseEnvironment
 from .block_devices import Block_Devices
 from .cpu import CPU
@@ -49,6 +50,10 @@ class BaseHardware(BaseEnvironment):
     def get_cpu(self) -> CPU:
         return self.cpu
 
+    def get_gpus(self) -> list[int]:
+        """Return the indexes of the accelerators all-smi detected."""
+        return sorted(int(index) for index in list_gpus())
+
     def get_vendor(self) -> Vendor:
         return self.vendor
 
@@ -65,6 +70,8 @@ class Hardware(BaseHardware):
         LspciBin(out_dir).run()
         DmidecodeRaw(out_dir).run()
         Nvme(out_dir).run()
+        if list_gpus():
+            AllSMI(out_dir).run()
         External_Simple(self.out_dir, ["ipmitool", "sdr"], "ipmitool-sdr")
 
     def dump(self) -> dict[str, str | int | None | dict]:
@@ -73,6 +80,7 @@ class Hardware(BaseHardware):
             "cpu": self.cpu.dump(),
             "bmc": self.vendor.get_bmc().dump(),
             "block_devices": self.block.dump(),
+            "gpus": list_gpus(),
             "pdu": {},
         }
         for pdu in self.vendor.get_pdus():

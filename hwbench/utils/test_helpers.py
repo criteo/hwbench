@@ -1,6 +1,6 @@
 import unittest
 
-from .helpers import cpu_list_to_range, format_duration
+from .helpers import cpu_list_to_range, format_duration, version_compatible
 
 
 class DisplayHelper(unittest.TestCase):
@@ -27,3 +27,13 @@ class DisplayHelper(unittest.TestCase):
         assert format_duration(6120) == "1h 42m 00s"
         # Beyond a day, the hours keep counting
         assert format_duration(90061) == "25h 01m 01s"
+
+
+def test_version_compatible():
+    assert version_compatible("0.26.0", "0.26.0")
+    assert version_compatible("1.3.0-rc1", "1.2.0")
+    # stress-ng pads its minor release
+    assert version_compatible("0.17.04", "0.17.4")
+    assert not version_compatible("0.25.9", "0.26.0")
+    assert not version_compatible("", "0.26.0")
+    assert not version_compatible("unknown", "0.26.0")
