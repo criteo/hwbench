@@ -27,12 +27,18 @@ try:
         numa_distance_heatmap,
         numa_distribution_graph,
         numa_performance_heatmap,
+        write_benchmarks_summary,
         yerr_graph,
     )
     from graph.group import graph_group_env
-    from graph.scaling import smp_scaling_graph
+    from graph.scaling import performance_scaling_graph
     from graph.trace import Event, Trace
-    from graph.versus import max_versus_graph
+    from graph.versus import (
+        max_versus_graph,
+        render_versus_scorecard,
+        write_scaling_comparison,
+        write_scaling_step_comparisons,
+    )
     from hwbench.bench.monitoring_structs import (
         PowerCategories,
     )
@@ -100,9 +106,20 @@ def _task_group(bench_name, output_dir_str):
 
 
 def _task_scaling(job, output_dir_str, traces_name):
-    """Generate SMP scaling graphs for a job."""
+    """Generate performance scaling graphs for a job."""
     global _pool_args
-    return smp_scaling_graph(_pool_args, pathlib.Path(output_dir_str), job, traces_name)
+    return performance_scaling_graph(_pool_args, pathlib.Path(output_dir_str), job, traces_name)
+
+
+def _task_scaling_comparison(output_dir_str):
+    """Write the traces-comparison summaries + exec-summary scorecard (reference = first trace)."""
+    global _pool_args
+    output_dir = pathlib.Path(output_dir_str)
+    count = write_scaling_comparison(_pool_args, output_dir)
+    count += render_versus_scorecard(_pool_args, output_dir)
+    # Same comparison, but one file per scaling step under scaling/.
+    count += write_scaling_step_comparisons(_pool_args, output_dir)
+    return count
 
 
 def _task_versus(job, output_dir_str, traces_name):
@@ -222,10 +239,10 @@ def _collect_plot_tasks(args, output_dir):
     traces_name = [trace.get_name() for trace in args.traces]
 
     if not args.no_scaling:
-        print("SMP scaling: disabled by user")
+        print("Performance scaling: disabled by user")
     else:
         # Let's generate the scaling graphs
-        print(f"SMP scaling: rendering {len(jobs)} jobs")
+        print(f"Performance scaling: rendering {len(jobs)} jobs")
         for job in jobs:
             tasks.append((_task_scaling, job, str(output_dir), traces_name))
 
@@ -237,6 +254,10 @@ def _collect_plot_tasks(args, output_dir):
             print(f"Max versus: rendering {len(jobs)} jobs")
             for job in jobs:
                 tasks.append((_task_versus, job, str(output_dir), traces_name))
+            # Text reports comparing every trace to the first (reference): one at
+            # full load covering all benchmarks (max_versus/benchmarks_summary.txt)
+            # plus one per scaling step under scaling/.
+            tasks.append((_task_scaling_comparison, str(output_dir)))
         else:
             print("Max versus: skipped as at least 2 traces are necessary for this mode")
 
@@ -349,6 +370,14 @@ def render_traces(args: argparse.Namespace):
 
     compare_traces(args)
     generate_stats(args)
+
+    # Write the per-host benchmarks summary text table before rendering any graph,
+    # so the key to what each benchmark tests is available up front. args.no_env is
+    # True when environmental graphs are enabled (--no-env, store_false, disables).
+    if args.no_env:
+        host_output_dir = output_dir.joinpath("environment", "by_host")
+        for trace in args.traces:
+            write_benchmarks_summary(args, host_output_dir, trace)
 
     # Collect all graph generation tasks
     # (This also performs validation and creates output directories)
@@ -665,7 +694,7 @@ power_metric : the name of a power metric, from the monitoring, to be used for '
         required=True,
     )
     parser_graph.add_argument("--no-env", help="Disable environmental graphs", action="store_false")
-    parser_graph.add_argument("--no-scaling", help="Disable 'SMP scaling' graphs", action="store_false")
+    parser_graph.add_argument("--no-scaling", help="Disable 'Performance scaling' graphs", action="store_false")
     parser_graph.add_argument("--no-versus", help="Disable 'max versus' graphs", action="store_false")
     parser_graph.add_argument("--no-stats", help="Disable stats", action="store_false")
     parser_graph.add_argument("--title", help="Title of the graph")

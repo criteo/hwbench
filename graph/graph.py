@@ -174,6 +174,9 @@ class Graph:
 
     def set_title(self, title, show_source_file=None, title_note=None):
         """Set the graph title"""
+        # Tracked so render() can hand it to savefig's bbox_extra_artists: the box
+        # sits below the axes and can otherwise be cropped out by bbox_inches="tight".
+        self.source_text = None
         # When a note is present, push the main title up to leave room for the
         # note, which is rendered just above the axes in bold dark red.
         self.ax.set_title(title, pad=28 if title_note else None)
@@ -192,7 +195,7 @@ class Graph:
         if show_source_file:
             # place a text box in upper left in axes coords
             props = dict(boxstyle="round", facecolor="white", alpha=0.5)
-            self.ax.text(
+            self.source_text = self.ax.text(
                 0,
                 -0.1,
                 f"data plotted from {show_source_file.get_filename()}",
@@ -259,6 +262,11 @@ class Graph:
             legends = list(extra_legend)
         else:
             legends = [extra_legend]
+
+        # Keep the "data plotted from" box in the tight bounding box: it sits below
+        # the axes and can otherwise be cropped out by bbox_inches="tight".
+        if self.source_text is not None:
+            legends.append(self.source_text)
 
         # Trace the events passed on the command line
         self.trace_events()
@@ -465,6 +473,132 @@ def numa_distance_heatmap(args, output_dir, trace) -> int:
     return 1
 
 
+def _int_ranges(values, width: int = 0) -> str:
+    """Condense a list of ints into ranges, keeping singletons (e.g. '0, 2-4').
+
+    Unlike cpu_list_to_range(), a lone value is emitted as-is rather than dropped.
+    Numbers are right-justified to `width` digits (0 = no padding) so ranges stay
+    aligned.
+    """
+    ordered = sorted(values)
+    if not ordered:
+        return ""
+    parts = []
+    start = prev = ordered[0]
+    for value in ordered[1:]:
+        if value == prev + 1:
+            prev = value
+        else:
+            parts.append(f"{start:>{width}}" if start == prev else f"{start:>{width}}-{prev:>{width}}")
+            start = prev = value
+    parts.append(f"{start:>{width}}" if start == prev else f"{start:>{width}}-{prev:>{width}}")
+    return ", ".join(parts)
+
+
+def write_benchmarks_summary(args, output_dir, trace) -> int:
+    """Write a text table describing every benchmark run of the trace.
+
+    One row per benchmark (e.g. avx_0, avx_1, ...): the job it belongs to, the
+    engine/module and variant (engine_module_parameter) it exercises, the worker
+    count, core pinning and per-run duration. It is a per-host, plain-text
+    companion to the environmental graphs -- a quick key to what each benchmark
+    actually tested, in benchmark (job_number) order. Written to
+    benchmarks_summary.txt; returns 1 when written.
+    """
+    benches = trace.bench_list()
+    if not benches:
+        return 0
+
+    # One row per benchmark, ordered by job_number (avx_0, avx_1, ... then cpu_*).
+    ordered = sorted(benches, key=lambda name: trace.bench(name).get("job_number"))
+
+    # core -> NUMA node lookup, to report which domains a benchmark's pinned cores span.
+    numa_nodes = trace.get_numa_nodes()
+    core_to_node = {core: node for node, cores in numa_nodes.items() for core in cores}
+
+    headers = [
+        "Benchmark",
+        "Job",
+        "Engine / module",
+        "Variant",
+        "Workers",
+        "Pinned cores",
+        "NUMA nodes",
+        "Duration (s)",
+    ]
+    right_aligned = {"Workers", "NUMA nodes", "Duration (s)"}
+    rows = []  # type: list
+    for bench_name in ordered:
+        bench = trace.bench(bench_name)
+        # NUMA domains the pinned cores belong to (condensed and bracketed, node
+        # numbers padded to 2 digits so ranges align, e.g. "[ 0- 3]").
+        numa_span = "no"
+        if bench.cpu_pin():
+            nodes = sorted({core_to_node[core] for core in bench.cpu_pin() if core in core_to_node})
+            numa_span = f"[{_int_ranges(nodes, width=2)}]" if nodes else "-"
+        rows.append(
+            {
+                "Benchmark": bench_name,
+                "Job": bench.job_name(),
+                "Engine / module": f"{bench.engine()} / {bench.engine_module()}",
+                "Variant": bench.engine_module_parameter(),
+                "Workers": str(bench.workers()),
+                # Condensed list of pinned cores with digits padded to 3 columns so
+                # the ranges stay aligned even with 3-digit core numbers, or "no".
+                "Pinned cores": numa_core_blocks(bench.cpu_pin()) if bench.cpu_pin() else "no",
+                "NUMA nodes": numa_span,
+                "Duration (s)": str(int(round(bench.duration()))),
+            }
+        )
+
+    widths = {header: len(header) for header in headers}
+    for row in rows:
+        for header in headers:
+            widths[header] = max(widths[header], len(row[header]))
+
+    def _cell(header, value) -> str:
+        return str(value).rjust(widths[header]) if header in right_aligned else str(value).ljust(widths[header])
+
+    def _line(cells) -> str:
+        return "  ".join(_cell(header, cells[header]) for header in headers)
+
+    # Header: the same host description as the graphs, with System / Bios / Kernel
+    # split onto their own (label-aligned) lines, plus a NUMA-nodes summary.
+    dmi = trace.get_dmi()
+    cpu = trace.get_cpu()
+    kernel = trace.get_kernel()
+    info = [
+        ("System", f"{dmi['serial']} {dmi['product']}"),
+        ("Bios", f"v{dmi['bios']['version']}"),
+        ("Kernel", kernel["release"]),
+        (
+            "Processor",
+            f"{cpu.get('sockets', 1)}x {cpu['model']} - "
+            f"{cpu['physical_cores']} physical cores and {cpu['numa_domains']} NUMA domains",
+        ),
+    ]
+    label_width = max(len(label) for label, _ in info)
+    lines = [f"Benchmarks summary - {trace.get_name()}", args.title, ""]
+    lines += [f"{label:<{label_width}} : {value}" for label, value in info]
+
+    if numa_nodes:
+        node_width = max(len(str(node)) for node in numa_nodes)
+        lines.append("")
+        lines.append(f"NUMA nodes ({len(numa_nodes)}):")
+        lines += [f"  NUMA {node:>{node_width}} : {numa_core_blocks(numa_nodes[node])}" for node in sorted(numa_nodes)]
+
+    lines += ["", _line({header: header for header in headers}), "  ".join("-" * widths[header] for header in headers)]
+    lines += [_line(row) for row in rows]
+    text = "\n".join(line.rstrip() for line in lines) + "\n"
+
+    trace_dir = output_dir.joinpath(trace.get_name())
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    summary_file = trace_dir.joinpath("benchmarks_summary.txt")
+    summary_file.write_text(text)
+    print(f"benchmarks: {trace.get_name()} - wrote {len(rows)} entries to {summary_file}")
+    return 1
+
+
 def numa_distribution_graph(
     args,
     output_dir,
@@ -537,7 +671,12 @@ def numa_distribution_graph(
     )
     ax.set_xticks(positions)
     ax.set_xticklabels([f"NUMA {node}" for node, _ in domains])
-    ax.grid(which="major", axis="y", linewidth=0.6, linestyle="dashed", color="0.7")
+    # Same two-tier Y grid as the linearity-deviation graph (solid major lines
+    # plus a fainter dashed midline between the major Y ticks), but no X grid:
+    # vertical lines would cut through the violins and hide their shape.
+    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.grid(which="major", axis="y", linewidth=0.7, linestyle="solid", color="0.6")
+    ax.grid(which="minor", axis="y", linewidth=0.6, linestyle="dashed", color="0.75")
 
     # Left-side box listing each domain's cores in condensed form, like the
     # heatmap's legend -- useful to see exactly which cores fed each violin,
@@ -699,7 +838,12 @@ def cpu_distribution_graph(
     )
     ax.set_xticks([1])
     ax.set_xticklabels([f"{len(values)} cores"])
-    ax.grid(which="major", axis="y", linewidth=0.6, linestyle="dashed", color="0.7")
+    # Same two-tier Y grid as the linearity-deviation graph (solid major lines
+    # plus a fainter dashed midline between the major Y ticks), but no X grid:
+    # vertical lines would cut through the violins and hide their shape.
+    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.grid(which="major", axis="y", linewidth=0.7, linestyle="solid", color="0.6")
+    ax.grid(which="minor", axis="y", linewidth=0.6, linestyle="dashed", color="0.75")
     legend = ax.legend(
         handles=[
             Line2D([], [], color="tab:red", label="median"),
