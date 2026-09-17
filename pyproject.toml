@@ -18,6 +18,7 @@ dependencies = [
   "redfish",
   "packaging",
   "pyudev>=0.24.3",
+  "pyyaml>=6.0",
 ]
 
 [project.urls]
@@ -37,6 +38,7 @@ dev = [
   "pytest>=8.3.3",
   "ruff>=0.7.1",
   "types-cachetools>=5.5.0.20240820",
+  "types-pyyaml>=6.0.12",
   "uv>=0.4.27",
 ]
 
@@ -76,6 +78,15 @@ ignore = [
   "E501",
   "ISC001",
 ]
+
+[tool.ruff.lint.isort]
+# PyYAML installs the top-level module "yaml"; ruff cannot infer it is
+# third-party unless the project deps are on its path. The isolated
+# `uv tool run ruff` used by `make check` groups it with the first-party
+# imports, while CI (deps installed) treats it as third-party -- producing
+# conflicting demands for the stress-ng import block. Pin it so the isort
+# classification, and thus the layout, is identical in both.
+known-third-party = ["yaml"]
 
 [[tool.mypy.overrides]]
 module = ["pyudev.*"]
