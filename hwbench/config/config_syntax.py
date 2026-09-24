@@ -81,8 +81,11 @@ def validate_selected_cpus(config, section_name, value) -> str:
             return ""
         else:
             value = value.lower()
-            # Helpers are removed first, before parsing the resources,
-            # otherwise the numa resource regex would eat 'numa-' from 'numa-simple'.
+            # A removed helper would be half matched by the ones left (simple in numa-simple)
+            for removed, replacement in config_helpers.REMOVED_HELPERS.items():
+                if removed in value:
+                    return f"{removed} was removed, use {replacement}"
+            # Helpers are removed first, before parsing the resources their names contain
             for helper in [*config_helpers.HELPERS, "all"]:
                 value = value.replace(helper, "", 1)
             resources = re.findall(r"(quadrant|numa|core)([0-9-,]+)", value)

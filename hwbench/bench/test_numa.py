@@ -35,8 +35,8 @@ class TestNuma(tbc.TestCommon):
         ]:
             self.should_be_fatal(self.get_jobs_config().get_selected_cpus, test_name)
 
-    def test_numa_simple(self):
-        """Check the numa-simple helper accumulates NUMA nodes one at a time."""
+    def test_each_numa_plus_1(self):
+        """Check each-numa with a plus_1 scaling accumulates NUMA nodes one at a time."""
         cpu = self.hw.get_cpu()
         assert cpu.get_numa_domains_count() == 8
         # Cumulative groups: NUMA0, NUMA0-1, NUMA0-2, ... in domain order, cores sorted.
@@ -51,9 +51,11 @@ class TestNuma(tbc.TestCommon):
         assert cumulative_numa_nodes[1] == self.NUMA0_1
         assert cumulative_numa_nodes[7] == self.NUMA0_7
 
-        assert self.get_jobs_config().get_selected_cpus("numa_simple") == cumulative_numa_nodes
+        # each-numa gives one group per NUMA node, plus_1 accumulates them
+        numa_nodes = [sorted(cpu.get_logical_cores_in_numa_domain(domain)) for domain in range(8)]
+        assert self.get_jobs_config().get_selected_cpus("numa_plus_1") == numa_nodes
 
-        # numa_simple benchmarks are scheduled after numa_nodes (5) and quadrants (4)
+        # numa_plus_1 benchmarks are scheduled after numa_nodes (5) and quadrants (4)
         for index, numa_node in enumerate(cumulative_numa_nodes):
             assert self.get_bench_parameters(9 + index).get_pinned_cpu() == numa_node
 
