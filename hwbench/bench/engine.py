@@ -24,6 +24,10 @@ class EngineModuleBase(abc.ABC):
     def get_name(self) -> str:
         return self.name
 
+    def get_full_name(self, engine_module_parameter: str) -> str:
+        """Return engine/engine_module/engine_module_parameter, as hwbench prints it."""
+        return f"{self.engine.get_name()}/{self.get_name()}/{engine_module_parameter}"
+
     def add_module_parameter(self, name: str):
         if name not in self.get_module_parameters():
             self.module_parameters.append(name)
