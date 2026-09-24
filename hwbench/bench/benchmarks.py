@@ -16,10 +16,11 @@ from .parameters import BenchmarkParameters
 class Benchmarks:
     """A class to list and execute benchmarks to run."""
 
-    def __init__(self, out_dir, jobs_config, verbose: bool = False) -> None:
+    def __init__(self, out_dir, jobs_config, verbose: bool = False, dry_run: bool = False) -> None:
         self.jobs_config = jobs_config
         self.out_dir = out_dir
         self.verbose = verbose
+        self.dry_run = dry_run
         self.benchs: list[Benchmark] = []
         self.monitoring: Monitoring = None  # type: ignore[assignment]
         self.hardware: BaseHardware | None = None
@@ -170,7 +171,7 @@ class Benchmarks:
         engine_module.init()
 
         # If job needs monitoring, let's create it
-        if monitoring_config != "none" and not self.monitoring:
+        if monitoring_config != "none" and not self.monitoring and not self.dry_run:
             self.get_hardware().vendor.get_bmc().connect_redfish()
             self.get_hardware().vendor.get_bmc().detect()
             for pdu in self.get_hardware().vendor.get_pdus():
