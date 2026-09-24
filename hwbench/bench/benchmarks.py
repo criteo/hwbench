@@ -5,12 +5,27 @@ import time
 from datetime import timedelta
 
 from hwbench.bench.engine import EngineModuleBase
+from hwbench.environment.cpu import CPU
 from hwbench.environment.hardware import BaseHardware
 from hwbench.utils import helpers as h
 
 from .benchmark import Benchmark
 from .monitoring import Monitoring
 from .parameters import BenchmarkParameters
+
+
+def curve_steps(groups: list[list[int]], cpu: CPU) -> list[int]:
+    """Return how many groups the curve scaling accumulates at each step.
+
+    1, 2, 3, 4, 8, 16 then +16, dense at the low end to see the single core behaviour,
+    plus the last group of each socket, so a full socket is measured before the next one
+    is loaded, and the last group, so the whole selection is measured.
+    """
+    steps = {1, 2, 3, 4, 8, 16, len(groups)} | set(range(32, len(groups) + 1, 16))
+    for index in range(len(groups) - 1):
+        if cpu.get_socket(groups[index][0]) != cpu.get_socket(groups[index + 1][0]):
+            steps.add(index + 1)
+    return sorted(step for step in steps if step <= len(groups))
 
 
 class Benchmarks:
@@ -137,6 +152,12 @@ class Benchmarks:
                         sorted(pinned_cpu.copy()),
                         validate_parameters,
                     )
+            elif selected_cpus_scaling == "curve":
+                if not isinstance(selected_cpus_raw[0], list):
+                    h.fatal("selected_cpus_scaling=curve needs groups to accumulate, like selected_cpus=each-core")
+                for step in curve_steps(selected_cpus_raw, self.get_hardware().get_cpu()):
+                    pinned_cpu = sorted(cpu for group in selected_cpus_raw[:step] for cpu in group)
+                    self.__schedule_benchmarks(job, stressor_range_scaling, pinned_cpu, validate_parameters)
             elif selected_cpus_scaling == "iterate":
                 for _iteration in range(len(selected_cpus)):
                     # Pick the last CPU of the list
