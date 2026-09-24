@@ -209,7 +209,7 @@ class Config:
         if resources:
             h.fatal(f"The following keywords, didn't get processed ! : {resources}")
         selected_cpus = self.parse_range(sc)
-        # A helper describes groups: when it gives a single one, like numa-simple on a
+        # A helper describes groups: when it gives a single one, like each-numa on a
         # single NUMA domain, keep it as a group instead of a list of cpus to walk one by one
         if helper_used and selected_cpus and not isinstance(selected_cpus[0], list):
             selected_cpus = [selected_cpus]
