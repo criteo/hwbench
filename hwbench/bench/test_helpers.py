@@ -1,5 +1,7 @@
 import pytest
 
+from hwbench.config import config_syntax
+
 from . import test_benchmarks_common as tbc
 
 
@@ -77,24 +79,6 @@ class TestHelpersImpossible(tbc.TestCommon):
             self.parse_jobs_config()
 
 
-class TestHelpers_SingleNumaDomain(tbc.TestCommon):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # The AMD EPYC 8534P set with a single NUMA domain (NPS1)
-        self.load_mocked_hardware(
-            cpucores="./hwbench/tests/parsing/cpu_cores/v2321",
-            cpuinfo="./hwbench/tests/parsing/cpu_info/v2321",
-            numa="./hwbench/tests/parsing/numa/1domain",
-        )
-        self.load_benches("./hwbench/config/numa_simple.conf")
-        self.parse_jobs_config()
-
-    def test_numa_simple_single_domain(self):
-        """A helper giving a single group gives a single benchmark on it, not one per cpu."""
-        assert self.get_benches().count_benchmarks() == 1
-        assert self.get_bench_parameters(0).get_pinned_cpu() == list(range(0, 128))
-
-
 class TestHelpers_Each(tbc.TestCommon):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -129,9 +113,16 @@ class TestHelpers_Each(tbc.TestCommon):
         ]
 
     def test_each_numa_plus_1(self):
-        """each-numa with a plus_1 scaling adds one NUMA domain at each step, like numa-simple."""
-        assert len(self.pinnings("each_numa_plus_1")) == 8
-        assert self.pinnings("each_numa_plus_1") == self.pinnings("numa_simple")
+        """each-numa with a plus_1 scaling adds one NUMA domain at each step."""
+        steps = self.pinnings("each_numa_plus_1")
+        assert len(steps) == 8
+        numa = self.pinnings("each_numa")
+        assert steps == [sorted(sum(numa[: step + 1], [])) for step in range(8)]
+
+    def test_numa_simple_removed(self):
+        """numa-simple is rejected with the way to write the same selection."""
+        message = config_syntax.validate_selected_cpus(self.get_jobs_config(), "each_numa", "numa-simple")
+        assert message == "numa-simple was removed, use selected_cpus=each-numa with selected_cpus_scaling=plus_1"
 
 
 class TestHelpers_EachSingleNumaDomain(tbc.TestCommon):
@@ -154,3 +145,10 @@ class TestHelpers_EachSingleNumaDomain(tbc.TestCommon):
             if bench.get_parameters().get_name() == "each_numa"
         ]
         assert pinnings == [list(range(128))]
+        # plus_1 on a single group is a single step too
+        steps = [
+            bench.get_parameters().get_pinned_cpu()
+            for bench in self.get_benches().get_benchmarks()
+            if bench.get_parameters().get_name() == "each_numa_plus_1"
+        ]
+        assert steps == [list(range(128))]
