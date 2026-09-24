@@ -10,8 +10,6 @@ class StressNGMemrate(StressNG):
     """The StressNG Memrate memory stressor."""
 
     def run_cmd(self) -> list[str]:
-        # TODO: handle get_pinned_cpu ; it does not necessarily make sense for this
-        # benchmark, but it could be revisited once we support pinning on multiple CPUs.
         skip = self.need_skip_because_version()
         if skip:
             return skip

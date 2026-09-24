@@ -103,6 +103,38 @@ class TestParse(unittest.TestCase):
             output = test_target.get_module_parameters()
             assert output == json.loads((d / "output").read_bytes())
 
+    def test_memory_modules_pinning(self):
+        """stream and memrate must be pinned on selected_cpus like the other modules."""
+        engine = mock_engine("v17")
+        engine.parse_version(b"stress-ng, version 0.17.06 (gcc 13.2, x86_64 Linux 6.8.0)\n", b"")
+        for classname, engine_module, name, option in [
+            (StressNGStream, EngineModuleStream, "stream", "--stream"),
+            (StressNGMemrate, EngineModuleMemrate, "memrate", "--memrate"),
+        ]:
+            for pinned_cpu, taskset in [
+                ([0, 1, 64, 65], ["taskset", "-c", "0,1,64,65"]),
+                ("none", []),
+            ]:
+                with self.subTest(f"{name} pinned on {pinned_cpu}"):
+                    params = BenchmarkParameters(
+                        pathlib.Path(""),
+                        name,
+                        4,
+                        pinned_cpu,
+                        5,
+                        name,
+                        "",
+                        MockHardware(),
+                        "none",
+                        None,
+                        "bypass",
+                        "none",
+                    )
+                    cmd = classname(engine_module(engine, name), params).run_cmd()
+                    assert cmd[: len(taskset)] == taskset
+                    assert cmd[len(taskset)] == "stress-ng"
+                    assert cmd[cmd.index(option) + 1] == "4"
+
     def test_check_support(self):
         Intel_6140 = [
             "fpu",
