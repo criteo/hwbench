@@ -86,6 +86,13 @@ class Hardware(BaseHardware):
         return self.cpu.get_logical_cores_count()
 
 
+class CpuOnlyHardware(Hardware):
+    """Only detect the CPU topology: fast, and runnable without root (used by --dry-run)."""
+
+    def __init__(self, out_dir: pathlib.Path):
+        BaseHardware.__init__(self, out_dir)
+
+
 class TestHardware(Hardware):
     def __init__(self, out_dir: pathlib.Path):
         self.out_dir = out_dir
