@@ -6,11 +6,13 @@ import logging
 import os
 import pathlib
 import platform
+import shutil
+import tempfile
 import time
 
 from packaging.version import Version
 
-from .bench import benchmarks
+from .bench import benchmarks, cpumap
 from .config import config
 from .environment import hardware as env_hw
 from .environment import software as env_soft
@@ -28,6 +30,9 @@ def main():
         )
 
     args = parse_options()
+    if args.dry_run:
+        return dry_run(args)
+
     if not is_root():
         h.fatal("hwbench is not running as effective uid 0.")
 
@@ -67,6 +72,30 @@ def report_problems(problems: list[Exception]) -> bool:
     for problem in problems:
         logging.critical("Requirements are not met: %s", problem)
     return len(problems) > 0
+
+
+def dry_run(args):
+    """Validate the job file and show where each benchmark would run, without running anything.
+
+    Only the CPU topology is detected: no tuning, no environment dump, no BMC or PDU
+    connection, so it is fast and does not need root.
+    """
+    with tempfile.TemporaryDirectory(prefix="hwbench-dry-run-") as tmp:
+        tmp_dir = pathlib.Path(tmp)
+        hwbench_config = config.Config(args.jobs_config)
+        benches = benchmarks.Benchmarks(tmp_dir, hwbench_config, verbose=args.verbose, dry_run=True)
+
+        problems = benches.check_requirements()
+        if report_problems(problems):
+            return problems
+
+        hw = env_hw.CpuOnlyHardware(tmp_dir)
+        hwbench_config.set_hardware(hw)
+        benches.set_hardware(hw)
+        benches.parse_jobs_config()
+
+        print(cpumap.render(benches, width=shutil.get_terminal_size().columns))
+    return None
 
 
 def is_root():
@@ -112,6 +141,12 @@ def parse_options():
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Enable or disable tuning: this is useful when you want to test the system as-is.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Validate the jobs file and print the CPU map of every benchmark, without running anything. Does not need root.",
     )
     parser.add_argument(
         "-v",
