@@ -119,6 +119,17 @@ class TestHelpers_Each(tbc.TestCommon):
         numa = self.pinnings("each_numa")
         assert steps == [sorted(sum(numa[: step + 1], [])) for step in range(8)]
 
+    def test_each_core_curve(self):
+        """each-core with a curve scaling gives the steps of the simple helper."""
+        assert self.pinnings("each_core_curve") == self.pinnings("simple")
+        assert [len(pinning) // 2 for pinning in self.pinnings("each_core_curve")] == [1, 2, 3, 4, 8, 16, 32, 48, 64]
+
+    def test_curve_needs_groups(self):
+        """A curve over a single group written by hand has nothing to accumulate."""
+        self.load_benches("./hwbench/config/curve_fail.conf")
+        with pytest.raises(SystemExit):
+            self.parse_jobs_config()
+
     def test_numa_simple_removed(self):
         """numa-simple is rejected with the way to write the same selection."""
         message = config_syntax.validate_selected_cpus(self.get_jobs_config(), "each_numa", "numa-simple")
@@ -152,3 +163,28 @@ class TestHelpers_EachSingleNumaDomain(tbc.TestCommon):
             if bench.get_parameters().get_name() == "each_numa_plus_1"
         ]
         assert steps == [list(range(128))]
+
+
+class TestHelpers_EachCPUSTORAGE(tbc.TestCommon):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # A dual socket Intel Xeon Gold 6240, 18 cores per socket
+        self.load_mocked_hardware(
+            cpucores="./hwbench/tests/parsing/cpu_cores/cpustorage",
+            cpuinfo="./hwbench/tests/parsing/cpu_info/cpustorage",
+            numa="./hwbench/tests/parsing/numa/2domains",
+        )
+        self.load_benches("./hwbench/config/each.conf")
+        self.parse_jobs_config()
+
+    def pinnings(self, job: str) -> list:
+        return [
+            bench.get_parameters().get_pinned_cpu()
+            for bench in self.get_benches().get_benchmarks()
+            if bench.get_parameters().get_name() == job
+        ]
+
+    def test_each_core_curve(self):
+        """The curve steps on the end of the first socket, like the simple helper."""
+        assert self.pinnings("each_core_curve") == self.pinnings("simple")
+        assert [len(pinning) // 2 for pinning in self.pinnings("each_core_curve")] == [1, 2, 3, 4, 8, 16, 18, 32, 36]

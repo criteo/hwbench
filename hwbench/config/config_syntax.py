@@ -104,7 +104,7 @@ def validate_selected_cpus(config, section_name, value) -> str:
 
 def validate_selected_cpus_scaling(config, section_name, value) -> str:
     """Validate the selected cpus scaling syntax."""
-    if not value.startswith("plus_") and value not in ["iterate", "none"]:
+    if not value.startswith("plus_") and value not in ["iterate", "none", "curve"]:
         return f'Unknown selected_cpus_scaling="{value}"'
     return ""
 
