@@ -1,9 +1,13 @@
 from hwbench.environment import hardware as env_hw
 
 # The selected_cpus helpers: each name is a function of this module, dashes mapped to
-# underscores. Listed longest-first so a shorter name (simple) cannot partially match
-# a longer one (numa-simple).
-HELPERS = ["numa-simple", "each-quadrant", "each-core", "each-numa", "simple"]
+# underscores. Listed longest-first so a shorter name cannot partially match a longer one.
+HELPERS = ["each-quadrant", "each-core", "each-numa", "simple"]
+
+# Removed helpers, rejected with the way to write the same selection
+REMOVED_HELPERS = {
+    "numa-simple": "selected_cpus=each-numa with selected_cpus_scaling=plus_1",
+}
 
 
 def groups(cpu_lists: list[list[int]]) -> str:
@@ -44,17 +48,6 @@ def simple(hardware: env_hw.BaseHardware) -> str:
                 cpu_list += hardware.get_cpu().get_peer_siblings(cpu)
             global_cpu_list += ",".join(str(e) for e in sorted(cpu_list)) + " "
     return global_cpu_list.strip()
-
-
-def numa_simple(hardware: env_hw.BaseHardware) -> str:
-    """Return cumulative cpu groups, adding one more NUMA node at each step."""
-    cpu = hardware.get_cpu()
-    groups = []
-    cores: list[int] = []
-    for numa_domain in range(cpu.get_numa_domains_count()):
-        cores += cpu.get_logical_cores_in_numa_domain(numa_domain)
-        groups.append(",".join(str(core) for core in sorted(cores)))
-    return " ".join(groups)
 
 
 def each_core(hardware: env_hw.BaseHardware) -> str:
