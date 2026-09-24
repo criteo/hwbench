@@ -75,3 +75,21 @@ class TestHelpersImpossible(tbc.TestCommon):
 
         with pytest.raises(SystemExit):
             self.parse_jobs_config()
+
+
+class TestHelpers_SingleNumaDomain(tbc.TestCommon):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # The AMD EPYC 8534P set with a single NUMA domain (NPS1)
+        self.load_mocked_hardware(
+            cpucores="./hwbench/tests/parsing/cpu_cores/v2321",
+            cpuinfo="./hwbench/tests/parsing/cpu_info/v2321",
+            numa="./hwbench/tests/parsing/numa/1domain",
+        )
+        self.load_benches("./hwbench/config/numa_simple.conf")
+        self.parse_jobs_config()
+
+    def test_numa_simple_single_domain(self):
+        """A helper giving a single group gives a single benchmark on it, not one per cpu."""
+        assert self.get_benches().count_benchmarks() == 1
+        assert self.get_bench_parameters(0).get_pinned_cpu() == list(range(0, 128))
