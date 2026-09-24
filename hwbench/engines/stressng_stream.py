@@ -12,18 +12,12 @@ class StressNGStream(StressNG):
     """The StressNG STREAM memory stressor."""
 
     def run_cmd(self) -> list[str]:
-        # TODO: handle get_pinned_cpu ; it does not necessarily make sense for this
-        # benchmark, but it could be revisited once we support pinning on multiple CPUs.
         skip = self.need_skip_because_version()
         if skip:
             return skip
-        ret: list[str] = [
-            self.engine_module.get_engine().get_binary(),
-            "--timeout",
-            str(self.parameters.get_runtime()),
-            "--metrics",
-            "--yaml",
-            f"{self.output_basename}.yaml",
+        # The common stress-ng command line carries the taskset pinning,
+        # so the workers stay on the CPUs, hence the memory, of selected_cpus.
+        ret: list[str] = super().run_cmd() + [
             "--stream",
             str(self.parameters.get_engine_instances_count()),
         ]
