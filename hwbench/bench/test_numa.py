@@ -102,3 +102,26 @@ class TestNuma(tbc.TestCommon):
             "alpha_numa_nodes",
         ]:
             self.should_be_fatal(self.get_jobs_config().get_selected_cpus, test_name)
+
+    def test_cores_by_socket(self):
+        """Check the physical cores of each socket, with the logical cores of each one."""
+        sockets = self.hw.get_cpu().get_cores_by_socket()
+        assert list(sockets) == [0]
+        assert len(sockets[0]) == 64
+        # core n owns logical cpus n and n+64 on this AMD system
+        assert sockets[0][0] == [0, 64]
+        assert sockets[0][63] == [63, 127]
+
+    def test_numa_domain_and_quadrant_of_a_cpu(self):
+        """Check the reverse lookups, from a logical cpu to its numa domain and quadrant."""
+        cpu = self.hw.get_cpu()
+        assert cpu.get_numa_domain(0) == 0
+        # the second thread of core 8 is in the second domain
+        assert cpu.get_numa_domain(72) == 1
+        assert cpu.get_numa_domain(127) == 7
+        assert cpu.get_numa_domain(128) is None
+        # a quadrant is made of two numa domains on this AMD system
+        assert cpu.get_quadrant(15) == 0
+        assert cpu.get_quadrant(16) == 1
+        assert cpu.get_quadrant(127) == 3
+        assert cpu.get_quadrant(128) is None

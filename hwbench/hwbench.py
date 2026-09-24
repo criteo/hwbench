@@ -40,10 +40,7 @@ def main():
     benches = benchmarks.Benchmarks(out_dir, hwbench_config, verbose=args.verbose)
 
     problems = env_hw.check_requirements() + benches.check_requirements()
-
-    if len(problems) > 0:
-        for problem in problems:
-            logging.critical("Requirements are not met: %s", problem)
+    if report_problems(problems):
         return problems
 
     print("Startup: Tuning host")
@@ -63,6 +60,13 @@ def main():
     out = format_output(env.dump(), hw.dump(), results, benches.jobs_config)
 
     write_output(out_dir, out)
+
+
+def report_problems(problems: list[Exception]) -> bool:
+    """Log the requirements that are not met, and return if there is any."""
+    for problem in problems:
+        logging.critical("Requirements are not met: %s", problem)
+    return len(problems) > 0
 
 
 def is_root():

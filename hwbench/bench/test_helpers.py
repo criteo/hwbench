@@ -50,6 +50,15 @@ class TestHelpers_CPUSTORAGE(tbc.TestCommon):
             assert self.bench_name(job) == "simple"
             assert len(self.get_bench_parameters(job).get_pinned_cpu()) == logical_cores[job]
 
+    def test_socket(self):
+        """Each logical cpu belongs to the socket of its physical core."""
+        cpu = self.hw.get_cpu()
+        assert cpu.get_socket(0) == 0
+        assert cpu.get_socket(53) == 0
+        assert cpu.get_socket(18) == 1
+        assert cpu.get_socket(71) == 1
+        assert cpu.get_socket(72) is None
+
 
 class TestHelpersImpossible(tbc.TestCommon):
     def __init__(self, *args, **kwargs):

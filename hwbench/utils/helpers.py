@@ -80,6 +80,13 @@ def cpu_list_to_range(cpu_list: list[int]) -> str:
     return ", ".join(output)
 
 
+def format_duration(seconds: int) -> str:
+    """Return a duration as "1h 42m 00s", hours going beyond a day."""
+    minutes, seconds = divmod(int(seconds), 60)
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours}h {minutes:02}m {seconds:02}s"
+
+
 def versiontuple(v: str) -> tuple[int, ...]:
     """
     Convert a version string to a tuple of integers that allows very basic version comparisons

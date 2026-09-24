@@ -243,27 +243,33 @@ class Benchmarks:
     def get_benchmarks(self) -> list[Benchmark]:
         return self.benchs
 
-    def runtime(self) -> int:
-        """Return the overall runtime to run all jobs."""
+    def runtime(self, job: str | None = None) -> int:
+        """Return the overall runtime to run all jobs, or a single one."""
         return sum(
             [
                 benchmark.get_parameters().get_runtime()
                 for benchmark in self.get_benchmarks()
+                if job is None or benchmark.get_parameters().get_name() == job
                 # Only count benchmarks that are not fully skipped
                 if not benchmark.get_enginemodule().fully_skipped_job(benchmark.get_parameters())
             ]
         )
 
+    def summary(self, estimated_end: bool = True) -> str:
+        """Return the number of jobs, benchmarks and the duration of the run.
+
+        The estimated end time only makes sense when the run starts now.
+        """
+        duration = h.format_duration(self.runtime())
+        summary = f"hwbench: {self.count_jobs()} jobs, {self.count_benchmarks()} benchmarks, ETA {duration}"
+        if estimated_end:
+            eta = datetime.datetime.now() + timedelta(seconds=self.runtime())
+            summary += f", estimated end at {eta:%Y-%m-%d %H:%M:%S}"
+        return summary
+
     def run(self):
         results = {}
-        t = str(timedelta(seconds=self.runtime())).split(":")
-        duration = f"{t[0]}h {t[1]}m {t[2]}s"
-        eta = datetime.datetime.now() + timedelta(seconds=self.runtime())
-        print(
-            f"hwbench: {self.count_jobs()} jobs, \
-{self.count_benchmarks()} benchmarks, \
-ETA {duration}, estimated end at {eta:%Y-%m-%d %H:%M:%S}"
-        )
+        print(self.summary())
         # Run every benchmark of the list
         for benchmark in self.get_benchmarks():
             bench_name = benchmark.get_parameters().get_name()
