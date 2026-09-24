@@ -81,7 +81,7 @@ def validate_selected_cpus(config, section_name, value) -> str:
             return ""
         else:
             value = value.lower()
-            # A removed helper would be half matched by the ones left (simple in numa-simple)
+            # Removed helpers are rejected first, with the way to write the same selection
             for removed, replacement in config_helpers.REMOVED_HELPERS.items():
                 if removed in value:
                     return f"{removed} was removed, use {replacement}"
