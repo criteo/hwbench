@@ -12,7 +12,7 @@ class FakeSockets:
 
 
 def test_curve_steps_beyond_256_cores():
-    """The +16 steps go up to the last core, instead of stopping at 256 like the simple helper."""
+    """The +16 steps go up to the last core."""
     steps = benchmarks.curve_steps([[core] for core in range(320)], FakeSockets(160))  # type: ignore[arg-type]
     assert steps == [1, 2, 3, 4, 8, 16, *range(32, 321, 16)]
 
