@@ -54,7 +54,6 @@ selected_cpus:
                 all        : all cores are selected
                 none       : all cores are selected but no pinning is performed (default)
                 list       : items in selected_cpus list are considered separately
-                simple     : 1, 2, 3, 4, 8, 16 then +16 up to the physical cores count
                 each-core  : one group per physical core, with all its logical cores
                 each-numa  : one group per NUMA node
                              (with selected_cpus_scaling=plus_1: adding one more NUMA node at each step)
@@ -67,6 +66,9 @@ selected_cpus_scaling:
            iterate  : for each value of selected_cpus, a new sub job is executed
                       if selected_cpus has lower cpu count than stressor_range, the list is looped
            none     : all selected_cpus cores are available for each job
+           curve    : 1, 2, 3, 4, 8, 16 then +16 groups are added to the pinning,
+                      plus the end of each socket and the whole selection
+                      (with selected_cpus=each-core: a scaling curve up to the physical cores count)
     unit : text
     note : if selected_cpus is an integer, selected_cpus_scaling is not considered
 

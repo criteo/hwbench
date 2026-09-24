@@ -205,7 +205,7 @@ class Config:
                 # Replace only the matched domain by the list of cpus
                 sc = sc.replace(f"{resource_name}{resource}", cpus, 1)
 
-        resources = re.findall(r"(all|simple|quadrant.*|numa.*|core.*)", sc)
+        resources = re.findall(r"(all|quadrant.*|numa.*|core.*)", sc)
         if resources:
             h.fatal(f"The following keywords, didn't get processed ! : {resources}")
         selected_cpus = self.parse_range(sc)
