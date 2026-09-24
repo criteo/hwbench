@@ -19,13 +19,13 @@ class TestHelpers(tbc.TestCommon):
     def test_helpers(self):
         """Testing helper functions."""
 
-        # Simple
-        ## On a simple test and for a 64 core cpu, we must have 9 jobs created
+        # each-core with a curve scaling
+        ## For a 64 core cpu, we must have 9 jobs created
         ## Each of them must have the number of logical cores listed below
         logical_cores = [2, 4, 6, 8, 16, 32, 64, 96, 128]
         assert self.get_benches().count_benchmarks() == 9
         for job in range(0, 9):
-            assert self.bench_name(job) == "simple"
+            assert self.bench_name(job) == "curve"
             assert len(self.get_bench_parameters(job).get_pinned_cpu()) == logical_cores[job]
 
 
@@ -43,13 +43,13 @@ class TestHelpers_CPUSTORAGE(tbc.TestCommon):
     def test_helpers(self):
         """Testing helper functions."""
 
-        # Simple
-        ## On a simple test and for a dual socket 18 cores cpu, we must have 9 jobs created
+        # each-core with a curve scaling
+        ## For a dual socket 18 cores cpu, we must have 9 jobs created
         ## Each of them must have the number of logical cores listed below
         logical_cores = [2, 4, 6, 8, 16, 32, 36, 64, 72]
         assert self.get_benches().count_benchmarks() == 9
-        for job in range(0, 8):
-            assert self.bench_name(job) == "simple"
+        for job in range(0, 9):
+            assert self.bench_name(job) == "curve"
             assert len(self.get_bench_parameters(job).get_pinned_cpu()) == logical_cores[job]
 
     def test_socket(self):
@@ -120,8 +120,7 @@ class TestHelpers_Each(tbc.TestCommon):
         assert steps == [sorted(sum(numa[: step + 1], [])) for step in range(8)]
 
     def test_each_core_curve(self):
-        """each-core with a curve scaling gives the steps of the simple helper."""
-        assert self.pinnings("each_core_curve") == self.pinnings("simple")
+        """each-core with a curve scaling gives a scaling curve of physical cores."""
         assert [len(pinning) // 2 for pinning in self.pinnings("each_core_curve")] == [1, 2, 3, 4, 8, 16, 32, 48, 64]
 
     def test_curve_needs_groups(self):
@@ -130,10 +129,13 @@ class TestHelpers_Each(tbc.TestCommon):
         with pytest.raises(SystemExit):
             self.parse_jobs_config()
 
-    def test_numa_simple_removed(self):
-        """numa-simple is rejected with the way to write the same selection."""
-        message = config_syntax.validate_selected_cpus(self.get_jobs_config(), "each_numa", "numa-simple")
+    def test_removed_helpers(self):
+        """numa-simple and simple are rejected with the way to write the same selection."""
+        config = self.get_jobs_config()
+        message = config_syntax.validate_selected_cpus(config, "each_numa", "numa-simple")
         assert message == "numa-simple was removed, use selected_cpus=each-numa with selected_cpus_scaling=plus_1"
+        message = config_syntax.validate_selected_cpus(config, "each_numa", "simple")
+        assert message == "simple was removed, use selected_cpus=each-core with selected_cpus_scaling=curve"
 
 
 class TestHelpers_EachSingleNumaDomain(tbc.TestCommon):
@@ -185,6 +187,5 @@ class TestHelpers_EachCPUSTORAGE(tbc.TestCommon):
         ]
 
     def test_each_core_curve(self):
-        """The curve steps on the end of the first socket, like the simple helper."""
-        assert self.pinnings("each_core_curve") == self.pinnings("simple")
+        """The curve steps on the end of the first socket."""
         assert [len(pinning) // 2 for pinning in self.pinnings("each_core_curve")] == [1, 2, 3, 4, 8, 16, 18, 32, 36]
