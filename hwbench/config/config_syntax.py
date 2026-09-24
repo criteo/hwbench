@@ -1,5 +1,7 @@
 import re
 
+from . import config_helpers
+
 
 def validate_runtime(config, section_name, value) -> str:
     """Validate the runtime syntax."""
@@ -79,10 +81,9 @@ def validate_selected_cpus(config, section_name, value) -> str:
             return ""
         else:
             value = value.lower()
-            # Helpers are removed first (longest-first so 'simple' cannot
-            # partially match 'numa-simple') before parsing the resources,
+            # Helpers are removed first, before parsing the resources,
             # otherwise the numa resource regex would eat 'numa-' from 'numa-simple'.
-            for helper in ["numa-simple", "simple", "all"]:
+            for helper in [*config_helpers.HELPERS, "all"]:
                 value = value.replace(helper, "", 1)
             resources = re.findall(r"(quadrant|numa|core)([0-9-,]+)", value)
             if resources:

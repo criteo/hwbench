@@ -10,7 +10,7 @@ from hwbench.bench.engine import EngineBase
 from hwbench.environment import hardware as env_hw
 from hwbench.utils import helpers as h
 
-from . import config_syntax
+from . import config_helpers, config_syntax
 
 
 class Config:
@@ -171,15 +171,11 @@ class Config:
             sc = sc.replace("all", f"0-{self.hardware.get_cpu().get_logical_cores_count() - 1}")
 
         # Let's replace helpers if any
-        # Helpers are listed longest-first so a shorter name (simple) cannot
-        # partially match a longer one (numa-simple). The keyword's dashes are
-        # mapped to underscores to match the function name in config_helpers.
-        helper_module = importlib.import_module(".config_helpers", package="hwbench.config")
         helper_used = False
-        for helper in ["numa-simple", "simple"]:
+        for helper in config_helpers.HELPERS:
             while helper in sc:
                 helper_used = True
-                helper_function = getattr(helper_module, helper.replace("-", "_"))
+                helper_function = getattr(config_helpers, helper.replace("-", "_"))
                 sc = sc.replace(helper, helper_function(self.hardware), 1)
 
         # If sc has some numa domains, lets expand them.
