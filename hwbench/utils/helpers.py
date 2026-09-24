@@ -50,6 +50,10 @@ def cpu_list_to_range(cpu_list: list[int]) -> str:
 
     It was made specifically for formatting a CPU cores list
     """
+    # The loop below only handles lists of at least two entries
+    if len(cpu_list) <= 1:
+        return ", ".join(str(cpu) for cpu in cpu_list)
+
     cpu_list.sort()
     output: list[str] = []
     previous_entry: int | None = cpu_list[0]

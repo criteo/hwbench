@@ -11,3 +11,7 @@ class DisplayHelper(unittest.TestCase):
         assert cpu_list_to_range([0, 1, 3, 4, 5]) == "0-1, 3-5"
         assert cpu_list_to_range([0, 4, 2, 7, 8, 9]) == "0, 2, 4, 7-9"
         assert cpu_list_to_range([0, 4, 2, 3, 7, 8, 9]) == "0, 2-4, 7-9"
+        assert cpu_list_to_range([3, 7]) == "3, 7"
+        assert cpu_list_to_range([0, 1]) == "0-1"
+        assert cpu_list_to_range([5]) == "5"
+        assert cpu_list_to_range([]) == ""
