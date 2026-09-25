@@ -1,5 +1,7 @@
 import re
 
+from hwbench.bench import scaling
+
 from . import config_helpers
 
 
@@ -68,7 +70,11 @@ def validate_stressor_range(config, section_name, value) -> str:
 
 
 def validate_stressor_range_scaling(config, section_name, value) -> str:
-    """Validate the stressor range scaling syntax."""
+    """Validate the stressor range scaling syntax, against the stressor counts of the job."""
+    try:
+        scaling.scaling("stressor_range_scaling", value, config.get_stressor_range(section_name))
+    except ValueError as error:
+        return str(error)
     return ""
 
 
@@ -103,9 +109,13 @@ def validate_selected_cpus(config, section_name, value) -> str:
 
 
 def validate_selected_cpus_scaling(config, section_name, value) -> str:
-    """Validate the selected cpus scaling syntax."""
-    if not value.startswith("plus_") and value not in ["iterate", "none", "curve"]:
-        return f'Unknown selected_cpus_scaling="{value}"'
+    """Validate the selected cpus scaling syntax, against the cpu groups of the job."""
+    try:
+        scaling.scaling(
+            "selected_cpus_scaling", value, config.get_selected_cpus(section_name), config.get_hardware().get_cpu()
+        )
+    except ValueError as error:
+        return str(error)
     return ""
 
 
