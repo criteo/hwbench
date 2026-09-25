@@ -260,7 +260,7 @@ class Config:
                     )
                     if message:
                         h.fatal(f"Job {section_name}: keyword {directive}: {message}")
-                    return
+                    continue
                 else:
                     h.fatal(f"Job {section_name}: invalid keyword {directive}")
             # Execute the validations_<function> from config_syntax file
