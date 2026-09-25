@@ -1,3 +1,6 @@
+import pathlib
+import tempfile
+
 import pytest
 
 from hwbench.config import config_helpers, config_syntax
@@ -142,6 +145,40 @@ class TestHelpers_Each(tbc.TestCommon):
         assert config_helpers.groups([[1, 0], [], [2]]) == "0,1 2"
         with pytest.raises(SystemExit):
             config_helpers.groups([[], []])
+
+    def assert_validated_first(self, tmp_path, global_keywords, job_keywords, message):
+        """The job file stops on message, the keyword of the job being validated in the order it is written."""
+        job_file = pathlib.Path(tmp_path) / "scaling_first.conf"
+        job_file.write_text(
+            f"[global]\nruntime=1\nmonitor=none\nengine=sleep\nstressor_range=auto\n{global_keywords}\n"
+            f"[job]\n{job_keywords}\n"
+        )
+        self.load_benches(str(job_file))
+        with self.assertLogs(level="ERROR") as logs, pytest.raises(SystemExit):
+            self.parse_jobs_config()
+        assert f"Job job: keyword selected_cpus: {message}" in logs.output[0]
+
+    def test_scaling_written_first(self):
+        """selected_cpus is validated before its scaling, whatever the order of the job file."""
+        with tempfile.TemporaryDirectory() as tmp_path:
+            for selected_cpus, message in [
+                ("simple", "simple was removed"),
+                ("numa-simple", "numa-simple was removed"),
+                ("1-2-3", "Unhandled string '1-2-3' in selected cpus"),
+            ]:
+                self.assert_validated_first(
+                    tmp_path, "", f"selected_cpus_scaling=curve\nselected_cpus={selected_cpus}", message
+                )
+
+    def test_scaling_inherited_selected_cpus(self):
+        """A selected_cpus inherited from [global] is validated before the scaling of the job."""
+        with tempfile.TemporaryDirectory() as tmp_path:
+            self.assert_validated_first(
+                tmp_path,
+                "selected_cpus=1-2-3\n",
+                "selected_cpus_scaling=curve",
+                "Unhandled string '1-2-3' in selected cpus",
+            )
 
 
 class TestHelpers_EachSingleNumaDomain(tbc.TestCommon):

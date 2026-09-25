@@ -69,6 +69,18 @@ class TestParse(tbc.TestCommon):
         # Checking if the last job is sleep
         self.assert_job(-1, "sleep", "sleep")
 
+    def test_overlapping_groups_are_merged_once(self):
+        """A cpu shared by two merged groups is pinned, and loaded, once."""
+        with patch("hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters") as p:
+            p.return_value = (
+                pathlib.Path("hwbench/tests/parsing/stressngmethods/v17/stdout").read_bytes().split(b":", 1)
+            )
+            self.load_benches("./hwbench/config/overlap.ini")
+            self.parse_jobs_config()
+        assert self.benches.count_benchmarks() == 1
+        assert self.get_bench_parameters(0).get_pinned_cpu() == [0, 1, 2, 3, 4, 5]
+        assert self.get_bench_parameters(0).get_engine_instances_count() == 6
+
     def test_monitoring(self):
         """Test if at least one benchmark needs monitoring."""
         # This jobs_config file needs monitoring

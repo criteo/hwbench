@@ -247,7 +247,9 @@ class Config:
             if required_custom_parameter not in section:
                 h.fatal(f'Job {section_name}: missing required custom parameter "{required_custom_parameter}"')
 
-        for directive in section:
+        # A scaling keyword is validated against the value of the keyword it scales:
+        # visit it last, whatever the order of the job file or the [global] inheritance
+        for directive in sorted(section, key=lambda directive: directive.endswith("_scaling")):
             if directive in self.RENAMED_KEYWORDS:
                 h.fatal(
                     f"Job {section_name}: keyword '{directive}' has been renamed to "
