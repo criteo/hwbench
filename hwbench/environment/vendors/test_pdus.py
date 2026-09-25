@@ -1,9 +1,12 @@
 import json
 import pathlib
 
+import pytest
+
 from hwbench.bench.monitoring_structs import Power, PowerConsumptionContext
 from hwbench.environment.test_vendors import PATCH_TYPES, TestVendors
 from hwbench.environment.vendors.mock import MockVendor
+from hwbench.environment.vendors.monitoring_device import MonitoringDevice
 from hwbench.environment.vendors.pdus.generic import Generic
 
 path = pathlib.Path("")
@@ -152,3 +155,11 @@ class TestRaritanGroup(TestRaritan):
             "serial_number": "1EXXXXXXXXXXX",
             "user_label": "DATACENTER-6/RACK-B37/FEED-C",
         }
+
+
+def test_redfish_url_must_be_https(caplog):
+    """A non https url is rejected, with the url in the message."""
+    device = MonitoringDevice(None)
+    with pytest.raises(SystemExit):
+        device._connect_redfish("admin", "admin", "http://mypdu/", "session")
+    assert "redfish url 'http://mypdu/' must be an https url" in caplog.text
