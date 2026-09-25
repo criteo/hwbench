@@ -20,8 +20,9 @@ class StressNGMemrate(StressNG):
         ]
 
     def empty_result(self):
-        ret = {}
+        ret: dict[str, Any] = {"effective_runtime": 0.0}
         for method in [
+            "memset",
             "read1024",
             "read128",
             "read128pf",
@@ -51,7 +52,6 @@ class StressNGMemrate(StressNG):
             ret[method] = {
                 "avg_speed": 0.0,
                 "sum_speed": 0.0,
-                "effective_runtime": 0.0,
             }
         ret["skipped"] = True
         return ret

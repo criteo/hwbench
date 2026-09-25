@@ -103,6 +103,20 @@ class TestParse(unittest.TestCase):
             output = test_target.get_module_parameters()
             assert output == json.loads((d / "output").read_bytes())
 
+    def test_memrate_empty_result(self):
+        """A skipped memrate benchmark has the keys of a real result, plus skipped."""
+        engine = mock_engine("v17")
+        params = BenchmarkParameters(
+            pathlib.Path(""), "memrate", 4, "", 5, "memrate", "", MockHardware(), "none", None, "bypass", "none"
+        )
+        empty = StressNGMemrate(EngineModuleMemrate(engine, "memrate"), params).empty_result()
+        real = json.loads(pathlib.Path("hwbench/tests/parsing/stressng-memrate/v17/output").read_bytes())
+        assert empty.pop("skipped") is True
+        assert sorted(empty) == sorted(real)
+        for key, value in real.items():
+            if isinstance(value, dict):
+                assert sorted(empty[key]) == sorted(value)
+
     def test_memory_modules_pinning(self):
         """stream and memrate must be pinned on selected_cpus like the other modules."""
         engine = mock_engine("v17")
