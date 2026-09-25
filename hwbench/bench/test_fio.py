@@ -1,5 +1,7 @@
 from unittest.mock import patch
 
+from hwbench.engines.fio import FioCmdLine
+
 from . import test_benchmarks_common as tbc
 
 
@@ -39,3 +41,15 @@ class TestFio(tbc.TestCommon):
             bench_1.get_engine_module_parameter_base()
             == "--direct=1 --rw=randread --bs=4k --ioengine=libaio --iodepth=256 --group_reporting --readonly --runtime=40 --time_based --output-format=json+ --numjobs=6 --name=randread_cmdline_1 --invalidate=1 --log_avg_msec=20000 --filename=/dev/nvme0n1 --write_bw_log=fio/randread_cmdline_1_bw.log --write_lat_log=fio/randread_cmdline_1_lat.log --write_hist_log=fio/randread_cmdline_1_hist.log --write_iops_log=fio/randread_cmdline_1_iops.log"
         )
+
+    def test_fio_empty_result(self):
+        """An unreadable fio output, or a skipped benchmark, gives an empty result."""
+        bench = self.benches.benchs[0]
+        fio = FioCmdLine(bench.get_enginemodule(), bench.get_parameters())
+        result = fio.parse_cmd(b"not a json output", b"")
+        assert result["fio_results"] == {"jobs": []}
+        assert result["effective_runtime"] == 0
+        assert result["skipped"] is False
+
+        fio.skip = True
+        assert fio.parse_cmd(b"", b"")["skipped"] is True
