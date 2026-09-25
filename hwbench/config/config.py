@@ -10,7 +10,7 @@ from hwbench.bench.engine import EngineBase
 from hwbench.environment import hardware as env_hw
 from hwbench.utils import helpers as h
 
-from . import config_syntax
+from . import config_helpers, config_syntax
 
 
 class Config:
@@ -171,13 +171,11 @@ class Config:
             sc = sc.replace("all", f"0-{self.hardware.get_cpu().get_logical_cores_count() - 1}")
 
         # Let's replace helpers if any
-        # Helpers are listed longest-first so a shorter name (simple) cannot
-        # partially match a longer one (numa-simple). The keyword's dashes are
-        # mapped to underscores to match the function name in config_helpers.
-        helper_module = importlib.import_module(".config_helpers", package="hwbench.config")
-        for helper in ["numa-simple", "simple"]:
+        helper_used = False
+        for helper in config_helpers.HELPERS:
             while helper in sc:
-                helper_function = getattr(helper_module, helper.replace("-", "_"))
+                helper_used = True
+                helper_function = getattr(config_helpers, helper.replace("-", "_"))
                 sc = sc.replace(helper, helper_function(self.hardware), 1)
 
         # If sc has some numa domains, lets expand them.
@@ -210,7 +208,12 @@ class Config:
         resources = re.findall(r"(all|simple|quadrant.*|numa.*|core.*)", sc)
         if resources:
             h.fatal(f"The following keywords, didn't get processed ! : {resources}")
-        return self.parse_range(sc)
+        selected_cpus = self.parse_range(sc)
+        # A helper describes groups: when it gives a single one, like each-numa on a
+        # single NUMA domain, keep it as a group instead of a list of cpus to walk one by one
+        if helper_used and selected_cpus and not isinstance(selected_cpus[0], list):
+            selected_cpus = [selected_cpus]
+        return selected_cpus
 
     def get_selected_cpus_scaling(self, section_name) -> str:
         """Return the selected cpus scaling of a section."""
@@ -257,7 +260,7 @@ class Config:
                     )
                     if message:
                         h.fatal(f"Job {section_name}: keyword {directive}: {message}")
-                    return
+                    continue
                 else:
                     h.fatal(f"Job {section_name}: invalid keyword {directive}")
             # Execute the validations_<function> from config_syntax file

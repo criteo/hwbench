@@ -8,6 +8,7 @@ from hwbench.bench.engine import EngineModuleBase
 from hwbench.environment.hardware import BaseHardware
 from hwbench.utils import helpers as h
 
+from . import scaling
 from .benchmark import Benchmark
 from .monitoring import Monitoring
 from .parameters import BenchmarkParameters
@@ -16,10 +17,11 @@ from .parameters import BenchmarkParameters
 class Benchmarks:
     """A class to list and execute benchmarks to run."""
 
-    def __init__(self, out_dir, jobs_config, verbose: bool = False) -> None:
+    def __init__(self, out_dir, jobs_config, verbose: bool = False, dry_run: bool = False) -> None:
         self.jobs_config = jobs_config
         self.out_dir = out_dir
         self.verbose = verbose
+        self.dry_run = dry_run
         self.benchs: list[Benchmark] = []
         self.monitoring: Monitoring = None  # type: ignore[assignment]
         self.hardware: BaseHardware | None = None
@@ -86,83 +88,42 @@ class Benchmarks:
                     h.fatal(f'Unknown "{emp}" engine_module_parameter for "{engine_name}"')
 
             # extract job's parameters
-            stressor_range = self.jobs_config.get_stressor_range(job)
             stressor_range_scaling = self.jobs_config.get_stressor_range_scaling(job)
-            selected_cpus_raw = self.jobs_config.get_selected_cpus(job)
-            selected_cpus = selected_cpus_raw.copy()
+            selected_cpus = self.jobs_config.get_selected_cpus(job)
             selected_cpus_scaling = self.jobs_config.get_selected_cpus_scaling(job)
 
-            # Let's set the default values
-            # If a single selected_cpus is set, the default scaling is iterate
-            if len(selected_cpus) == 1:
-                selected_cpus_scaling = "iterate"
+            # Let's create benchmark jobs, one pinning per step of the cpu scaling
+            for step in self.scaling(job, "selected_cpus_scaling", selected_cpus_scaling, selected_cpus):
+                items = [selected_cpus[index] for index in step]
+                if len(items) == 1:
+                    # A single group, or a single cpu, as written
+                    pinned_cpu = items[0]
+                else:
+                    # The step merges its groups, or its cpus
+                    pinned_cpu = sorted(cpu for item in items for cpu in (item if isinstance(item, list) else [item]))
+                self.__schedule_benchmarks(job, stressor_range_scaling, pinned_cpu, validate_parameters)
 
-            if (
-                selected_cpus_scaling == "none"
-                and isinstance(selected_cpus, list)
-                and len(selected_cpus) > 0
-                and isinstance(selected_cpus[0], list)
-            ):
-                h.fatal(
-                    "Impossible to have multiple cpu cores lists in selected_cpus: "
-                    f"{selected_cpus} ; with selected_cpus_scaling "
-                    "strategy 'none'"
-                )
-
-            # if there is a single stressor, the scaling must be plus_1
-            if len(stressor_range) == 1:
-                stressor_range_scaling = "plus_1"
-
-            # Reverse so the pop() call makes cores in a numerical order
-            selected_cpus.reverse()
-
-            # Let's create benchmark jobs
-            # Detect selected cpus scaling mode
-            if selected_cpus_scaling.startswith("plus_"):
-                steps = int(selected_cpus_scaling.replace("plus_", ""))
-                # It's mandatory to have selected_cpus to be
-                # a strict modulo of the requested steps
-                # That would lead to an unbalanced benchmark configuration
-                if len(selected_cpus) % steps != 0:
-                    h.fatal("selected_cpus is not modulo selected_cpus_scaling !")
-                pinned_cpu = []
-                while len(selected_cpus):
-                    for _step in range(steps):
-                        for cpu in selected_cpus.pop():
-                            pinned_cpu.append(cpu)
-                    self.__schedule_benchmarks(
-                        job,
-                        stressor_range_scaling,
-                        sorted(pinned_cpu.copy()),
-                        validate_parameters,
-                    )
-            elif selected_cpus_scaling == "iterate":
-                for _iteration in range(len(selected_cpus)):
-                    # Pick the last CPU of the list
-                    pinned_cpu = selected_cpus.pop()
-                    self.__schedule_benchmarks(job, stressor_range_scaling, pinned_cpu, validate_parameters)
-            elif selected_cpus_scaling == "none":
-                self.__schedule_benchmarks(
-                    job,
-                    stressor_range_scaling,
-                    sorted(selected_cpus),
-                    validate_parameters,
-                )
-            else:
-                scs = selected_cpus_scaling
-                h.fatal(f"Unsupported selected_cpus_scaling : {scs}")
+    def scaling(self, job: str, keyword: str, value: str, items: list) -> list[list[int]]:
+        """Return the steps of a scaling, the job file being already validated."""
+        try:
+            return scaling.scaling(keyword, value, items, self.get_hardware().get_cpu())
+        except ValueError as error:
+            h.fatal(f"Job {job}: keyword {keyword}: {error}")
 
     def __schedule_benchmarks(self, job, stressor_range_scaling, pinned_cpu, validate_parameters: bool):
         """Iterate on engine module parameters to schedule benchmarks."""
-        # Detecting stressor range scaling mode
-        if stressor_range_scaling == "plus_1":
-            for emp in self.jobs_config.get_engine_module_parameter(job):
-                self.__schedule_benchmark(job, pinned_cpu, emp, validate_parameters)
-        else:
-            srs = stressor_range_scaling
-            h.fatal(f"Unsupported stressor_range_scaling : {srs}")
+        stressor_range = self.jobs_config.get_stressor_range(job)
+        # Each step runs the stressor count of its last index, in the order they are written
+        stressor_counts = [
+            stressor_range[step[-1]]
+            for step in self.scaling(job, "stressor_range_scaling", stressor_range_scaling, stressor_range)
+        ]
+        for emp in self.jobs_config.get_engine_module_parameter(job):
+            self.__schedule_benchmark(job, pinned_cpu, emp, stressor_counts, validate_parameters)
 
-    def __schedule_benchmark(self, job, pinned_cpu, engine_module_parameter, validate_parameters: bool):
+    def __schedule_benchmark(
+        self, job, pinned_cpu, engine_module_parameter, stressor_counts: list, validate_parameters: bool
+    ):
         """Schedule benchmark."""
         runtime = self.jobs_config.get_runtime(job)
         monitoring_config = self.get_monitoring_config(job)
@@ -170,7 +131,7 @@ class Benchmarks:
         engine_module.init()
 
         # If job needs monitoring, let's create it
-        if monitoring_config != "none" and not self.monitoring:
+        if monitoring_config != "none" and not self.monitoring and not self.dry_run:
             self.get_hardware().vendor.get_bmc().connect_redfish()
             self.get_hardware().vendor.get_bmc().detect()
             for pdu in self.get_hardware().vendor.get_pdus():
@@ -178,8 +139,8 @@ class Benchmarks:
                 pdu.detect()
             self.monitoring = Monitoring(self.out_dir, self.jobs_config, self.get_hardware(), verbose=self.verbose)
 
-        # For each stressor, add a benchmark object to the list
-        for stressor_count in self.jobs_config.get_stressor_range(job):
+        # For each stressor count, add a benchmark object to the list
+        for stressor_count in stressor_counts:
             if stressor_count == "auto":
                 if pinned_cpu == "none":
                     h.fatal("stressor_range=auto but no pinned cpu")
@@ -243,27 +204,33 @@ class Benchmarks:
     def get_benchmarks(self) -> list[Benchmark]:
         return self.benchs
 
-    def runtime(self) -> int:
-        """Return the overall runtime to run all jobs."""
+    def runtime(self, job: str | None = None) -> int:
+        """Return the overall runtime to run all jobs, or a single one."""
         return sum(
             [
                 benchmark.get_parameters().get_runtime()
                 for benchmark in self.get_benchmarks()
+                if job is None or benchmark.get_parameters().get_name() == job
                 # Only count benchmarks that are not fully skipped
                 if not benchmark.get_enginemodule().fully_skipped_job(benchmark.get_parameters())
             ]
         )
 
+    def summary(self, estimated_end: bool = True) -> str:
+        """Return the number of jobs, benchmarks and the duration of the run.
+
+        The estimated end time only makes sense when the run starts now.
+        """
+        duration = h.format_duration(self.runtime())
+        summary = f"hwbench: {self.count_jobs()} jobs, {self.count_benchmarks()} benchmarks, ETA {duration}"
+        if estimated_end:
+            eta = datetime.datetime.now() + timedelta(seconds=self.runtime())
+            summary += f", estimated end at {eta:%Y-%m-%d %H:%M:%S}"
+        return summary
+
     def run(self):
         results = {}
-        t = str(timedelta(seconds=self.runtime())).split(":")
-        duration = f"{t[0]}h {t[1]}m {t[2]}s"
-        eta = datetime.datetime.now() + timedelta(seconds=self.runtime())
-        print(
-            f"hwbench: {self.count_jobs()} jobs, \
-{self.count_benchmarks()} benchmarks, \
-ETA {duration}, estimated end at {eta:%Y-%m-%d %H:%M:%S}"
-        )
+        print(self.summary())
         # Run every benchmark of the list
         for benchmark in self.get_benchmarks():
             bench_name = benchmark.get_parameters().get_name()

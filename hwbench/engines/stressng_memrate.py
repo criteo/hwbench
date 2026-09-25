@@ -10,8 +10,6 @@ class StressNGMemrate(StressNG):
     """The StressNG Memrate memory stressor."""
 
     def run_cmd(self) -> list[str]:
-        # TODO: handle get_pinned_cpu ; it does not necessarily make sense for this
-        # benchmark, but it could be revisited once we support pinning on multiple CPUs.
         skip = self.need_skip_because_version()
         if skip:
             return skip
@@ -22,8 +20,9 @@ class StressNGMemrate(StressNG):
         ]
 
     def empty_result(self):
-        ret = {}
+        ret: dict[str, Any] = {"effective_runtime": 0.0}
         for method in [
+            "memset",
             "read1024",
             "read128",
             "read128pf",
@@ -53,7 +52,6 @@ class StressNGMemrate(StressNG):
             ret[method] = {
                 "avg_speed": 0.0,
                 "sum_speed": 0.0,
-                "effective_runtime": 0.0,
             }
         ret["skipped"] = True
         return ret

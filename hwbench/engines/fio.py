@@ -210,7 +210,7 @@ class Fio(ExternalBench):
     def parse_version(self, stdout: bytes, _stderr: bytes) -> str:
         return self.engine_module.get_engine().parse_version(stdout, _stderr)
 
-    def empy_result(self):
+    def empty_result(self):
         """Default empty results for fio"""
         return {
             "effective_runtime": 0,
