@@ -5,27 +5,13 @@ import time
 from datetime import timedelta
 
 from hwbench.bench.engine import EngineModuleBase
-from hwbench.environment.cpu import CPU
 from hwbench.environment.hardware import BaseHardware
 from hwbench.utils import helpers as h
 
+from . import scaling
 from .benchmark import Benchmark
 from .monitoring import Monitoring
 from .parameters import BenchmarkParameters
-
-
-def curve_steps(groups: list[list[int]], cpu: CPU) -> list[int]:
-    """Return how many groups the curve scaling accumulates at each step.
-
-    1, 2, 3, 4, 8, 16 then +16, dense at the low end to see the single core behaviour,
-    plus the last group of each socket, so a full socket is measured before the next one
-    is loaded, and the last group, so the whole selection is measured.
-    """
-    steps = {1, 2, 3, 4, 8, 16, len(groups)} | set(range(32, len(groups) + 1, 16))
-    for index in range(len(groups) - 1):
-        if cpu.get_socket(groups[index][0]) != cpu.get_socket(groups[index + 1][0]):
-            steps.add(index + 1)
-    return sorted(step for step in steps if step <= len(groups))
 
 
 class Benchmarks:
@@ -102,89 +88,42 @@ class Benchmarks:
                     h.fatal(f'Unknown "{emp}" engine_module_parameter for "{engine_name}"')
 
             # extract job's parameters
-            stressor_range = self.jobs_config.get_stressor_range(job)
             stressor_range_scaling = self.jobs_config.get_stressor_range_scaling(job)
-            selected_cpus_raw = self.jobs_config.get_selected_cpus(job)
-            selected_cpus = selected_cpus_raw.copy()
+            selected_cpus = self.jobs_config.get_selected_cpus(job)
             selected_cpus_scaling = self.jobs_config.get_selected_cpus_scaling(job)
 
-            # Let's set the default values
-            # If a single selected_cpus is set, the default scaling is iterate
-            if len(selected_cpus) == 1:
-                selected_cpus_scaling = "iterate"
+            # Let's create benchmark jobs, one pinning per step of the cpu scaling
+            for step in self.scaling(job, "selected_cpus_scaling", selected_cpus_scaling, selected_cpus):
+                items = [selected_cpus[index] for index in step]
+                if len(items) == 1:
+                    # A single group, or a single cpu, as written
+                    pinned_cpu = items[0]
+                else:
+                    # The step merges its groups, or its cpus
+                    pinned_cpu = sorted(cpu for item in items for cpu in (item if isinstance(item, list) else [item]))
+                self.__schedule_benchmarks(job, stressor_range_scaling, pinned_cpu, validate_parameters)
 
-            if (
-                selected_cpus_scaling == "none"
-                and isinstance(selected_cpus, list)
-                and len(selected_cpus) > 0
-                and isinstance(selected_cpus[0], list)
-            ):
-                h.fatal(
-                    "Impossible to have multiple cpu cores lists in selected_cpus: "
-                    f"{selected_cpus} ; with selected_cpus_scaling "
-                    "strategy 'none'"
-                )
-
-            # if there is a single stressor, the scaling must be plus_1
-            if len(stressor_range) == 1:
-                stressor_range_scaling = "plus_1"
-
-            # Reverse so the pop() call makes cores in a numerical order
-            selected_cpus.reverse()
-
-            # Let's create benchmark jobs
-            # Detect selected cpus scaling mode
-            if selected_cpus_scaling.startswith("plus_"):
-                steps = int(selected_cpus_scaling.replace("plus_", ""))
-                # It's mandatory to have selected_cpus to be
-                # a strict modulo of the requested steps
-                # That would lead to an unbalanced benchmark configuration
-                if len(selected_cpus) % steps != 0:
-                    h.fatal("selected_cpus is not modulo selected_cpus_scaling !")
-                pinned_cpu = []
-                while len(selected_cpus):
-                    for _step in range(steps):
-                        for cpu in selected_cpus.pop():
-                            pinned_cpu.append(cpu)
-                    self.__schedule_benchmarks(
-                        job,
-                        stressor_range_scaling,
-                        sorted(pinned_cpu.copy()),
-                        validate_parameters,
-                    )
-            elif selected_cpus_scaling == "curve":
-                if not isinstance(selected_cpus_raw[0], list):
-                    h.fatal("selected_cpus_scaling=curve needs groups to accumulate, like selected_cpus=each-core")
-                for step in curve_steps(selected_cpus_raw, self.get_hardware().get_cpu()):
-                    pinned_cpu = sorted(cpu for group in selected_cpus_raw[:step] for cpu in group)
-                    self.__schedule_benchmarks(job, stressor_range_scaling, pinned_cpu, validate_parameters)
-            elif selected_cpus_scaling == "iterate":
-                for _iteration in range(len(selected_cpus)):
-                    # Pick the last CPU of the list
-                    pinned_cpu = selected_cpus.pop()
-                    self.__schedule_benchmarks(job, stressor_range_scaling, pinned_cpu, validate_parameters)
-            elif selected_cpus_scaling == "none":
-                self.__schedule_benchmarks(
-                    job,
-                    stressor_range_scaling,
-                    sorted(selected_cpus),
-                    validate_parameters,
-                )
-            else:
-                scs = selected_cpus_scaling
-                h.fatal(f"Unsupported selected_cpus_scaling : {scs}")
+    def scaling(self, job: str, keyword: str, value: str, items: list) -> list[list[int]]:
+        """Return the steps of a scaling, the job file being already validated."""
+        try:
+            return scaling.scaling(keyword, value, items, self.get_hardware().get_cpu())
+        except ValueError as error:
+            h.fatal(f"Job {job}: keyword {keyword}: {error}")
 
     def __schedule_benchmarks(self, job, stressor_range_scaling, pinned_cpu, validate_parameters: bool):
         """Iterate on engine module parameters to schedule benchmarks."""
-        # Detecting stressor range scaling mode
-        if stressor_range_scaling == "plus_1":
-            for emp in self.jobs_config.get_engine_module_parameter(job):
-                self.__schedule_benchmark(job, pinned_cpu, emp, validate_parameters)
-        else:
-            srs = stressor_range_scaling
-            h.fatal(f"Unsupported stressor_range_scaling : {srs}")
+        stressor_range = self.jobs_config.get_stressor_range(job)
+        # Each step runs the stressor count of its last index, in the order they are written
+        stressor_counts = [
+            stressor_range[step[-1]]
+            for step in self.scaling(job, "stressor_range_scaling", stressor_range_scaling, stressor_range)
+        ]
+        for emp in self.jobs_config.get_engine_module_parameter(job):
+            self.__schedule_benchmark(job, pinned_cpu, emp, stressor_counts, validate_parameters)
 
-    def __schedule_benchmark(self, job, pinned_cpu, engine_module_parameter, validate_parameters: bool):
+    def __schedule_benchmark(
+        self, job, pinned_cpu, engine_module_parameter, stressor_counts: list, validate_parameters: bool
+    ):
         """Schedule benchmark."""
         runtime = self.jobs_config.get_runtime(job)
         monitoring_config = self.get_monitoring_config(job)
@@ -200,8 +139,8 @@ class Benchmarks:
                 pdu.detect()
             self.monitoring = Monitoring(self.out_dir, self.jobs_config, self.get_hardware(), verbose=self.verbose)
 
-        # For each stressor, add a benchmark object to the list
-        for stressor_count in self.jobs_config.get_stressor_range(job):
+        # For each stressor count, add a benchmark object to the list
+        for stressor_count in stressor_counts:
             if stressor_count == "auto":
                 if pinned_cpu == "none":
                     h.fatal("stressor_range=auto but no pinned cpu")
