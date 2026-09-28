@@ -58,6 +58,17 @@ class CPU:
         """Return sibling of a logical core."""
         return self.cpu_cores.get_peer_sibling(logical_cpu)
 
+    def get_cores_by_socket(self) -> dict[int, list[list[int]]]:
+        """Return, for each socket, the logical cores of each of its physical cores."""
+        return {socket: list(self.cpu_cores.get_socket(socket).values()) for socket in self.cpu_cores.sockets}
+
+    def get_socket(self, logical_cpu: int) -> int | None:
+        """Return the socket of a logical core."""
+        for socket, physical_cores in self.get_cores_by_socket().items():
+            if any(logical_cpu in cores for cores in physical_cores):
+                return socket
+        return None
+
     def get_hyperthread_cores(self) -> list[int]:
         """Return the list of hyperthread cores."""
         return self.cpu_cores.get_hyperthread_cores()
@@ -74,6 +85,13 @@ class CPU:
         """Return logical cores in a numa domain."""
         return self.numa.get_cores(numa_domain)
 
+    def get_numa_domain(self, logical_cpu: int) -> int | None:
+        """Return the numa domain of a logical core."""
+        for numa_domain in range(self.get_numa_domains_count()):
+            if logical_cpu in self.get_logical_cores_in_numa_domain(numa_domain):
+                return numa_domain
+        return None
+
     def get_numa_distances(self) -> dict[int, list[int]]:
         """Return the NUMA distance matrix ({source node: [latency to each node]})."""
         return self.numa.get_distances()
@@ -81,6 +99,13 @@ class CPU:
     def get_quadrants_count(self) -> int:
         """Return the number of quadrants."""
         return self.numa.quadrants_count()
+
+    def get_quadrant(self, logical_cpu: int) -> int | None:
+        """Return the quadrant of a logical core."""
+        for quadrant in range(self.get_quadrants_count()):
+            if logical_cpu in self.get_cores_in_quadrant(quadrant):
+                return quadrant
+        return None
 
     def get_cores_in_quadrant(self, quadrant_number: int) -> list[int]:
         """Return the list of cores in a quadrant."""

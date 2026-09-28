@@ -5,8 +5,8 @@ The configuration file is a typical init file with sections:
             - items defined in global are merged into it
             - if a global item is redefined, the value is overridden
 
-config/config.txt file defines the syntax and logic associated to each
-keyword but here is the main principles:
+documentation/configuration.md is the reference of the syntax and logic
+associated to each keyword, but here is the main principles:
 
 Each job selects:
    - 'engine': implement the logic of a benchmark tool, i.e stress-ng
