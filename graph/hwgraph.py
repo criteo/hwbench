@@ -697,7 +697,7 @@ power_metric : the name of a power metric, from the monitoring, to be used for '
     parser_graph.add_argument("--no-scaling", help="Disable 'Performance scaling' graphs", action="store_false")
     parser_graph.add_argument("--no-versus", help="Disable 'max versus' graphs", action="store_false")
     parser_graph.add_argument("--no-stats", help="Disable stats", action="store_false")
-    parser_graph.add_argument("--title", help="Title of the graph")
+    parser_graph.add_argument("--title", help="Title of the graph", default="")
     parser_graph.add_argument("--dpi", help="Graph dpi", type=int, default="72")
     parser_graph.add_argument("--width", help="Graph width", type=int, default="1920")
     parser_graph.add_argument("--height", help="Graph height", type=int, default="1080")
