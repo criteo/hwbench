@@ -215,8 +215,9 @@ if len(ranges) == 2:
 ### B3. Overlapping groups keep duplicate cpus (configs 13, 14; `main` `bench/benchmarks.py:130-136`)
 
 The `plus_<x>` branch accumulates cpus with `pinned_cpu.append(cpu)` and passes
-`sorted(pinned_cpu.copy())`. Use a set at that call, and in the `none` branch too, where
-`sorted(selected_cpus)` keeps duplicates from a flat `selected_cpus=0-3,2-5`:
+`sorted(pinned_cpu.copy())`. Use a set at that call, and in the `none` branch too
+(`bench/benchmarks.py:148`), where `sorted(selected_cpus)` keeps duplicates from a flat
+`selected_cpus=0-3,2-5`:
 
 ```python
 self.__schedule_benchmarks(
@@ -268,3 +269,29 @@ for numa_domain in sorted(cpu.numa.numa_domains):
 Old-syntax versions of the configs above, each with a `# Run on main:` header giving the
 result on `main`. `d_numa_simple_cpuless.conf` and `e_explicit_quadrant_cpuless.conf` need
 the CPU-less topology of file 12.
+
+## Validation of the code links and fixes
+
+Checked against the `pr-132-crashes` branch, whose code is identical to `pr-132-up`
+(this branch only adds `crashes/`), and against `main` for the `main` references.
+
+- **Code links:** every `file:line` reference was printed from `git show <branch>:<file>`
+  and matches the code it describes.
+- **Fixes 1-7 (`pr-132-up`):** applied together in a scratch worktree. The existing
+  suite still passes (102 tests, same as before the fixes) and every config in this
+  directory then gives a clean error, or a correct result for the ones that should run:
+  - 01-03, 15, 16: `unknown value ...` and the `... was removed, use ...` message.
+  - 04, 06-11: a clean fatal. The `scaling()` guards (`no items to scale`,
+    `empty group of cpus`) also work on their own, without the `parse_range` change.
+  - 12: `[[0, 1, 2, 3], [4, 5, 6, 7]]` for both `each-numa` and `each-quadrant`, and the
+    job runs.
+  - 13, 14: 6 and 32 distinct cpus, with matching stressor counts.
+- **Fixes B1-B4 (`main`):** applied in a scratch worktree of `main`. The suite still
+  passes (70 tests). 08 and `main-equivalents/g` give the `not a valid stressor range`
+  error, 10 and 11 give `Reversed range '7-4'`, 13 and 14 pin 6 and 32 distinct cpus, and
+  `main-equivalents/d` now uses node 2 (2 benchmarks of 4 and 8 cpus).
+- **Side effect on the controls:** with the `parse_range` change of issue 2, 05 reports
+  `Invalid range '1-2-3'` instead of `Unhandled string '1-2-3'`. Without it, 05 keeps its
+  original message.
+- **Not verified:** that stress-ng treats a stressor count of 0 as one stressor per online
+  cpu, since there is no real stress-ng on the host that ran these checks.
