@@ -48,15 +48,6 @@ mocked `numactl -H` output where node 1 has no cpus and node 2 has cpus 4-7.
 | [05_empty_items_selected_first_CONTROL.conf](05_empty_items_selected_first_CONTROL.conf) | 04 with the keywords swapped: clean `Unhandled string '1-2-3'` |
 | [17_removed_helper_CONTROL.conf](17_removed_helper_CONTROL.conf) | 15 with the keywords swapped: clean `simple was removed, use ...` |
 
-## Review findings without a config
-
-- `cpu_list_to_range` sorting its argument in place, and the removed graph code and
-  `pyyaml` dependency. They came from reviewing a copy of the branch that was behind
-  `main`. Against the PR head, [`hwbench/utils/helpers.py`](../hwbench/utils/helpers.py) only gains
-  `format_duration` and [`graph/`](../graph) is unchanged, so they do not apply.
-- Stale `simple` in the leftover-keyword regex of `get_selected_cpus`: maintainability
-  only, no config changes behaviour because of it.
-
 ## main-equivalents/
 
 Old-syntax versions of the configs above, each with a `# Run on main:` header giving the
