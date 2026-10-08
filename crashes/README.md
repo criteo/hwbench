@@ -19,9 +19,8 @@ into this branch, which only adds `crashes/` on top of it. Links to `main`
 code are permalinks to commit `989e23e` of `criteo/hwbench`, because the same lines of
 this branch hold different code.
 
-New syntax is rejected on `main` simply because it does not exist there, which says
-nothing about the underlying bug. So each new-syntax config was also tried with its
-closest old-syntax equivalent, kept in [`main-equivalents/`](main-equivalents/).
+Where the old syntax has an equivalent of a config, the equivalent was also run on `main`,
+to tell the issues the PR introduced from the ones already there. They are kept in [`main-equivalents/`](main-equivalents/).
 
 ## A. Introduced by PR #132
 
@@ -119,7 +118,7 @@ containing `-` that does not split into 2 parts, such as `1-2-3`.
 |--------|---------|-----------|-----------|
 | [04](04_empty_items_scaling_first.conf) | `selected_cpus_scaling` before `selected_cpus=1-2-3` | `IndexError` traceback | clean `Unhandled string '1-2-3'` ([`main-equivalents/c`](main-equivalents/c_scaling_first_bad_cpus.conf)) |
 | [06](06_empty_items_global.conf) | bad `selected_cpus` inherited from `[global]` | `IndexError` traceback | clean error, as above |
-| [07](07_empty_stressors_curve.conf) | `stressor_range=1-8-2` with `curve` | validation passes, then `IndexError` while expanding | `curve` does not exist; the empty range itself is pre-existing, see [B](#pre-existing) |
+| [07](07_empty_stressors_curve.conf) | `stressor_range=1-8-2` with `curve` | validation passes, then `IndexError` while expanding | — |
 
 Fix, in `scaling()` before the `count == 1` check:
 ```python
@@ -148,7 +147,7 @@ non-empty.
 
 | Config | Setting | On the PR | On `main` |
 |--------|---------|-----------|-----------|
-| [09](09_empty_group_curve.conf) | `selected_cpus=0-3 7-4` with `curve` | `IndexError` traceback | `curve` does not exist; the empty group itself is pre-existing, see [B](#pre-existing) |
+| [09](09_empty_group_curve.conf) | `selected_cpus=0-3 7-4` with `curve` | `IndexError` traceback | — |
 
 Fix, in `scaling()` once `groups` is known:
 ```python
