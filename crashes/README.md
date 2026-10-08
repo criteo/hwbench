@@ -15,9 +15,7 @@ cases depend on the topology there: 12 fails with `ValueError` `int('')` because
 domain is detected, and 14 fails with `NUMA domain 0 does not exists`.
 
 Line numbers are those of the PR head (`f42a508`). Links to that code are relative links
-into this branch, which only adds `crashes/` on top of it. Links to `main`
-code are permalinks to commit `989e23e` of `criteo/hwbench`, because the same lines of
-this branch hold different code.
+into this branch, which only adds `crashes/` on top of it.
 
 Where the old syntax has an equivalent of a config, the equivalent was also run on `main`,
 to tell the issues the PR introduced from the ones already there. They are kept in [`main-equivalents/`](main-equivalents/).
@@ -56,6 +54,10 @@ the code and the suggested fixes are in the [details at the end](#pre-existing-d
 | [11](11_empty_group_plus1.conf) | same, with `plus_1`: two benchmarks pin the same cpus | [P2](#pre-2) |
 | [13](13_overlapping_groups_plus2.conf) | overlapping groups (`0-3 2-5`) merged by `plus_2` keep their duplicate cpus: 8 stressors for 6 cpus | [P3](#pre-3) |
 | [14](14_overlapping_numa_quadrant.conf) | overlapping `numa0 quadrant0` merged by `plus_1` keep their duplicate cpus | [P3](#pre-3) |
+| [`main-equivalents/d`](main-equivalents/d_numa_simple_cpuless.conf), [12](12_each_numa_cpuless_node.conf) | on a topology with a CPU-less NUMA node, the NUMA node after the id gap is never selected | [P4](#pre-4) |
+
+The patches are written on top of the PR, with the fixes of the introduced issues applied:
+P1 and P2 are already resolved by those fixes, and only P3 and P4 need a patch of their own.
 
 ## Controls (not issues)
 
@@ -214,11 +216,10 @@ def groups(cpu_lists):
 <a id="pre-existing-details"></a>
 ## Details of the pre-existing issues
 
-The configs give the same result on `main` and on the PR. Where the code differs, both
-locations are given, and the fix is given for the PR head and for `main`. The `main` fixes
-are tested in a scratch worktree of `main`, see the validation section. Each one is scoped
-to the keyword concerned, because `parse_range` is also used for `engine_module_parameter`
-values, which may contain dashes.
+The configs give the same result on `main` and on the PR. As the PR is going to be merged
+and the issues it introduces fixed, the suggested patches are written on top of the PR
+head, with the fixes of the [issues above](#fixes) applied. Two of the four are already
+resolved by those fixes.
 
 <a id="pre-1"></a>
 ### P1. Empty `stressor_range` (config [08](08_empty_stressors_plus1.conf))
@@ -234,24 +235,15 @@ from the dry-run map. The same config in old syntax is [`main-equivalents/g`](ma
 |--------|---------|--------|
 | [08](08_empty_stressors_plus1.conf) | `stressor_range=1-8-2`, default scaling | no error, 0 benchmarks |
 
-**Code**
-- `main`: [`hwbench/config/config.py:289-293`](https://github.com/criteo/hwbench/blob/989e23e3c7a6c16348ed07ecbaed56f3b3dcaa9b/hwbench/config/config.py#L289-L293), [`hwbench/config/config_syntax.py:63-65`](https://github.com/criteo/hwbench/blob/989e23e3c7a6c16348ed07ecbaed56f3b3dcaa9b/hwbench/config/config_syntax.py#L63-L65), loop at [`hwbench/bench/benchmarks.py:182`](https://github.com/criteo/hwbench/blob/989e23e3c7a6c16348ed07ecbaed56f3b3dcaa9b/hwbench/bench/benchmarks.py#L182)
-- PR: [`hwbench/config/config.py:292-297`](../hwbench/config/config.py#L292-L297), [`hwbench/config/config_syntax.py:67-69`](../hwbench/config/config_syntax.py#L67-L69), [`hwbench/bench/scaling.py:56`](../hwbench/bench/scaling.py#L56)
+**Code**: [`hwbench/config/config.py:292-297`](../hwbench/config/config.py#L292-L297) (`parse_range`), [`hwbench/config/config_syntax.py:67-69`](../hwbench/config/config_syntax.py#L67-L69) (`validate_stressor_range`), [`hwbench/bench/scaling.py:56`](../hwbench/bench/scaling.py#L56).
 
-**Fix on the PR head**, in `parse_range` (the `count == 0` guard of [issue 2](#issue-2) also gives `no items to scale`):
+**Fix**: none needed on top of the [issue 2](#issue-2) fix. Its `count == 0` guard in
+`scaling()` makes the job fail with `no items to scale` (checked). For a clearer message,
+`parse_range` can also reject the range:
 ```python
 ranges = item.split("-")
 if len(ranges) != 2:
     h.fatal(f"Invalid range {item!r} in '{input}'")
-```
-
-**Fix on `main`**, in `validate_stressor_range`:
-```python
-def validate_stressor_range(config, section_name, value) -> str:
-    """Validate the stressor range syntax."""
-    if not config.parse_range(value):
-        return f"'{value}' is not a valid stressor range (expected x, x-y or x,y,z)"
-    return ""
 ```
 
 <a id="pre-2"></a>
@@ -270,23 +262,14 @@ worker per online cpu, it loads the whole machine (checked with stress-ng 0.19.0
 | [10](10_empty_group_iterate.conf) | `selected_cpus=0-3 7-4`, `iterate` | no error; the 2nd benchmark has 0 cpus and 0 stressors |
 | [11](11_empty_group_plus1.conf) | same, `plus_1` | no error; both benchmarks pin the same 4 cpus |
 
-**Code**
-- `main`: [`hwbench/config/config.py:293`](https://github.com/criteo/hwbench/blob/989e23e3c7a6c16348ed07ecbaed56f3b3dcaa9b/hwbench/config/config.py#L293), [`hwbench/config/config_syntax.py:91-92`](https://github.com/criteo/hwbench/blob/989e23e3c7a6c16348ed07ecbaed56f3b3dcaa9b/hwbench/config/config_syntax.py#L91-L92), stressor count at [`hwbench/bench/benchmarks.py:189`](https://github.com/criteo/hwbench/blob/989e23e3c7a6c16348ed07ecbaed56f3b3dcaa9b/hwbench/bench/benchmarks.py#L189), merge at [`hwbench/bench/benchmarks.py:130-136`](https://github.com/criteo/hwbench/blob/989e23e3c7a6c16348ed07ecbaed56f3b3dcaa9b/hwbench/bench/benchmarks.py#L130-L136)
-- PR: [`hwbench/config/config.py:296`](../hwbench/config/config.py#L296), [`hwbench/config/config_syntax.py:101-102`](../hwbench/config/config_syntax.py#L101-L102), stressor count at [`hwbench/bench/benchmarks.py:150`](../hwbench/bench/benchmarks.py#L150), merge at [`hwbench/bench/benchmarks.py:103`](../hwbench/bench/benchmarks.py#L103)
+**Code**: [`hwbench/config/config.py:296`](../hwbench/config/config.py#L296) (`parse_range`), [`hwbench/config/config_syntax.py:101-102`](../hwbench/config/config_syntax.py#L101-L102) (`validate_selected_cpus`), stressor count at [`hwbench/bench/benchmarks.py:150`](../hwbench/bench/benchmarks.py#L150), merge at [`hwbench/bench/benchmarks.py:103`](../hwbench/bench/benchmarks.py#L103).
 
-**Fix on the PR head**, in `parse_range` (the `empty group of cpus` guard of [issue 3](#issue-3) also catches it):
+**Fix**: none needed on top of the [issue 3](#issue-3) fix. Its `empty group of cpus`
+guard in `scaling()` makes both jobs fail cleanly (checked). For the error to name the
+reversed range, `parse_range` can also reject it:
 ```python
 if int(ranges[0]) > int(ranges[1]):
     h.fatal(f"Reversed range {item!r} in '{input}'")
-```
-
-**Fix on `main`**, the same check where the range is parsed:
-```python
-if len(ranges) == 2:
-    if not ranges[0].isnumeric() or not ranges[1].isnumeric():
-        h.fatal(f"Non-numeric range {ranges} in '{input}'")
-    if int(ranges[0]) > int(ranges[1]):
-        h.fatal(f"Reversed range {item!r} in '{input}'")
 ```
 
 <a id="pre-3"></a>
@@ -295,7 +278,7 @@ if len(ranges) == 2:
 When a step merges several groups, the cpus are sorted but never de-duplicated, so groups
 that overlap, such as `0-3 2-5` or `numa0 quadrant0`, pin some cpus twice. With
 `stressor_range=auto` the stressor count is `len(pinned_cpu)`, so more stressors start than
-there are distinct cpus.
+there are distinct cpus. Not fixed by the fixes of the introduced issues (checked).
 
 **Behaviour** (same on `main` and on the PR)
 
@@ -304,85 +287,59 @@ there are distinct cpus.
 | [13](13_overlapping_groups_plus2.conf) | `selected_cpus=0-3 2-5`, `plus_2` | `pinned_cpu=[0,1,2,2,3,3,4,5]`: 6 distinct cpus, 8 stressors |
 | [14](14_overlapping_numa_quadrant.conf) | `numa0 quadrant0`, `plus_1` | step 2 pins 48 cpus of which 32 are distinct, 48 stressors |
 
-**Code**
-- `main`: [`hwbench/bench/benchmarks.py:130-136`](https://github.com/criteo/hwbench/blob/989e23e3c7a6c16348ed07ecbaed56f3b3dcaa9b/hwbench/bench/benchmarks.py#L130-L136) (append, then `sorted`), the `none` branch at [`hwbench/bench/benchmarks.py:148`](https://github.com/criteo/hwbench/blob/989e23e3c7a6c16348ed07ecbaed56f3b3dcaa9b/hwbench/bench/benchmarks.py#L148), count at [`hwbench/bench/benchmarks.py:189`](https://github.com/criteo/hwbench/blob/989e23e3c7a6c16348ed07ecbaed56f3b3dcaa9b/hwbench/bench/benchmarks.py#L189)
-- PR: [`hwbench/bench/benchmarks.py:103`](../hwbench/bench/benchmarks.py#L103), count at [`hwbench/bench/benchmarks.py:150`](../hwbench/bench/benchmarks.py#L150)
+**Code**: [`hwbench/bench/benchmarks.py:103`](../hwbench/bench/benchmarks.py#L103) (the merge), count at [`hwbench/bench/benchmarks.py:150`](../hwbench/bench/benchmarks.py#L150).
 
-**Fix on the PR head** (or reject overlapping groups in `validate_selected_cpus_scaling`):
+**Fix**, a set in the merge, which also covers a flat `selected_cpus=0-3,2-5` with the `none`
+scaling since it is merged on the same line (or reject overlapping groups in
+`validate_selected_cpus_scaling`):
 ```python
 pinned_cpu = sorted({cpu for item in items for cpu in (item if isinstance(item, list) else [item])})
 ```
 
-**Fix on `main`**, with a set at that call, and in the `none` branch too, where
-`sorted(selected_cpus)` keeps duplicates from a flat `selected_cpus=0-3,2-5`:
-```python
-self.__schedule_benchmarks(
-    job,
-    stressor_range_scaling,
-    sorted(set(pinned_cpu)),
-    validate_parameters,
-)
-```
-
 <a id="pre-4"></a>
-### P4. NUMA node skipped on id gaps ([`main-equivalents/d`](main-equivalents/d_numa_simple_cpuless.conf))
+### P4. NUMA node skipped on id gaps (config [12](12_each_numa_cpuless_node.conf))
 
 On a topology with a CPU-less NUMA node, the node ids have a gap, for example `{0, 2}`,
-because `numactl -H` only gives a `cpus:` line to nodes with cpus. The helpers loop over
-`range(get_numa_domains_count())`, so they visit ids 0 and 1: node 1 adds nothing, so on
-`main` the same group is emitted twice by `numa-simple`, and node 2 is never reached.
-On the PR, `each-numa` and `each-quadrant` keep that loop, on top of the new empty group
-of [issue 5](#issue-5) (config [12](12_each_numa_cpuless_node.conf)).
+because `numactl -H` only gives a `cpus:` line to nodes with cpus. `each_numa` loops over
+`range(get_numa_domains_count())`, so it visits ids 0 and 1 and node 2 is never selected,
+silently. The same gap already existed on `main` in `numa-simple` ([`main-equivalents/d`](main-equivalents/d_numa_simple_cpuless.conf): 2 benchmarks of
+4 cpus, node 2 never used). It remains once the empty group of [issue 5](#issue-5) is fixed.
 
-**Behaviour**
+**Behaviour** (config [12](12_each_numa_cpuless_node.conf) on a topology where node 1 has no cpus and node 2 has cpus 4-7)
 
-| Config | Setting | On `main` | On the PR |
-|--------|---------|-----------|-----------|
-| [`main-equivalents/d`](main-equivalents/d_numa_simple_cpuless.conf) | `numa-simple` on a topology with a CPU-less node | no crash; 2 benchmarks of 4 cpus, node 2 never used | `numa-simple` was removed; `each-numa` has the same gap and the empty group of [issue 5](#issue-5) |
+| Setting | Result with the fixes of the introduced issues |
+|---------|------------------------------------------------|
+| `each-numa`, `plus_1` | 1 benchmark, node 0 only; node 2 is never selected |
 
-**Code**
-- `main`: [`hwbench/config/config_helpers.py:42-47`](https://github.com/criteo/hwbench/blob/989e23e3c7a6c16348ed07ecbaed56f3b3dcaa9b/hwbench/config/config_helpers.py#L42-L47)
-- PR: [`hwbench/config/config_helpers.py:29`](../hwbench/config/config_helpers.py#L29) (`each_numa`) and [`hwbench/config/config_helpers.py:35`](../hwbench/config/config_helpers.py#L35) (`each_quadrant`)
+**Code**: [`hwbench/config/config_helpers.py:29`](../hwbench/config/config_helpers.py#L29) (`each_numa`), [`hwbench/environment/numa.py:21`](../hwbench/environment/numa.py#L21) (only nodes with a `cpus:` line are recorded).
 
-**Fix on the PR head**: iterate over the real node ids, for example through a new
-`CPU.get_numa_domain_ids()` that returns `sorted(self.numa.numa_domains)`, together with the
-`groups()` fix of [issue 5](#issue-5):
+**Fix**, on top of the `groups()` fix of [issue 5](#issue-5): iterate over the real node
+ids, through a new `CPU.get_numa_domain_ids()` that returns `sorted(self.numa.numa_domains)`:
 ```python
 groups([cpu.get_logical_cores_in_numa_domain(domain) for domain in cpu.get_numa_domain_ids()])
-```
-
-**Fix on `main`**, in `numa_simple`: iterate over the real ids and skip nodes without cpus:
-```python
-for numa_domain in sorted(cpu.numa.numa_domains):
-    node_cores = cpu.get_logical_cores_in_numa_domain(numa_domain)
-    if not node_cores:
-        continue
-    cores += node_cores
-    groups.append(",".join(str(core) for core in sorted(cores)))
 ```
 
 ## Validation of the code links and fixes
 
 Checked against this branch, whose code is identical to the PR head (it only adds
-`crashes/`), and against `main` for the `main` references.
+`crashes/`).
 
 - **Code links:** every `file:line` reference was printed from `git show <branch>:<file>`
   and matches the code it describes.
-- **Fixes of issues 1-5 and P1-P4 (PR head):** applied together in a scratch worktree. The existing
-  suite still passes (102 tests, same as before the fixes) and every config in this
-  directory then gives a clean error, or a correct result for the ones that should run:
+- **Fixes of issues 1-5:** applied together in a scratch worktree. The existing suite still
+  passes (102 tests, same as before the fixes) and every config in this directory then
+  gives a clean error, or a correct result for the ones that should run:
   - [01](01_plus_placeholder_cpus.conf)-[03](03_plus_unicode_digit.conf), [15](15_removed_helper_hidden_simple.conf), [16](16_removed_helper_hidden_numa_simple.conf): `unknown value ...` and the `... was removed, use ...` message.
   - [04](04_empty_items_scaling_first.conf), [06](06_empty_items_global.conf)-[11](11_empty_group_plus1.conf): a clean fatal. The `scaling()` guards (`no items to scale`,
-    `empty group of cpus`) also work on their own, without the `parse_range` change.
-  - [12](12_each_numa_cpuless_node.conf): `[[0, 1, 2, 3], [4, 5, 6, 7]]` for both `each-numa` and `each-quadrant`, and the
-    job runs.
-  - [13](13_overlapping_groups_plus2.conf), [14](14_overlapping_numa_quadrant.conf): 6 and 32 distinct cpus, with matching stressor counts.
-- **Fixes P1-P4 on `main`:** applied in a scratch worktree of `main`. The suite still
-  passes (70 tests). [08](08_empty_stressors_plus1.conf) and [`main-equivalents/g`](main-equivalents/g_empty_stressors.conf) give the `not a valid stressor range`
-  error, [10](10_empty_group_iterate.conf) and [11](11_empty_group_plus1.conf) give `Reversed range '7-4'`, [13](13_overlapping_groups_plus2.conf) and [14](14_overlapping_numa_quadrant.conf) pin 6 and 32 distinct cpus, and
-  [`main-equivalents/d`](main-equivalents/d_numa_simple_cpuless.conf) now uses node 2 (2 benchmarks of 4 and 8 cpus).
-- **Side effect on the controls:** with the `parse_range` change of issue 2, 05 reports
-  `Invalid range '1-2-3'` instead of `Unhandled string '1-2-3'`. Without it, 05 keeps its
+    `empty group of cpus`) work on their own, without the `parse_range` change, and so
+    resolve the pre-existing [08](08_empty_stressors_plus1.conf), [10](10_empty_group_iterate.conf) and [11](11_empty_group_plus1.conf) (P1, P2).
+  - [12](12_each_numa_cpuless_node.conf): `each-quadrant` gives `[[0, 1, 2, 3], [4, 5, 6, 7]]`, but `each-numa` gives only node 0 (P4).
+  - [13](13_overlapping_groups_plus2.conf), [14](14_overlapping_numa_quadrant.conf): unchanged, still 8 and 48 stressors for 6 and 32 distinct cpus (P3).
+- **Patches of P3 and P4, on top of that:** the suite still passes (102 tests), [13](13_overlapping_groups_plus2.conf) and
+  [14](14_overlapping_numa_quadrant.conf) pin 6 and 32 distinct cpus with matching stressor counts, and [12](12_each_numa_cpuless_node.conf) gives
+  `each-numa` groups of 4 and 8 cpus.
+- **Optional `parse_range` checks** (P1, P2): with them, [05](05_empty_items_selected_first_CONTROL.conf) reports
+  `Invalid range '1-2-3'` instead of `Unhandled string '1-2-3'`. Without them, 05 keeps its
   original message.
 - **stress-ng with a count of 0 (config [10](10_empty_group_iterate.conf)):** checked with stress-ng 0.19.02 installed on
   the host. `stress-ng --cpu 0 --timeout 1` dispatched 8 cpu hogs on the 8-cpu host, so a
