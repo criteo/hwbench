@@ -25,18 +25,21 @@ closest old-syntax equivalent, kept in [`main-equivalents/`](main-equivalents/).
 
 ## A. Introduced by PR #132
 
-| File | Config | On the PR | On `main` | Fix |
-|------|--------|----------------|-----------|-----|
-| [01_plus_placeholder_cpus.conf](01_plus_placeholder_cpus.conf) | `selected_cpus_scaling=plus_<x>` ([`scaling.py:35-37`](../hwbench/bench/scaling.py#L35-L37)) | no error, silently runs as `curve` (9 benchmarks) | `ValueError` traceback ([`main-equivalents/a`](main-equivalents/a_plus_placeholder_groups.conf)). The validation gap existed, the symptom changed | [issue 1](#issue-1) |
-| [02_plus_placeholder_stressors.conf](02_plus_placeholder_stressors.conf) | `stressor_range_scaling=plus_<x>` ([`scaling.py:35-37`](../hwbench/bench/scaling.py#L35-L37)) | no error, silently runs as `curve` (stressors 1,2,3,4,8,16,32,48,64) | clean `Unsupported stressor_range_scaling : plus_<x>` | [issue 1](#issue-1) |
-| [03_plus_unicode_digit.conf](03_plus_unicode_digit.conf) | `stressor_range_scaling=plus_²` ([`scaling.py:35`](../hwbench/bench/scaling.py#L35)) | clean fatal, but with Python's `invalid literal for int() with base 10: '²'` | clean `Unsupported stressor_range_scaling : plus_²` (with groups it crashed, [`main-equivalents/b`](main-equivalents/b_plus_unicode_groups.conf)) | [issue 1](#issue-1) |
-| [04_empty_items_scaling_first.conf](04_empty_items_scaling_first.conf) | `selected_cpus_scaling` before `selected_cpus=1-2-3` ([`scaling.py:42`](../hwbench/bench/scaling.py#L42)) | `IndexError` traceback | clean `Unhandled string '1-2-3'` ([`main-equivalents/c`](main-equivalents/c_scaling_first_bad_cpus.conf)) | [issue 2](#issue-2), [issue 4](#issue-4) |
-| [06_empty_items_global.conf](06_empty_items_global.conf) | bad `selected_cpus` inherited from `[global]` ([`scaling.py:42`](../hwbench/bench/scaling.py#L42)) | `IndexError` traceback | clean error, as above | [issue 2](#issue-2), [issue 4](#issue-4) |
-| [07_empty_stressors_curve.conf](07_empty_stressors_curve.conf) | `stressor_range=1-8-2` with `curve` ([`benchmarks.py:118`](../hwbench/bench/benchmarks.py#L118)) | validation passes, then `IndexError` while expanding | `curve` does not exist; the empty range itself is pre-existing, see [B](#pre-existing) | [issue 2](#issue-2) |
-| [09_empty_group_curve.conf](09_empty_group_curve.conf) | `selected_cpus=0-3 7-4` with `curve` ([`scaling.py:63`](../hwbench/bench/scaling.py#L63)) | `IndexError` traceback | `curve` does not exist; the empty group itself is pre-existing, see [B](#pre-existing) | [issue 3](#issue-3) |
-| [12_each_numa_cpuless_node.conf](12_each_numa_cpuless_node.conf) | `each-numa` / `each-quadrant` with a CPU-less NUMA node ([`config_helpers.py:26-35`](../hwbench/config/config_helpers.py#L26-L35)) | helpers give a bogus `['']` group: `TypeError` in `sorted()` with `plus_1`, `ValueError` `int('')` with `iterate` | `numa-simple` did not crash ([`main-equivalents/d`](main-equivalents/d_numa_simple_cpuless.conf)) and an explicit `quadrant1` failed cleanly with `Quadrant 1 does not exists` ([`main-equivalents/e`](main-equivalents/e_explicit_quadrant_cpuless.conf)). The helpers lost that guard | [issue 5](#issue-5), [issue 7](#issue-7) |
-| [15_removed_helper_hidden_simple.conf](15_removed_helper_hidden_simple.conf) | scaling keyword before `selected_cpus=simple` ([`config_syntax.py:111-119`](../hwbench/config/config_syntax.py#L111-L119)) | generic `didn't get processed ! : ['simple']`; the migration message is never shown | `simple` still worked | [issue 4](#issue-4) |
-| [16_removed_helper_hidden_numa_simple.conf](16_removed_helper_hidden_numa_simple.conf) | same with `numa-simple` | confusing `Non-numeric range ['', ''] in '-'` | `numa-simple` still worked | [issue 4](#issue-4) |
+Short description of each issue. The behaviour on the PR and on `main` is in the
+"Behaviour" table of the linked issue.
+
+| File | Issue on the PR | Fix |
+|------|-----------------|-----|
+| [01](01_plus_placeholder_cpus.conf) | `selected_cpus_scaling=plus_<x>` is accepted and silently runs as a `curve` | [issue 1](#issue-1) |
+| [02](02_plus_placeholder_stressors.conf) | `stressor_range_scaling=plus_<x>` is accepted and silently runs as a `curve` | [issue 1](#issue-1) |
+| [03](03_plus_unicode_digit.conf) | `plus_²` gives Python's `int()` error instead of `unknown value` | [issue 1](#issue-1) |
+| [04](04_empty_items_scaling_first.conf) | `IndexError` on a malformed `selected_cpus` when the scaling keyword is written first | [issue 2](#issue-2), [issue 4](#issue-4) |
+| [06](06_empty_items_global.conf) | same, with the malformed `selected_cpus` inherited from `[global]` | [issue 2](#issue-2), [issue 4](#issue-4) |
+| [07](07_empty_stressors_curve.conf) | `IndexError` while expanding an empty `stressor_range` with `curve` | [issue 2](#issue-2) |
+| [09](09_empty_group_curve.conf) | `IndexError` on an empty cpu group with `curve` | [issue 3](#issue-3) |
+| [12](12_each_numa_cpuless_node.conf) | `each-numa` / `each-quadrant` emit a bogus `['']` group on a CPU-less NUMA node (`TypeError` or `ValueError`) | [issue 5](#issue-5), [issue 7](#issue-7) |
+| [15](15_removed_helper_hidden_simple.conf) | removed helper `simple` gives a generic error, not the migration message, when the scaling keyword is written first | [issue 4](#issue-4) |
+| [16](16_removed_helper_hidden_numa_simple.conf) | same with `numa-simple`, with a confusing `Non-numeric range` error | [issue 4](#issue-4) |
 
 The [12](12_each_numa_cpuless_node.conf) case needs a topology with a CPU-less node (CXL/HBM). It was reproduced with a
 mocked `numactl -H` output where node 1 has no cpus and node 2 has cpus 4-7.
@@ -80,6 +83,14 @@ Code: [`hwbench/bench/scaling.py:34-37`](../hwbench/bench/scaling.py#L34-L37). T
 False, and `"plus_<x>"` is an entry of `SCALINGS`. `isnumeric()` on line 35 also accepts
 `²`, which `int()` rejects.
 
+**Behaviour**
+
+| Config | Setting | On the PR | On `main` |
+|--------|---------|-----------|-----------|
+| [01](01_plus_placeholder_cpus.conf) | `selected_cpus_scaling=plus_<x>` | no error, silently runs as `curve` (9 benchmarks) | `ValueError` traceback ([`main-equivalents/a`](main-equivalents/a_plus_placeholder_groups.conf)). The validation gap existed, the symptom changed |
+| [02](02_plus_placeholder_stressors.conf) | `stressor_range_scaling=plus_<x>` | no error, silently runs as `curve` (stressors 1,2,3,4,8,16,32,48,64) | clean `Unsupported stressor_range_scaling : plus_<x>` |
+| [03](03_plus_unicode_digit.conf) | `stressor_range_scaling=plus_²` | clean fatal, but with Python's `invalid literal for int() with base 10: '²'` | clean `Unsupported stressor_range_scaling : plus_²` (with groups it crashed, [`main-equivalents/b`](main-equivalents/b_plus_unicode_groups.conf)) |
+
 Fix:
 ```python
 increment = value.replace("plus_", "", 1)
@@ -101,6 +112,14 @@ For a stressor `curve`, `count` ends up in `steps`, which gives `[[]]`, and
 [`hwbench/bench/benchmarks.py:118`](../hwbench/bench/benchmarks.py#L118) (`stressor_range[step[-1]]`) then fails.
 Root cause: [`hwbench/config/config.py:292-297`](../hwbench/config/config.py#L292-L297), where `parse_range` silently drops an item
 containing `-` that does not split into 2 parts, such as `1-2-3`.
+
+**Behaviour**
+
+| Config | Setting | On the PR | On `main` |
+|--------|---------|-----------|-----------|
+| [04](04_empty_items_scaling_first.conf) | `selected_cpus_scaling` before `selected_cpus=1-2-3` | `IndexError` traceback | clean `Unhandled string '1-2-3'` ([`main-equivalents/c`](main-equivalents/c_scaling_first_bad_cpus.conf)) |
+| [06](06_empty_items_global.conf) | bad `selected_cpus` inherited from `[global]` | `IndexError` traceback | clean error, as above |
+| [07](07_empty_stressors_curve.conf) | `stressor_range=1-8-2` with `curve` | validation passes, then `IndexError` while expanding | `curve` does not exist; the empty range itself is pre-existing, see [B](#pre-existing) |
 
 Fix, in `scaling()` before the `count == 1` check:
 ```python
@@ -125,6 +144,12 @@ on `[]` (the `IndexError` in 09). The group gets there because
 [`hwbench/config/config_syntax.py:101-102`](../hwbench/config/config_syntax.py#L101-L102) only checks that the overall result is
 non-empty.
 
+**Behaviour**
+
+| Config | Setting | On the PR | On `main` |
+|--------|---------|-----------|-----------|
+| [09](09_empty_group_curve.conf) | `selected_cpus=0-3 7-4` with `curve` | `IndexError` traceback | `curve` does not exist; the empty group itself is pre-existing, see [B](#pre-existing) |
+
 Fix, in `scaling()` once `groups` is known:
 ```python
 if groups and any(not item for item in items):
@@ -144,6 +169,15 @@ Code: [`hwbench/config/config_syntax.py:111-119`](../hwbench/config/config_synta
 `config.get_selected_cpus()` before `validate_selected_cpus` has checked the value, and
 `validate_section` visits keys in file order ([`hwbench/config/config.py:250`](../hwbench/config/config.py#L250)).
 
+**Behaviour**
+
+| Config | Setting | On the PR | On `main` |
+|--------|---------|-----------|-----------|
+| [15](15_removed_helper_hidden_simple.conf) | scaling keyword before `selected_cpus=simple` | generic `didn't get processed ! : ['simple']`; the migration message is never shown | `simple` still worked |
+| [16](16_removed_helper_hidden_numa_simple.conf) | same with `numa-simple` | confusing `Non-numeric range ['', ''] in '-'` | `numa-simple` still worked |
+
+[04](04_empty_items_scaling_first.conf) and [06](06_empty_items_global.conf) show the same ordering dependency, see [issue 2](#issue-2).
+
 Fix, in `validate_selected_cpus_scaling`:
 ```python
 message = validate_selected_cpus(config, section_name, config.get_section(section_name)["selected_cpus"])
@@ -161,6 +195,12 @@ Code: [`hwbench/config/config_helpers.py:14-16`](../hwbench/config/config_helper
 double space and then the group `['']`), [`config_helpers.py:29`](../hwbench/config/config_helpers.py#L29) and [`config_helpers.py:35`](../hwbench/config/config_helpers.py#L35) (loops over
 `range(count)` of ids). [`hwbench/environment/numa.py:21`](../hwbench/environment/numa.py#L21) only records nodes whose line
 matches `cpus: ...`, so a CPU-less node leaves a gap in the ids.
+
+**Behaviour**
+
+| Config | Setting | On the PR | On `main` |
+|--------|---------|-----------|-----------|
+| [12](12_each_numa_cpuless_node.conf) | `each-numa` / `each-quadrant` with a CPU-less NUMA node | helpers give a bogus `['']` group: `TypeError` in `sorted()` with `plus_1`, `ValueError` `int('')` with `iterate` | `numa-simple` did not crash ([`main-equivalents/d`](main-equivalents/d_numa_simple_cpuless.conf)) and an explicit `quadrant1` failed cleanly with `Quadrant 1 does not exists` ([`main-equivalents/e`](main-equivalents/e_explicit_quadrant_cpuless.conf)). The helpers lost that guard |
 
 Fix:
 ```python
