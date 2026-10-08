@@ -20,7 +20,7 @@ into this branch, which only adds `crashes/` on top of it.
 Where the old syntax has an equivalent of a config, the equivalent was also run on `main`,
 to tell the issues the PR introduced from the ones already there. They are kept in [`main-equivalents/`](main-equivalents/).
 
-## A. Introduced by PR #132
+# A. Introduced by PR #132
 
 Short description of each issue. The behaviour on the PR and on `main` is in the
 "Behaviour" table of the linked issue, in the details at the end.
@@ -181,7 +181,7 @@ def groups(cpu_lists):
 (import `h` from `hwbench.utils`). The id gap, which is pre-existing, is covered by [P4](#pre-4).
 
 <a id="pre-existing"></a>
-## B. Pre-existing on main
+# B. Pre-existing on main
 
 Same result on `main` and on the PR, so the PR did not introduce them. The behaviour,
 the code and the suggested fixes are in the [details at the end](#pre-existing-details).
