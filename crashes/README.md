@@ -293,5 +293,12 @@ Checked against the `pr-132-crashes` branch, whose code is identical to `pr-132-
 - **Side effect on the controls:** with the `parse_range` change of issue 2, 05 reports
   `Invalid range '1-2-3'` instead of `Unhandled string '1-2-3'`. Without it, 05 keeps its
   original message.
-- **Not verified:** that stress-ng treats a stressor count of 0 as one stressor per online
-  cpu, since there is no real stress-ng on the host that ran these checks.
+- **stress-ng with a count of 0 (config 10):** checked with stress-ng 0.19.02 installed on
+  the host. `stress-ng --cpu 0 --timeout 1` dispatched 8 cpu hogs on the 8-cpu host, so a
+  count of 0 means one stressor per online cpu. `get_taskset`
+  (`hwbench/bench/benchmark.py:93-103`) adds no `taskset` prefix for an empty pinned list,
+  so the second benchmark of config 10 would load every cpu, unpinned, instead of the
+  intended cores. This was checked by reading the code and running stress-ng directly, not
+  by running hwbench end to end.
+- **Before the fixes:** the 17 configs were re-run on an unmodified checkout of
+  `pr-132-crashes` and gave the results listed in the tables above.
