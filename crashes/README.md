@@ -48,12 +48,6 @@ mocked `numactl -H` output where node 1 has no cpus and node 2 has cpus 4-7.
 | [05_empty_items_selected_first_CONTROL.conf](05_empty_items_selected_first_CONTROL.conf) | 04 with the keywords swapped: clean `Unhandled string '1-2-3'` |
 | [17_removed_helper_CONTROL.conf](17_removed_helper_CONTROL.conf) | 15 with the keywords swapped: clean `simple was removed, use ...` |
 
-## main-equivalents/
-
-Old-syntax versions of the configs above, each with a `# Run on main:` header giving the
-result on `main`. [`d_numa_simple_cpuless.conf`](main-equivalents/d_numa_simple_cpuless.conf) and [`e_explicit_quadrant_cpuless.conf`](main-equivalents/e_explicit_quadrant_cpuless.conf) need
-the CPU-less topology of file 12.
-
 <a id="fixes"></a>
 ## Details of the issues introduced by the PR
 
