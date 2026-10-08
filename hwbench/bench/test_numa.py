@@ -1,3 +1,5 @@
+from hwbench.config import config_helpers
+
 from . import test_benchmarks_common as tbc
 
 
@@ -127,3 +129,30 @@ class TestNuma(tbc.TestCommon):
         assert cpu.get_quadrant(16) == 1
         assert cpu.get_quadrant(127) == 3
         assert cpu.get_quadrant(128) is None
+
+
+class TestNumaNodeWithoutCpus(tbc.TestCommon):
+    """The node 1 of this topology is memory-only: numactl gives it no cpus, the ids have a gap."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.load_mocked_hardware(
+            cpucores="./hwbench/tests/parsing/cpu_cores/v2321",
+            cpuinfo="./hwbench/tests/parsing/cpu_info/v2321",
+            numa="./hwbench/tests/parsing/numa/8domains_node1_without_cpus",
+        )
+
+    def test_numa_domain_ids(self):
+        """The ids of the domains are the real ones, the last domain is not skipped."""
+        cpu = self.hw.get_cpu()
+        assert cpu.get_numa_domains_count() == 7
+        assert cpu.get_numa_domain_ids() == [0, 2, 3, 4, 5, 6, 7]
+        assert cpu.get_numa_domain(127) == 7
+        assert sorted(cpu.dump()["numa_nodes"]) == [0, 2, 3, 4, 5, 6, 7]
+
+    def test_each_numa(self):
+        """each-numa gives one group per domain holding cpus, the last one included."""
+        groups = config_helpers.each_numa(self.hw).split(" ")
+        assert len(groups) == 7
+        assert groups[0].startswith("0,1,2,")
+        assert groups[-1] == ",".join(str(cpu) for cpu in [*range(56, 64), *range(120, 128)])

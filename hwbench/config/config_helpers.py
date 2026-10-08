@@ -31,7 +31,7 @@ def each_core(hardware: env_hw.BaseHardware) -> str:
 def each_numa(hardware: env_hw.BaseHardware) -> str:
     """Return one group per NUMA domain."""
     cpu = hardware.get_cpu()
-    return groups([cpu.get_logical_cores_in_numa_domain(domain) for domain in range(cpu.get_numa_domains_count())])
+    return groups([cpu.get_logical_cores_in_numa_domain(domain) for domain in cpu.get_numa_domain_ids()])
 
 
 def each_quadrant(hardware: env_hw.BaseHardware) -> str:

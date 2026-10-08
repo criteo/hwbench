@@ -81,13 +81,17 @@ class CPU:
         """Return the number of numa domains."""
         return self.numa.count()
 
+    def get_numa_domain_ids(self) -> list[int]:
+        """Return the ids of the numa domains holding cpus, a memory-only node leaves a gap in the ids."""
+        return sorted(self.numa.numa_domains)
+
     def get_logical_cores_in_numa_domain(self, numa_domain) -> list[int]:
         """Return logical cores in a numa domain."""
         return self.numa.get_cores(numa_domain)
 
     def get_numa_domain(self, logical_cpu: int) -> int | None:
         """Return the numa domain of a logical core."""
-        for numa_domain in range(self.get_numa_domains_count()):
+        for numa_domain in self.get_numa_domain_ids():
             if logical_cpu in self.get_logical_cores_in_numa_domain(numa_domain):
                 return numa_domain
         return None
@@ -124,9 +128,7 @@ class CPU:
             "numa_domains": self.get_numa_domains_count(),
             # Mapping of each NUMA domain to its logical cores, so consumers
             # (e.g. hwgraph) can aggregate per-core metrics by NUMA domain.
-            "numa_nodes": {
-                node: self.get_logical_cores_in_numa_domain(node) for node in range(self.get_numa_domains_count())
-            },
+            "numa_nodes": {node: self.get_logical_cores_in_numa_domain(node) for node in self.get_numa_domain_ids()},
             # NUMA distance matrix between domains, for topology-aware features.
             "numa_distances": self.get_numa_distances(),
             "sockets": self.get_sockets_count(),
