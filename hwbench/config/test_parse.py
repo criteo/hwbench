@@ -79,3 +79,7 @@ class TestParseConfig(tbc.TestCommon):
         assert self.get_jobs_config().parse_range("1,32 2,33") == [[1, 32], [2, 33]]
         with pytest.raises(SystemExit):
             self.get_jobs_config().parse_range("bad,range,bad-range")
+        # A range is <first>-<last>, with the smaller value first
+        for invalid in ["1-2-3", "1-8-2", "7-4", "0-3 7-4", "1-"]:
+            with pytest.raises(SystemExit):
+                self.get_jobs_config().parse_range(invalid)

@@ -292,11 +292,14 @@ class Config:
                 # syntax: <x>-<y>
                 if "-" in item:
                     ranges = item.split("-")
-                    if len(ranges) == 2:
-                        if not ranges[0].isnumeric() or not ranges[1].isnumeric():
-                            h.fatal(f"Non-numeric range {ranges} in '{input}'")
-                        for cpu_number in range(int(ranges[0]), int(ranges[1]) + 1):
-                            current_group.append(cpu_number)
+                    if len(ranges) != 2:
+                        h.fatal(f"Invalid range '{item}' in '{input}': a range is <first>-<last>")
+                    if not ranges[0].isnumeric() or not ranges[1].isnumeric():
+                        h.fatal(f"Non-numeric range {ranges} in '{input}'")
+                    first, last = int(ranges[0]), int(ranges[1])
+                    if first > last:
+                        h.fatal(f"Reversed range '{item}' in '{input}': write the smaller value first, {last}-{first}")
+                    current_group.extend(range(first, last + 1))
                 else:
                     # syntax: <x>
                     item_group: str | int = item

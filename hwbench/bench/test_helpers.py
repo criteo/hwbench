@@ -156,15 +156,15 @@ class TestHelpers_Each(tbc.TestCommon):
         self.load_benches(str(job_file))
         with self.assertLogs(level="ERROR") as logs, pytest.raises(SystemExit):
             self.parse_jobs_config()
-        assert f"Job job: keyword selected_cpus: {message}" in logs.output[0]
+        assert message in logs.output[0]
 
     def test_scaling_written_first(self):
         """selected_cpus is validated before its scaling, whatever the order of the job file."""
         with tempfile.TemporaryDirectory() as tmp_path:
             for selected_cpus, message in [
-                ("simple", "simple was removed"),
-                ("numa-simple", "numa-simple was removed"),
-                ("1-2-3", "Unhandled string '1-2-3' in selected cpus"),
+                ("simple", "keyword selected_cpus: simple was removed"),
+                ("numa-simple", "keyword selected_cpus: numa-simple was removed"),
+                ("1-2-3", "Invalid range '1-2-3' in '1-2-3'"),
             ]:
                 self.assert_validated_first(
                     tmp_path, "", f"selected_cpus_scaling=curve\nselected_cpus={selected_cpus}", message
@@ -177,7 +177,7 @@ class TestHelpers_Each(tbc.TestCommon):
                 tmp_path,
                 "selected_cpus=1-2-3\n",
                 "selected_cpus_scaling=curve",
-                "Unhandled string '1-2-3' in selected cpus",
+                "Invalid range '1-2-3' in '1-2-3'",
             )
 
 
