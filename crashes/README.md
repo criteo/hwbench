@@ -41,24 +41,6 @@ Short description of each issue. The behaviour on the PR and on `main` is in the
 The [12](12_each_numa_cpuless_node.conf) case needs a topology with a CPU-less node (CXL/HBM). It was reproduced with a
 mocked `numactl -H` output where node 1 has no cpus and node 2 has cpus 4-7.
 
-<a id="pre-existing"></a>
-## B. Pre-existing on main
-
-Same result on `main` and on the PR, so the PR did not introduce them. The behaviour,
-the code and the suggested fixes are in the [details at the end](#pre-existing-details).
-
-| File | Issue | Fix |
-|------|-------|-----|
-| [08](08_empty_stressors_plus1.conf) | `stressor_range=1-8-2` (not a valid range) is accepted and schedules 0 benchmarks | [P1](#pre-1) |
-| [10](10_empty_group_iterate.conf) | reversed range `7-4` gives an empty cpu group, accepted with `iterate`: a benchmark with 0 cpus and 0 stressors | [P2](#pre-2) |
-| [11](11_empty_group_plus1.conf) | same, with `plus_1`: two benchmarks pin the same cpus | [P2](#pre-2) |
-| [13](13_overlapping_groups_plus2.conf) | overlapping groups (`0-3 2-5`) merged by `plus_2` keep their duplicate cpus: 8 stressors for 6 cpus | [P3](#pre-3) |
-| [14](14_overlapping_numa_quadrant.conf) | overlapping `numa0 quadrant0` merged by `plus_1` keep their duplicate cpus | [P3](#pre-3) |
-| [`main-equivalents/d`](main-equivalents/d_numa_simple_cpuless.conf), [12](12_each_numa_cpuless_node.conf) | on a topology with a CPU-less NUMA node, the NUMA node after the id gap is never selected | [P4](#pre-4) |
-
-The patches are written on top of the PR, with the fixes of the introduced issues applied:
-P1 and P2 are already resolved by those fixes, and only P3 and P4 need a patch of their own.
-
 ## Controls (not issues)
 
 | File | Purpose |
@@ -212,6 +194,24 @@ def groups(cpu_lists):
     return " ".join(",".join(str(cpu) for cpu in sorted(cpus)) for cpus in non_empty)
 ```
 (import `h` from `hwbench.utils`). The id gap, which is pre-existing, is covered by [P4](#pre-4).
+
+<a id="pre-existing"></a>
+## B. Pre-existing on main
+
+Same result on `main` and on the PR, so the PR did not introduce them. The behaviour,
+the code and the suggested fixes are in the [details at the end](#pre-existing-details).
+
+| File | Issue | Fix |
+|------|-------|-----|
+| [08](08_empty_stressors_plus1.conf) | `stressor_range=1-8-2` (not a valid range) is accepted and schedules 0 benchmarks | [P1](#pre-1) |
+| [10](10_empty_group_iterate.conf) | reversed range `7-4` gives an empty cpu group, accepted with `iterate`: a benchmark with 0 cpus and 0 stressors | [P2](#pre-2) |
+| [11](11_empty_group_plus1.conf) | same, with `plus_1`: two benchmarks pin the same cpus | [P2](#pre-2) |
+| [13](13_overlapping_groups_plus2.conf) | overlapping groups (`0-3 2-5`) merged by `plus_2` keep their duplicate cpus: 8 stressors for 6 cpus | [P3](#pre-3) |
+| [14](14_overlapping_numa_quadrant.conf) | overlapping `numa0 quadrant0` merged by `plus_1` keep their duplicate cpus | [P3](#pre-3) |
+| [`main-equivalents/d`](main-equivalents/d_numa_simple_cpuless.conf), [12](12_each_numa_cpuless_node.conf) | on a topology with a CPU-less NUMA node, the NUMA node after the id gap is never selected | [P4](#pre-4) |
+
+The patches are written on top of the PR, with the fixes of the introduced issues applied:
+P1 and P2 are already resolved by those fixes, and only P3 and P4 need a patch of their own.
 
 <a id="pre-existing-details"></a>
 ## Details of the pre-existing issues
