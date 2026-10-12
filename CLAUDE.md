@@ -61,7 +61,7 @@ Key subsystems under `hwbench/`:
 
 - Tests are `test_*.py` colocated with the code they test; many parse fixture command output (`test_parse_*.py`). `environment/mock.py` and `vendors/mock.py` provide mock hardware/vendors for tests.
 - New engines and vendors are wired by **name-based dynamic import** / list registration (above) — there is no decorator registry; match the existing module shape exactly.
-- Sample job configs live in `configs/*.conf`. `documentation/` has `concepts.md`, `configuration.md` (the unique reference of the job file keywords), `cpu-selection.md`, `engines.md`, one page per engine (`stressng.md`, `fio.md`, `pantheon.md`, `spike.md`, `sleep.md`) and `monitoring.md`.
+- Sample job configs live in `configs/*.conf`. `documentation/` has `concepts.md`, `configuration.md` (the unique reference of the job file keywords), `cpu-selection.md`, `engines.md`, one page per engine (`stressng.md`, `fio.md`, `pantheon.md`, `spike.md`, `sleep.md`), `monitoring.md`, `hwgraph.md` and its three graph pages (`hwgraph-environment.md`, `hwgraph-scaling.md`, `hwgraph-versus.md`), with the reference dataset of their images in `documentation/example/` (`render.sh` regenerates `documentation/img/`).
 - Ruff: line-length 120, `E501`/`ISC001` ignored, `target-version = py39` (so the codebase uses `from __future__ import annotations`). mypy ignores missing imports for `pyudev`.
 </content>
 </invoke>
@@ -92,6 +92,7 @@ Key subsystems under `hwbench/`:
 - Commands are written `uv run hwbench …`; job file snippets use an ```` ```ini ```` fence.
 - Headings of keywords are lowercase, as the keyword (`### outlet`), so the anchors match; check every `#anchor` link after renaming a heading.
 - `configuration.md` is the unique reference of the job file keywords: the other pages link to it rather than repeating it.
+- The images of the hwgraph pages (`documentation/img/hwgraph-*.png`) are generated, never edited by hand: they come from the reference dataset `documentation/example/traces/` through `make doc_images` (`documentation/example/render.sh`). Run it, and look at the images, whenever you change a `hwgraph*.md` page (a caption, a command, a graph name), the dataset, `render.sh`, or the rendering code of `graph/`; a graph that is no longer produced makes `render.sh` fail, which is the signal to update the page. Every image of `render.sh` must be used by a page, and every command shown with `hwgraph graph` must use the files of the dataset.
 - Topology vocabulary: NPS sets how the memory controllers (DDR) are associated to the cores, which gives the **quadrants**; LLC as NUMA exposes each L3 cache as a **NUMA domain**. What `numa<x>` covers therefore depends on the BIOS settings and cannot be known in advance by a job file.
 - Keywords resolved against the topology (`numa<x>`, `quadrant<x>`, `core<x>`, CPU lists) are machine specific; only `all`, `each-*`, `curve` and `auto` keep their meaning across machines.
 
