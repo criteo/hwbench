@@ -42,11 +42,11 @@ Key subsystems under `hwbench/`:
 - **bench/** — orchestration core.
   - `benchmarks.py` (`Benchmarks`): expands each job into a matrix of `Benchmark` objects. Two scaling axes: **selected_cpus_scaling** (`none` | `iterate` | `plus_N` | `curve`) controls which/how many cores each run is pinned to; **stressor_range_scaling** (`plus_N` | `curve`) iterates stressor counts. Both go through the single `bench/scaling.py::scaling()` function (`SCALINGS` lists the accepted values). `stressor_range=auto` means one stressor per pinned core. Lazily constructs a single `Monitoring` the first time a job needs it (connects BMC + PDUs via Redfish). `run()` executes benchmarks sequentially, optionally `sync_start=time`-aligned; `dump()` writes `expanded_job_file.conf`.
   - `benchmark.py` / `parameters.py` — a single run and its resolved `BenchmarkParameters`.
-  - `cpumap.py` — the ASCII CPU map printed by `--dry-run` (expansion only: no root, no monitoring connection).
-  - `engine.py` — `EngineBase` (one external tool) holds named `EngineModuleBase` modules. Engines are loaded **dynamically by name**: a `[job]` with `engine=foo` is imported from `hwbench/engines/foo.py` and must expose `Engine()` (see `config.load_engine`). Modules expose parameters; `engine_module_parameter=all` fans out over every module parameter, otherwise an engine can `generate_benchmarks()` to produce a sub-matrix.
-  - `monitoring.py` / `monitoring_structs.py` — background-thread polling of turbostat + vendor BMC/PDU metrics during a run.
+  - `cpumap.py` — the ASCII CPU map printed by `--dry-run`, or the GPU map for a job loading the GPUs (expansion only: no root, no monitoring connection).
+  - `engine.py` — `EngineBase` (one external tool) holds named `EngineModuleBase` modules, and declares in the `resources` class attribute what its benchmarks load (`Resource.CPU`/`GPU`/`DISK`): only a job loading the GPUs expands `selected_gpus`/`selected_gpus_scaling` (same `scaling()`) and requires all-smi. Engines are loaded **dynamically by name**: a `[job]` with `engine=foo` is imported from `hwbench/engines/foo.py` and must expose `Engine()` (see `config.load_engine`). Modules expose parameters; `engine_module_parameter=all` fans out over every module parameter, otherwise an engine can `generate_benchmarks()` to produce a sub-matrix.
+  - `monitoring.py` / `monitoring_structs.py` — background-thread polling of turbostat, all-smi (accelerators) + vendor BMC/PDU metrics during a run.
 
-- **engines/** — concrete engines: `stressng` (+ `stressng_cpu`, `_memrate`, `_stream`, `_qsort`, `_vnni`), `fio`, `sleep`, `spike`. All ultimately run external binaries via `utils/external.py::External` (runs with `LC_ALL=C`, captures stdout/stderr to the out dir, calls `parse_cmd`).
+- **engines/** — concrete engines: `stressng` (+ `stressng_cpu`, `_memrate`, `_stream`, `_qsort`, `_vnni`), `fio`, `pantheon` (accelerators, enumerated by `environment/all_smi.py`), `sleep`, `spike`. All ultimately run external binaries via `utils/external.py::External` (runs with `LC_ALL=C`, captures stdout/stderr to the out dir, calls `parse_cmd`).
 
 - **environment/** — host inspection: `cpu`/`cpu_cores`/`cpu_info`/`numa` (topology used by core-pinning config), `dmi`, `lspci`, `memory`, `block_devices`/`nvme`, `software`, `turbostat`. `hardware.py` (`Hardware`/`BaseHardware`) is the central handle passed everywhere.
   - **environment/vendors/** — `detect.py::first_matching_vendor` tries `Dell`, `Hpe`, `Amd`, then `GenericVendor` (always matches, keep last). A `Vendor` exposes `get_bmc()` (Redfish, generic + OEM endpoints; HPE also `ilorest.py`) and `get_pdus()`. To add a vendor: subclass `Vendor`, implement `detect()`/`prepare()`, register in `VENDOR_LIST`.
@@ -61,7 +61,7 @@ Key subsystems under `hwbench/`:
 
 - Tests are `test_*.py` colocated with the code they test; many parse fixture command output (`test_parse_*.py`). `environment/mock.py` and `vendors/mock.py` provide mock hardware/vendors for tests.
 - New engines and vendors are wired by **name-based dynamic import** / list registration (above) — there is no decorator registry; match the existing module shape exactly.
-- Sample job configs live in `configs/*.conf`. `documentation/` has `concepts.md`, `configuration.md` (the unique reference of the job file keywords), `cpu-selection.md`, `engines.md`, one page per engine (`stressng.md`, `fio.md`, `spike.md`, `sleep.md`) and `monitoring.md`.
+- Sample job configs live in `configs/*.conf`. `documentation/` has `concepts.md`, `configuration.md` (the unique reference of the job file keywords), `cpu-selection.md`, `engines.md`, one page per engine (`stressng.md`, `fio.md`, `pantheon.md`, `spike.md`, `sleep.md`) and `monitoring.md`.
 - Ruff: line-length 120, `E501`/`ISC001` ignored, `target-version = py39` (so the codebase uses `from __future__ import annotations`). mypy ignores missing imports for `pyudev`.
 </content>
 </invoke>
@@ -100,5 +100,5 @@ Key subsystems under `hwbench/`:
 - The file starts with `# Intention: <what the file measures>`.
 - Each job has `# engine <name>: see documentation/<engine>.md#<section>` above `engine=`.
 - A contextualized comment above each `selected_cpus`, `*_scaling` and `stressor_*` line says what it does in this job, with a link to the exact section: `# <what it does here>: see documentation/<page>.md#<section>`.
-- Do not write directives that only repeat their default value.
+- Do not write directives that only repeat their default value, except `selected_*` and `*_scaling` in a GPU job file: they say what the job loads.
 - The name says what the file does (`curve-cpu.conf`, `curve-numa.conf`); update README.md, CLAUDE.md and the docs when renaming one.

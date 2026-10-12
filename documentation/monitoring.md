@@ -4,7 +4,7 @@ hwbench is using a specific monitoring engine to collect data from several sourc
 - [BMC](#bmc): thermal, fans and power of the server, through redfish
 - [PDU](#pdu): the power of the outlets the server is connected to, through redfish
 - [Turbostat](#turbostat): the power, frequency and IPC of the processor
-- [all-smi](#all-smi): the power, frequency, utilization, memory and temperature of the accelerators
+- [all-smi](#all-smi): the inventory of the accelerators, and their power, frequency, utilization, memory and temperature
 
 Depending on the source, power, frequency, thermal or cooling metrics are collected.
 
@@ -21,6 +21,9 @@ Depending on the source, power, frequency, thermal or cooling metrics are collec
     - [driver](#driver), [url](#url), [outlet](#outlet), [outletgroup](#outletgroup), [separator](#separator), [pdu_id](#pdu_id), [group](#group)
 - [Turbostat](#turbostat)
 - [all-smi](#all-smi)
+  - [Installing all-smi](#installing-all-smi)
+  - [GPU locator](#gpu-locator)
+  - [Accelerator metrics](#accelerator-metrics)
 
 # Concept
 During each benchmark, and if the monitoring is enabled, metrics are collected and aggregated over a period of time to get statistics. By default, they are collected every 2 seconds and aggregated every 10 seconds. These values are not configurable yet, which implies a `runtime` of at least 10 seconds for the monitoring to be usable: a shorter benchmark ends before the first aggregation, and gives no monitoring statistics at all.
@@ -366,9 +369,42 @@ The last four metrics are read from turbostat, but not stored in the results yet
 > usually reports neither `Bzy_MHz` nor `PkgWatt`, which hwbench warns about at startup.
 
 # all-smi
-[all-smi](https://github.com/lablup/all-smi) will be automatically used if it is installed and reports at least one accelerator. No configuration is required, and a server without any is simply left as-is. It covers NVIDIA, AMD, Intel and Apple GPUs as well as Gaudi, TPU, Tenstorrent, Rebellions and Furiosa NPUs, which is why hwbench monitors accelerators through it rather than through a vendor tool.
+[all-smi](https://github.com/lablup/all-smi) is how hwbench finds the accelerators, not only how it monitors them. It covers NVIDIA, AMD, Intel and Apple GPUs as well as Gaudi, TPU, Tenstorrent, Rebellions and Furiosa NPUs, which is why hwbench goes through it rather than through a vendor tool. It gives:
+- the accelerator inventory, recorded under `hardware.gpus` in the results: name, UUID, memory and the vendor properties, like the driver, VBIOS and ECC mode, completed with where each card sits (see [GPU locator](#gpu-locator));
+- the indexes [`selected_gpus`](./configuration.md#selected_gpus) selects on;
+- the per accelerator metrics below, sampled during the benchmarks.
 
-Install it with `brew install all-smi`, from the Debian package, or with `cargo install all-smi`. Note that `cargo install` does not ship the Linux AMD companion library, so use one of the packaged installs on an AMD host.
+Whether it is required depends on the job file:
+
+| Job file | all-smi missing, older than 0.26.0 or reporting no accelerator |
+|---|---|
+| a job loads the GPUs, like a `pantheon` job | hwbench stops before running anything, with the other missing requirements |
+| no job loads the GPUs | nothing is reported: the server is benchmarked without any GPU inventory nor GPU metrics |
+
+When it is installed and reports accelerators, they are inventoried and monitored during every benchmark, whatever is loading them, and no configuration is required. The release is printed at startup, as for turbostat:
+
+```
+Monitoring/all-smi: Detected release 0.26.3
+Monitoring/all-smi: initialize 8 GPUs
+```
+
+## Installing all-smi
+
+Install it with `brew install all-smi`, from the Debian package, with `cargo install all-smi`, or from the `all-smi-linux-<arch>.tar.gz` archives of the [GitHub releases](https://github.com/lablup/all-smi/releases), which hold a single binary to put in the `PATH`. It is not published on PyPI. Note that `cargo install` does not ship the Linux AMD companion library, so use one of the packaged installs on an AMD host. The release must be 0.26.0 or newer, the first one with the `snapshot` and `api` subcommands hwbench is built on.
+
+## GPU locator
+
+A UUID does not say where a card is plugged, so each accelerator of the inventory also gets:
+
+| Key | Value |
+|---|---|
+| `pci_address` | its PCI address, like `0000:1b:00.0`: read from `/proc/driver/nvidia/gpus/<address>/information` for an NVIDIA GPU, whose all-smi backend does not report it, and from the all-smi UUID for an Intel one; `null` otherwise |
+| `slot` | the physical slot the kernel knows the card, or a PCIe switch above it, to be plugged in (`/sys/bus/pci/slots`, the `Physical Slot` of `lspci -v`); `null` when there is none |
+| `locator` | `slot <slot>` when the slot is known, the PCI address otherwise: on a given chassis model, a PCI address is a fixed position too |
+
+`hwgraph` lists the locator and the UUID of each GPU in `benchmarks_summary.txt`, so a GPU index of the results can be traced back to a card.
+
+## Accelerator metrics
 
 For each detected accelerator, sampled like every other source, hwbench collects:
 
@@ -386,4 +422,3 @@ all-smi reports a quantity its backend cannot read as `0` rather than as a missi
 
 Rather than being forked once per iteration, which costs about 800ms of accelerator reader initialization and does not fit in a 2 seconds monitoring loop that also polls the BMC, all-smi is started once per benchmark as an exporter and polled over a unix socket, at 1.4ms per sample. Its TCP listener is disabled, so a benchmarked server gets no new open port.
 
-Note that this is independent from the [pantheon](./pantheon.md) engine: the accelerators of the server are monitored during every benchmark, whatever is loading them.
