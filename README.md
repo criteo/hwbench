@@ -87,7 +87,7 @@ You can install both of them on the server, but `hwgraph` requires some graphics
 
 #### Optional
 - AMISCE Utility (for some ODM servers): please contact your hardware vendor to get a copy
-- all-smi >= 0.26.0 (for GPU servers)
+- all-smi >= 0.26.0 (for GPU servers, mandatory to load the GPUs, see [installing all-smi](./documentation/monitoring.md#installing-all-smi))
 - ilorest (for HPE servers)
 - ipmitool
 - pantheon >= 1.2.0 (for GPU servers)

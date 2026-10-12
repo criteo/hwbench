@@ -2,7 +2,8 @@
 
 An *engine* is where the logic of a benchmark lives. It serves one of two purposes:
 
-- **Driving a third-party benchmark**, like `stressng` for stress-ng and `fio` for fio:
+- **Driving a third-party benchmark**, like `stressng` for stress-ng, `fio` for fio and
+  `pantheon` for pantheon:
   hwbench builds the tool's command line from the job, pins it on the selected CPUs,
   runs it for the job's `runtime` and turns its output into metrics. The benchmark
   itself is the tool's.
@@ -131,11 +132,14 @@ spent waiting.
 Whatever the tool, the engine layer provides the same services, which is what makes
 results comparable across engines:
 
-- **binary check** at startup, so a missing tool is reported before the first benchmark;
-  the version of the tool is read when each benchmark runs, and kept in the output
+- **binary check** at startup, so a missing tool is reported before the first benchmark,
+  and so is a release older than the `min_version` an engine declares (today `pantheon`);
+  the version of the tool is read again when each benchmark runs, and kept in the output
   directory;
 - **CPU pinning**, by prefixing the command with `taskset -c <cpu list>` built from
   `selected_cpus` and its scaling mode, `selected_cpus_scaling`;
+- **GPU selection**, for an engine loading the GPUs: the GPUs of each benchmark, built from
+  `selected_gpus` and `selected_gpus_scaling`, and all-smi required at startup;
 - **runtime enforcement**, so every benchmark lasts `runtime` seconds;
 - **metric extraction** from the tool's output into the `bench` section of
   `results.json`, plus the raw output kept on disk for later analysis;
@@ -157,6 +161,7 @@ results comparable across engines:
 |---|---|
 | `stressng` | CPU and memory micro-benchmarks, see [stressng.md](stressng.md) |
 | `fio` | storage benchmarking, see [fio.md](fio.md) |
+| `pantheon` | accelerator stress and diagnostics: power, thermal and throughput of the GPUs, see [pantheon.md](pantheon.md) |
 | `spike` | applies load spikes to study the cooling: how the fan algorithm reacts, and what it costs in fan speed and power, see [spike.md](spike.md) |
 | `sleep` | applies no load: a pause between two jobs, or an idle reference of the environment — no performance is measured, see [sleep.md](sleep.md) |
 
@@ -182,6 +187,13 @@ tool goes into `EngineModuleBase.init()`, called by `Benchmarks.parse_jobs_confi
 during the expansion. `stressng`/`cpu` relies on this to run
 `stress-ng --cpu-method list` from `list_module_parameters()`, while `stressng`/`vnni`
 can build its list in the constructor since it only reads CPU flags.
+
+**Resources.** `EngineBase.resources` declares the kinds of component the benchmarks of an
+engine load: `Resource.CPU` for `stressng` and `spike`, `Resource.DISK` for `fio`,
+`Resource.GPU` for `pantheon`, none for `sleep`. It is a class attribute, read without
+instantiating the engine: hwbench expands `selected_gpus` and requires all-smi only for a job
+loading the GPUs, `--dry-run` draws a GPU map instead of a CPU map for it, and `hwgraph` picks
+the columns of `benchmarks_summary.txt` and the unit of the scaling graphs from it.
 
 **Validation hooks.** An engine module may implement `validate_module_parameters()`,
 called for every benchmark at expansion time. `EngineModulePinnable` uses it to reject a

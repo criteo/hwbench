@@ -667,7 +667,8 @@ uv run hwbench -j <job_file> --dry-run
 ```
 
 It detects the CPU topology, validates the whole job file, expands it exactly as a real
-run would, and prints one map per job. Nothing else happens: no tuning, no environment
+run would, and prints one map per job. A job loading the GPUs gets a map of the GPUs
+instead, see [pantheon.md](pantheon.md#selecting-and-scaling-the-accelerators). Nothing else happens: no tuning, no environment
 dump, no BMC or PDU connection, no benchmark. It takes a fraction of a second and **does
 not need root**, so it can be run by any user before booking a machine for hours.
 

@@ -13,7 +13,8 @@ format and every keyword it accepts.
 Related pages: [concepts.md](concepts.md) (job vs benchmark, the vocabulary used
 everywhere), [cpu-selection.md](cpu-selection.md) (CPU pinning, and how a job becomes
 many benchmarks), and one page per engine:
-[stressng.md](stressng.md), [fio.md](fio.md), [spike.md](spike.md), [sleep.md](sleep.md).
+[stressng.md](stressng.md), [fio.md](fio.md), [pantheon.md](pantheon.md), [spike.md](spike.md),
+[sleep.md](sleep.md).
 
 # File format
 
@@ -74,12 +75,14 @@ Other rules of the format:
 |---|---|---|---|
 | [`runtime`](#runtime) | how long each benchmark runs | integer (seconds) | `60` |
 | [`monitor`](#monitor) | whether the environment is observed during the job | `none`, `all` | `none` |
-| [`engine`](#engine) | which benchmark logic runs | `stressng`, `fio`, `spike`, `sleep` | **mandatory** |
+| [`engine`](#engine) | which benchmark logic runs | `stressng`, `fio`, `pantheon`, `spike`, `sleep` | **mandatory** |
 | [`engine_module`](#engine_module) | which testing mode on that engine | depends on the engine | the engine name |
 | [`engine_module_parameter`](#engine_module_parameter) | what is handed to that mode | depends on the module, or `all` | the module name |
 | [`engine_module_parameter_base`](#engine_module_parameter_base) | a static string handed to that mode | free text, engine specific | empty |
 | [`selected_cpus`](#selected_cpus) | which CPUs will be used for the job, hence the pinning | cpu list, `core<x>`, `numa<x>`, `quadrant<x>`, `each-core`, `each-numa`, `each-quadrant`, `all`, `none` | `none` |
 | [`selected_cpus_scaling`](#selected_cpus_scaling) | the iteration method over the CPUs that will be used | `iterate`, `none`, `plus_<x>`, `curve` | `iterate` |
+| [`selected_gpus`](#selected_gpus) | which GPUs will be loaded, for an engine loading the GPUs | GPU list, `all` | `all` |
+| [`selected_gpus_scaling`](#selected_gpus_scaling) | the iteration method over the GPUs that will be loaded | `none`, `iterate`, `plus_<x>`, `curve` | `none` |
 | [`stressor_range`](#stressor_range) | how the stressor count evolves in the CPU group of each iteration | integer, range, list, `auto` | `1` |
 | [`stressor_range_scaling`](#stressor_range_scaling) | how those stressor counts become benchmarks | `plus_<x>`, `curve` | `plus_1` |
 | [`skip_method`](#skip_method) | what happens when a benchmark must be skipped | `bypass`, `wait` | `bypass` |
@@ -87,7 +90,9 @@ Other rules of the format:
 | `thermal_start`, `fans_start` | planned: gate the job on the chassis state | accepted, [ignored](#accepted-but-not-implemented) | — |
 
 Engines may add their own keywords, listed in [Engine specific keywords](#engine-specific-keywords):
-today only [`disks`](#disks), mandatory for `fio`. Any other keyword is rejected at startup.
+[`disks`](#disks), mandatory for `fio`, and [`gpu_memory_percent`](#gpu_memory_percent),
+[`verify`](#verify) and [`platform`](#platform) for `pantheon`. Any other keyword is rejected
+at startup.
 
 # Keyword reference
 
@@ -124,11 +129,12 @@ or as hwbench's own code. Mandatory: a job without a valid engine is fatal.
 |---|---|
 | `stressng` | CPU and memory micro-benchmarks, see [stressng.md](stressng.md) |
 | `fio` | storage benchmarking, see [fio.md](fio.md) |
+| `pantheon` | accelerator stress and diagnostics, see [pantheon.md](pantheon.md) |
 | `spike` | applies load spikes to study the cooling: fan algorithm, fan speed, power, see [spike.md](spike.md) |
 | `sleep` | applies no load: a pause between jobs, or an idle environment reference, see [sleep.md](sleep.md) |
 
-The binary an engine needs is checked before the run starts, so a missing tool is
-reported early. See [engines.md](engines.md) for the model itself.
+The binary an engine needs is checked before the run starts, so a missing tool, or for
+`pantheon` a too old one, is reported early. See [engines.md](engines.md) for the model itself.
 
 ## engine_module
 
@@ -250,6 +256,48 @@ specific by nature: its steps follow how a processor behaves as its cores get lo
 dense at the low end for the single core and turbo behaviour, sparse at the high end, so
 it is meant for `selected_cpus=each-core`. See [cpu-selection.md](cpu-selection.md).
 
+## selected_gpus
+
+Which accelerators the benchmarks of this job load. It is only read for an engine loading the
+GPUs, today `pantheon`: the other jobs inherit the default and ignore it.
+
+| Value | Effect |
+|---|---|
+| `<x>`, `<x>-<y>`, `<x>,<y>` | GPUs, by their index in the hwbench inventory: `3`, `0-7`, `0,3`; `<x>` must not exceed `<y>` |
+| `all` | every GPU of the target machine, as a single hand-written group: `iterate` walks it one GPU at a time, `selected_gpus_scaling=none` loads them all at once (default) |
+
+- **Groups.** As for [`selected_cpus`](#selected_cpus), a space separates two groups: `0 0,1 0-3`
+  is three groups, consumed one at a time by `selected_gpus_scaling=iterate`.
+- **Index.** The index is the order all-smi enumerated the accelerators in, the one the
+  `GPU_<n>` monitoring metrics are named after, see [Numbering](pantheon.md#numbering). Like a
+  CPU list, it is machine specific; `all` keeps its meaning across machines.
+- **Errors.** A GPU the target machine does not have is fatal at startup, like
+  `GPU 7 does not exist, detected GPUs are [0, 1, 2, 3]`.
+
+A job loading the GPUs needs all-smi to find them: hwbench stops before running anything when
+it is missing, too old or reports no accelerator, see [all-smi](monitoring.md#all-smi).
+
+## selected_gpus_scaling
+
+The iteration method over the GPUs listed by `selected_gpus`; each step produces the list of
+GPUs a benchmark loads.
+
+| Value | Effect |
+|---|---|
+| `none` | a single benchmark loading the whole selection, which must not hold several groups (default) |
+| `iterate` | one benchmark per group, or one benchmark per GPU when the selection is a single list |
+| `plus_<x>` | cumulative: `<x>` more GPUs, or groups, added at each step; their number must be a multiple of `<x>` |
+| `curve` | cumulative: 1, 2, 3, 4, 8, 16 then +16 GPUs, or groups, and all of them |
+
+These are the scalings of [`selected_cpus_scaling`](#selected_cpus_scaling), computed by the
+same function, with one difference: `plus_<x>` and `curve` do not need groups, each GPU of a
+single list is a step of its own. `selected_gpus=all` with `selected_gpus_scaling=curve` loads
+1, 2, 3, 4 then 8 GPUs on an 8 GPUs server.
+
+A benchmark runs one stressor per GPU it loads: its stressor count is the number of GPUs of
+its step. [`stressor_range`](#stressor_range) does not change it, each of its counts only
+repeats the same benchmark.
+
 ## stressor_range
 
 The list of stressor counts to run in the CPU group of each iteration — a stressor being
@@ -334,6 +382,27 @@ benchmark of the job.
 Unlike the other keywords, its value is not lowercased. The fio engine itself is
 described in [fio.md](fio.md).
 
+### gpu_memory_percent
+
+`pantheon` only: the percentage of the free VRAM the workload allocates, from 1 to 99, `99` by
+default.
+
+### verify
+
+`pantheon` only: a boolean, `true` by default, running the silent data corruption check after
+the workload. `false` passes `--skip_verify` to pantheon.
+
+### platform
+
+`pantheon` only: the compiler backend, unset by default to let pantheon detect it.
+
+| Value | Effect |
+|---|---|
+| `auto` | pantheon detects the backend |
+| `cuda` | the NVIDIA backend |
+| `hip` | the AMD backend |
+| `mock` | a CPU kernel against one fake accelerator, see [pantheon.md](pantheon.md#other-directives) |
+
 # Legacy and unimplemented keywords
 
 ## Renamed keywords
@@ -373,8 +442,8 @@ The whole job file is validated **before** the first benchmark starts, because a
 last hours. For every section hwbench checks that the engine exists and loads, that the
 engine's own mandatory keywords are present, that no keyword was renamed, that every
 keyword is known, and that every value passes its syntax check. The full expansion is
-then computed, which also validates the CPU selection against the real topology and the
-module parameters against the engine.
+then computed, which also validates the CPU selection against the real topology, the GPU
+selection against the detected accelerators and the module parameters against the engine.
 
 Any failure is fatal and names the job and the keyword:
 
@@ -412,8 +481,14 @@ without being implemented.
 
 **Engine specific keywords.** An engine declares its own keywords through
 `custom_parameters_validators` and `custom_parameters_required` on `EngineBase`; `fio`
-uses them for `disks`. They are read from the raw section, so they are **not**
+uses them for `disks`, `pantheon` for `gpu_memory_percent`, `verify` and `platform`. They
+are read from the raw section, so they are **not**
 lowercased, and reach the engine through `BenchmarkParameters.get_custom_parameters()`.
+
+**Resources.** An engine declares in `EngineBase.resources` the kinds of component its
+benchmarks load (`Resource.CPU`, `Resource.GPU`, `Resource.DISK`); `Config.uses()` reads it.
+The GPU selection is only resolved, validated and expanded for a job whose engine loads the
+GPUs, and only such a job requires all-smi (`Benchmarks.check_requirements()`).
 
 **Renamed keywords.** `Config.RENAMED_KEYWORDS` maps the old name to the new one and is
 checked before the validity test, so the user gets a migration message instead of
