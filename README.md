@@ -1,9 +1,12 @@
 # What is hwbench ?
 **hwbench** is a benchmark orchestrator to automate the low-level testing of servers.
 
+The documentation is in the [documentation/](./documentation/) directory, see the [Documentation](#documentation) section for the list of the pages.
+
 ## What makes hwbench different?
 ### Scripted language
 hwbench embeds a very simplified script language, greatly inspired by [fio](https://github.com/axboe/fio), that turns a very simple script file into a large list of individual tests.
+See the [concepts](./documentation/concepts.md) and the [configuration](./documentation/configuration.md) of the job files.
 
 ### Prepares the server before the benchmark
 Some tuning can be performed automatically to ensure constant system settings across time and reboots. It avoids many human mistakes.
@@ -17,17 +20,19 @@ At startup, hwbench will collect as much as possible server's context like:
 - list of hardware components (PCI, CPU, Storage, ...)
 - ...
 
-This context will be attached to the performance metrics for later analysis.
+This context will be attached to the performance metrics for later analysis, see [concepts](./documentation/concepts.md#a-result-is-a-measurement-in-a-context).
 
 
 ### Can run any type of benchmark
-hwbench is using *engines* to define how to execute a particular external application.
+hwbench is using *engines* to define how to execute a particular external application, see [engines](./documentation/engines.md).
 The current version of hwbench supports 5 different engines.
-- [stress-ng](https://github.com/ColinIanKing/stress-ng): no need to present this very popular low-level benchmarking tool
-- spike: a custom engine used to make fans spike. Very useful to study the cooling strategy of a server.
-- sleep: a stupid sleep call used to observe how the system is behaving in idle mode
+- [stress-ng](https://github.com/ColinIanKing/stress-ng): no need to present this very popular low-level benchmarking tool, see [documentation](./documentation/stressng.md)
+- spike: a custom engine used to make fans spike. Very useful to study the cooling strategy of a server, see [documentation](./documentation/spike.md)
+- sleep: a stupid sleep call used to observe how the system is behaving in idle mode, see [documentation](./documentation/sleep.md)
 - [fio](https://github.com/axboe/fio): a flexible storage benchmarking tool, see [documentation](./documentation/fio.md)
 - [pantheon](https://github.com/pantheongpu/pantheon): a vendor agnostic GPU stress and diagnostics suite, see [documentation](./documentation/pantheon.md)
+
+The CPUs a benchmark runs on are selected by the job file, see [CPU selection](./documentation/cpu-selection.md).
 
 Benchmark performance metrics are extracted and saved for later analysis.
 
@@ -63,7 +68,11 @@ If a single output file is provided, **hwgraph** plots for each benchmark :
 
 If multiple output files are passed as arguments, and only if they were generated with the same script file, **hwgraph** will compare for each benchmark the performance metrics.
 
-For more details, see the specific documentation.
+The graphs are described in dedicated pages, with examples:
+- [hwgraph](./documentation/hwgraph.md): the command line, the trace files and the options
+- [environment graphs](./documentation/hwgraph-environment.md): the monitoring metrics during each benchmark, per host, chassis or group
+- [scaling graphs](./documentation/hwgraph-scaling.md): the performance along the scaling steps of a job
+- [max versus graphs](./documentation/hwgraph-versus.md): the comparison of the traces, with the reports and the scorecard
 
 ---
 
@@ -115,3 +124,24 @@ We do not (yet, coming at some point) provide a PyPi package. However, installat
 # Examples
 Running the **curve-cpu.conf** job:
 <code>python3 -m hwbench.hwbench -j configs/curve-cpu.conf -m monitoring.cfg</code>
+
+The sample job files are in [configs/](./configs/), each of them starting with the intention it measures.
+
+Graphing the results of two runs, see [hwgraph](./documentation/hwgraph.md#rendering-the-graphs-graph):
+<code>uv run hwgraph graph --traces documentation/example/traces/baseline.json:baseline:BMC.Server documentation/example/traces/hpc.json:hpc:BMC.Server --outdir graphs</code>
+
+The graphs of the documentation are rendered from a [reference dataset](./documentation/example/README.md).
+
+---
+
+# Documentation
+All the pages are in the [documentation/](./documentation/) directory.
+
+| Page | Content |
+|---|---|
+| [concepts.md](./documentation/concepts.md) | the concepts and the vocabulary: job, benchmark, context |
+| [configuration.md](./documentation/configuration.md) | the reference of the job file keywords |
+| [cpu-selection.md](./documentation/cpu-selection.md) | how a job selects the CPUs to load |
+| [engines.md](./documentation/engines.md) | the engine model, with [stressng.md](./documentation/stressng.md), [fio.md](./documentation/fio.md), [pantheon.md](./documentation/pantheon.md), [spike.md](./documentation/spike.md) and [sleep.md](./documentation/sleep.md) |
+| [monitoring.md](./documentation/monitoring.md) | the BMC, the PDU, turbostat and all-smi metrics, and the monitoring configuration file |
+| [hwgraph.md](./documentation/hwgraph.md) | the graphs and the comparison of the results, with [hwgraph-environment.md](./documentation/hwgraph-environment.md), [hwgraph-scaling.md](./documentation/hwgraph-scaling.md) and [hwgraph-versus.md](./documentation/hwgraph-versus.md) |
