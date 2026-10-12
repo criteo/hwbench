@@ -40,7 +40,7 @@ That is what turns single runs into a collection worth keeping, and lets you
 - the same machine in different configurations: tuning, BIOS settings, firmware,
 - the same machine over time, before and after a change.
 
-The rendering and comparison side is the job of hwgraph, documented separately.
+The rendering and comparison side is the job of hwgraph, documented in [hwgraph.md](hwgraph.md).
 
 This intent is what drove the design of the configuration file: keywords and helpers are
 deliberately high level and topology-relative, so an intention stays expressible without
@@ -235,7 +235,7 @@ from.
 compares the groups, so two configurations that did not run the same number of
 benchmarks can still be put on the same graph. The consequence for you: keep the job
 *names* and their intention stable across the runs you intend to compare, and let the
-benchmark count vary. See the hwgraph documentation for what it does with those groups.
+benchmark count vary. See [hwgraph.md](hwgraph.md) for what it does with those groups.
 
 **You decide what is being compared.** hwbench keeps the intention stable and records
 the context of each run; choosing *which* configurations to run is what defines the
