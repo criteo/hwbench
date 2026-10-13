@@ -1,0 +1,31 @@
+---
+build-info:
+      compiler: 'gcc 14.3.1'
+source-date-epoch: 1765411200
+      stdc-version: '199901L'
+      stdc-hosted: '1'
+
+system-info:
+      stress-ng-version: '0.19.03'
+      run-by: 'root'
+      date-yyyy-mm-dd: '2026:10:13'
+      time-hh-mm-ss: '13:33:31'
+      epoch-secs: 1791898411
+      hostname: 'hwtest-linux101-fr3'
+      sysname: 'Linux'
+      cpus: 64
+      cpus-online: 64
+      ticks-per-second: 100
+
+metrics:
+    - stressor: cpu
+      bogo-ops: 576180
+      bogo-ops-per-second-usr-sys-time: 600.940272
+      bogo-ops-per-second-real-time: 38415.419675
+      wall-clock-time: 14.998665
+      user-time: 958.732496
+      system-time: 0.064954
+      cpu-usage-per-instance: 99.883626
+      max-rss: 2976
+
+...

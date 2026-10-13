@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import pathlib
 import re
 
@@ -161,8 +162,14 @@ class StressNG(ExternalBench):
         if not yaml_file.exists():
             return {}
 
-        with yaml_file.open() as f:
-            data = yaml.safe_load(f)
+        try:
+            with yaml_file.open() as f:
+                data = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            # stress-ng 0.19.03, built with SOURCE_DATE_EPOCH, does not indent "source-date-epoch"
+            # under "build-info" (fixed in 0.19.04): only the optional per-instance metrics are lost.
+            logging.warning("Ignoring the per-instance metrics, %s is not a valid YAML: %s", yaml_file, e)
+            return {}
 
         bogo_ops: list[float] = []
         for stressor in (data or {}).get("metrics", []):
