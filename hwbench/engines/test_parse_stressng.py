@@ -140,6 +140,34 @@ class TestParse(unittest.TestCase):
         # The per-instance rates sum up to roughly the aggregated bogo ops/s.
         assert sum(bogo_ops) == pytest.approx(217929.51, abs=2)
 
+    def test_yaml_invalid_keeps_result(self):
+        """stress-ng 0.19.03 emits an unindented source-date-epoch: the YAML is invalid but the run must not fail."""
+        d = pathlib.Path("./hwbench/tests/parsing/stressng/v019")
+        engine = mock_engine("v17")
+        params = BenchmarkParameters(
+            d,
+            "cpu10",
+            0,
+            "",
+            5,
+            "matrixprod",
+            "",
+            MockHardware(),
+            "none",
+            None,
+            "bypass",
+            "none",
+        )
+        module = EngineModuleCpu(engine, "cpu")
+        test_target = StressNGCPU(module, params)
+
+        assert test_target.yaml_output_file().exists()
+
+        output = test_target.parse_cmd((d / "stdout").read_bytes(), (d / "stderr").read_bytes())
+        assert output["bogo ops/s"] == 38415.42
+        assert output["effective_runtime"] == 15.0
+        assert "detail" not in output
+
     def test_yaml_absent_keeps_result(self):
         """Without a YAML file (e.g. older stress-ng), the result is unchanged."""
         d = pathlib.Path("./hwbench/tests/parsing/stressng/v17")

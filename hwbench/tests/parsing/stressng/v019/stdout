@@ -1,0 +1,3 @@
+stress-ng: metrc: [4242] stressor       bogo ops real time  usr time  sys time   bogo ops/s     bogo ops/s CPU used per       RSS Max
+stress-ng: metrc: [4242]                           (secs)    (secs)    (secs)   (real time) (usr+sys time) instance (%)          (KB)
+stress-ng: metrc: [4242] cpu              576180     15.00    958.73      0.06     38415.42         600.94        99.88          2976
