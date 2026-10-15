@@ -1,5 +1,6 @@
 import json
 import pathlib
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -165,6 +166,50 @@ class TestParse(unittest.TestCase):
 
         output = test_target.parse_cmd((d / "stdout").read_bytes(), (d / "stderr").read_bytes())
         assert "detail" not in output
+
+    def test_yaml_invalid_keeps_result(self):
+        """An invalid YAML file (stress-ng 0.19.03) only drops the per-instance metrics."""
+        d = pathlib.Path("./hwbench/tests/parsing/stressng/v02103b")
+        # stress-ng 0.19.03 does not indent "source-date-epoch" under "build-info"
+        invalid_yaml = (
+            "---\n"
+            "build-info:\n"
+            "      compiler: 'gcc 14.3.1'\n"
+            "source-date-epoch: 1765411200\n"
+            "      stdc-version: '199901L'\n"
+            "metrics:\n"
+            "    - stressor: cpu\n"
+            "      bogo-ops: 9578914\n"
+            "...\n"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = pathlib.Path(tmp)
+            engine = mock_engine("v17")
+            params = BenchmarkParameters(
+                out_dir,
+                "cpu10",
+                0,
+                "",
+                5,
+                "matrixprod",
+                "",
+                MockHardware(),
+                "none",
+                None,
+                "bypass",
+                "none",
+            )
+            module = EngineModuleCpu(engine, "cpu")
+            test_target = StressNGCPU(module, params)
+            test_target.yaml_output_file().write_text(invalid_yaml)
+
+            with self.assertLogs(level="WARNING") as logs:
+                output = test_target.parse_cmd((d / "stdout").read_bytes(), (d / "stderr").read_bytes())
+
+        # The generic metrics are still parsed from stdout, without the per-instance ones.
+        assert output["bogo ops/s"] == 217929.51
+        assert "detail" not in output
+        assert "is not a valid YAML" in logs.output[0]
 
     def test_stressng_methods(self):
         test_dir = pathlib.Path("./hwbench/tests/parsing/stressngmethods")
