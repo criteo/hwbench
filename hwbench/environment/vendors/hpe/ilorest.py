@@ -9,9 +9,14 @@ class Ilorest(External):
     def run_cmd(self) -> list[str]:
         return ["ilorest", "get", "--json", "--nologo", "--select", "Bios.", "--nocache"]
 
+    @staticmethod
+    def _strip_discovering(stdout: bytes) -> bytes:
+        """ilorest 7.4 writes this progress message on stdout, before the JSON."""
+        return stdout.replace(b"Discovering data...Done", b"")
+
     def parse_cmd(self, stdout: bytes, _stderr: bytes):
         try:
-            return json.loads(stdout.decode("utf-8"))
+            return json.loads(self._strip_discovering(stdout).decode("utf-8"))
         except json.decoder.JSONDecodeError:
             h.fatal(f"ilorest failed. output:\n{stdout.decode()}")
 
@@ -78,7 +83,7 @@ class ILOREST:
             commands.append("--nocache")
         p = subprocess.Popen(["/usr/sbin/ilorest"] + commands, stdout=subprocess.PIPE)
         output, _ = p.communicate()
-        return p.returncode, output.replace(b"Discovering data...Done", b"")
+        return p.returncode, Ilorest._strip_discovering(output)
 
     def login(self, last_try=False):
         if self.logged:
