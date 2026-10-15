@@ -1,6 +1,6 @@
 all:
 
-.PHONY: update_deps update_lock sync_deps clean check check_ci bundle format
+.PHONY: update_deps update_lock sync_deps clean check check_ci bundle format doc_images
 
 SOURCES = hwbench csv graph
 
@@ -38,3 +38,7 @@ bundle:
 
 format:
 	uv tool run ruff@$(RUFF_VERSION) format $(SOURCES)
+
+# Renders the reference dataset of documentation/example/ with hwgraph and refreshes documentation/img/.
+doc_images:
+	bash documentation/example/render.sh
