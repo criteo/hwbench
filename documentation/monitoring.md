@@ -116,6 +116,9 @@ selected for the server, described below.
 > The endpoints may vary with the vendor and the type of server: the paths, the number of
 > chassis and the sensors each one exposes are defined by the BMC, not by hwbench.
 
+To add the BMC of a server to the tests of the monitoring, [redfish-dump.md](redfish-dump.md)
+records the urls hwbench reads from it, anonymized.
+
 ### Generic driver
 
 Used on any server without a dedicated driver. It walks all the chassis listed by

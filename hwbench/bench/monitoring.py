@@ -165,13 +165,7 @@ class Monitoring:
 
     def __monitor_bmc(self):
         """Monitor the bmc metrics"""
-        self.vendor.get_bmc().read_thermals(self.metrics.contexts.Thermal)
-        self.vendor.get_bmc().read_fans(self.metrics.contexts.Fans)
-        self.vendor.get_bmc().read_power_consumption(self.metrics.contexts.PowerConsumption)
-        self.vendor.get_bmc().read_power_supplies(self.metrics.contexts.PowerSupplies)
-        # A no-op on a BMC exposing no accelerator: both collections it walks are
-        # cached and empty there.
-        self.vendor.get_bmc().read_gpus(self.metrics.contexts)
+        self.vendor.get_bmc().read_metrics(self.metrics.contexts)
 
     def __monitor_pdus(self):
         """Monitor the PDU metrics"""
