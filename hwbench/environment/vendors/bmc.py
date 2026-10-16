@@ -367,6 +367,17 @@ class BMC(MonitoringDevice, External):
                 sensors.setdefault(collection_url, set()).add(url)
         return sensors
 
+    def read_metrics(self, contexts: MonitoringContexts) -> MonitoringContexts:
+        """Read every metric the monitoring collects from the BMC."""
+        self.read_thermals(contexts.Thermal)
+        self.read_fans(contexts.Fans)
+        self.read_power_consumption(contexts.PowerConsumption)
+        self.read_power_supplies(contexts.PowerSupplies)
+        # A no-op on a BMC exposing no accelerator: both collections it walks are
+        # cached and empty there.
+        self.read_gpus(contexts)
+        return contexts
+
     def read_gpus(self, contexts: MonitoringContexts) -> MonitoringContexts:
         """Return the accelerator metrics from the server.
 
