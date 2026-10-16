@@ -1,9 +1,11 @@
 import pathlib
+from unittest.mock import patch
 
 from hwbench.bench.monitoring_structs import (
     MonitorMetric,
     Power,
     PowerCategories,
+    PowerConsumptionContext,
     Temperature,
 )
 
@@ -46,6 +48,16 @@ class TestGenericHpe(TestVendors):
             "hwbench.environment.vendors.hpe.hpe.ILO.get_oem_chassis",
             PATCH_TYPES.RETURN_VALUE,
             self.sample(self.path + "oem_chassis"),
+        )
+        # Only the servers metering their components have a power meter fixture
+        try:
+            power_meter = self.sample(self.path + "oem_power_meter")
+        except FileNotFoundError:
+            power_meter = {}
+        self.install_patch(
+            "hwbench.environment.vendors.hpe.hpe.ILO.get_oem_power_meter",
+            PATCH_TYPES.RETURN_VALUE,
+            power_meter,
         )
 
         self.get_vendor().bmc = ILO("", self.get_vendor(), None)
@@ -177,6 +189,79 @@ class TestHpeDL380(TestGenericHpe):
         expected_output.BMC = {
             "HpeServerPowerSupply1": Power("PS1", 147.0),
             "HpeServerPowerSupply2": Power("PS2", 154.0),
+        }
+
+        super().generic_power_supplies_test(expected_output)
+
+
+class TestHpeDL365Gen11(TestGenericHpe):
+    """A ProLiant metering its memory and its fans."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__("tests/vendors/Hpe/DL365-Gen11/", *args, **kwargs)
+
+    def test_power_consumption(self):
+        expected_output = self.generic_power_output()
+        expected_output.BMC = {
+            str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER), 334),
+            str(PowerCategories.MEMORY): Power(str(PowerCategories.MEMORY), 19),
+            str(PowerCategories.FANS): Power(str(PowerCategories.FANS), 48),
+        }
+
+        super().generic_power_consumption_test(expected_output)
+
+    def test_power_supplies(self):
+        expected_output = self.generic_power_output()
+        expected_output.BMC = {
+            "HpeServerPowerSupply1": Power("PS1", 182.0),
+            "HpeServerPowerSupply2": Power("PS2", 152.0),
+        }
+
+        super().generic_power_supplies_test(expected_output)
+
+    def test_power_meter_enablers(self):
+        """HasDimmPowerMetering, HasFanPowerMetering and HasGpuPowerMetering enable the collection of each component."""
+        for dimm, fan, gpu, expected in [
+            (True, True, False, ["Memory", "Fans"]),
+            (False, True, False, ["Fans"]),
+            (True, False, False, ["Memory"]),
+            (False, False, True, ["Accelerators"]),
+            (False, False, False, []),
+        ]:
+            power = self.sample(self.path + "power")
+            power["Oem"]["Hpe"]["HasDimmPowerMetering"] = dimm
+            power["Oem"]["Hpe"]["HasFanPowerMetering"] = fan
+            power["Oem"]["Hpe"]["HasGpuPowerMetering"] = gpu
+            bmc = ILO("", self.get_vendor(), None)
+            with patch.object(ILO, "get_power", return_value=power):
+                power_consumption = bmc.read_metered_components(PowerConsumptionContext())
+            assert list(power_consumption.BMC) == expected
+
+
+class TestHpeDL385Gen11(TestGenericHpe):
+    """A ProLiant metering its accelerators, which its BMC lists without any metric."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__("tests/vendors/Hpe/DL385-Gen11/", *args, **kwargs)
+
+    def test_power_consumption(self):
+        expected_output = self.generic_power_output()
+        expected_output.BMC = {
+            str(PowerCategories.SERVER): Power(str(PowerCategories.SERVER), 274),
+            str(PowerCategories.MEMORY): Power(str(PowerCategories.MEMORY), 2),
+            str(PowerCategories.FANS): Power(str(PowerCategories.FANS), 15),
+            str(PowerCategories.ACCELERATORS): Power(str(PowerCategories.ACCELERATORS), 68),
+        }
+
+        super().generic_power_consumption_test(expected_output)
+
+    def test_power_supplies(self):
+        expected_output = self.generic_power_output()
+        expected_output.BMC = {
+            "HpeServerPowerSupply1": Power("PS1", 82.0),
+            "HpeServerPowerSupply2": Power("PS2", 109.0),
+            "HpeServerPowerSupply3": Power("PS3", 45.0),
+            "HpeServerPowerSupply4": Power("PS4", 34.0),
         }
 
         super().generic_power_supplies_test(expected_output)
