@@ -1021,7 +1021,7 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
 
         # If we can't detect several bench on the same emp, it means there was no scaling
         if len(benches[emp]["bench"]) == 1:
-            print(f"Performance scaling: No scaling detected on job '{job}', skipping graph")
+            print(f"Performance scaling: job '{job}' ran a single benchmark of {emp}, nothing to scale: no graph")
             continue
 
         # The per-worker line graphs plot performance as a function of the worker
