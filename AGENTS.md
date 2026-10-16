@@ -10,7 +10,7 @@ Two console entry points (`pyproject.toml`): `hwbench` → `hwbench.hwbench:main
 
 ## Commands
 
-Tooling is managed with **uv** (>= 0.4.27); Python >= 3.12. `SOURCES = hwbench csv graph`.
+Tooling is managed with **uv** (>= 0.4.27); Python >= 3.12. `SOURCES = hwbench csv graph tools`.
 
 ```bash
 make sync_deps        # uv sync --all-extras --dev  (install/refresh env)
@@ -19,10 +19,10 @@ make format           # ruff format (apply)
 make bundle           # uv build
 
 # Ruff is pinned to RUFF_VERSION in the Makefile and run via `uv tool run ruff@<ver>`.
-uv run pytest hwbench graph csv          # full test suite
+uv run pytest hwbench graph csv tools    # full test suite
 uv run pytest hwbench/bench/test_fio.py  # single file
 uv run pytest hwbench/bench/test_fio.py::test_name   # single test
-uv run mypy hwbench csv graph
+uv run mypy hwbench csv graph tools
 ```
 
 Run the tools (need root for hwbench):
@@ -55,13 +55,15 @@ Key subsystems under `hwbench/`:
 
 - **utils/** — `external.py` (subprocess base class), `helpers.py` (`h.fatal`, binary checks), `hwlogging.py`, `archive.py`, `dataclasses.py`.
 
+`tools/redfish_dump.py` is a script out of the package, like `csv/convert.py`: it records the Redfish urls the BMC driver reads on the target machine, anonymized, as the fixtures of `hwbench/environment/tests/vendors/<vendor>/<model>/` (`sudo uv run tools/redfish_dump.py -m monitoring.cfg -o <dir>`).
+
 `graph/` is a separate package (`hwgraph.py` entry) that reads result trace files (`filename:logical_name:power_metric` syntax) and renders/compares them; it imports shared structs from `hwbench.bench.monitoring_structs`.
 
 ## Conventions
 
 - Tests are `test_*.py` colocated with the code they test; many parse fixture command output (`test_parse_*.py`). `environment/mock.py` and `vendors/mock.py` provide mock hardware/vendors for tests.
 - New engines and vendors are wired by **name-based dynamic import** / list registration (above) — there is no decorator registry; match the existing module shape exactly.
-- Sample job configs live in `configs/*.conf`; renaming one means updating README.md, AGENTS.md and the docs. `documentation/` has `concepts.md`, `configuration.md` (the unique reference of the job file keywords), `cpu-selection.md`, `engines.md`, one page per engine (`stressng.md`, `fio.md`, `pantheon.md`, `spike.md`, `sleep.md`), `monitoring.md`, `hwgraph.md` and its three graph pages (`hwgraph-environment.md`, `hwgraph-scaling.md`, `hwgraph-versus.md`), with the reference dataset of their images in `documentation/example/` (`render.sh` regenerates `documentation/img/`).
+- Sample job configs live in `configs/*.conf`; renaming one means updating README.md, AGENTS.md and the docs. `documentation/` has `concepts.md`, `configuration.md` (the unique reference of the job file keywords), `cpu-selection.md`, `engines.md`, one page per engine (`stressng.md`, `fio.md`, `pantheon.md`, `spike.md`, `sleep.md`), `monitoring.md`, `redfish-dump.md`, `hwgraph.md` and its three graph pages (`hwgraph-environment.md`, `hwgraph-scaling.md`, `hwgraph-versus.md`), with the reference dataset of their images in `documentation/example/` (`render.sh` regenerates `documentation/img/`).
 - Ruff: line-length 120, `E501`/`ISC001` ignored, `target-version = py39` (so the codebase uses `from __future__ import annotations`). mypy ignores missing imports for `pyudev`.
 - Keywords resolved against the topology (`numa<x>`, `quadrant<x>`, `core<x>`, CPU lists) are machine specific; only `all`, `each-*`, `curve` and `auto` keep their meaning across machines.
 - Reuse hwbench's own sources of truth (`HELPERS`, `SCALINGS`, `get_valid_keywords()`, the CPU topology methods…) instead of duplicating a list, a format or some logic.
