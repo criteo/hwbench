@@ -7,6 +7,21 @@ import numpy as np
 from graph.graph import Graph, statistics_in_label
 from hwbench.bench.monitoring_structs import MonitoringContextKeys, PowerCategories, PowerConsumptionContextKeys
 
+# The components of a server: they are neither a server nor shared on the chassis.
+# The fans are not one of them: they belong to the chassis, cooling all its servers.
+SERVER_COMPONENTS = [PowerCategories.MEMORY, PowerCategories.ACCELERATORS]
+
+
+def chassis_components(bench) -> list[str]:
+    """Return the BMC power categories of <bench> the chassis graph plots."""
+    # Not all components are available on every system
+    available = bench.get_component(MonitoringContextKeys.PowerConsumption, PowerConsumptionContextKeys.BMC)
+    return [
+        component
+        for component in PowerCategories.list()
+        if component in available and component not in SERVER_COMPONENTS
+    ]
+
 
 def graph_chassis(args, bench_name, output_dir) -> int:
     """Graph chassis vs sum of the servers"""
@@ -45,14 +60,8 @@ def graph_chassis(args, bench_name, output_dir) -> int:
     for sample in range(0, bench.get_samples_count()):
         time = sample * bench.get_time_interval()
         time_serie.append(time)
-        # Collect all components mean value
-        for component in PowerCategories.list():
-            # Not all components are available on every system
-            if component not in bench.get_component(
-                MonitoringContextKeys.PowerConsumption, PowerConsumptionContextKeys.BMC
-            ):
-                continue
-
+        # Collect the mean value of the components the chassis graph plots
+        for component in chassis_components(bench):
             if str(component) not in sum_serie:
                 sum_serie[str(component)] = []
                 sum_serie_in_chassis[str(component)] = []
