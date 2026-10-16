@@ -20,6 +20,14 @@ from hwbench.utils import helpers as h
 
 from .ilorest import ILOREST, Ilorest, IlorestServerclone
 
+# The components the iLO can meter: the flag of the Power resource saying it does,
+# and the name of their power in the samples of its power meters.
+METERED_COMPONENTS = {
+    str(PowerCat.MEMORY): ("HasDimmPowerMetering", "DimmWatts"),
+    str(PowerCat.FANS): ("HasFanPowerMetering", "FanWatts"),
+    str(PowerCat.ACCELERATORS): ("HasGpuPowerMetering", "GpuWatts"),
+}
+
 
 class ILO(BMC):
     def __init__(self, out_dir: pathlib.Path, vendor: Vendor, ilo: ILOREST):
@@ -146,10 +154,10 @@ class ILO(BMC):
         # If server is not in a chassis, the default parsing is good
         # That's the case for regular ProLiant servers
         if not oem_chassis:
-            return super().read_power_consumption(power_consumption)
+            super().read_power_consumption(power_consumption)
 
         # But for multi-server chassis, ...
-        if "HPE Apollo2000 Gen10+" in oem_chassis["Name"]:
+        elif "HPE Apollo2000 Gen10+" in oem_chassis["Name"]:
             # On Apollo2000, the generic PowerConsumedWatts is fact SERVERINCHASSIS
             server_in_chassis = str(PowerCat.SERVERINCHASSIS)
             if server_in_chassis not in power_consumption.BMC:
@@ -167,6 +175,44 @@ class ILO(BMC):
             if chassis not in power_consumption.BMC:
                 power_consumption.BMC[chassis] = Power(chassis)
             power_consumption.BMC[chassis].add(oem_chassis["Oem"]["Hpe"]["ChassisPowerWatts"])
+
+        self.read_metered_components(power_consumption)
+        return power_consumption
+
+    @cache
+    def get_metered_components(self) -> tuple[str, dict[str, str]]:
+        """Return the url of the power meter, and the components it meters with their sample key.
+
+        The power meter sampling every 10 seconds is used, as the monitoring aggregates every 10 seconds.
+        """
+        oem = self.get_power().get("Oem", {}).get("Hpe", {})
+        components = {name: key for name, (flag, key) in METERED_COMPONENTS.items() if oem.get(flag)}
+        url = oem.get("Links", {}).get("FastPowerMeter", {}).get("@odata.id", "")
+        if not url:
+            return "", {}
+        return url, components
+
+    def get_oem_power_meter(self) -> dict:
+        url, components = self.get_metered_components()
+        if not components:
+            return {}
+        return self.get_redfish_url(url) or {}
+
+    def read_metered_components(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
+        """Add the power of the components the iLO meters, from the last sample of its power meter."""
+        _, components = self.get_metered_components()
+        samples = self.get_oem_power_meter().get("PowerDetail") or []
+        if not samples:
+            return power_consumption
+        # The samples are sorted by time, the last one is the latest
+        sample = samples[-1]
+        for name, key in components.items():
+            # A component the iLO says to meter may still report no value
+            if sample.get(key) is None:
+                continue
+            if name not in power_consumption.BMC:
+                power_consumption.BMC[name] = Power(name)
+            power_consumption.BMC[name].add(sample[key])
         return power_consumption
 
     @cache

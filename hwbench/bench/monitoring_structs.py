@@ -141,6 +141,11 @@ class PowerCategories(Enum):
     SERVERINCHASSIS = "ServerInChassis"
     SERVER = "Server"
     PDU = "Pdu"
+    # Components metered by the BMC of a server: its memory, and the fans of the chassis cooling it
+    MEMORY = "Memory"
+    FANS = "Fans"
+    # All the accelerators, as a whole: not named after a GPU, so the graphs of each GPU do not take it for one
+    ACCELERATORS = "Accelerators"
 
     def __str__(self) -> str:
         return str(self.value)
