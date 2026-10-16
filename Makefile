@@ -2,7 +2,7 @@ all:
 
 .PHONY: update_deps update_lock sync_deps clean check check_ci bundle format
 
-SOURCES = hwbench csv graph
+SOURCES = hwbench csv graph tools
 
 RUFF_VERSION = 0.14.3
 
