@@ -1,0 +1,46 @@
+{
+  "PowerControl": [
+    {
+      "Name": "Server",
+      "PowerConsumedWatts": 375.0
+    },
+    {
+      "Name": "System Power Control",
+      "PowerConsumedWatts": 376.0
+    },
+    {
+      "Name": "Processor0 Power Control",
+      "PowerConsumedWatts": 81.6
+    },
+    {
+      "Name": "Processor1 Power Control",
+      "PowerConsumedWatts": 81.7
+    },
+    {
+      "Name": "Processors Power Control",
+      "PowerConsumedWatts": 163.4
+    },
+    {
+      "Name": "Memory0 Power Control",
+      "PowerConsumedWatts": 3.45
+    },
+    {
+      "Name": "Memory1 Power Control",
+      "PowerConsumedWatts": 3.32
+    },
+    {
+      "Name": "Memories Power Control",
+      "PowerConsumedWatts": 6.77
+    }
+  ],
+  "PowerSupplies": [
+    {
+      "Name": "PSU1",
+      "PowerInputWatts": 187.5
+    },
+    {
+      "Name": "PSU2",
+      "PowerInputWatts": 187.5
+    }
+  ]
+}
