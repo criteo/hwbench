@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to coding agents, like Claude Code, when working with code in this repository.
 
 ## What this is
 
@@ -100,4 +100,4 @@ Key subsystems under `hwbench/`:
 - Each job has `# engine <name>: see documentation/<engine>.md#<section>` above `engine=`.
 - A contextualized comment above each `selected_cpus`, `*_scaling` and `stressor_*` line says what it does in this job, with a link to the exact section: `# <what it does here>: see documentation/<page>.md#<section>`.
 - Do not write directives that only repeat their default value, except `selected_*` and `*_scaling` in a GPU job file: they say what the job loads.
-- The name says what the file does (`curve-cpu.conf`, `curve-numa.conf`); update README.md, CLAUDE.md and the docs when renaming one.
+- The name says what the file does (`curve-cpu.conf`, `curve-numa.conf`); update README.md, AGENTS.md and the docs when renaming one.
