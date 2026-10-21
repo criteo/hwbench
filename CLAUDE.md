@@ -63,8 +63,6 @@ Key subsystems under `hwbench/`:
 - New engines and vendors are wired by **name-based dynamic import** / list registration (above) — there is no decorator registry; match the existing module shape exactly.
 - Sample job configs live in `configs/*.conf`. `documentation/` has `concepts.md`, `configuration.md` (the unique reference of the job file keywords), `cpu-selection.md`, `engines.md`, one page per engine (`stressng.md`, `fio.md`, `pantheon.md`, `spike.md`, `sleep.md`), `monitoring.md`, `hwgraph.md` and its three graph pages (`hwgraph-environment.md`, `hwgraph-scaling.md`, `hwgraph-versus.md`), with the reference dataset of their images in `documentation/example/` (`render.sh` regenerates `documentation/img/`).
 - Ruff: line-length 120, `E501`/`ISC001` ignored, `target-version = py39` (so the codebase uses `from __future__ import annotations`). mypy ignores missing imports for `pyudev`.
-</content>
-</invoke>
 - Reuse hwbench's own sources of truth (`HELPERS`, `SCALINGS`, `get_valid_keywords()`, the CPU topology methods…) instead of duplicating a list, a format or some logic.
 - CI (`.github/workflows/python-check.yml`) runs `make check_ci bundle` on **every commit**, without stress-ng installed: mock `list_module_parameters` in tests. When the history is rewritten, replay the checks per commit; fix an earlier commit with `git commit --fixup` + autosquash.
 
