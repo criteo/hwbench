@@ -1,6 +1,6 @@
 import pytest
 
-from graph.trace import Bench, gpu_description
+from graph.trace import Bench, Trace, gpu_description
 from hwbench.bench.monitoring_structs import MonitoringContextKeys
 
 
@@ -84,3 +84,27 @@ def test_incomplete_ram(ram, expected, capsys):
     cpu = bench.load_monitoring()[MonitoringContextKeys.PowerConsumption]["CPU"]
     assert sorted(cpu) == expected
     assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize(
+    ("serial", "nodename", "expected"),
+    [
+        ("CZ2D2N08V8", "host01", "CZ2D2N08V8"),
+        (None, "host01", "host01"),
+        ("  ", "host01", "host01"),
+    ],
+)
+def test_default_logical_name(serial, nodename, expected):
+    """A trace given without logical_name is named after the server serial, or its hostname without one."""
+    trace = Trace.__new__(Trace)
+    trace.trace = {"hardware": {"dmi": {"serial": serial}}, "environment": {"kernel": {"nodename": nodename}}}
+    assert trace.default_logical_name() == expected
+
+
+def test_default_logical_name_missing():
+    """Without serial number nor hostname, the trace must be given a logical_name."""
+    trace = Trace.__new__(Trace)
+    trace.filename = "results.json"
+    trace.trace = {"hardware": {"dmi": {"serial": None}}, "environment": {}}
+    with pytest.raises(SystemExit):
+        trace.default_logical_name()

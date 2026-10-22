@@ -137,7 +137,7 @@ three parts are mandatory, even when `logical_name` is empty.
 | Part | Value | Effect |
 |---|---|---|
 | `json_filename` | a path | the `results.json` of hwbench |
-| [`logical_name`](#logical_name) | text, or empty | how the trace is named in the graphs and the output tree |
+| [`logical_name`](#logical_name) | text, or empty for the serial number of the server | how the trace is named in the graphs and the output tree |
 | [`power_metric`](#power_metric) | a `<component>.<measure>` name | the power consumption metric of the "watts" and "performance per watt" graphs |
 
 A value that does not follow this syntax is rejected with
@@ -149,8 +149,11 @@ readable with `<file> is not a valid file` or `<file> is not a valid JSON file`.
 | Value | Effect |
 |---|---|
 | `<name>` | the name of the trace, like `baseline` |
-| empty, like `results.json::BMC.Server` | the serial number of the server |
+| empty, like `results.json::BMC.Server` | the serial number of the server, as hwbench read it in the DMI (`hardware.dmi.serial` of `results.json`); its hostname (`environment.kernel.nodename`) when the DMI gives none |
 | `CPU` | the model of the processor, with the number of sockets when there are several, like `1 x AMD EPYC 8534P 64-Core`; it must be unique over all the traces |
+
+A trace without serial number nor hostname must be given a name: hwgraph stops with
+`<file>: no serial number nor hostname to name the trace, please give a logical_name`.
 
 The name becomes a directory of the [output tree](#output-tree), so keep it short and
 without spaces. Two traces with the same name stop hwgraph with
