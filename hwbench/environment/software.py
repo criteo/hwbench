@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import pathlib
 
@@ -10,6 +11,11 @@ from .base import BaseEnvironment
 from .packages import RpmList
 
 
+def kernel_config_files() -> list[pathlib.Path]:
+    """The files holding the build configuration of the running kernel, by preference."""
+    return [pathlib.Path("/proc/config.gz"), pathlib.Path(f"/boot/config-{os.uname().release}")]
+
+
 class Environment(BaseEnvironment):
     def __init__(self, out_dir: pathlib.Path):
         self.out_dir = out_dir
@@ -17,7 +23,7 @@ class Environment(BaseEnvironment):
         (self.out_dir / "kernel-info.json").write_text(json.dumps(self.kernel_version()))
         (self.out_dir / "cmdline").write_bytes(self.kernel_cmdline())
 
-        copy_file("/proc/config.gz", str(self.out_dir))
+        self.kernel_config()
 
         self.memory = KernelMemoryInfo()
         self.memory.detect()
@@ -26,6 +32,18 @@ class Environment(BaseEnvironment):
         self.rpms.run()
         self.proc_sys_info()
         self.kernel_logs()
+
+    def kernel_config(self):
+        """Keep the kernel build configuration: /proc/config.gz when the kernel exposes it,
+        otherwise the /boot/config-<release> installed with the kernel."""
+        for config in kernel_config_files():
+            if config.is_file():
+                copy_file(str(config), str(self.out_dir))
+                return
+        logging.warning(
+            "Cannot find the kernel configuration in %s, ignoring",
+            " or ".join(str(config) for config in kernel_config_files()),
+        )
 
     def dump(self):
         return {
