@@ -4,7 +4,12 @@ import pathlib
 import tarfile
 from unittest.mock import patch
 
-from hwbench.utils.archive import RESULTS_FILE, create_output_archive, extract_results_from_archive
+from hwbench.utils.archive import (
+    RESULTS_FILE,
+    archive_output_directory,
+    create_output_archive,
+    extract_results_from_archive,
+)
 
 
 def make_output_directory(tmp_path: pathlib.Path) -> pathlib.Path:
@@ -28,6 +33,7 @@ def test_archive_name_and_content(tmp_path):
             "hwbench-out-20261022100000/tuning/hwbench-tuning.log",
         ]
     assert extract_results_from_archive(str(archive)) == b'{"bench": {}}'
+    assert archive_output_directory(str(archive)) == "hwbench-out-20261022100000"
 
 
 def test_archive_sanitized_serial(tmp_path):
@@ -45,3 +51,4 @@ def test_archive_without_results(tmp_path):
     (out_dir / RESULTS_FILE).rename(out_dir / "tuning" / RESULTS_FILE)
     archive = create_output_archive(out_dir, "serial", "1")
     assert extract_results_from_archive(str(archive)) is None
+    assert archive_output_directory(str(archive)) is None

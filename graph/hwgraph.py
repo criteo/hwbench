@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import os
 import pathlib
 import pickle
@@ -20,6 +21,7 @@ from hwbench.bench.monitoring_structs import (
 )
 
 try:
+    from graph.auto_traces import AUTO_TRACES_FILE, find_auto_traces, print_contexts
     from graph.chassis import graph_chassis
     from graph.common import fatal
     from graph.graph import (
@@ -363,16 +365,50 @@ def valid_events(event_arg: str) -> Event:
 
 
 def list_metrics_in_trace(args: argparse.Namespace):
-    """List power metrics of a trace file"""
-    Trace(args.trace).list_power_metrics()
+    """List power metrics of a trace file, or the contexts of the traces of a directory"""
+    if args.contexts:
+        print_contexts(pathlib.Path(args.contexts))
+    else:
+        Trace(args.trace).list_power_metrics()
     sys.exit(0)
 
 
+def write_cmdline(output_dir: pathlib.Path):
+    """Save the actual cmdline in the output directory so it's easier to regenerate graph"""
+    # Do not expose the actual hwbench path like /home/user/hwbench/...
+    argv = ["hwgraph", *sys.argv[1:]]
+    # Keep quotes from the argument list with shlex
+    output_dir.joinpath("cmdline").write_text(" ".join(shlex.quote(arg) for arg in argv))
+
+
 def render_traces(args: argparse.Namespace):
-    """Render the trace files passed in arguments"""
+    """Render the trace files passed in arguments, or each context found by --auto-traces"""
     init_matplotlib(args)
-    output_dir = pathlib.Path(args.outdir)
+    if not args.auto_traces:
+        render_trace_set(args, pathlib.Path(args.outdir))
+        return
+
+    # The traces of each context are rendered in a subdirectory named after it, so the
+    # renderings of several contexts can share the same --outdir
+    for index, auto_traces in enumerate(args.auto_traces, start=1):
+        context_args = copy.copy(args)
+        output_dir = pathlib.Path(args.outdir, auto_traces.output_directory_name())
+        # A banner on the console separates the rendering of each context
+        banner = f"Context {index}/{len(args.auto_traces)}: {auto_traces.context}"
+        print(f"\n{'=' * 80}\n{banner}\n{'=' * 80}")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        # The traces found are listed on the console and in the output directory
+        description = auto_traces.description()
+        print("\n".join(description))
+        output_dir.joinpath(AUTO_TRACES_FILE).write_text("\n".join(description) + "\n")
+        context_args.traces = auto_traces.traces
+        render_trace_set(context_args, output_dir)
+
+
+def render_trace_set(args: argparse.Namespace, output_dir: pathlib.Path):
+    """Render the traces of args.traces in output_dir"""
     output_dir.mkdir(parents=True, exist_ok=True)
+    write_cmdline(output_dir)
 
     # The context of the runs, given to hwbench with --context, gets its own line in the
     # header of every graph, under the line naming the benchmark: see context_header()
@@ -774,7 +810,8 @@ def main():
     subparsers = parser.add_subparsers(help="hwgraph sub-commands")
 
     parser_graph = subparsers.add_parser("graph", help="Generate graphs from trace files")
-    parser_graph.add_argument(
+    traces_group = parser_graph.add_mutually_exclusive_group(required=True)
+    traces_group.add_argument(
         "--traces",
         type=valid_trace_file,
         nargs="+",
@@ -787,7 +824,20 @@ logical_name   : a name to represent the trace in the graph
 power_metric   : the name of a power metric, from the monitoring, to be used for 'watts' and 'perf per watt' graphs; for example CPU.package or BMC.ServerInChassis.
                  In order to know exeactly what metric names you can use for a given trace, use the "list" toplevel subcommand.
 """,
-        required=True,
+    )
+    traces_group.add_argument(
+        "--auto-traces",
+        type=find_auto_traces,
+        help="""Use the traces of a context, found in a directory.
+Syntax: <directory>:<context>:<power_metric>
+directory    : where the results.json and the hwbench-<serial>-<timestamp>.tar.xz archives are looked for, recursively
+context      : the context given to hwbench with --context, or empty (<directory>::<power_metric>) to render every context;
+               the traces are named after their server, which must appear once in a context
+power_metric : the power metric of every trace, as for --traces
+The graphs of each context are rendered in a subdirectory of --outdir named after it, in ASCII, '_' replacing the spaces and the other characters.
+The traces used are listed on the console and in its auto_traces.txt.
+Use "hwgraph list --contexts <directory>" to list the contexts of a directory.
+""",
     )
     parser_graph.add_argument("--no-env", help="Disable environmental graphs", action="store_false")
     parser_graph.add_argument("--no-scaling", help="Disable 'Performance scaling' graphs", action="store_false")
@@ -821,7 +871,10 @@ duration     : duration of the event (in seconds)
         choices=["pgf", "svg", "agg", "cairo"],
         default="cairo",
     )
-    parser_graph.add_argument("--outdir", help="Name of the output directory", required=True)
+    parser_graph.add_argument(
+        "--outdir",
+        help="Name of the output directory, mandatory with --traces; with --auto-traces, its directory by default",
+    )
     parser_graph.add_argument(
         "--same-chassis",
         help="All traces are from the same chassis",
@@ -853,28 +906,43 @@ duration     : duration of the event (in seconds)
     )
     parser_graph.set_defaults(func=render_traces)
 
-    parser_list = subparsers.add_parser("list", help="list monitoring metrics from a trace file")
-    parser_list.add_argument(
+    parser_list = subparsers.add_parser(
+        "list",
+        help="list monitoring metrics from a trace file, or the contexts of the traces of a directory",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    list_group = parser_list.add_mutually_exclusive_group(required=True)
+    list_group.add_argument(
         "--trace",
         type=str,
         metavar="TRACE_FILENAME",
         help="""List power metrics of a trace file: a results.json, or a hwbench-<serial>-<timestamp>.tar.xz archive.""",
-        required=True,
+    )
+    list_group.add_argument(
+        "--contexts",
+        metavar="DIRECTORY",
+        help="""List the contexts of the traces found in a directory, with their traces.
+Example: hwgraph list --contexts runs
+  Contexts found in runs:
+  bios-v1: 1 trace
+    SRV01  runs/hwbench-out-20261022110000/results.json
+  bios-v2: 2 traces
+    SRV01  runs/hwbench-SRV01-20261022120000.tar.xz
+    SRV02  runs/other/hwbench-out-20261022121000/results.json
+  1 trace without context
+""",
     )
     parser_list.set_defaults(func=list_metrics_in_trace)
 
     args = parser.parse_args(args=None if len(sys.argv) > 1 else ["--help"])
+    # The traces found by --auto-traces are rendered next to them by default
+    if args.func is render_traces and not args.outdir:
+        if not args.auto_traces:
+            parser_graph.error("the following arguments are required with --traces: --outdir")
+        args.outdir = str(args.auto_traces[0].directory)
 
     # Call the appropriate sub command
     args.func(args)
-
-    # Save the actual cmdline so it's easier to regenerate graph
-    # Do not expose the actual hwbench path like /home/user/hwbench/...
-    sys.argv[0] = "hwgraph"
-    # Keep quotes from the argument list with shlex
-    pathlib.Path(pathlib.Path(args.outdir).joinpath("cmdline")).write_text(
-        " ".join(shlex.quote(arg) for arg in sys.argv)
-    )
 
 
 if __name__ == "__main__":

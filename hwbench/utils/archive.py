@@ -60,16 +60,31 @@ def create_output_archive(out_dir: pathlib.Path, serial: str | None, timestamp: 
     return archive
 
 
+def _results_member(tarfd: tarfile.TarFile) -> tarfile.TarInfo | None:
+    """the results.json at the top of the output directory an archive holds."""
+    for member in tarfd.getmembers():
+        if member.isfile() and pathlib.PurePosixPath(member.name).parts[1:] == (RESULTS_FILE,):
+            return member
+    return None
+
+
 def extract_results_from_archive(archive: str) -> bytes | None:
     """return the results.json of an archive made by create_output_archive(),
     or None if there is none."""
     # may raise tarfile.ReadError if archive is not a tar file
     with tarfile.open(archive, "r") as tarfd:
-        for member in tarfd.getmembers():
-            if member.isfile() and pathlib.PurePosixPath(member.name).parts[1:] == (RESULTS_FILE,):
-                file = tarfd.extractfile(member)
-                return file.read() if file else None
-    return None
+        member = _results_member(tarfd)
+        file = tarfd.extractfile(member) if member else None
+        return file.read() if file else None
+
+
+def archive_output_directory(archive: str) -> str | None:
+    """return the name of the output directory an archive made by create_output_archive()
+    holds, or None if it holds no results.json."""
+    # may raise tarfile.ReadError if archive is not a tar file
+    with tarfile.open(archive, "r") as tarfd:
+        member = _results_member(tarfd)
+        return pathlib.PurePosixPath(member.name).parts[0] if member else None
 
 
 def copy_file(filename: str, destination_dir: str) -> None:
