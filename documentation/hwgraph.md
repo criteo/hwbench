@@ -26,13 +26,14 @@ comparable), [monitoring.md](monitoring.md) (where the environment metrics come 
 [cpu-selection.md](cpu-selection.md) (the pinned cores that hwgraph reports).
 
 # Concept
-hwgraph works on **traces**: a trace is a `results.json` file, given a name and the power
+hwgraph works on **traces**: a trace is a `results.json` file, or the
+`hwbench-<serial>-<timestamp>.tar.xz` archive of the whole output directory, given a name and the power
 metric to use for the "watts" and "performance per watt" graphs. It never runs a benchmark
 and needs no root access.
 
 Because it only reads files, hwgraph is meant to **stay compatible over time**: as it
 evolves, the traces recorded earlier can be graphed again, and benefit from the new graphs.
-Keep the `results.json` of your runs: they are the reference, the graphs can always be
+Keep the archives (or at least the `results.json`) of your runs: they are the reference, the graphs can always be
 regenerated from them, and the `cmdline` file written in the output directory gives the
 command line to do it again. What a trace does not contain is skipped, not an error:
 
@@ -86,7 +87,10 @@ Without any argument, `uv run hwgraph` prints its help.
 
 ## Listing the power metrics: `list`
 The [`power_metric`](#power_metric) of a trace must be one of the power consumption metrics
-of its monitoring: `list` prints them.
+of its monitoring: `list` prints them. `--trace` takes the file alone, without the
+`logical_name` and `power_metric` parts of the [trace syntax](#trace-files): the `results.json`
+of hwbench, or the `hwbench-<serial>-<timestamp>.tar.xz` archive of its output directory,
+whose `results.json` is read without extracting the archive.
 
 ```bash
 uv run hwgraph list --trace documentation/example/traces/numa.json
@@ -131,18 +135,19 @@ line it was run with in `<outdir>/cmdline`, to regenerate the graphs later.
 > final graphs.
 
 # Trace files
-Each trace is given with the syntax `<json_filename>:<logical_name>:<power_metric>`; the
+Each trace is given with the syntax `<trace_filename>:<logical_name>:<power_metric>`; the
 three parts are mandatory, even when `logical_name` is empty.
 
 | Part | Value | Effect |
 |---|---|---|
-| `json_filename` | a path | the `results.json` of hwbench |
+| `trace_filename` | a path | the `results.json` of hwbench, or the `hwbench-<serial>-<timestamp>.tar.xz` archive of its output directory: the `results.json` at the top of the archive is read, without extracting it |
 | [`logical_name`](#logical_name) | text, or empty for the serial number of the server | how the trace is named in the graphs and the output tree |
 | [`power_metric`](#power_metric) | a `<component>.<measure>` name | the power consumption metric of the "watts" and "performance per watt" graphs |
 
 A value that does not follow this syntax is rejected with
-`<value> does not match 'filename:logical_name:power_metric' syntax`, and a file that is not
-readable with `<file> is not a valid file` or `<file> is not a valid JSON file`.
+`<value> does not match 'trace_filename:logical_name:power_metric' syntax`, and a file that is not
+readable with `<trace_filename> is not a valid file` or `<trace_filename> is not a valid JSON file`, and an archive
+without a `results.json` with `<trace_filename> does not contain a results.json`.
 
 ## logical_name
 
@@ -153,11 +158,11 @@ readable with `<file> is not a valid file` or `<file> is not a valid JSON file`.
 | `CPU` | the model of the processor, with the number of sockets when there are several, like `1 x AMD EPYC 8534P 64-Core`; it must be unique over all the traces |
 
 A trace without serial number nor hostname must be given a name: hwgraph stops with
-`<file>: no serial number nor hostname to name the trace, please give a logical_name`.
+`<trace_filename>: no serial number nor hostname to name the trace, please give a logical_name`.
 
 The name becomes a directory of the [output tree](#output-tree), so keep it short and
 without spaces. Two traces with the same name stop hwgraph with
-`<file> is using '<name>' as logical_name while it's already in use`.
+`<trace_filename> is using '<name>' as logical_name while it's already in use`.
 
 ## power_metric
 The name of a power consumption metric, as printed by [`list`](#listing-the-power-metrics-list),
@@ -189,7 +194,7 @@ follow the question of the study.
 The first trace is the **reference**: the comparisons are expressed relative to it. To be
 compared, the traces must come from the **same job file**: hwgraph compares the `config`
 section of each `results.json` to the first one, and stops with
-`<file> is not having the same configuration file as previous traces` when they differ.
+`<trace_filename> is not having the same configuration file as previous traces` when they differ.
 
 The number of benchmarks may differ: as explained in [concepts.md](concepts.md), hwgraph
 groups the benchmarks by their `job_name`, so a machine with fewer cores, which expanded the
@@ -324,7 +329,8 @@ Fatal: <trace>/<benchmark>: <metric> is missing the 4th data point. Use --ignore
   `--jobs` workers, or sequentially with 1. The arguments are pickled once and given to each
   worker by `_init_pool_worker()`. A task that raises an exception prints `Error generating graph`
   and the others go on; a `fatal()` (`Fatal: …`) stops hwgraph with the status 1.
-- **Traces**: `graph/trace.py`. `Trace` loads a `results.json` and checks its power
+- **Traces**: `graph/trace.py`. `Trace` loads a `results.json`, from an archive through
+  `extract_results_from_archive()` of `hwbench/utils/archive.py`, and checks its power
   metric (`validate()`); `Bench` is one benchmark with its monitoring metrics
   (`load_monitoring()`) and `add_perf()` extracts the performance, the power, the clock and the IPC
   of a benchmark. `Event` holds `--events`.

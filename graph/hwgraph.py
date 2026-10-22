@@ -318,7 +318,9 @@ def valid_trace_file(trace_arg: str) -> Trace:
 
     match = re.search(r"(?P<filename>.*):(?P<logical_name>.*):(?P<power_metric>.*)", trace_arg)
     if not match:
-        raise argparse.ArgumentTypeError(f"{trace_arg} does not match 'filename:logical_name:power_metric' syntax")
+        raise argparse.ArgumentTypeError(
+            f"{trace_arg} does not match 'trace_filename:logical_name:power_metric' syntax"
+        )
 
     try:
         trace = Trace(
@@ -771,13 +773,13 @@ def main():
         type=valid_trace_file,
         nargs="+",
         help="""List of benchmarks to compare.
-Syntax: <json_filename>:<logical_name>:<power_metric>
-json_file    : a results.json output file from hwbench
-logical_name : a name to represent the trace in the graph
-               if omitted, it will be replaced by the system serial number
-               'CPU' magic keyword implicit the use of CPU model as logical_name but must be unique over all trace files.
-power_metric : the name of a power metric, from the monitoring, to be used for 'watts' and 'perf per watt' graphs; for example CPU.package or BMC.ServerInChassis.
-               In order to know exeactly what metric names you can use for a given trace, use the "list" toplevel subcommand.
+Syntax: <trace_filename>:<logical_name>:<power_metric>
+trace_filename : a results.json output file from hwbench, or the hwbench-<serial>-<timestamp>.tar.xz archive
+logical_name   : a name to represent the trace in the graph
+                 if omitted, it will be replaced by the system serial number
+                 'CPU' magic keyword implicit the use of CPU model as logical_name but must be unique over all trace files.
+power_metric   : the name of a power metric, from the monitoring, to be used for 'watts' and 'perf per watt' graphs; for example CPU.package or BMC.ServerInChassis.
+                 In order to know exeactly what metric names you can use for a given trace, use the "list" toplevel subcommand.
 """,
         required=True,
     )
@@ -849,7 +851,8 @@ duration     : duration of the event (in seconds)
     parser_list.add_argument(
         "--trace",
         type=str,
-        help="""List power metrics of a trace file.""",
+        metavar="TRACE_FILENAME",
+        help="""List power metrics of a trace file: a results.json, or a hwbench-<serial>-<timestamp>.tar.xz archive.""",
         required=True,
     )
     parser_list.set_defaults(func=list_metrics_in_trace)

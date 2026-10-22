@@ -57,7 +57,7 @@ Key subsystems under `hwbench/`:
 
 `tools/redfish_dump.py` is a script out of the package, like `csv/convert.py`: it records the Redfish urls the BMC driver reads on the target machine, anonymized, as the fixtures of `hwbench/environment/tests/vendors/<vendor>/<model>/` (`sudo uv run tools/redfish_dump.py -m monitoring.cfg -o <dir>`).
 
-`graph/` is a separate package (`hwgraph.py` entry) that reads result trace files (`filename:logical_name:power_metric` syntax) and renders/compares them; it imports shared structs from `hwbench.bench.monitoring_structs`.
+`graph/` is a separate package (`hwgraph.py` entry) that reads result trace files (`trace_filename:logical_name:power_metric` syntax, a `results.json` or a `hwbench-<serial>-<timestamp>.tar.xz` archive) and renders/compares them; it imports shared structs from `hwbench.bench.monitoring_structs`.
 
 ## Conventions
 
