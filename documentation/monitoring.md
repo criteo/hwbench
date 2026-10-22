@@ -359,10 +359,8 @@ The following metrics are collected on the target machine:
 | instructions per cycle | `IPC` | per core | IPC | yes |
 | core busy time | `Busy%` | per core | % | not yet |
 | time stamp counter frequency | `TSC_MHz` | per core | MHz | not yet |
-| time in the C1 idle state | `C1%` | per core | % | not yet |
-| time in the C2 idle state | `C2%` | per core | % | not yet |
 
-The last four metrics are read from turbostat, but not stored in the results yet.
+The last two metrics are read from turbostat, but not stored in the results yet.
 
 > ℹ️ **Info**
 >

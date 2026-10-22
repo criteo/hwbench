@@ -27,8 +27,6 @@ class CPUSTATS(Enum):
     BUSY_MHZ = "Bzy_MHz"
     TSC_MHZ = "TSC_MHz"
     IPC = "IPC"
-    C1_PERCENT = "C1%"
-    C2_PERCENT = "C2%"
     CORE_WATTS = "CorWatt"
     PACKAGE_WATTS = "PkgWatt"
 
@@ -49,8 +47,6 @@ class Turbostat:
             CPUSTATS.BUSY_MHZ,
             CPUSTATS.TSC_MHZ,
             CPUSTATS.IPC,
-            CPUSTATS.C1_PERCENT,
-            CPUSTATS.C2_PERCENT,
             CPUSTATS.CORE_WATTS,
             CPUSTATS.PACKAGE_WATTS,
         }
@@ -101,6 +97,10 @@ class Turbostat:
         if current_version < self.min_release:
             fatal(f"Monitoring/turbostat: minimal expected release is {self.min_release}")
 
+    def show(self) -> str:
+        """The columns requested to turbostat."""
+        return ",".join(str(sensor) for sensor in CPUSTATS)
+
     def has(self, metric) -> bool:
         """Return if turbostat has a given metric"""
         return str(metric) in self.header.split()
@@ -143,13 +143,7 @@ class Turbostat:
             "1",
             "--show",
         ]
-        sensors = ""
-        for sensor in CPUSTATS:
-            if not sensors:
-                sensors += f"{sensor}"
-            else:
-                sensors += f",{sensor}"
-        cmd_line.append(sensors)
+        cmd_line.append(self.show())
 
         self.process = subprocess.Popen(
             cmd_line,
@@ -340,8 +334,7 @@ class Turbostat:
             "--show",
         ]
 
-        sensors = ",".join(str(sensor) for sensor in CPUSTATS)
-        cmd_line.append(sensors)
+        cmd_line.append(self.show())
 
         logging.info("Starting turbostat in background mode with EOL-triggered sampling")
 
