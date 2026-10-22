@@ -1,15 +1,29 @@
 #!/bin/bash
-# Script to capture real turbostat output and update the test file
+# Script to capture real turbostat output as a test file of the parsing
+# Usage: update_turbostat_test.sh [name]
+# The file is hwbench/tests/parsing/turbostat/<name>, by default named after the
+# CPU model (e.g. intel_core_ultra_7_165u): every file of the directory is parsed
+# by hwbench/environment/test_turbostat.py. The "run" file is also the turbostat
+# output of the benchmarks tests: refresh it with "update_turbostat_test.sh run".
+
+model=$(grep -m1 "^model name" /proc/cpuinfo | cut -d: -f2 | sed -e 's/([^)]*)//g' -e 's/ CPU\b//' -e 's/@.*//' -e 's/Processor//')
+name=${1:-$(echo "$model" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9]\+/_/g' -e 's/^_//' -e 's/_$//')}
+testfile="hwbench/tests/parsing/turbostat/$name"
 
 echo "Capturing turbostat output..."
-echo "This requires root privileges."
+# turbostat needs root: use sudo only when not already root
+sudo=""
+if [ "$EUID" -ne 0 ]; then
+    echo "turbostat requires root privileges, running it with sudo."
+    sudo="sudo"
+fi
 
 # Run turbostat and capture output to a temporary file
 tmpfile=$(mktemp)
-sudo turbostat --quiet --cpu core --debug --num_iterations 1 > "$tmpfile" 2>&1
+$sudo env LC_ALL=C turbostat --quiet --cpu core --debug --num_iterations 1 > "$tmpfile" 2>&1
 
 if [ $? -ne 0 ]; then
-    echo "Error running turbostat. Make sure you have root privileges."
+    echo "Error running turbostat:"
     cat "$tmpfile"
     rm -f "$tmpfile"
     exit 1
@@ -42,10 +56,10 @@ for i, line in enumerate(lines):
 python_list += "            ]"
 
 # Write to test file
-with open('hwbench/tests/parsing/turbostat/run', 'w') as f:
+with open('$testfile', 'w') as f:
     f.write(python_list + "\n")
 
-print(f"Successfully updated hwbench/tests/parsing/turbostat/run with {len(lines)} lines")
+print(f"Successfully updated $testfile with {len(lines)} lines")
 print("\nFirst few lines:")
 for line in lines[:3]:
     print(f"  {line}")
@@ -56,4 +70,4 @@ rm -f "$tmpfile"
 
 echo ""
 echo "Done! You can now run the tests to verify:"
-echo "  uv run pytest hwbench/bench/test_benchmarks.py -v"
+echo "  uv run pytest hwbench/environment/test_turbostat.py hwbench/bench -v"

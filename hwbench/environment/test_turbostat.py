@@ -5,6 +5,8 @@ import logging
 import pathlib
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from hwbench.bench.monitoring_structs import MonitoringContexts
 from hwbench.environment.turbostat import Turbostat, ram_metered
 
@@ -25,9 +27,35 @@ def make_turbostat(outputs: list[list[str]], ram: bool = True) -> tuple[Turbosta
         return Turbostat(MagicMock(), MonitoringContexts()), shows
 
 
-def turbostat_output() -> list[str]:
-    with open("hwbench/tests/parsing/turbostat/run") as f:
-        return ast.literal_eval(f.read())
+FIXTURES = pathlib.Path("hwbench/tests/parsing/turbostat")
+
+
+def turbostat_output(fixture: str = "run") -> list[str]:
+    return ast.literal_eval((FIXTURES / fixture).read_text())
+
+
+@pytest.mark.parametrize("fixture", sorted(file.name for file in FIXTURES.iterdir() if file.suffix != ".sh"))
+def test_parse_fixture(fixture):
+    """Every turbostat output captured by update_turbostat_test.sh is parsed, whatever its columns."""
+    output = turbostat_output(fixture)
+    header_idx = next(index for index, line in enumerate(output) if line.startswith("usec\t"))
+    header = output[header_idx].split()
+    cores = [line.split()[header.index("CPU")] for line in output[header_idx + 2 :]]
+
+    turbostat, _ = make_turbostat([output])
+    assert turbostat.get_cores_count() == len(cores)
+    turbostat.parse_sample(output)
+    contexts = turbostat.monitoring_contexts
+    if "Bzy_MHz" in header:
+        assert all(contexts.Freq.CPU[f"Core_{core}"].get_values() for core in cores)
+    assert ("package" in contexts.PowerConsumption.CPU) == ("PkgWatt" in header)
+    if "PkgWatt" in header:
+        # reported on the first cpu of each package, summed over the packages
+        position = header.index("PkgWatt")
+        rows = [line.split() for line in output[header_idx + 2 :]]
+        packages = [float(row[position]) for row in rows if len(row) > position]
+        assert contexts.PowerConsumption.CPU["package"].get_values() == [pytest.approx(sum(packages))]
+    assert ("Ram" in contexts.PowerConsumption.CPU) == ("RAMWatt" in header)
 
 
 def test_columns_requested():
