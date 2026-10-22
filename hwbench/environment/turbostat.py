@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import pathlib
 import re
 import subprocess
 import threading
@@ -11,12 +12,14 @@ from enum import Enum
 
 from packaging.version import Version
 
-from hwbench.bench.monitoring_structs import MonitoringContexts, MonitorMetric
+from hwbench.bench.monitoring_structs import CPU_RAM, MonitoringContexts, MonitorMetric
 from hwbench.environment.hardware import BaseHardware
 from hwbench.utils.helpers import fatal, is_binary_available
 
 CORE = "core"
 PACKAGE = "package"
+POWER_EVENTS = pathlib.Path("/sys/bus/event_source/devices/power/events")
+POWERCAP = pathlib.Path("/sys/class/powercap")
 
 
 class CPUSTATS(Enum):
@@ -29,10 +32,30 @@ class CPUSTATS(Enum):
     IPC = "IPC"
     CORE_WATTS = "CorWatt"
     PACKAGE_WATTS = "PkgWatt"
+    RAM_WATTS = "RAMWatt"
 
     def __str__(self) -> str:
         """Returns the field name."""
         return self.value
+
+
+def ram_metered(power_events: pathlib.Path = POWER_EVENTS, powercap: pathlib.Path = POWERCAP) -> bool:
+    """Return if the kernel exposes the energy counter of the memory, as a perf event or a powercap domain.
+
+    turbostat shows RAMWatt on some processors not metering their memory, like an Intel Core
+    Ultra 7 165U, and reports 0 Watts there.
+    """
+    if (power_events / "energy-ram").is_file():
+        return True
+    for name in powercap.glob("*/name"):
+        with suppress(OSError):
+            if name.read_text().strip() == "dram":
+                return True
+    return False
+
+
+# Columns hwbench can do without: a processor may not report them
+OPTIONAL_STATS = [CPUSTATS.RAM_WATTS]
 
 
 class Turbostat:
@@ -49,7 +72,10 @@ class Turbostat:
             CPUSTATS.IPC,
             CPUSTATS.CORE_WATTS,
             CPUSTATS.PACKAGE_WATTS,
+            CPUSTATS.RAM_WATTS,
         }
+        ram_watts = [str(CPUSTATS.RAM_WATTS)] if ram_metered() else []
+        self.optional_columns = ram_watts
         self.min_release = Version("2022.04.16")
         self.header = ""
         self.monitoring_contexts = monitoring_contexts
@@ -99,7 +125,7 @@ class Turbostat:
 
     def show(self) -> str:
         """The columns requested to turbostat."""
-        return ",".join(str(sensor) for sensor in CPUSTATS)
+        return ",".join([str(sensor) for sensor in CPUSTATS if sensor not in OPTIONAL_STATS] + self.optional_columns)
 
     def has(self, metric) -> bool:
         """Return if turbostat has a given metric"""
@@ -185,6 +211,14 @@ class Turbostat:
     def pre_run(self):
         # Run a quick turbostat sample to detect system capabilities
         output = self.run(wait=True, interval=0.01)
+        if not output and self.optional_columns:
+            # A turbostat refusing a column prints nothing: retry without the optional ones
+            logging.warning(
+                "Monitoring/turbostat: no output with the optional columns %s, retrying without them",
+                ",".join(self.optional_columns),
+            )
+            self.optional_columns = []
+            output = self.run(wait=True, interval=0.01)
         if not output:
             fatal("Failed to get turbostat output during initialization")
 
@@ -207,6 +241,9 @@ class Turbostat:
         else:
             # Initialize package power metric
             self.monitoring_contexts.PowerConsumption.CPU[PACKAGE] = MonitorMetric(PACKAGE, "Watts")
+        # The memory power is only reported by the processors metering their DRAM
+        if self.has(CPUSTATS.RAM_WATTS):
+            self.monitoring_contexts.PowerConsumption.CPU[CPU_RAM] = MonitorMetric(CPU_RAM, "Watts")
         for cores in range(self.get_cores_count()):
             # If we have CoreWatt, let's report them
             if self.has(CPUSTATS.CORE_WATTS):
@@ -229,6 +266,8 @@ class Turbostat:
         # Initialize package power metric if available
         if self.has(CPUSTATS.PACKAGE_WATTS):
             self.monitoring_contexts.PowerConsumption.CPU[PACKAGE] = MonitorMetric(PACKAGE, "Watts")
+        if self.has(CPUSTATS.RAM_WATTS):
+            self.monitoring_contexts.PowerConsumption.CPU[CPU_RAM] = MonitorMetric(CPU_RAM, "Watts")
 
         # Initialize per-core metrics
         for cores in range(self.get_cores_count()):
@@ -240,8 +279,11 @@ class Turbostat:
                 self.monitoring_contexts.IPC.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "IPC")
             self.monitoring_contexts.Freq.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Mhz")
 
-    def _get_global_packages_power(self) -> float:
-        """Return the summarized packages power from current output."""
+    def _get_global_packages_power(self, stat: CPUSTATS = CPUSTATS.PACKAGE_WATTS) -> float:
+        """Return the summarized packages power from current output.
+
+        turbostat reports a package power, like PkgWatt or RAMWatt, on the first cpu of each package.
+        """
         assert self.__output is not None, "Output must be set before calling _get_global_packages_power"
         package_power = []
         header_idx = self.__find_header_index(self.__output)
@@ -249,7 +291,7 @@ class Turbostat:
         for line in self.__output[header_idx + 2 :]:
             items = line.split()
             try:
-                pkg_pos = self.__get_field_position(CPUSTATS.PACKAGE_WATTS)
+                pkg_pos = self.__get_field_position(stat)
                 pkg_value = items[pkg_pos]
                 package_power.append(float(pkg_value))
             except (IndexError, ValueError):
@@ -461,6 +503,10 @@ class Turbostat:
         # Collect overall package power consumption
         if self.has(CPUSTATS.PACKAGE_WATTS):
             self.monitoring_contexts.PowerConsumption.CPU[PACKAGE].add(self._get_global_packages_power())
+        if self.has(CPUSTATS.RAM_WATTS):
+            self.monitoring_contexts.PowerConsumption.CPU[CPU_RAM].add(
+                self._get_global_packages_power(CPUSTATS.RAM_WATTS)
+            )
 
         # Extract per-core information
         cpu_pos = self.__get_field_position(CPUSTATS.CPU)

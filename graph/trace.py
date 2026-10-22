@@ -13,6 +13,7 @@ from graph.common import fatal
 from hwbench.bench.engine import Resource
 from hwbench.bench.monitoring_structs import (
     CORE_FAMILY,
+    CPU_RAM,
     GPU_FAMILY,
     FreqContextKeys,
     IPCContextKeys,
@@ -22,6 +23,7 @@ from hwbench.bench.monitoring_structs import (
     MonitoringMetadataKeys,
     MonitorMetric,
     Power,
+    PowerConsumptionContextKeys,
     PowerSuppliesContextKeys,
     Temperature,
     gpu_component_name,
@@ -299,7 +301,17 @@ class Bench:
                             self.metrics[metric][component_family][measure] = mm
                 else:
                     fatal(f"Unexpected {metric} in monitoring")
+        self.drop_incomplete_ram()
         return self.metrics
+
+    def drop_incomplete_ram(self):
+        """The memory power is optional: a benchmark missing some of its samples is silently
+        graphed without it, instead of stopping every graph it would be drawn in."""
+        cpu = self.metrics.get(MonitoringContextKeys.PowerConsumption, {}).get(PowerConsumptionContextKeys.CPU, {})
+        samples_count = self.metrics.get(MonitoringMetadataKeys.samples_count)
+        if CPU_RAM not in cpu or samples_count is None or len(cpu[CPU_RAM].get_mean()) >= samples_count:
+            return
+        del cpu[CPU_RAM]
 
     def get_monitoring_metric(self, metric: MonitoringContextKeys) -> dict[str, dict[str, MonitorMetric]]:
         """Return one monitoring metric."""

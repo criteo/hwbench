@@ -239,6 +239,11 @@ GPU_FAMILY = "GPU"
 # (Freq.CPU holds Core_<n>): the two namespaces only coincide for the GPUs.
 CORE_FAMILY = "Core"
 
+# Component of the memory power the processors metering their DRAM report, next
+# to their package power (PowerConsumption.CPU): optional, written by turbostat
+# and read by hwgraph.
+CPU_RAM = "Ram"
+
 
 def gpu_component_name(index: int | str) -> str:
     """Monitoring component name of an accelerator.

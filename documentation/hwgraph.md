@@ -42,6 +42,7 @@ command line to do it again. What a trace does not contain is skipped, not an er
 | no NUMA topology | skips the NUMA graphs: `no NUMA metric present in trace file, skipping` |
 | no IPC metric | skips the IPC graphs and columns |
 | no per-worker detail from stress-ng | skips the per-worker distributions, and shows `-` as the CoV |
+| no memory power `CPU.Ram`, or missing some of its samples | graphs without it, silently: the memory power is optional |
 
 > ℹ️ **Info**
 >
@@ -102,7 +103,8 @@ BMC.Server
 ```
 
 The names are the component followed by the measure: `CPU.package` is the power of the
-processor package reported by turbostat, `BMC.Server` the power of the server reported by
+processor package reported by turbostat, `CPU.Ram` the power of the memory when the
+processor meters it, `BMC.Server` the power of the server reported by
 its BMC. Which ones exist depends on the target machine and on its
 [BMC driver](monitoring.md#bmc): on a server of a multi-node chassis, the BMC also gives
 `BMC.ServerInChassis`, `BMC.Infrastructure` and `BMC.Chassis`.
