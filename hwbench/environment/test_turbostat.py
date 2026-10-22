@@ -105,3 +105,20 @@ def test_without_ram_watts():
     turbostat.parse_sample(output)
     assert "Ram" not in turbostat.monitoring_contexts.PowerConsumption.CPU
     assert turbostat.monitoring_contexts.PowerConsumption.CPU["package"].get_values() == [150.0]
+
+
+def test_core_metrics_named_after_cpu():
+    """With --cpu core, the CPU column is the first logical cpu of each core: cpu0/cpu1 hyperthreads give 0, 2."""
+    output = [
+        "usec\tCore\tCPU\tBzy_MHz\tIPC\tCorWatt\tPkgWatt",
+        "-\t-\t-\t2000\t1.00\t2.00\t10.00",
+        "10\t0\t0\t2000\t1.00\t1.00\t10.00",
+        "10\t1\t2\t2000\t1.00\t1.00",
+    ]
+    turbostat, _ = make_turbostat([output])
+    turbostat.parse_sample(output)
+    contexts = turbostat.monitoring_contexts
+    for context in (contexts.Freq, contexts.IPC):
+        assert sorted(context.CPU) == ["Core_0", "Core_2"]
+        assert all(metric.get_values() for metric in context.CPU.values())
+    assert sorted(contexts.PowerConsumption.CPU) == ["Core_0", "Core_2", "package"]
