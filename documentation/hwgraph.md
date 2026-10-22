@@ -82,7 +82,7 @@ hwgraph has two sub-commands:
 | Sub-command | Effect |
 |---|---|
 | `graph` | renders the graphs and the reports of one or several traces |
-| `list` | lists the power metrics of a trace |
+| `list` | lists the power metrics of a trace, or the [contexts](#context-of-the-runs) of the traces of a directory |
 
 Without any argument, `uv run hwgraph` prints its help.
 
@@ -115,7 +115,7 @@ its BMC. Which ones exist depends on the target machine and on its
 `BMC.ServerInChassis`, `BMC.Infrastructure` and `BMC.Chassis`.
 
 ## Rendering the graphs: `graph`
-`--traces` and `--outdir` are mandatory:
+`--traces` and `--outdir`, or [`--auto-traces`](#context-of-the-runs), are mandatory:
 
 ```bash
 uv run hwgraph graph \
@@ -218,12 +218,63 @@ hwgraph adds the context on a dedicated line of the header of every graph and re
 the line naming the benchmark: `Context: <context>` when all the traces share it, or
 `Contexts: <logical_name>: <context>, …` when they differ.
 
+`list --contexts <directory>` prints the contexts of the traces found in a directory, with the
+server and the file of each trace:
+
+```bash
+uv run hwgraph list --contexts runs
+```
+
+```
+Contexts found in runs:
+bios-v1: 1 trace
+  SRV01  runs/hwbench-out-20261022110000/results.json
+bios-v2: 2 traces
+  SRV01  runs/hwbench-SRV01-20261022120000.tar.xz
+  SRV02  runs/other/hwbench-out-20261022121000/results.json
+1 trace without context
+```
+
+`graph --auto-traces <directory>:<context>:<power_metric>` replaces `--traces` with the traces
+of a context, which is convenient after a series of runs:
+
+```bash
+uv run hwgraph graph --auto-traces runs:bios-v2:BMC.Server
+```
+
+| Rule | Effect |
+|---|---|
+| where | the `results.json` and the `hwbench-<serial>-<timestamp>.tar.xz` archives of the directory and of its subdirectories |
+| an archive next to its output directory | the same run: only the archive is used |
+| a file that is not a trace of hwbench | ignored: `auto-traces: ignoring <file>: not a trace of hwbench` |
+| the context | the exact text given to hwbench; it runs from the first to the last `:`, so it can hold a `:`; quote the value when it holds a space: `--auto-traces "runs:bios tuning:BMC.Server"` |
+| an empty context: `<directory>::<power_metric>` | every context of the directory is rendered, one after the other, each in its own output directory; the traces without context are not rendered |
+| the name of each trace | its [server](#logical_name), as with an empty `logical_name` |
+| a server found several times in the context | stops hwgraph: `<serial> is found <n> times with the context '<context>': <files>` |
+| no trace in the context | stops hwgraph: `no trace with the context '<context>' in <directory>, contexts found: <contexts>` |
+| two contexts giving the same output directory | stops hwgraph: `the contexts '<context>', '<context>' are all rendered in the directory <name>` |
+| the output directory | `<outdir>/<context>/`, `<outdir>` being the directory of the traces when `--outdir` is not given; the context is written in ASCII: accents removed, `_` replacing the spaces and the other characters, so `bios tuning` renders in `runs/bios_tuning/` |
+
+The renderings of several contexts can then share the same `--outdir`.
+Each context starts with a banner on the console, then the traces used, also written in
+`auto_traces.txt` of the output directory:
+
+```
+================================================================================
+Context 1/1: bios-v2
+================================================================================
+Traces of the context 'bios-v2' found in runs:
+SRV01  runs/hwbench-SRV01-20261022120000.tar.xz
+SRV02  runs/other/hwbench-out-20261022121000/results.json
+```
+
 # Options
 
 | Option | Value | Effect |
 |---|---|---|
-| `--traces` | one or several [traces](#trace-files) | mandatory |
-| `--outdir` | a directory | mandatory: where the [output tree](#output-tree) is written, created when it does not exist |
+| `--traces` | one or several [traces](#trace-files) | mandatory, unless `--auto-traces` is given |
+| `--auto-traces` | `<directory>:<context>:<power_metric>` | [the traces of a context](#context-of-the-runs), found in a directory, instead of `--traces` |
+| `--outdir` | a directory | where the [output tree](#output-tree) is written, created when it does not exist; mandatory with `--traces`, the directory of the traces by default with `--auto-traces`, which renders in [a subdirectory named after the context](#context-of-the-runs) |
 | `--no-env` | flag | does not render the [environment graphs](hwgraph-environment.md) |
 | `--no-scaling` | flag | does not render the [scaling graphs](hwgraph-scaling.md) |
 | `--no-versus` | flag | does not render the [max versus graphs](hwgraph-versus.md#max-versus) and the [comparison reports](hwgraph-versus.md#traces-comparison-reports) |
@@ -282,11 +333,12 @@ uv run hwgraph graph \
 > [max versus](hwgraph-versus.md) have no event.
 
 # Output tree
-Everything is written under `--outdir`:
+Everything is written under `--outdir`, or under `<outdir>/<context>/` with [`--auto-traces`](#context-of-the-runs):
 
 ```
 <outdir>/
 ├── cmdline                       the command line of this rendering
+├── auto_traces.txt               with --auto-traces: the traces used
 ├── environment/
 │   ├── by_host/
 │   │   └── <logical_name>/
@@ -350,6 +402,10 @@ Fatal: <trace>/<benchmark>: <metric> is missing the 4th data point. Use --ignore
   of a benchmark. `Event` holds `--events`. `Trace.get_context()` reads the context of the run,
   and `context_line()` builds the header line of the contexts, kept in `args.context` and placed
   under the line naming the benchmark by `context_header()` of `graph/common.py`.
+- **Contexts**: `graph/auto_traces.py`. `find_trace_files()` looks for the traces of a directory,
+  `list_contexts()` groups them by context for `list --contexts`, and `find_auto_traces()`
+  resolves `--auto-traces` into one `AutoTraces` per context; `render_traces()` renders each with
+  `render_trace_set()`, in the subdirectory of `--outdir` named by `output_directory_name()`.
 - **Graphs**: `graph/graph.py`. `Graph` wraps a matplotlib figure and its legend;
   `generic_graph()` and `yerr_graph()` draw the time graphs, `numa_*` the NUMA ones.
 - **Environment**: `graph/chassis.py` (`graph_chassis()`) and `graph/group.py`

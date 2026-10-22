@@ -874,10 +874,14 @@ class Trace:
     def get_server_serial(self):
         return self.get_dmi()["serial"]
 
+    def server_name(self) -> str | None:
+        """The serial number of the server, or its hostname when the DMI does not give one."""
+        return (self.get_server_serial() or "").strip() or (self.get_kernel() or {}).get("nodename") or None
+
     def default_logical_name(self) -> str:
         """The name of a trace given without logical_name: the serial number of the server,
         or its hostname when the DMI does not give one."""
-        name = (self.get_server_serial() or "").strip() or (self.get_kernel() or {}).get("nodename")
+        name = self.server_name()
         if not name:
             fatal(f"{self.filename}: no serial number nor hostname to name the trace, please give a logical_name")
         return name

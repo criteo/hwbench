@@ -290,8 +290,9 @@ therefore run once in a context: two runs of the same server in the same context
 told apart, so running a server again, after fixing the test, takes a new context, like
 `bios-v2-retry`.
 
-hwgraph shows the context on a dedicated line of the header of every graph: see
-[hwgraph.md](hwgraph.md#context-of-the-runs).
+hwgraph shows the context on a dedicated line of the header of every graph, and
+`hwgraph graph --auto-traces` finds the runs of a context in a directory, which is handy after
+a series of runs: see [hwgraph.md](hwgraph.md#context-of-the-runs).
 
 ```bash
 uv run hwbench -j configs/curve-cpu.conf -m monitoring.cfg --context bios-v2
