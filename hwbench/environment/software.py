@@ -2,13 +2,14 @@ import json
 import logging
 import os
 import pathlib
+import shutil
 
 from hwbench.environment.memory import KernelMemoryInfo
 from hwbench.utils.archive import copy_file, create_tar_from_directory
 from hwbench.utils.external import External_Simple
 
 from .base import BaseEnvironment
-from .packages import RpmList
+from .packages import PACKAGE_LISTS
 
 
 def kernel_config_files() -> list[pathlib.Path]:
@@ -28,8 +29,7 @@ class Environment(BaseEnvironment):
         self.memory = KernelMemoryInfo()
         self.memory.detect()
 
-        self.rpms = RpmList(out_dir)
-        self.rpms.run()
+        self.package_lists()
         self.proc_sys_info()
         self.kernel_logs()
 
@@ -44,6 +44,18 @@ class Environment(BaseEnvironment):
             "Cannot find the kernel configuration in %s, ignoring",
             " or ".join(str(config) for config in kernel_config_files()),
         )
+
+    def package_lists(self):
+        """List the installed packages with every package manager present on the system."""
+        package_lists = [package_list(self.out_dir) for package_list in PACKAGE_LISTS]
+        found = [package_list for package_list in package_lists if shutil.which(package_list.run_cmd()[0])]
+        for package_list in found:
+            package_list.run()
+        if not found:
+            logging.warning(
+                "Cannot find %s, the installed packages are not listed",
+                " or ".join(package_list.run_cmd()[0] for package_list in package_lists),
+            )
 
     def dump(self):
         return {

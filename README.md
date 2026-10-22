@@ -90,7 +90,6 @@ You can install both of them on the server, but `hwgraph` requires some graphics
 - numactl
 - nvme-cli
 - python >= 3.12
-- rpm
 - turbostat >= 2022.04.16
 - util-linux >= 2.32
 
@@ -100,6 +99,7 @@ You can install both of them on the server, but `hwgraph` requires some graphics
 - ilorest (for HPE servers)
 - ipmitool
 - pantheon >= 1.2.0 (for GPU servers)
+- rpm or dpkg-query (apt), to list the installed packages
 - stress-ng >= 0.17.04
 
 ### Requirements to run hwgraph
