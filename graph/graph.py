@@ -10,7 +10,7 @@ from matplotlib.lines import Line2D
 from matplotlib.pylab import Axes
 from matplotlib.ticker import AutoMinorLocator, FuncFormatter, MultipleLocator
 
-from graph.common import fatal
+from graph.common import context_header, fatal
 from graph.trace import Bench, gpu_description
 from hwbench.bench.engine import Resource
 from hwbench.bench.monitoring_structs import CORE_FAMILY, MonitoringContextKeys, MonitorMetric
@@ -455,7 +455,7 @@ def numa_distance_heatmap(args, output_dir, trace) -> int:
 
     cpu = trace.get_cpu()
     dmi = trace.get_dmi()
-    title = f"NUMA distances of {trace.get_name()}\n{args.title}\n\n"
+    title = f"NUMA distances of {trace.get_name()}{context_header(args)}\n{args.title}\n\n"
     title += f"System: {dmi['serial']} {dmi['product']}"
     title += f"\nProcessor: {cpu.get('sockets', 1)}x {cpu['model']} - {cpu['numa_domains']} NUMA domains"
     graph = Graph(
@@ -602,7 +602,7 @@ def write_benchmarks_summary(args, output_dir, trace) -> int:
         *gpu_description(trace.get_gpus()),
     ]
     label_width = max(len(label) for label, _ in info)
-    lines = [f"Benchmarks summary - {trace.get_name()}", args.title or "", ""]
+    lines = [f"Benchmarks summary - {trace.get_name()}{context_header(args)}", args.title or "", ""]
     lines += [f"{label:<{label_width}} : {value}" for label, value in info]
 
     if numa_nodes:
@@ -673,7 +673,7 @@ def numa_distribution_graph(
     unit = bench.get_metric_unit(component_type)
 
     trace = bench.get_trace()
-    title = f'{item_title} per-NUMA-domain distribution during "{bench.get_bench_name()}" benchmark job\n{args.title}\n\n Stressor: '
+    title = f'{item_title} per-NUMA-domain distribution during "{bench.get_bench_name()}" benchmark job{context_header(args)}\n{args.title}\n\n Stressor: '
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
     title += f"\n{bench.get_system_title()}"
     graph_dir = output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{component_type!s}")
@@ -770,7 +770,7 @@ def numa_performance_heatmap(
     samples = matrix.shape[1]
 
     trace = bench.get_trace()
-    title = f'{item_title} during "{bench.get_bench_name()}" benchmark job\n{args.title}\n\n Stressor: '
+    title = f'{item_title} during "{bench.get_bench_name()}" benchmark job{context_header(args)}\n{args.title}\n\n Stressor: '
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
     title += f"\n{bench.get_system_title()}"
     graph_dir = output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{component_type!s}")
@@ -854,7 +854,7 @@ def component_distribution_graph(
     values = [float(np.mean(component.get_mean())) for component in components]
 
     trace = bench.get_trace()
-    title = f'{item_title} per-{item_name} distribution during "{bench.get_bench_name()}" benchmark job\n{args.title}\n\n Stressor: '
+    title = f'{item_title} per-{item_name} distribution during "{bench.get_bench_name()}" benchmark job{context_header(args)}\n{args.title}\n\n Stressor: '
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
     title += f"\n{bench.get_system_title()}"
     graph_dir = output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{component_type!s}")
@@ -939,7 +939,7 @@ def generic_graph(
     if not unit:
         raise Exception(f"Could not find unit for metric {item_title}")
 
-    title = f'{item_title} during "{bench.get_bench_name()}" benchmark job\n{args.title}\n\n Stressor: '
+    title = f'{item_title} during "{bench.get_bench_name()}" benchmark job{context_header(args)}\n{args.title}\n\n Stressor: '
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
     title += f"\n{bench.get_system_title()}"
     graph_dir = output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{component_type!s}")
@@ -1131,7 +1131,7 @@ def yerr_graph(
         )
         data_serie[MEAN].append(mean_value)
 
-    title = f'{prefix}{component.get_name()} during "{bench.get_bench_name()}" benchmark job\n\n Stressor: '
+    title = f'{prefix}{component.get_name()} during "{bench.get_bench_name()}" benchmark job{context_header(args)}\n\n Stressor: '
     title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
     title += f"\n{bench.get_system_title()}"
 

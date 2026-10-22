@@ -703,6 +703,17 @@ class Bench:
         return ""
 
 
+def context_line(traces: list) -> str | None:
+    """The line describing the context of the traces in the headers of the graphs:
+    the context they share, or the context of each trace; None when none has a context."""
+    contexts = {trace.get_name(): trace.get_context() for trace in traces if trace.get_context()}
+    if not contexts:
+        return None
+    if len(contexts) == len(traces) and len(set(contexts.values())) == 1:
+        return f"Context: {next(iter(contexts.values()))}"
+    return "Contexts: " + ", ".join(f"{name}: {context}" for name, context in contexts.items())
+
+
 class Trace:
     def __init__(
         self,
@@ -803,6 +814,11 @@ class Trace:
 
     def get_environment(self) -> dict:
         return self.trace["environment"]
+
+    def get_context(self) -> str | None:
+        """The context of the run, given to hwbench with --context; None for a trace without one."""
+        context = self.trace.get("context")
+        return context if isinstance(context, str) and context else None
 
     def get_dmi(self):
         return self.get_hardware().get("dmi")

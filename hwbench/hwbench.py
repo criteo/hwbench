@@ -149,7 +149,7 @@ def parse_options():
     parser.add_argument(
         "-c",
         "--context",
-        help="A short text describing the context of the run, like 'bios-v2' or 'new thermal paste': kept in results.json.",
+        help="A short text describing the context of the run, like 'bios-v2' or 'new thermal paste': kept in results.json and shown in the graphs of hwgraph.",
     )
     parser.add_argument(
         "--tuning",

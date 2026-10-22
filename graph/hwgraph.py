@@ -35,7 +35,7 @@ try:
     )
     from graph.group import graph_group_env
     from graph.scaling import performance_scaling_graph
-    from graph.trace import CPU_SCALING_UNIT, GPU_SCALING_UNIT, Event, ScalingUnit, Trace
+    from graph.trace import CPU_SCALING_UNIT, GPU_SCALING_UNIT, Event, ScalingUnit, Trace, context_line
     from graph.versus import (
         max_versus_graph,
         render_versus_scorecard,
@@ -373,6 +373,12 @@ def render_traces(args: argparse.Namespace):
     init_matplotlib(args)
     output_dir = pathlib.Path(args.outdir)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    # The context of the runs, given to hwbench with --context, gets its own line in the
+    # header of every graph, under the line naming the benchmark: see context_header()
+    args.context = context_line(args.traces)
+    if args.context:
+        print(args.context)
 
     compare_traces(args)
     generate_stats(args)
