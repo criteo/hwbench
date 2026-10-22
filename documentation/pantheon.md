@@ -238,9 +238,9 @@ the same rows in a spreadsheet, `results/<run>/time_series.csv` for its per samp
 
 # Graphing
 
-`hwgraph` still requires the power metric of its `--traces <file>:<name>:<power_metric>`
+`hwgraph` still requires the power metric of its `--traces <trace_filename>:<logical_name>:<power_metric>`
 argument to exist, so a GPU trace must be collected with `monitor=all`. Use `hwgraph list
---trace <file>` to see the available ones: `BMC.Server` is the usual choice, and
+--trace <trace_filename>` to see the available ones: `BMC.Server` is the usual choice, and
 `GPU.GPU_0` is also valid once the all-smi monitoring is active.
 
 The header of every graph describes the accelerators of the server next to its CPU, and

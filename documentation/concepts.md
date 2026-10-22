@@ -272,6 +272,13 @@ Everything lands in the output directory, and the identity part is embedded in
 later it still says which machine, which BIOS, which kernel and which tool versions
 produced those numbers.
 
+At the end of the run, hwbench also compresses the whole output directory, next to it, as
+`hwbench-<serial>-<timestamp>.tar.xz`: the serial number of the server (its hostname when the
+DMI does not give one) and the time hwbench started, the one of the default
+`hwbench-out-<timestamp>` directory name. The archive keeps the raw outputs, not only
+`results.json`, in a fraction of the size, and hwgraph reads it as a trace directly.
+`--no-archive` skips it.
+
 ## Comparing environments, not just machines
 
 This is what makes the second strong use of hwbench possible. Run the **same job file**

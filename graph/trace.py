@@ -5,6 +5,7 @@ import functools
 import importlib
 import json
 import pathlib
+import tarfile
 from enum import StrEnum
 from statistics import mean
 from typing import Any, Callable
@@ -28,6 +29,7 @@ from hwbench.bench.monitoring_structs import (
     Temperature,
     gpu_component_name,
 )
+from hwbench.utils.archive import extract_results_from_archive
 from hwbench.utils.helpers import cpu_list_to_range
 
 EVENTS = "events"
@@ -724,9 +726,17 @@ class Trace:
         if not pathlib.Path(self.filename).is_file():
             raise ValueError(f"{self.filename} is not a valid file")
 
+        # A compressed output directory of hwbench carries its results.json
+        if tarfile.is_tarfile(self.filename):
+            content = extract_results_from_archive(self.filename)
+            if content is None:
+                raise ValueError(f"{self.filename} does not contain a results.json")
+        else:
+            content = pathlib.Path(self.filename).read_bytes()
+
         # Can we load the input file as a valid json ?
         try:
-            self.trace = json.loads(pathlib.Path(self.filename).read_bytes())
+            self.trace = json.loads(content)
         except ValueError:
             raise ValueError(f"{self.filename} is not a valid JSON file")
 

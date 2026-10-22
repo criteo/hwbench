@@ -191,7 +191,7 @@ For each benchmark, `environment/by_chassis/chassis/` contains:
 # Per group
 `--same-group` plots a group of servers, like the machines of a same rack, together. Every
 trace must have the `BMC.Server` and the `CPU.package` power metrics, otherwise hwgraph stops with
-`group: missing '<metric>' monitoric metric in <file>`.
+`group: missing '<metric>' monitoric metric in <trace_filename>`.
 
 The graphs add up the samples of the traces by their position: the first sample of every server with
 the first sample of the others, and so on. The servers must therefore run the benchmark at the same

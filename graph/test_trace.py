@@ -2,6 +2,7 @@ import pytest
 
 from graph.trace import Bench, Trace, gpu_description
 from hwbench.bench.monitoring_structs import MonitoringContextKeys
+from hwbench.utils.archive import create_output_archive
 
 
 def b200(vbios: str = '"97.00.FA.00.02"', ecc: str = "Enabled", name: str = "NVIDIA B200") -> dict:
@@ -50,6 +51,20 @@ def test_mixed_models():
         ("GPU 0", "NVIDIA B200"),
         ("GPU 1", "NVIDIA H100"),
     ]
+
+
+def test_load_compressed_output_directory(tmp_path):
+    """A trace is read from the results.json of a compressed output directory of hwbench."""
+    out_dir = tmp_path / "hwbench-out-1"
+    out_dir.mkdir()
+    (out_dir / "results.json").write_text('{"bench": {}}')
+    archive = create_output_archive(out_dir, "serial", "1")
+    assert Trace(str(archive)).get_trace() == {"bench": {}}
+
+    (out_dir / "results.json").unlink()
+    archive = create_output_archive(out_dir, "serial", "2")
+    with pytest.raises(ValueError, match="does not contain a results.json"):
+        Trace(str(archive))
 
 
 class RamTrace:

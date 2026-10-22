@@ -18,6 +18,7 @@ from .environment import hardware as env_hw
 from .environment import software as env_soft
 from .tuning import setup as tuning_setup
 from .utils import helpers as h
+from .utils.archive import RESULTS_FILE, create_output_archive
 from .utils.hwlogging import init_logging
 
 
@@ -36,7 +37,8 @@ def main():
     if not is_root():
         h.fatal("hwbench is not running as effective uid 0.")
 
-    out_dir, tuning_out_dir = create_output_directory(args.output_directory)
+    timestamp = time.strftime("%Y%m%d%H%M%S")
+    out_dir, tuning_out_dir = create_output_directory(args.output_directory, timestamp)
 
     # configure logging
     init_logging(tuning_out_dir / "hwbench-tuning.log")
@@ -65,6 +67,10 @@ def main():
     out = format_output(env.dump(), hw.dump(), results, benches.jobs_config)
 
     write_output(out_dir, out)
+
+    if args.archive:
+        archive = create_output_archive(out_dir, out["hardware"]["dmi"]["serial"], timestamp)
+        print(f"Compressed output directory available at {archive!s}")
 
 
 def report_problems(problems: list[Exception]) -> bool:
@@ -103,8 +109,8 @@ def is_root():
     return os.geteuid() == 0
 
 
-def create_output_directory(directory) -> tuple[pathlib.Path, pathlib.Path]:
-    out_dir = pathlib.Path(directory or f"hwbench-out-{time.strftime('%Y%m%d%H%M%S')}")
+def create_output_directory(directory, timestamp: str) -> tuple[pathlib.Path, pathlib.Path]:
+    out_dir = pathlib.Path(directory or f"hwbench-out-{timestamp}")
     if out_dir.exists():
         h.fatal(f"Directory {out_dir} already exists, please give a non-existent directory.")
     out_dir.mkdir()
@@ -143,6 +149,12 @@ def parse_options():
         help="Enable or disable tuning: this is useful when you want to test the system as-is.",
     )
     parser.add_argument(
+        "--archive",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable or disable the compressed copy of the output directory, hwbench-<serial>-<timestamp>.tar.xz, written next to it.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         default=False,
@@ -168,7 +180,7 @@ def format_output(env, hw, results, config) -> dict[str, object]:
 
 
 def write_output(out_dir: pathlib.Path, out):
-    out_file = out_dir / "results.json"
+    out_file = out_dir / RESULTS_FILE
     print(f"Result file available at {out_file!s}")
     out_file.write_text(json.dumps(out))
 
