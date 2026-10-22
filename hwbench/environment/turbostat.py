@@ -62,6 +62,7 @@ class Turbostat:
     def __init__(self, hardware: BaseHardware, monitoring_contexts: MonitoringContexts):
         self.__output: list[str] | None = None
         self.cores_count = 0
+        self.core_cpus: list[str] = []
         self.sensor_list = {
             CPUSTATS.NODE,
             CPUSTATS.CORE,
@@ -230,6 +231,10 @@ class Turbostat:
         # cores_count should only count per-CPU lines, not the aggregated line
         data_lines = output[header_idx + 1 :]
         self.cores_count = len(data_lines) - 1  # Subtract 1 for the aggregated line
+        # With --cpu core, the CPU column is the first logical cpu of each core: not
+        # 0..cores_count-1 when the hyperthreads of a core are numbered next to each other
+        cpu_pos = self.__get_field_position(CPUSTATS.CPU)
+        self.core_cpus = [line.split()[cpu_pos] for line in data_lines[1:]]
         if not self.has(CPUSTATS.BUSY_MHZ):
             logging.warning(
                 "Busy MHz not supported by turbostat. Are you running in a VM? If not, then the CPU is probably not supported by the running kernel"
@@ -238,20 +243,7 @@ class Turbostat:
             logging.warning(
                 "Package watts not supported by turbostat. Are you running in a VM? If not, then the CPU is probably not supported by the running kernel"
             )
-        else:
-            # Initialize package power metric
-            self.monitoring_contexts.PowerConsumption.CPU[PACKAGE] = MonitorMetric(PACKAGE, "Watts")
-        # The memory power is only reported by the processors metering their DRAM
-        if self.has(CPUSTATS.RAM_WATTS):
-            self.monitoring_contexts.PowerConsumption.CPU[CPU_RAM] = MonitorMetric(CPU_RAM, "Watts")
-        for cores in range(self.get_cores_count()):
-            # If we have CoreWatt, let's report them
-            if self.has(CPUSTATS.CORE_WATTS):
-                self.monitoring_contexts.PowerConsumption.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Watts")
-            # If we have IPC, let's report them
-            if self.has(CPUSTATS.IPC):
-                self.monitoring_contexts.IPC.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "IPC")
-            self.monitoring_contexts.Freq.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Mhz")
+        self.reinitialize_metrics()
 
     def get_cores_count(self):
         return self.cores_count
@@ -266,18 +258,19 @@ class Turbostat:
         # Initialize package power metric if available
         if self.has(CPUSTATS.PACKAGE_WATTS):
             self.monitoring_contexts.PowerConsumption.CPU[PACKAGE] = MonitorMetric(PACKAGE, "Watts")
+        # The memory power is only reported by the processors metering their DRAM
         if self.has(CPUSTATS.RAM_WATTS):
             self.monitoring_contexts.PowerConsumption.CPU[CPU_RAM] = MonitorMetric(CPU_RAM, "Watts")
 
-        # Initialize per-core metrics
-        for cores in range(self.get_cores_count()):
+        # Initialize per-core metrics, named after the CPU column parse_sample() reads
+        for cpu in self.core_cpus:
             # If we have CoreWatt, let's report them
             if self.has(CPUSTATS.CORE_WATTS):
-                self.monitoring_contexts.PowerConsumption.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Watts")
+                self.monitoring_contexts.PowerConsumption.CPU[f"Core_{cpu}"] = MonitorMetric(f"Core_{cpu}", "Watts")
             # If we have IPC, let's report them
             if self.has(CPUSTATS.IPC):
-                self.monitoring_contexts.IPC.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "IPC")
-            self.monitoring_contexts.Freq.CPU[f"Core_{cores}"] = MonitorMetric(f"Core_{cores}", "Mhz")
+                self.monitoring_contexts.IPC.CPU[f"Core_{cpu}"] = MonitorMetric(f"Core_{cpu}", "IPC")
+            self.monitoring_contexts.Freq.CPU[f"Core_{cpu}"] = MonitorMetric(f"Core_{cpu}", "Mhz")
 
     def _get_global_packages_power(self, stat: CPUSTATS = CPUSTATS.PACKAGE_WATTS) -> float:
         """Return the summarized packages power from current output.
