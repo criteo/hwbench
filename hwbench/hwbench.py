@@ -46,6 +46,8 @@ def main():
     init_logging(tuning_out_dir / "hwbench-tuning.log")
 
     hwbench_config = config.Config(args.jobs_config)
+    # Saved first, so a run that fails can still be reproduced
+    hwbench_config.save(out_dir)
     benches = benchmarks.Benchmarks(out_dir, hwbench_config, verbose=args.verbose)
 
     problems = env_hw.check_requirements() + benches.check_requirements()

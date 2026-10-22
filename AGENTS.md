@@ -33,7 +33,7 @@ uv run hwgraph ...    # requires `uv sync --extra graph` (pulls pycairo/matplotl
 
 ## Architecture
 
-The flow in `hwbench/hwbench.py:main()`: parse args → check root → `config.Config(jobs_file)` → `Benchmarks(out_dir, config)` → check requirements → tune host → dump software + hardware environment → `set_hardware` on both config and benches → `parse_jobs_config()` (expands jobs into benchmarks) → `run()` → `dump()` → write `results.json` (`environment` + `hardware` + `bench` + `config`).
+The flow in `hwbench/hwbench.py:main()`: parse args → check root → `config.Config(jobs_file)` → `save()` copies it as `job_file.conf` in the out dir → `Benchmarks(out_dir, config)` → check requirements → tune host → dump software + hardware environment → `set_hardware` on both config and benches → `parse_jobs_config()` (expands jobs into benchmarks) → `run()` → `dump()` → write `results.json` (`environment` + `hardware` + `bench` + `config`).
 
 Key subsystems under `hwbench/`:
 

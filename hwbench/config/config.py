@@ -3,7 +3,9 @@ from __future__ import annotations
 import configparser
 import importlib
 import os
+import pathlib
 import re
+import shutil
 from typing import Any
 
 from hwbench.bench.engine import EngineBase, Resource
@@ -14,6 +16,9 @@ from . import config_helpers, config_syntax
 
 
 class Config:
+    # The copy of the job file given with -j, in the output directory
+    JOB_FILE = "job_file.conf"
+
     # Keywords renamed across versions: old name -> new name.
     # Kept so configuration files still using the old names get a clear
     # migration message instead of a generic "invalid keyword" error.
@@ -43,6 +48,14 @@ class Config:
         }
         self.jobs_config = configparser.RawConfigParser(default_section="global", defaults=default_parameters)
         self.jobs_config.read(self.jobs_file)
+
+    def save(self, out_dir: pathlib.Path) -> None:
+        """Copy the job file, as written, in the output directory, to run the same jobs again."""
+        out_file = out_dir.joinpath(self.JOB_FILE)
+        try:
+            shutil.copyfile(self.jobs_file, out_file)
+        except OSError as e:
+            h.fatal(f"Cannot save the job file '{self.jobs_file}' as '{out_file}': {e}")
 
     def to_dict(self) -> dict:
         output_dict = dict()
