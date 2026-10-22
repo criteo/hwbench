@@ -733,7 +733,7 @@ class Trace:
     def validate(self) -> None:
         # If no logical name was given, let's use the serial number as a default
         if not self.logical_name:
-            self.logical_name = self.get_server_serial()
+            self.logical_name = self.default_logical_name()
         elif self.logical_name == "CPU":
             # keyword CPU can be used to automatically use the CPU model as logical name
             self.logical_name = ""
@@ -847,6 +847,14 @@ class Trace:
 
     def get_server_serial(self):
         return self.get_dmi()["serial"]
+
+    def default_logical_name(self) -> str:
+        """The name of a trace given without logical_name: the serial number of the server,
+        or its hostname when the DMI does not give one."""
+        name = (self.get_server_serial() or "").strip() or (self.get_kernel() or {}).get("nodename")
+        if not name:
+            fatal(f"{self.filename}: no serial number nor hostname to name the trace, please give a logical_name")
+        return name
 
     def get_server_product(self):
         return self.get_dmi()["product"]
