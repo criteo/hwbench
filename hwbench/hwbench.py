@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import argparse
 import json
 import logging
@@ -50,6 +52,8 @@ def main():
     if report_problems(problems):
         return problems
 
+    if args.context and args.context.strip():
+        print(f"Startup: Context of the run: {args.context.strip()}")
     print("Startup: Tuning host")
     tuning_setup.Tuning(tuning_out_dir).apply(args.tuning)
     print("Startup: Dumping software environment")
@@ -64,7 +68,7 @@ def main():
     results = benches.run()
     benches.dump()
 
-    out = format_output(env.dump(), hw.dump(), results, benches.jobs_config)
+    out = format_output(env.dump(), hw.dump(), results, benches.jobs_config, args.context)
 
     write_output(out_dir, out)
 
@@ -143,6 +147,11 @@ def parse_options():
         help="Specify the directory used to put all results and collected information",
     )
     parser.add_argument(
+        "-c",
+        "--context",
+        help="A short text describing the context of the run, like 'bios-v2' or 'new thermal paste': kept in results.json.",
+    )
+    parser.add_argument(
         "--tuning",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -170,13 +179,17 @@ def parse_options():
     return parser.parse_args()
 
 
-def format_output(env, hw, results, config) -> dict[str, object]:
-    return {
+def format_output(env, hw, results, config, context: str | None = None) -> dict[str, object]:
+    out = {
         "environment": env,
         "hardware": hw,
         "bench": results,
         "config": config.to_dict(),
     }
+    # The context of the run is optional: only kept when given
+    if context and context.strip():
+        out["context"] = context.strip()
+    return out
 
 
 def write_output(out_dir: pathlib.Path, out):

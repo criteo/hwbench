@@ -279,6 +279,21 @@ DMI does not give one) and the time hwbench started, the one of the default
 `results.json`, in a fraction of the size, and hwgraph reads it as a trace directly.
 `--no-archive` skips it.
 
+What the machine cannot tell is why the run was made. `--context` (`-c`) tags the run with a
+short text, like `bios-v2` or `new thermal paste`: it is optional, and kept as `context` in
+`results.json`, but only when given.
+
+A context groups the runs of one or several servers tested for a same test, like the servers
+of a rack run after a BIOS update, all tagged `bios-v2`: it says why each run was made, and
+sorts the runs so that those of a test can be found again among the others. A server is
+therefore run once in a context: two runs of the same server in the same context could not be
+told apart, so running a server again, after fixing the test, takes a new context, like
+`bios-v2-retry`.
+
+```bash
+uv run hwbench -j configs/curve-cpu.conf -m monitoring.cfg --context bios-v2
+```
+
 ## Comparing environments, not just machines
 
 This is what makes the second strong use of hwbench possible. Run the **same job file**
