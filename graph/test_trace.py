@@ -1,4 +1,7 @@
-from graph.trace import gpu_description
+import pytest
+
+from graph.trace import Bench, gpu_description
+from hwbench.bench.monitoring_structs import MonitoringContextKeys
 
 
 def b200(vbios: str = '"97.00.FA.00.02"', ecc: str = "Enabled", name: str = "NVIDIA B200") -> dict:
@@ -47,3 +50,37 @@ def test_mixed_models():
         ("GPU 0", "NVIDIA B200"),
         ("GPU 1", "NVIDIA H100"),
     ]
+
+
+class RamTrace:
+    """A trace whose processor meters its memory, with the given samples of ram power."""
+
+    def __init__(self, ram: list[float]):
+        self.ram = ram
+
+    def get_trace(self) -> dict:
+        def power(name: str, values: list[float]) -> dict:
+            return {"name": name, "unit": "Watts", "mean": values, "min": values, "max": values}
+
+        cpu = {"package": power("package", [150.0, 160.0]), "Ram": power("Ram", self.ram)}
+        monitoring = {
+            "metadata": {"samples_count": 2, "iteration_time": 10},
+            "contexts": {"PowerConsumption": {"CPU": cpu}},
+        }
+        return {"bench": {"job_0": {"monitoring": monitoring}}}
+
+
+@pytest.mark.parametrize(
+    ("ram", "expected"),
+    [
+        ([20.0, 21.0], ["Ram", "package"]),
+        ([20.0], ["package"]),
+        ([], ["package"]),
+    ],
+)
+def test_incomplete_ram(ram, expected, capsys):
+    """The memory power is optional: missing samples silently drop it instead of stopping the graphs."""
+    bench = Bench(RamTrace(ram), "job_0")
+    cpu = bench.load_monitoring()[MonitoringContextKeys.PowerConsumption]["CPU"]
+    assert sorted(cpu) == expected
+    assert capsys.readouterr().out == ""

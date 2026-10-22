@@ -355,6 +355,7 @@ The following metrics are collected on the target machine:
 |---|---|---|---|---|
 | CPU power consumption | `PkgWatt` | all the packages, summed | Watts | yes |
 | core power consumption | `CorWatt` | per core | Watts | yes |
+| memory power consumption | `RAMWatt` | all the packages, summed | Watts | yes |
 | core frequency | `Bzy_MHz` | per core | MHz | yes |
 | instructions per cycle | `IPC` | per core | IPC | yes |
 | core busy time | `Busy%` | per core | % | not yet |
@@ -362,12 +363,20 @@ The following metrics are collected on the target machine:
 
 The last two metrics are read from turbostat, but not stored in the results yet.
 
+`RAMWatt` is optional: when turbostat prints nothing with it, hwbench warns with
+`Monitoring/turbostat: no output with the optional columns RAMWatt, retrying without them`
+and goes on without it. It is only requested when the kernel exposes the energy
+counter of the memory: an `energy-ram` event in `/sys/bus/event_source/devices/power/events/`,
+or a `dram` domain in `/sys/class/powercap/`. Some processors, like an Intel Core Ultra 7 165U,
+show `RAMWatt` without metering their memory, and turbostat reports 0 Watts there.
+
 > ℹ️ **Info**
 >
 > What is collected varies with the version of turbostat and the type of processor: a
 > metric is only collected when turbostat reports its column on the target machine. Some
-> processors do not report `CorWatt`, or not for all their cores, and a virtual machine
-> usually reports neither `Bzy_MHz` nor `PkgWatt`, which hwbench warns about at startup.
+> processors do not report `CorWatt`, or not for all their cores, only the processors
+> metering their memory report `RAMWatt`, and a virtual machine usually reports neither
+> `Bzy_MHz` nor `PkgWatt`, which hwbench warns about at startup.
 
 # all-smi
 [all-smi](https://github.com/lablup/all-smi) is how hwbench finds the accelerators, not only how it monitors them. It covers NVIDIA, AMD, Intel and Apple GPUs as well as Gaudi, TPU, Tenstorrent, Rebellions and Furiosa NPUs, which is why hwbench goes through it rather than through a vendor tool. It gives:
