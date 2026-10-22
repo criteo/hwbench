@@ -13,6 +13,7 @@ machines, or the runs of a same machine, with graphs and text reports.
   - [logical_name](#logical_name)
   - [power_metric](#power_metric)
   - [Comparing traces](#comparing-traces)
+  - [Context of the runs](#context-of-the-runs)
 - [Options](#options)
 - [Output tree](#output-tree)
 - [Graphs](#graphs)
@@ -204,6 +205,19 @@ Only the traces of the same benchmark names can be drawn together in the environ
 that overlay the traces ([chassis](hwgraph-environment.md#per-chassis) and [group](hwgraph-environment.md#per-group)): these graphs
 read the benchmark of every trace by its name.
 
+## Context of the runs
+hwbench keeps in `results.json` the context of a run given with
+[`--context`](concepts.md#a-result-is-a-measurement-in-a-context), like `bios-v2`. It is optional:
+the traces without context are graphed as before.
+
+A context is a tag grouping the runs of one or several servers tested for a same test: it says
+why the runs were made, and sorts them so that those of a test can be found again. A server is
+run once in a context: see [concepts.md](concepts.md#a-result-is-a-measurement-in-a-context).
+
+hwgraph adds the context on a dedicated line of the header of every graph and report, under
+the line naming the benchmark: `Context: <context>` when all the traces share it, or
+`Contexts: <logical_name>: <context>, …` when they differ.
+
 # Options
 
 | Option | Value | Effect |
@@ -214,7 +228,7 @@ read the benchmark of every trace by its name.
 | `--no-scaling` | flag | does not render the [scaling graphs](hwgraph-scaling.md) |
 | `--no-versus` | flag | does not render the [max versus graphs](hwgraph-versus.md#max-versus) and the [comparison reports](hwgraph-versus.md#traces-comparison-reports) |
 | `--no-stats` | flag | does not print the statistics, the maximum power seen in the traces |
-| `--title` | text, default empty | added in the title of the graphs |
+| `--title` | text, default empty | added in the title of the graphs; the [context](#context-of-the-runs) of the traces, when they have one, is on its own line |
 | `--format` | `svg` (default), `png` | the file format of the graphs |
 | `--engine` | `cairo` (default), `pgf`, `svg`, `agg` | the matplotlib backend used to draw the graphs |
 | `--dpi` | integer, default `72` | the resolution of the graphs |
@@ -333,7 +347,9 @@ Fatal: <trace>/<benchmark>: <metric> is missing the 4th data point. Use --ignore
   `extract_results_from_archive()` of `hwbench/utils/archive.py`, and checks its power
   metric (`validate()`); `Bench` is one benchmark with its monitoring metrics
   (`load_monitoring()`) and `add_perf()` extracts the performance, the power, the clock and the IPC
-  of a benchmark. `Event` holds `--events`.
+  of a benchmark. `Event` holds `--events`. `Trace.get_context()` reads the context of the run,
+  and `context_line()` builds the header line of the contexts, kept in `args.context` and placed
+  under the line naming the benchmark by `context_header()` of `graph/common.py`.
 - **Graphs**: `graph/graph.py`. `Graph` wraps a matplotlib figure and its legend;
   `generic_graph()` and `yerr_graph()` draw the time graphs, `numa_*` the NUMA ones.
 - **Environment**: `graph/chassis.py` (`graph_chassis()`) and `graph/group.py`

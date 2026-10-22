@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import pytest
 
-from graph.trace import Bench, Trace, gpu_description
+from graph.trace import Bench, Trace, context_line, gpu_description
 from hwbench.bench.monitoring_structs import MonitoringContextKeys
 from hwbench.utils.archive import create_output_archive
 
@@ -123,3 +125,21 @@ def test_default_logical_name_missing():
     trace.trace = {"hardware": {"dmi": {"serial": None}}, "environment": {}}
     with pytest.raises(SystemExit):
         trace.default_logical_name()
+
+
+def context_trace(name: str, context: str | None) -> Trace:
+    trace = Trace.__new__(Trace)
+    trace.logical_name = name
+    trace.trace = {"context": context} if context is not None else {}
+    return trace
+
+
+def test_context_line():
+    """The traces sharing a context give it once, different contexts give the context of each."""
+    assert context_line([context_trace("SRV01", "bios-v2"), context_trace("SRV02", "bios-v2")]) == "Context: bios-v2"
+    assert (
+        context_line([context_trace("SRV01", "bios-v1"), context_trace("SRV02", "bios-v2")])
+        == "Contexts: SRV01: bios-v1, SRV02: bios-v2"
+    )
+    assert context_line([context_trace("SRV01", "bios-v2"), context_trace("SRV02", None)]) == "Contexts: SRV01: bios-v2"
+    assert context_line([context_trace("SRV01", None), context_trace("SRV02", "")]) is None

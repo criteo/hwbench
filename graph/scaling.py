@@ -13,6 +13,7 @@ from matplotlib.offsetbox import AnchoredOffsetbox, HPacker, TextArea
 from matplotlib.patches import Patch
 from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 
+from graph.common import context_header
 from graph.graph import (
     GRAPH_TYPES,
     Graph,
@@ -104,7 +105,7 @@ def render_numa_delta_heatmaps(args, temp_outdir, job: str, emp: str) -> int:
                             # Signed delta: reference minus other.
                             matrix[row, col] = ref - oth
 
-                title = f'{args.title}\n\nPerformance scaling NUMA {dirname} delta via "{job}" benchmark job\n'
+                title = f'{args.title}\n\nPerformance scaling NUMA {dirname} delta via "{job}" benchmark job{context_header(args)}\n'
                 title += f"{unit} performance delta = ({reference.get_name()} (reference) - {other.get_name()})"
                 # Colour legend rendered as a caption below the graph (see below),
                 # with the "red" and "green" words drawn in their respective colour.
@@ -323,7 +324,7 @@ def render_scaling_distributions(args, temp_outdir, job: str, emp: str) -> int:
 
                 title = (
                     f"{args.title}\n\n{item_title} per-{family_unit.item_name} distribution scaling "
-                    f'via "{job}" benchmark job\n\n Stressor: '
+                    f'via "{job}" benchmark job{context_header(args)}\n\n Stressor: '
                 )
                 title += f"{benches[0].get_title_engine_name()} for {benches[0].duration()} seconds"
                 graph = Graph(
@@ -438,9 +439,7 @@ def render_scaling_perf_distributions(args, temp_outdir, job: str, emp: str) -> 
             data = series["data"]
             labels, xlabel = _scaling_step_labels(series["benches"], "Workers (scaling step)")
             clean_metric = metric_name.replace(" ", "_").replace("/", "")
-            title = (
-                f'{args.title}\n\nPerformance per worker distribution scaling via "{job}" benchmark job\n\n Stressor: '
-            )
+            title = f'{args.title}\n\nPerformance per worker distribution scaling via "{job}" benchmark job{context_header(args)}\n\n Stressor: '
             title += f"{benches[0].get_title_engine_name()} for {benches[0].duration()} seconds"
             # Rendered one trace at a time, so add the host info like the other
             # per-trace graphs (serial/product/bios/kernel + processor).
@@ -568,7 +567,7 @@ def render_scaling_linearity_deviation(args, temp_outdir, job: str, emp: str) ->
         for trace, rows, workers, deviation in perf_series:
             engine = rows[0].get_title_engine_name().replace(" ", "_")
             trace_slug = trace.get_name().replace(" ", "_").replace("/", "_")
-            title = f'{args.title}\n\n{perf} performance scaling linearity deviation via "{job}" benchmark job\n\n Stressor: '
+            title = f'{args.title}\n\n{perf} performance scaling linearity deviation via "{job}" benchmark job{context_header(args)}\n\n Stressor: '
             title += f"{rows[0].get_title_engine_name()} for {rows[0].duration()} seconds"
             # As the graphs are rendered one trace at a time, add the host info
             # (serial/product/bios/kernel + processor) like the other per-trace graphs.
@@ -945,7 +944,7 @@ def render_numa_scaling_ridgelines(args, temp_outdir, job: str, emp: str, has_ip
                         fontsize=8,
                     )
 
-                title = f'{args.title}\n\n{item_title} distribution scaling via "{job}" benchmark job\n\n Stressor: '
+                title = f'{args.title}\n\n{item_title} distribution scaling via "{job}" benchmark job{context_header(args)}\n\n Stressor: '
                 title += f"{benches[0].get_title_engine_name()} for {benches[0].duration()} seconds"
                 fig.suptitle(title, fontsize=11, y=1 - _RIDGELINE_SUPTITLE_INSET / fig_height)
                 if note:
@@ -1214,7 +1213,7 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                     if dir_suffix:
                         outdir = outdir.joinpath(dir_suffix)
 
-                    title = f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job\n\n Stressor: '
+                    title = f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job{context_header(args)}\n\n Stressor: '
                     title += f"{bench.get_title_engine_name()} for {bench.duration()} seconds"
                     scaling_unit = bench.scaling_unit()
                     xlabel = scaling_unit.axis_label
