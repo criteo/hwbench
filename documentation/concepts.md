@@ -272,6 +272,14 @@ Everything lands in the output directory, and the identity part is embedded in
 later it still says which machine, which BIOS, which kernel and which tool versions
 produced those numbers.
 
+The job file given with `-j` is copied as is, comments included, as `job_file.conf` in the
+output directory, as soon as hwbench starts: even a run that fails keeps the jobs it was
+given, and running the same jobs again, on another server, takes that file:
+
+```bash
+uv run hwbench -j hwbench-out-<timestamp>/job_file.conf -m monitoring.cfg
+```
+
 At the end of the run, hwbench also compresses the whole output directory, next to it, as
 `hwbench-<serial>-<timestamp>.tar.xz`: the serial number of the server (its hostname when the
 DMI does not give one) and the time hwbench started, the one of the default
@@ -350,6 +358,7 @@ Knowing which word applies to which artifact saves time when reading a result:
 | Artifact | Granularity |
 |---|---|
 | the job file (`-j`) | one section per **job** |
+| `job_file.conf` | the job file, copied as is: one section per **job** |
 | `expanded_job_file.conf` | one section per **benchmark** |
 | `results.json`, `bench` key | one entry per **benchmark**, keyed `<job>_<number>` |
 | the engine output files | one set per **benchmark** |
