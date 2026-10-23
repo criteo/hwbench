@@ -15,7 +15,7 @@ path = pathlib.Path("")
 
 class TestDell6420(TestDell):
     def __init__(self, *args, **kwargs):
-        super().__init__(Dell("", None, "tests/mocked_monitoring.cfg"), *args, **kwargs)
+        super().__init__(Dell("", None, "tests/mocked_environment.cfg"), *args, **kwargs)
         self.path = "tests/vendors/Dell/C6420/"
 
     def test_thermal(self):

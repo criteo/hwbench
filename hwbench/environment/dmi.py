@@ -26,6 +26,16 @@ class DmiSys:
     def extract_dmi_payload(tarfile: pathlib.Path, file: str, root_path=SYS_DMI) -> bytes | None:
         return extract_file_from_tar(tarfile.as_posix(), os.path.join(root_path, file))
 
+    @classmethod
+    def system_serial(cls) -> str | None:
+        """The serial of the target machine, read before the DMI is archived in the output directory,
+        without the spaces some firmwares pad it with: a topology cannot have them."""
+        try:
+            serial = cls.bytes_to_dmi_info(pathlib.Path(cls.SYS_DMI, "product_serial").read_bytes())
+        except OSError:
+            return None
+        return (serial or "").strip() or None
+
     def info(self, name: str) -> str | None:
         return self.bytes_to_dmi_info(self.extract_dmi_payload(self.tarfilename, name))
 

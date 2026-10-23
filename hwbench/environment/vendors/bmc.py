@@ -111,7 +111,7 @@ class BMC(MonitoringDevice, External):
         """Connect to the BMC using Redfish."""
         sections = self.vendor.find_monitoring_sections("BMC", [self.vendor.name(), "default"], max_sections=1)
         if not sections:
-            h.fatal("Cannot find any valid BMC entry of the monitoring configuration file")
+            h.fatal("Cannot find any valid BMC entry of the environment file")
 
         bmc_username = self.vendor.monitoring_config_file.get(sections[0], "username")
         bmc_password = self.vendor.monitoring_config_file.get(sections[0], "password")

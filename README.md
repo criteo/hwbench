@@ -123,7 +123,7 @@ We do not (yet, coming at some point) provide a PyPi package. However, installat
 
 # Examples
 Running the **curve-cpu.conf** job:
-<code>python3 -m hwbench.hwbench -j configs/curve-cpu.conf -m monitoring.cfg</code>
+<code>python3 -m hwbench.hwbench -j configs/curve-cpu.conf -e environment.cfg</code>
 
 The sample job files are in [configs/](./configs/), each of them starting with the intention it measures.
 
@@ -143,5 +143,6 @@ All the pages are in the [documentation/](./documentation/) directory.
 | [configuration.md](./documentation/configuration.md) | the reference of the job file keywords |
 | [cpu-selection.md](./documentation/cpu-selection.md) | how a job selects the CPUs to load |
 | [engines.md](./documentation/engines.md) | the engine model, with [stressng.md](./documentation/stressng.md), [fio.md](./documentation/fio.md), [pantheon.md](./documentation/pantheon.md), [spike.md](./documentation/spike.md) and [sleep.md](./documentation/sleep.md) |
-| [monitoring.md](./documentation/monitoring.md) | the BMC, the PDU, turbostat and all-smi metrics, and the monitoring configuration file |
+| [monitoring.md](./documentation/monitoring.md) | the BMC, the PDU, turbostat and all-smi metrics, and the environment file |
+| [topology.md](./documentation/topology.md) | the topology file locating the servers of a fleet, its validator, and how to write an exporter |
 | [hwgraph.md](./documentation/hwgraph.md) | the graphs and the comparison of the results, with [hwgraph-environment.md](./documentation/hwgraph-environment.md), [hwgraph-scaling.md](./documentation/hwgraph-scaling.md) and [hwgraph-versus.md](./documentation/hwgraph-versus.md) |

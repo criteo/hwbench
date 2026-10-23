@@ -1,8 +1,13 @@
 import numpy as np
 
-from graph.common import context_header
+from graph.common import context_header, location_header
 from graph.graph import Graph
 from hwbench.bench.monitoring_structs import MonitoringContextKeys, PowerCategories, PowerConsumptionContextKeys
+
+
+def place_suffix(args) -> str:
+    """The name of the place of a group of --auto-group in the file names of its graphs: '_Rack_A12'."""
+    return f"_{args.place_name}" if getattr(args, "place_name", None) else ""
 
 
 def graph_sum_ratio(args, bench, bench_name, output_dir, time_serie, serie, base_outfile) -> int:
@@ -11,11 +16,11 @@ def graph_sum_ratio(args, bench, bench_name, output_dir, time_serie, serie, base
     x_serie = np.array(time_serie)[order]
     graph = Graph(
         args,
-        f"{args.title}\n\nRatio of power consumption during {bench_name} benchmark{context_header(args)}\n\n{bench.title()}",
+        f"{args.title}\n\nRatio of power consumption during {bench_name} benchmark{context_header(args)}{location_header(args)}\n\n{bench.title()}",
         "Time [seconds]",
         "Percent of the whole server",
         output_dir,
-        f"time_watt_percent_{base_outfile}_by_group",
+        f"time_watt_percent_{base_outfile}{place_suffix(args)}_by_group",
     )
 
     # For each type metrics stored into the serie
@@ -43,11 +48,11 @@ def graph_sum_of_servers(args, bench, bench_name, output_dir, time_serie, serie,
     x_serie = np.array(time_serie)[order]
     graph = Graph(
         args,
-        f"{args.title}\n\nSum of servers power consumption during {bench_name} benchmark{context_header(args)}\n\n{bench.title()}",
+        f"{args.title}\n\nSum of servers power consumption during {bench_name} benchmark{context_header(args)}{location_header(args)}\n\n{bench.title()}",
         "Time [seconds]",
         "Watts",
         output_dir,
-        f"time_watt_{base_outfile}_by_group",
+        f"time_watt_{base_outfile}{place_suffix(args)}_by_group",
     )
 
     # For each type metrics stored into the serie
@@ -75,11 +80,11 @@ def graph_servers(args, bench, bench_name, output_dir, time_serie, serie, base_o
     x_serie = np.array(time_serie)[order]
     graph = Graph(
         args,
-        f"{args.title}\n\nServers power consumption during {bench_name} benchmark{context_header(args)}\n\n{bench.title()}",
+        f"{args.title}\n\nServers power consumption during {bench_name} benchmark{context_header(args)}{location_header(args)}\n\n{bench.title()}",
         "Time [seconds]",
         "Watts",
         output_dir,
-        f"time_watt_{base_outfile}_by_servers",
+        f"time_watt_{base_outfile}{place_suffix(args)}_by_servers",
     )
 
     for trace in args.traces:

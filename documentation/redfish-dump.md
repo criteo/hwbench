@@ -21,12 +21,12 @@ metrics read from it).
 # Usage
 
 ```bash
-sudo uv run tools/redfish_dump.py -m monitoring.cfg -o hwbench/environment/tests/vendors/<vendor>/<model>
+sudo uv run tools/redfish_dump.py -e environment.cfg -o hwbench/environment/tests/vendors/<vendor>/<model>
 ```
 
 | Option | Value | Effect |
 |---|---|---|
-| `-m`, `--monitoring-config` | a file | mandatory: the [configuration file](monitoring.md#configuration-file) of the monitoring, the same file as `hwbench -m` |
+| `-e`, `--environment` | a file | mandatory: the [environment file](monitoring.md#configuration-file) of the target machine, the same file as `hwbench -e` |
 | `-o`, `--output-directory` | a directory | mandatory: the directory to create, with its parents; an existing directory is never overwritten |
 | `-u`, `--url` | an url | records this url too, see [Exploring other urls](#exploring-other-urls); can be repeated |
 
@@ -138,7 +138,7 @@ code that reads it. It is read with the same session, after the others, and anon
 like them. For example, the 24 hours power history of an iLO:
 
 ```bash
-sudo uv run tools/redfish_dump.py -m monitoring.cfg -o /tmp/dump -u /redfish/v1/Chassis/1/Power/PowerMeter/
+sudo uv run tools/redfish_dump.py -e environment.cfg -o /tmp/dump -u /redfish/v1/Chassis/1/Power/PowerMeter/
 ```
 
 Once hwbench reads an url, it is recorded without `-u`.

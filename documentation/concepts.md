@@ -277,7 +277,7 @@ output directory, as soon as hwbench starts: even a run that fails keeps the job
 given, and running the same jobs again, on another server, takes that file:
 
 ```bash
-uv run hwbench -j hwbench-out-<timestamp>/job_file.conf -m monitoring.cfg
+uv run hwbench -j hwbench-out-<timestamp>/job_file.conf -e environment.cfg
 ```
 
 At the end of the run, hwbench also compresses the whole output directory, next to it, as
@@ -298,12 +298,21 @@ therefore run once in a context: two runs of the same server in the same context
 told apart, so running a server again, after fixing the test, takes a new context, like
 `bios-v2-retry`.
 
+Neither can the machine tell where it physically is. The [`[Location]`](monitoring.md#location)
+section of the environment file (`-e`), or the [topology file](topology.md) (`-t`) locating
+every server of a fleet by its serial, gives it, from the widest place to the narrowest: the
+country, the datacenter, the datahall, the room, the rack, and the height in the rack, `U`.
+`Extra` describes, alone, a place this hierarchy does not fit, like `Secret Lab 1`. The location
+is kept as `location` in `results.json`, only when at least one key is set, and hwgraph shows it
+under the serial of the server: where the context says why a run was made, the location says
+where, and the servers of a same rack or datahall share its power and its cooling.
+
 hwgraph shows the context on a dedicated line of the header of every graph, and
 `hwgraph graph --auto-traces` finds the runs of a context in a directory, which is handy after
 a series of runs: see [hwgraph.md](hwgraph.md#context-of-the-runs).
 
 ```bash
-uv run hwbench -j configs/curve-cpu.conf -m monitoring.cfg --context bios-v2
+uv run hwbench -j configs/curve-cpu.conf -e environment.cfg --context bios-v2
 ```
 
 ## Comparing environments, not just machines
@@ -360,6 +369,8 @@ Knowing which word applies to which artifact saves time when reading a result:
 | the job file (`-j`) | one section per **job** |
 | `job_file.conf` | the job file, copied as is: one section per **job** |
 | `expanded_job_file.conf` | one section per **benchmark** |
+| `environment.cfg` | the environment file (`-e`), without its passwords: the target machine, for the whole **run** |
+| `topology.json` | the topology file (`-t`), copied as is: the servers of a fleet, for the whole **run** |
 | `results.json`, `bench` key | one entry per **benchmark**, keyed `<job>_<number>` |
 | the engine output files | one set per **benchmark** |
 | `tuning/` | one per **run** |

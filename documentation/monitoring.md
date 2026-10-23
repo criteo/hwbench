@@ -19,6 +19,7 @@ Depending on the source, power, frequency, thermal or cooling metrics are collec
     - [Accelerators](#accelerators)
   - [PDU](#pdu)
     - [driver](#driver), [url](#url), [outlet](#outlet), [outletgroup](#outletgroup), [separator](#separator), [pdu_id](#pdu_id), [group](#group)
+  - [Location](#location)
 - [Turbostat](#turbostat)
 - [all-smi](#all-smi)
   - [Installing all-smi](#installing-all-smi)
@@ -47,7 +48,8 @@ To enable the monitoring feature, set the `monitor` directive in the configurati
 `all` is the only way to enable the monitoring for now. In future releases, it will be possible to list the sources to be considered.
 
 # Configuration file
-When monitoring is enabled, the `-m <config_file>` option must be used to describe the server's configuration.
+When monitoring is enabled, the `-e <environment_file>` option must give the environment file, like `environment.cfg`, which describes the BMC and the PDUs of the target machine.
+The former `-m`/`--monitoring-config` option stops hwbench with `-m is replaced by -e/--environment` (or `--monitoring-config is replaced by -e/--environment`).
 This file is separated from the job file as it could be specific to each host.
 
 Each source is defined like the following :
@@ -79,7 +81,7 @@ for the server:
 | `default` | the credentials of any server without a section for its vendor |
 
 With any other name, the credentials are not read, and hwbench stops with
-`Cannot find any valid BMC entry of the monitoring configuration file`.
+`Cannot find any valid BMC entry of the environment file`.
 
 | Key | Value | Effect |
 |---|---|---|
@@ -97,6 +99,9 @@ type=BMC
 ```
 
 A single BMC configuration is used per server.
+
+A server without BMC, like a laptop, is detected as `GenericVendor`: without BMC section in
+the environment file, hwbench does not look for its BMC.
 
 > ℹ️ **Info**
 >
@@ -345,6 +350,62 @@ group=feed_B
 > The group applies to a whole PDU section, and the outlets of a section are summed into a
 > single power measure: outlets on different feeds need a section each, even when they
 > are on the same PDU.
+
+## Location
+The `[Location]` section says where the target machine physically is: nothing in the machine
+itself tells it. It is read whenever `-e` is given, even when the monitoring is disabled, and
+is not a source: it has no `type`, nor credentials. A topology file given with `-t` replaces it,
+locating every server of a fleet in a single file: see [topology.md](topology.md).
+
+The keys go from the widest place to the narrowest one, each nested in the previous one: a
+datacenter is in a country, a datahall in a datacenter, and so on down to the rack, where `U`
+gives the height of the machine. The servers sharing a place, a datahall or a rack, share its
+power and its cooling, which is what this order is made for. Every key is optional: only the
+ones set are kept, so a location can start below the widest key, like a rack and a height.
+
+| Key | Value | Effect |
+|---|---|---|
+| `Country` | text, like `FR` | the country of the datacenter |
+| `Datacenter` | text, like `PA99` | the datacenter |
+| `Datahall` | text, like `DH2` | the hall of the datacenter |
+| `Room` | text, like `Room 1` or `Cage 1` | the room of the datahall, shown as is |
+| `Rack` | text, like `A12` | the rack |
+| `U` | text, like `23` | the height of the machine in the rack |
+| `Extra` | free text, like `Secret Lab 1` | a place this hierarchy does not describe, set alone instead of the keys above |
+
+The section name and the keys are not case sensitive. A key commented, absent or empty is not
+set; without any key set, or without the section, the target machine has no location. Any other
+key stops hwbench with `<environment_file>: unknown key '<key>' in the [Location] section,
+expecting Country, Datacenter, Datahall, Room, Rack, U, Extra`, the key being given in lowercase.
+
+For example:
+
+```ini
+[Location]
+Country=FR
+Datacenter=PA99
+Datahall=DH2
+Room=Cage 1
+Rack=A12
+U=23
+```
+
+hwbench prints the location at startup, from the widest key to the narrowest, `Rack` and `U`
+before their value:
+
+```
+Startup: Location: FR / PA99 / DH2 / Cage 1 / Rack A12 / U23
+```
+
+and keeps the keys set as `location` in `results.json`, only when there is at least one, which
+hwgraph shows under the serial of the server, see [hwgraph.md](hwgraph.md#location-of-the-servers),
+and uses to group the servers by place with `--auto-group`:
+
+```json
+"location": {"Country": "FR", "Datacenter": "PA99", "Datahall": "DH2", "Room": "Cage 1", "Rack": "A12", "U": "23"}
+```
+
+With `Extra` alone, like `Extra=Secret Lab 1`, the location is `Secret Lab 1`.
 
 # Turbostat
 On x86_64 systems, turbostat is used automatically when the monitoring is enabled, and no configuration is required. It is mandatory there: hwbench stops with `Missing turbostat binary, please install it.` when it is not installed, or with `Monitoring/turbostat: minimal expected release is 2022.04.16` when it is older.

@@ -29,6 +29,7 @@ from hwbench.bench.monitoring_structs import (
     Temperature,
     gpu_component_name,
 )
+from hwbench.environment.environment_file import location_line, split_location
 from hwbench.utils.archive import extract_results_from_archive
 from hwbench.utils.helpers import cpu_list_to_range
 
@@ -413,6 +414,9 @@ class Bench:
         c = self.get_trace().get_cpu()
         k = self.get_trace().get_kernel()
         title = f"System:{d['serial']} {d['product']} Bios:v{d['bios']['version']} Linux Kernel:{k['release']}"
+        location = self.get_trace().get_location_line()
+        if location:
+            title += f"\nLocation: {location}"
         title += (
             f"\nProcessor: {c.get('sockets', 1)}x {c['model']} - "
             f"{c['physical_cores']} physical cores and {c['numa_domains']} NUMA domains"
@@ -714,6 +718,29 @@ def context_line(traces: list) -> str | None:
     return "Contexts: " + ", ".join(f"{name}: {context}" for name, context in contexts.items())
 
 
+def shared_location(traces: list) -> dict[str, str]:
+    """The wide part of the location shared by all the traces, up to the rack; empty when it differs.
+
+    A trace without location shares none.
+    """
+    wide_parts = [split_location(trace.get_location())[0] for trace in traces]
+    if not wide_parts or not wide_parts[0] or any(wide != wide_parts[0] for wide in wide_parts):
+        return {}
+    return wide_parts[0]
+
+
+def location_header_line(location: dict[str, str]) -> str | None:
+    """The line of a location in the headers of the graphs: 'Location: FR / PA99 / Rack A12'; None when empty."""
+    line = location_line(location)
+    return f"Location: {line}" if line else None
+
+
+def shared_location_line(traces: list) -> str | None:
+    """The line of the location in the headers of the graphs of several servers:
+    the wide part of their location, when they all share it; None otherwise."""
+    return location_header_line(shared_location(traces))
+
+
 class Trace:
     def __init__(
         self,
@@ -819,6 +846,15 @@ class Trace:
         """The context of the run, given to hwbench with --context; None for a trace without one."""
         context = self.trace.get("context")
         return context if isinstance(context, str) and context else None
+
+    def get_location(self) -> dict[str, str]:
+        """The location of the server, given to hwbench by the environment file; empty for a trace without one."""
+        location = self.trace.get("location")
+        return location if isinstance(location, dict) else {}
+
+    def get_location_line(self) -> str | None:
+        """The location of the server in one line, like hwbench prints it at startup; None without location."""
+        return location_line(self.get_location())
 
     def get_dmi(self):
         return self.get_hardware().get("dmi")

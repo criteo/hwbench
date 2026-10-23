@@ -18,6 +18,9 @@ from .bench import benchmarks, cpumap
 from .config import config
 from .environment import hardware as env_hw
 from .environment import software as env_soft
+from .environment.dmi import DmiSys
+from .environment.environment_file import location_line, read_location, save_environment_file
+from .environment.topology import save_topology, topology_location
 from .tuning import setup as tuning_setup
 from .utils import helpers as h
 from .utils.archive import RESULTS_FILE, create_output_archive
@@ -48,6 +51,17 @@ def main():
     hwbench_config = config.Config(args.jobs_config)
     # Saved first, so a run that fails can still be reproduced
     hwbench_config.save(out_dir)
+    location: dict[str, str] = {}
+    if args.environment:
+        save_environment_file(args.environment, out_dir)
+        location = read_location(args.environment)
+    if args.topology:
+        # The topology replaces the [Location] section of the environment file
+        save_topology(args.topology, out_dir)
+        serial = DmiSys.system_serial()
+        if not serial:
+            h.fatal(f"Cannot find the serial of the target machine in {DmiSys.SYS_DMI}product_serial")
+        location = topology_location(args.topology, serial)
     benches = benchmarks.Benchmarks(out_dir, hwbench_config, verbose=args.verbose)
 
     problems = env_hw.check_requirements() + benches.check_requirements()
@@ -56,12 +70,14 @@ def main():
 
     if args.context and args.context.strip():
         print(f"Startup: Context of the run: {args.context.strip()}")
+    if location:
+        print(f"Startup: Location: {location_line(location)}")
     print("Startup: Tuning host")
     tuning_setup.Tuning(tuning_out_dir).apply(args.tuning)
     print("Startup: Dumping software environment")
     env = env_soft.Environment(out_dir)
     print("Startup: Dumping hardware environment")
-    hw = env_hw.Hardware(out_dir, args.monitoring_config)
+    hw = env_hw.Hardware(out_dir, args.environment)
 
     hwbench_config.set_hardware(hw)
     benches.set_hardware(hw)
@@ -70,7 +86,7 @@ def main():
     results = benches.run()
     benches.dump()
 
-    out = format_output(env.dump(), hw.dump(), results, benches.jobs_config, args.context)
+    out = format_output(env.dump(), hw.dump(), results, benches.jobs_config, args.context, location)
 
     write_output(out_dir, out)
 
@@ -126,6 +142,28 @@ def create_output_directory(directory, timestamp: str) -> tuple[pathlib.Path, pa
     return out_dir.absolute(), tuning_out_dir.absolute()
 
 
+class ReplacedOption(argparse.Action):
+    """An option replaced by another one: using it stops with the option to use instead."""
+
+    def __init__(self, option_strings, dest, replacement: str, **kwargs):
+        self.replacement = replacement
+        super().__init__(option_strings, dest, help=argparse.SUPPRESS, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        parser.error(f"{option_string} is replaced by {self.replacement}")
+
+
+def add_environment_option(parser: argparse.ArgumentParser, required: bool = False) -> None:
+    """The -e/--environment option, shared by hwbench and redfish_dump; -m/--monitoring-config it replaces stops."""
+    parser.add_argument(
+        "-e",
+        "--environment",
+        help="Specify the file describing the environment of the server, like environment.cfg: its location and the credentials to monitor its BMC and PDUs",
+        required=required,
+    )
+    parser.add_argument("-m", "--monitoring-config", action=ReplacedOption, replacement="-e/--environment")
+
+
 def parse_options():
     parser = argparse.ArgumentParser(
         prog="hwbench",
@@ -138,10 +176,11 @@ def parse_options():
         help="Specify the file containing jobs to runs",
         required=True,
     )
+    add_environment_option(parser)
     parser.add_argument(
-        "-m",
-        "--monitoring-config",
-        help="Specify the file containing the credentials to monitor the BMC",
+        "-t",
+        "--topology",
+        help="Specify the JSON file describing where the servers are, like topology.json, checked with tools/topology_check.py: the location of the server, found by its serial, replaces the [Location] section of the environment file",
     )
     parser.add_argument(
         "-o",
@@ -181,7 +220,9 @@ def parse_options():
     return parser.parse_args()
 
 
-def format_output(env, hw, results, config, context: str | None = None) -> dict[str, object]:
+def format_output(
+    env, hw, results, config, context: str | None = None, location: dict[str, str] | None = None
+) -> dict[str, object]:
     out = {
         "environment": env,
         "hardware": hw,
@@ -191,6 +232,9 @@ def format_output(env, hw, results, config, context: str | None = None) -> dict[
     # The context of the run is optional: only kept when given
     if context and context.strip():
         out["context"] = context.strip()
+    # The location of the server is optional too: only the keys set in the environment file or the topology
+    if location:
+        out["location"] = location
     return out
 
 

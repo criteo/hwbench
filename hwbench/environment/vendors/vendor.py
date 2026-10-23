@@ -78,17 +78,15 @@ class Vendor(ABC):
         return self.pdus
 
     def find_monitoring_sections(self, section_type: str, sections_list: list | None = None, max_sections=0):
-        """Return sections of section_type from the monitoring configuration file"""
+        """Return sections of section_type from the environment file"""
         if sections_list is None:
             sections_list = []
         sections = []
         if not self.get_monitoring_config_filename():
-            h.fatal("Missing monitoring configuration file, please use -m option.")
+            h.fatal("Missing environment file, please use the -e option.")
 
         if not os.path.isfile(self.get_monitoring_config_filename()):
-            h.fatal(
-                f"Monitoring configuration option ({self.get_monitoring_config_filename()}) is not a file or does not exists."
-            )
+            h.fatal(f"Environment file ({self.get_monitoring_config_filename()}) is not a file or does not exists.")
         self.monitoring_config_file = configparser.ConfigParser(allow_no_value=True)
         self.monitoring_config_file.read(self.get_monitoring_config_filename())
 
