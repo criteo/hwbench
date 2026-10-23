@@ -7,10 +7,10 @@ import pytest
 from hwbench.hwbench import format_output, parse_options
 
 
-def output(context: str | None) -> dict:
+def output(context: str | None, location: dict[str, str] | None = None) -> dict:
     config = MagicMock()
     config.to_dict.return_value = {}
-    return format_output({}, {}, {}, config, context)
+    return format_output({}, {}, {}, config, context, location)
 
 
 def test_context():
@@ -22,6 +22,13 @@ def test_context():
 def test_without_context(context):
     """The context is optional: without it, results.json has no context."""
     assert "context" not in output(context)
+
+
+def test_location():
+    """The location of the server is kept in results.json, only when set."""
+    assert output(None, {"Rack": "A12"})["location"] == {"Rack": "A12"}
+    assert "location" not in output(None)
+    assert "location" not in output(None, {})
 
 
 def test_context_option():
