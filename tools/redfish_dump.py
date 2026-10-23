@@ -23,7 +23,7 @@ from hwbench.environment.dmi import DmiSys
 from hwbench.environment.vendors.bmc import BMC
 from hwbench.environment.vendors.detect import first_matching_vendor
 from hwbench.environment.vendors.monitoring_device import MonitoringDevice
-from hwbench.hwbench import is_root
+from hwbench.hwbench import add_environment_option, is_root
 from hwbench.utils import helpers as h
 
 # The getters patched by the vendor tests (test_vendors.py), named like their fixture file
@@ -241,7 +241,7 @@ def main():
 
     with tempfile.TemporaryDirectory(prefix="hwbench-redfish-dump-") as tmp:
         tmp_dir = pathlib.Path(tmp)
-        vendor = first_matching_vendor(tmp_dir, DmiSys(tmp_dir), args.monitoring_config)
+        vendor = first_matching_vendor(tmp_dir, DmiSys(tmp_dir), args.environment)
         bmc = vendor.get_bmc()
         bmc.connect_redfish()
         fixtures, anonymizer = anonymize(dump_fixtures(bmc, args.url))
@@ -261,14 +261,9 @@ def parse_options():
     parser = argparse.ArgumentParser(
         prog="redfish_dump",
         description="Dump the Redfish urls hwbench reads from the BMC of this server, to add it to the tests.",
-        epilog="Note that redfish_dump needs to run as root, for: the local login to the iLO with ilorest on HPE servers, the BMC address read with ipmitool on the other ones when the monitoring configuration file has no url.",
+        epilog="Note that redfish_dump needs to run as root, for: the local login to the iLO with ilorest on HPE servers, the BMC address read with ipmitool on the other ones when the environment file has no url.",
     )
-    parser.add_argument(
-        "-m",
-        "--monitoring-config",
-        help="Specify the file containing the credentials to monitor the BMC",
-        required=True,
-    )
+    add_environment_option(parser, required=True)
     parser.add_argument(
         "-o",
         "--output-directory",

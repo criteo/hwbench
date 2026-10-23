@@ -277,7 +277,7 @@ output directory, as soon as hwbench starts: even a run that fails keeps the job
 given, and running the same jobs again, on another server, takes that file:
 
 ```bash
-uv run hwbench -j hwbench-out-<timestamp>/job_file.conf -m monitoring.cfg
+uv run hwbench -j hwbench-out-<timestamp>/job_file.conf -e environment.cfg
 ```
 
 At the end of the run, hwbench also compresses the whole output directory, next to it, as
@@ -303,7 +303,7 @@ hwgraph shows the context on a dedicated line of the header of every graph, and
 a series of runs: see [hwgraph.md](hwgraph.md#context-of-the-runs).
 
 ```bash
-uv run hwbench -j configs/curve-cpu.conf -m monitoring.cfg --context bios-v2
+uv run hwbench -j configs/curve-cpu.conf -e environment.cfg --context bios-v2
 ```
 
 ## Comparing environments, not just machines
