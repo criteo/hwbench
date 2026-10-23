@@ -360,6 +360,7 @@ Knowing which word applies to which artifact saves time when reading a result:
 | the job file (`-j`) | one section per **job** |
 | `job_file.conf` | the job file, copied as is: one section per **job** |
 | `expanded_job_file.conf` | one section per **benchmark** |
+| `environment.cfg` | the environment file (`-e`), without its passwords: the target machine, for the whole **run** |
 | `results.json`, `bench` key | one entry per **benchmark**, keyed `<job>_<number>` |
 | the engine output files | one set per **benchmark** |
 | `tuning/` | one per **run** |

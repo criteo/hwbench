@@ -18,6 +18,7 @@ from .bench import benchmarks, cpumap
 from .config import config
 from .environment import hardware as env_hw
 from .environment import software as env_soft
+from .environment.environment_file import save_environment_file
 from .tuning import setup as tuning_setup
 from .utils import helpers as h
 from .utils.archive import RESULTS_FILE, create_output_archive
@@ -48,6 +49,8 @@ def main():
     hwbench_config = config.Config(args.jobs_config)
     # Saved first, so a run that fails can still be reproduced
     hwbench_config.save(out_dir)
+    if args.environment:
+        save_environment_file(args.environment, out_dir)
     benches = benchmarks.Benchmarks(out_dir, hwbench_config, verbose=args.verbose)
 
     problems = env_hw.check_requirements() + benches.check_requirements()
