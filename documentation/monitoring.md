@@ -99,6 +99,9 @@ type=BMC
 
 A single BMC configuration is used per server.
 
+A server without BMC, like a laptop, is detected as `GenericVendor`: without BMC section in
+the environment file, hwbench does not look for its BMC.
+
 > ℹ️ **Info**
 >
 > The `url` is read from the first section of type `BMC` of the file, whatever its name.
