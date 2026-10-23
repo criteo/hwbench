@@ -1,0 +1,48 @@
+from __future__ import annotations
+
+import pathlib
+import re
+
+from hwbench.utils import helpers as h
+
+# The name of the copy of the environment file in the output directory
+ENVIRONMENT_FILE = "environment.cfg"
+
+# A password key, even commented out, as configparser reads it: any case, '=' or ':', or no value
+PASSWORD_LINE = re.compile(r"^\s*[#;]?\s*password\s*([=:].*)?$", re.IGNORECASE)
+
+
+def without_passwords(content: str) -> str:
+    """The environment file without its password keys, nor the indented lines continuing their value."""
+    lines = []
+    in_password = False
+    # The blank and comment lines after a password: configparser continues its value past them
+    held: list[str] = []
+    for line in content.splitlines(keepends=True):
+        if PASSWORD_LINE.match(line):
+            in_password = True
+            held = []
+            continue
+        if in_password:
+            if not line.strip() or line.lstrip().startswith(("#", ";")):
+                held.append(line)
+                continue
+            # configparser continues a value on the indented lines that follow it
+            if line[0].isspace():
+                held = []
+                continue
+        in_password = False
+        lines.extend(held)
+        held = []
+        lines.append(line)
+    lines.extend(held)
+    return "".join(lines)
+
+
+def save_environment_file(environment_file: str, out_dir: pathlib.Path) -> None:
+    """Copy the environment file in the output directory, without the passwords of the BMC and the PDUs."""
+    out_file = out_dir.joinpath(ENVIRONMENT_FILE)
+    try:
+        out_file.write_text(without_passwords(pathlib.Path(environment_file).read_text()))
+    except OSError as e:
+        h.fatal(f"Cannot save the environment file '{environment_file}' as '{out_file}': {e}")
