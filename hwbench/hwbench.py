@@ -18,7 +18,9 @@ from .bench import benchmarks, cpumap
 from .config import config
 from .environment import hardware as env_hw
 from .environment import software as env_soft
+from .environment.dmi import DmiSys
 from .environment.environment_file import location_line, read_location, save_environment_file
+from .environment.topology import save_topology, topology_location
 from .tuning import setup as tuning_setup
 from .utils import helpers as h
 from .utils.archive import RESULTS_FILE, create_output_archive
@@ -53,6 +55,13 @@ def main():
     if args.environment:
         save_environment_file(args.environment, out_dir)
         location = read_location(args.environment)
+    if args.topology:
+        # The topology replaces the [Location] section of the environment file
+        save_topology(args.topology, out_dir)
+        serial = DmiSys.system_serial()
+        if not serial:
+            h.fatal(f"Cannot find the serial of the target machine in {DmiSys.SYS_DMI}product_serial")
+        location = topology_location(args.topology, serial)
     benches = benchmarks.Benchmarks(out_dir, hwbench_config, verbose=args.verbose)
 
     problems = env_hw.check_requirements() + benches.check_requirements()
@@ -169,6 +178,11 @@ def parse_options():
     )
     add_environment_option(parser)
     parser.add_argument(
+        "-t",
+        "--topology",
+        help="Specify the JSON file describing where the servers are, like topology.json, checked with tools/topology_check.py: the location of the server, found by its serial, replaces the [Location] section of the environment file",
+    )
+    parser.add_argument(
         "-o",
         "--output-directory",
         help="Specify the directory used to put all results and collected information",
@@ -218,7 +232,7 @@ def format_output(
     # The context of the run is optional: only kept when given
     if context and context.strip():
         out["context"] = context.strip()
-    # The location of the server is optional too: only the keys set in the environment file
+    # The location of the server is optional too: only the keys set in the environment file or the topology
     if location:
         out["location"] = location
     return out
