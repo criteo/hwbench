@@ -365,9 +365,10 @@ Its model driver defines the available readings and their units and conversions;
 the shared collector and result format do not require a particular vendor,
 number of sensors or set of metric names.
 
-Model drivers register their definitions in a vendor's registry. A model using
-an existing protocol can reuse its transport without changing the collector or
-result format.
+The initial model implementation is **HPE MCDU-4U-FR-2**, using **SNMP_V2C**.
+Other models can be added to a vendor's registry, and other vendors have separate
+model registries. A model using an existing protocol can reuse its transport
+without changing the shared collector or result format.
 
 ### Configuration
 
@@ -390,13 +391,13 @@ There is no fallback to another model's metric definitions or an implicit
 protocol downgrade. Endpoint details and credentials belong to the protocol
 driver, rather than the common CDU configuration.
 
-Configuration structure for a registered model (replace the vendor and model placeholders):
+Example for the currently supported HPE MCDU-4U-FR-2:
 
 ```ini
 [CDU_cooling]
 type=CDU
-vendor=<vendor>
-model=<model>
+vendor=HPE
+model=MCDU-4U-FR-2
 protocol=SNMP_V2C
 host=cdu.example.net
 community=example-read-community
@@ -439,6 +440,24 @@ The retransmission period is set beyond the response deadline, preventing retrie
 The read community must be nonempty. It is passed directly to the Python
 library, never through a subprocess, temporary configuration file or log.
 It is excluded from the hardware inventory and results.
+
+### Supported models
+
+| Vendor | Model | Supported protocols | Readings |
+|---|---|---|---|
+| HPE | MCDU-4U-FR-2 | SNMP_V2C | 16 readings, described below |
+
+These readings and conversions belong to the HPE MCDU-4U-FR-2 driver. Another
+model supplies its own definitions and can expose different metrics or OIDs.
+
+| Readings | Unit | Conversion from SNMP |
+|---|---|---|
+| Primary/secondary supply and return, ambient and PLC temperatures | Celsius | ×0.1 |
+| Primary supply/return, secondary pump supply and secondary return pressures | raw | unchanged; engineering units remain unverified |
+| Primary and secondary flows | L/min | ×0.1 |
+| Valve position | Percent | unchanged |
+| Relative humidity | Percent | ×0.1 |
+| GRI pump 1 and pump 2 speeds | RPM | unchanged |
 
 ### Collection and results
 

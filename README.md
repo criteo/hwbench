@@ -54,8 +54,8 @@ This release supports the following brands:
  - Raritan
 
 hwbench also supports cooling distribution unit (CDU) monitoring through
-vendor/model drivers. Each model provides its own readings and
-communication driver.
+vendor/model drivers. The first supported model is the HPE MCDU-4U-FR-2;
+additional models can provide their own readings and communication drivers.
 
 For more details and usage, see the specific [documentation](./documentation/monitoring.md)
 
