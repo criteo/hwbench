@@ -17,7 +17,7 @@ path = pathlib.Path("")
 
 class TestGenericHpe(TestVendors):
     def __init__(self, path: str, *args, **kwargs):
-        super().__init__(Hpe("", None, "hwbench/tests/mocked_monitoring.cfg"), *args, **kwargs)
+        super().__init__(Hpe("", None, "hwbench/tests/mocked_environment.cfg"), *args, **kwargs)
         self.path = path
 
     def setUp(self):

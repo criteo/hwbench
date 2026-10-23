@@ -47,7 +47,8 @@ To enable the monitoring feature, set the `monitor` directive in the configurati
 `all` is the only way to enable the monitoring for now. In future releases, it will be possible to list the sources to be considered.
 
 # Configuration file
-When monitoring is enabled, the `-m <config_file>` option must be used to describe the server's configuration.
+When monitoring is enabled, the `-e <environment_file>` option must give the environment file, like `environment.cfg`, which describes the BMC and the PDUs of the target machine.
+The former `-m`/`--monitoring-config` option stops hwbench with `-m is replaced by -e/--environment` (or `--monitoring-config is replaced by -e/--environment`).
 This file is separated from the job file as it could be specific to each host.
 
 Each source is defined like the following :
@@ -79,7 +80,7 @@ for the server:
 | `default` | the credentials of any server without a section for its vendor |
 
 With any other name, the credentials are not read, and hwbench stops with
-`Cannot find any valid BMC entry of the monitoring configuration file`.
+`Cannot find any valid BMC entry of the environment file`.
 
 | Key | Value | Effect |
 |---|---|---|
