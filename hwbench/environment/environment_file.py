@@ -23,6 +23,10 @@ LOCATION_KEYS = {
     "Extra": "",
 }
 
+# The keys of the location telling a server apart, its height or a free text: the others describe the place
+# it shares with other servers, up to the rack. Extra set alone is the place itself.
+FINE_LOCATION_KEYS = ("U", "Extra")
+
 # A password key, even commented out, as configparser reads it: any case, '=' or ':', or no value
 PASSWORD_LINE = re.compile(r"^\s*[#;]?\s*password\s*([=:].*)?$", re.IGNORECASE)
 
@@ -87,6 +91,18 @@ def read_location(environment_file: str) -> dict[str, str]:
             )
     values = {key: (environment.get(section, key.lower(), fallback="") or "").strip() for key in LOCATION_KEYS}
     return {key: value for key, value in values.items() if value}
+
+
+def split_location(location: dict[str, str]) -> tuple[dict[str, str], dict[str, str]]:
+    """The wide part of a location, the place a server shares with others up to the rack, and its fine part.
+
+    Extra set alone describes a place the hierarchy does not fit: it is then the wide part.
+    """
+    if list(location) == ["Extra"]:
+        return dict(location), {}
+    wide = {key: value for key, value in location.items() if key not in FINE_LOCATION_KEYS}
+    fine = {key: value for key, value in location.items() if key in FINE_LOCATION_KEYS}
+    return wide, fine
 
 
 def location_line(location: dict[str, str]) -> str | None:

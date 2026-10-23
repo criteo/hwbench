@@ -9,6 +9,7 @@ from hwbench.environment.environment_file import (
     location_line,
     read_location,
     save_environment_file,
+    split_location,
     without_passwords,
 )
 from hwbench.environment.vendors.generic import GenericVendor
@@ -161,3 +162,18 @@ def test_location_line():
     assert location_line(location) == "FR / PA99 / DH2 / Cage 1 / Rack A12 / U23"
     assert location_line({"Rack": "A12", "U": "23"}) == "Rack A12 / U23"
     assert location_line({"Extra": "Secret Lab 1"}) == "Secret Lab 1"
+
+
+def test_split_location():
+    """The wide part is the place shared with other servers, up to the rack; the fine part, the height and Extra."""
+    assert split_location({"Rack": "A12", "U": "23", "Extra": "Secret Lab 1"}) == (
+        {"Rack": "A12"},
+        {"U": "23", "Extra": "Secret Lab 1"},
+    )
+    assert split_location({"U": "23", "Extra": "Secret Lab 1"}) == ({}, {"U": "23", "Extra": "Secret Lab 1"})
+    assert split_location({}) == ({}, {})
+
+
+def test_split_location_extra_alone():
+    """Extra set alone is the place the server shares with others: the wide part."""
+    assert split_location({"Extra": "Secret Lab 1"}) == ({"Extra": "Secret Lab 1"}, {})

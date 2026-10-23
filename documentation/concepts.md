@@ -302,9 +302,9 @@ Neither can the machine tell where it physically is. The [`[Location]`](monitori
 section of the environment file (`-e`) gives it, from the widest place to the narrowest: the
 country, the datacenter, the datahall, the room, the rack, and the height in the rack, `U`.
 `Extra` describes, alone, a place this hierarchy does not fit, like `Secret Lab 1`. The location
-is kept as `location` in `results.json`, only when at least one key is set: where the context
-says why a run was made, the location says where, and the servers of a same rack or datahall
-share its power and its cooling.
+is kept as `location` in `results.json`, only when at least one key is set, and hwgraph shows it
+under the serial of the server: where the context says why a run was made, the location says
+where, and the servers of a same rack or datahall share its power and its cooling.
 
 hwgraph shows the context on a dedicated line of the header of every graph, and
 `hwgraph graph --auto-traces` finds the runs of a context in a directory, which is handy after

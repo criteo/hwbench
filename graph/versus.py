@@ -5,11 +5,12 @@ from typing import Any  # noqa: F401
 import matplotlib.pyplot as plt
 import numpy as np
 
-from graph.common import context_header
+from graph.common import context_header, location_header
 from graph.graph import GRAPH_TYPES, Graph
 from graph.scaling import _scaling_perf_value
-from graph.trace import GPU_SCALING_UNIT, gpu_description
+from graph.trace import GPU_SCALING_UNIT, gpu_description, shared_location
 from hwbench.bench.monitoring_structs import CORE_FAMILY, GPU_FAMILY, MonitoringContextKeys
+from hwbench.environment.environment_file import location_line, split_location
 
 
 def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
@@ -154,7 +155,7 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                 if graph_type != "cpu_clock":
                     max_perf_types.append(per_unit_type)
                 for max_perf_type in max_perf_types:
-                    title = f'{args.title}\n\n{graph_type_title} during "{job}" benchmark{context_header(args)}\n'
+                    title = f'{args.title}\n\n{graph_type_title} during "{job}" benchmark{context_header(args)}{location_header(args)}\n'
                     if max_perf_type == per_unit_type:
                         title += f"\nPer {unit_name} maximum performance during {bench.duration()} seconds"
                         y_max_per_unit = [0.0] * len(y_max[perf])
@@ -562,7 +563,7 @@ def _render_traces_comparison(
     sep = "  ".join("-" * widths[h] for h in headers)
 
     lines = [
-        f"Traces comparison (scaling){scope_title}{context_header(args)}",
+        f"Traces comparison (scaling){scope_title}{context_header(args)}{location_header(args)}",
         args.title,
         "",
         f"Reference : {ref_name}",
@@ -939,22 +940,28 @@ def _aggregate_metrics(traces) -> tuple[list, str, dict]:
 def _traces_caption(traces) -> str:
     """Full per-trace system description block, rendered below the exec graphs.
 
-    System / Bios / Kernel / Processor each on their own line.
+    System / Bios / Kernel / Processor each on their own line. The header gives the location
+    the servers share, so each one only gives the fine part of its own, its height and Extra,
+    and nothing when they do not share it.
     """
+    shared = bool(shared_location(traces))
     parts = []
     for i, trace in enumerate(traces):
         tag = trace.get_name() + (" (ref)" if i == 0 else "")
         dmi = trace.get_dmi()
         cpu = trace.get_cpu()
         kernel = trace.get_kernel()
-        parts.append(
-            f"{tag}:\n"
-            f"  System   : {dmi['serial']} {dmi['product']}\n"
-            f"  Bios     : v{dmi['bios']['version']}\n"
-            f"  Kernel   : {kernel['release']}\n"
-            f"  Processor: {cpu.get('sockets', 1)}x {cpu['model']}\n"
-            f"             {cpu['physical_cores']} physical cores, {cpu['numa_domains']} NUMA domains"
-        )
+        location = location_line(split_location(trace.get_location())[1]) if shared else None
+        lines = [f"{tag}:", f"  System   : {dmi['serial']} {dmi['product']}"]
+        if location:
+            lines.append(f"  Location : {location}")
+        lines += [
+            f"  Bios     : v{dmi['bios']['version']}",
+            f"  Kernel   : {kernel['release']}",
+            f"  Processor: {cpu.get('sockets', 1)}x {cpu['model']}",
+            f"             {cpu['physical_cores']} physical cores, {cpu['numa_domains']} NUMA domains",
+        ]
+        parts.append("\n".join(lines))
     return "\n\n".join(parts)
 
 
@@ -1046,7 +1053,9 @@ def render_versus_scorecard(args, output_dir) -> int:
         for j, (_, key, dfn, _) in enumerate(cols):
             ax.text(j, i, dfn(agg[n][key]), ha="center", va="center", fontsize=9)
 
-    title = f"{args.title}\n\nPerformance executive summary (vs {ref_name}){context_header(args)}\n"
+    title = (
+        f"{args.title}\n\nPerformance executive summary (vs {ref_name}){context_header(args)}{location_header(args)}\n"
+    )
     title += "green = better than reference, red = worse, neutral = same; * = reference"
     ax.set_title(title, fontsize=10)
     # Two side-by-side blocks below the graph: system descriptions on the left
