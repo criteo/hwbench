@@ -33,6 +33,11 @@ uv run hwgraph graph --format png --same-group --no-env --no-scaling --no-versus
              "$traces/cdu_reboot_3.json:server-3:BMC.Server" "$traces/cdu_reboot_4.json:server-4:BMC.Server" \
     --outdir "$out/group"
 
+# Recorded host monitoring with synthetic CDU readings, demonstrating the common time grid.
+uv run hwgraph graph --format png --no-scaling --no-versus \
+    --traces "$traces/cdu_comparison.json:cooling:BMC.Server" \
+    --outdir "$out/cooling"
+
 # <directory>/<graph in the output tree> -> <image of the documentation>
 copy() {
     cp "$out/$1" "$img/$2.png"
@@ -71,3 +76,5 @@ group=group/by_group
 copy "$group/time_watt_full_cpu_load_0 320xstressng_cpu_matrixprod_by_servers.png"         hwgraph-group-by-servers
 copy "$group/time_watt_full_cpu_load_0 320xstressng_cpu_matrixprod_by_group.png"           hwgraph-group-by-group
 copy "$group/time_watt_percent_full_cpu_load_0 320xstressng_cpu_matrixprod_by_group.png"   hwgraph-group-percent
+
+copy "cooling/environment/by_host/cooling/cpu_17/CDU/0-CDU_example/CDU and host temperatures_vs_PowerConsumption.png" hwgraph-env-cdu-comparison
