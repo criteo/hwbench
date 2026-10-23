@@ -1,6 +1,9 @@
 from types import SimpleNamespace
 
-from graph.versus import _render_traces_comparison
+import pytest
+
+from graph.test_trace import LOCATION, located_trace
+from graph.versus import _render_traces_comparison, _traces_caption
 
 GPUS = {
     str(index): {"name": "NVIDIA B200", "detail": {"Driver Version": "610.57.04", "CUDA Version": "13.3"}}
@@ -125,3 +128,18 @@ def test_linearity_of_a_single_step_is_not_reported():
     # The two rows of the benchmark table, after its separator
     assert [line.split()[-1] for line in lines[header + 2 : header + 4]] == ["-", "-"]
     assert "+0%" not in text
+
+
+def test_traces_caption_location():
+    """Each trace only gives the fine part of its location, the header giving the wide part they share."""
+    caption = _traces_caption([located_trace(LOCATION), located_trace(LOCATION | {"U": "24", "Extra": "Secret Lab 1"})])
+    assert [block.splitlines()[1:3] for block in caption.split("\n\n")] == [
+        ["  System   : SRV01 ProLiant DL385 Gen11", "  Location : U23"],
+        ["  System   : SRV01 ProLiant DL385 Gen11", "  Location : U24 / Secret Lab 1"],
+    ]
+
+
+@pytest.mark.parametrize("other", [LOCATION | {"Rack": "A13"}, None])
+def test_traces_caption_location_not_shared(other):
+    """Servers not sharing their location, or not all located, give none."""
+    assert "Location" not in _traces_caption([located_trace(LOCATION), located_trace(other)])

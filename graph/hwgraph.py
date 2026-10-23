@@ -37,7 +37,15 @@ try:
     )
     from graph.group import graph_group_env
     from graph.scaling import performance_scaling_graph
-    from graph.trace import CPU_SCALING_UNIT, GPU_SCALING_UNIT, Event, ScalingUnit, Trace, context_line
+    from graph.trace import (
+        CPU_SCALING_UNIT,
+        GPU_SCALING_UNIT,
+        Event,
+        ScalingUnit,
+        Trace,
+        context_line,
+        shared_location_line,
+    )
     from graph.versus import (
         max_versus_graph,
         render_versus_scorecard,
@@ -415,6 +423,11 @@ def render_trace_set(args: argparse.Namespace, output_dir: pathlib.Path):
     args.context = context_line(args.traces)
     if args.context:
         print(args.context)
+    # The location the servers share goes in the headers of the graphs of several servers,
+    # under the context: see location_header(); a single server gives its own under its serial
+    args.location = shared_location_line(args.traces) if len(args.traces) > 1 else None
+    if args.location:
+        print(args.location)
 
     compare_traces(args)
     generate_stats(args)

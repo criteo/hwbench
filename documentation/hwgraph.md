@@ -14,6 +14,7 @@ machines, or the runs of a same machine, with graphs and text reports.
   - [power_metric](#power_metric)
   - [Comparing traces](#comparing-traces)
   - [Context of the runs](#context-of-the-runs)
+  - [Location of the servers](#location-of-the-servers)
 - [Options](#options)
 - [Output tree](#output-tree)
 - [Graphs](#graphs)
@@ -268,6 +269,52 @@ SRV01  runs/hwbench-SRV01-20261022120000.tar.xz
 SRV02  runs/other/hwbench-out-20261022121000/results.json
 ```
 
+## Location of the servers
+hwbench keeps in `results.json` the [location](monitoring.md#location) of the server given by
+the `[Location]` section of the environment file, like a rack and a height. It is optional:
+the traces without location are graphed as before.
+
+A location has a wide part, the place a server shares with others, from `Country` to `Rack`,
+and a fine part, what tells the server apart: its height `U` and `Extra`. `Extra` set alone,
+for a place the hierarchy does not fit, is the wide part: the servers of `Secret Lab 1` share it.
+The precise location only makes sense for a single server, so what hwgraph shows depends on the
+number of servers of a header:
+
+| Header | Location shown |
+|---|---|
+| a single server: the graphs of a single trace, the NUMA distances, `benchmarks_summary.txt` | the whole location, under the `System` line giving its serial |
+| several servers: the group, chassis, versus and scaling comparison graphs and reports | the wide part, under the line of the context, only when all the servers share it: a server without location, or in another rack, removes it |
+| each server of the executive summary of versus | the fine part, under its `System` line, only when the header gives the wide part |
+
+The line goes from the widest place to the narrowest, like hwbench prints it at startup. The
+graph of a single server:
+
+```
+System:EXAMPLE0002 ProLiant DL385 Gen11 Bios:v3.16 Linux Kernel:6.18.52-611.el8.x86_64
+Location: FR / PA99 / DH2 / Cage 1 / Rack A12 / U23
+```
+
+The graph of four servers of the rack `A12`, and the executive summary describing one of them:
+
+```
+Sum of servers power consumption during full_cpu_load_0 benchmark
+Location: FR / PA99 / DH2 / Cage 1 / Rack A12
+```
+
+```
+server-1 (ref):
+  System   : EXAMPLE0003 ProLiant DL365 Gen11
+  Location : U20
+```
+
+Before rendering, hwgraph prints on the console the line of the location shared by the
+servers, under the one of the context:
+
+```
+Context: bios-v2
+Location: FR / PA99 / DH2 / Cage 1 / Rack A12
+```
+
 # Options
 
 | Option | Value | Effect |
@@ -402,6 +449,11 @@ Fatal: <trace>/<benchmark>: <metric> is missing the 4th data point. Use --ignore
   of a benchmark. `Event` holds `--events`. `Trace.get_context()` reads the context of the run,
   and `context_line()` builds the header line of the contexts, kept in `args.context` and placed
   under the line naming the benchmark by `context_header()` of `graph/common.py`.
+  `Trace.get_location_line()` gives the line of the location, built by `location_line()` of
+  `hwbench/environment/environment_file.py`, the one hwbench prints at startup;
+  `split_location()` separates its wide part from its fine part (`FINE_LOCATION_KEYS`).
+  `shared_location_line()` builds the line of the wide part shared by several traces, kept in
+  `args.location` and placed under the line of the contexts by `location_header()`.
 - **Contexts**: `graph/auto_traces.py`. `find_trace_files()` looks for the traces of a directory,
   `list_contexts()` groups them by context for `list --contexts`, and `find_auto_traces()`
   resolves `--auto-traces` into one `AutoTraces` per context; `render_traces()` renders each with
