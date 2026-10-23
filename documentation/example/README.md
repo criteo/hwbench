@@ -31,3 +31,7 @@ The traces were recorded before some features of hwgraph, so some graphs cannot 
 the NUMA comparison between two traces needs two traces with the topology, the
 [chassis](../hwgraph-environment.md#per-chassis) graphs need several servers of a same chassis, and
 no trace has a PDU.
+
+`traces/cdu_comparison.json` combines the recorded `cpu_17` host monitoring of
+`numa.json` with **synthetic** CDU circuit temperatures. These illustrate the
+shared aggregation grid and a failed window; they are not measured CDU data.

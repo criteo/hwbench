@@ -368,7 +368,7 @@ number of sensors or set of metric names.
 The initial model implementation is **HPE MCDU-4U-FR-2**, using **SNMP_V2C**.
 Other models can be added to a vendor's registry, and other vendors have separate
 model registries. A model using an existing protocol can reuse its transport
-without changing the shared collector or result format.
+without changing the shared collector or graph renderer.
 
 ### Configuration
 
@@ -476,6 +476,16 @@ host aggregation window. Errors are counted per reason within each window.
 A window without valid readings has null statistics and zero samples. A real
 numeric zero remains zero. Individual responses and timestamps are not stored.
 As with host metrics, the unfinished final window is omitted.
+
+hwgraph groups each CDU's readings by unit under
+`environment/by_host/<trace>/<benchmark>/CDU/<index>-<section>/`. Metric names and
+units come from the results. Graphs plot window means using the shared
+`metadata.iteration_time`, leaving gaps for empty windows. The initial HPE model
+produces five graphs: temperatures, raw readings, flows, percentage readings and
+rotational speeds. Legend statistics describe the displayed window means, with
+equal weight per valid window, rather than all raw readings. A separate `CDU and host temperatures_vs_PowerConsumption` graph
+superposes circuit, CPU and GPU temperatures with CPU, selected trace and GPU power; see
+[CDU and host comparison](hwgraph-environment.md#cdu-and-host-comparison).
 
 ## Location
 The `[Location]` section says where the target machine physically is: nothing in the machine

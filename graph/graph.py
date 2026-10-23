@@ -50,6 +50,7 @@ class Graph:
         square=False,
         show_source_file=None,
         title_note=None,
+        legend_title="component [min; mean; stddev; max]\n",
     ) -> None:
         self.ax2: Axes | None = None
         self.args = args
@@ -67,6 +68,7 @@ class Graph:
         output_dir.mkdir(parents=True, exist_ok=True)
         self.set_filename(filename)
         self.needs_legend = True  # Does this graph need a legend to be rendered ?
+        self.legend_title = legend_title
 
     def set_filename(self, filename: str):
         self.filename = filename
@@ -283,18 +285,14 @@ class Graph:
             # Upper left
             handles, labels = self.ax.get_legend_handles_labels()
             if handles:
-                legends.append(self.ax.legend(bbox_to_anchor=(-0.1, 1), title="component [min; mean; stddev; max]\n"))
+                legends.append(self.ax.legend(bbox_to_anchor=(-0.1, 1), title=self.legend_title))
             if self.ax2:
                 # Anchor the legend by its left edge, just right of the 2nd y-axis
                 # (past its tick labels and title), so it grows outward instead of
                 # back over the axis regardless of how wide/long its labels get.
                 handles2, labels2 = self.ax2.get_legend_handles_labels()
                 if handles2:
-                    legends.append(
-                        self.ax2.legend(
-                            loc="upper left", bbox_to_anchor=(1.05, 1), title="component [min; mean; stddev; max]\n"
-                        )
-                    )
+                    legends.append(self.ax2.legend(loc="upper left", bbox_to_anchor=(1.05, 1), title=self.legend_title))
 
         self.fig.savefig(
             f"{self.output_dir}/{self.filename}.{file_format}",
