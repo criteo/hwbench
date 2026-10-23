@@ -3,8 +3,10 @@ from __future__ import annotations
 from hwbench.environment.vendors.cdu import CDU
 from hwbench.utils import helpers as h
 
+from .hpe import MODELS as HPE_MODELS
+
 # A vendor owns a model registry. Each model selects its own driver and OIDs.
-VENDORS: dict[str, dict[str, type[CDU]]] = {}
+VENDORS: dict[str, dict[str, type[CDU]]] = {"HPE": HPE_MODELS}
 
 
 def init(vendor, section: str) -> CDU:
