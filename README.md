@@ -53,6 +53,10 @@ hwbench can collect power metrics from it.
 This release supports the following brands:
  - Raritan
 
+hwbench also supports cooling distribution unit (CDU) monitoring through
+vendor/model drivers. Each model provides its own readings and
+communication driver.
+
 For more details and usage, see the specific [documentation](./documentation/monitoring.md)
 
 # How can results be analyzed?

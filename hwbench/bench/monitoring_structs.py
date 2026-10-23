@@ -331,6 +331,7 @@ class MonitorContext(MetricContext):
     PDU: dict[str, MonitorMetric] = field(default_factory=dict)
     CPU: dict[str, MonitorMetric] = field(default_factory=dict)
     GPU: dict[str, MonitorMetric] = field(default_factory=dict)
+    CDU: dict[str, MonitorMetric] = field(default_factory=dict)
 
 
 class MonitorContextKeys(StrEnum):
@@ -338,6 +339,7 @@ class MonitorContextKeys(StrEnum):
     PDU = "PDU"
     CPU = "CPU"
     GPU = "GPU"
+    CDU = "CDU"
 
 
 @dataclass
@@ -380,8 +382,56 @@ class MonitoringContextKeys(StrEnum):
 
 
 @dataclass
+class CDUMetric:
+    """Definition of a CDU reading, including the wire OID and conversion."""
+
+    name: str
+    oid: str
+    unit: str
+    scale: float = 1
+
+
+@dataclass
+class CDUSample:
+    """One transient device response; missing readings are never zero or stale."""
+
+    values: dict[str, float | None]
+    errors: dict[str, str]
+
+
+@dataclass
+class CDUAggregate:
+    """Statistics on the common monitoring grid; empty windows remain gaps."""
+
+    mean: list[float | None] = field(default_factory=list)
+    min: list[float | None] = field(default_factory=list)
+    max: list[float | None] = field(default_factory=list)
+    stdev: list[float | None] = field(default_factory=list)
+    samples: list[int] = field(default_factory=list)
+    errors: list[dict[str, int]] = field(default_factory=list)
+
+    def compact(self, values: list[float], errors: dict[str, int]) -> None:
+        self.mean.append(statistics.mean(values) if values else None)
+        self.min.append(min(values) if values else None)
+        self.max.append(max(values) if values else None)
+        self.stdev.append(statistics.stdev(values) if len(values) > 1 else (0.0 if values else None))
+        self.samples.append(len(values))
+        self.errors.append(dict(errors))
+
+
+@dataclass
+class CDUMonitoringData:
+    """Model definitions and aggregates sharing the host's monitoring grid."""
+
+    timeout_s: float
+    metrics: dict[str, CDUMetric]
+    readings: dict[str, CDUAggregate] = field(default_factory=dict)
+
+
+@dataclass
 class MonitoringData:
     """Complete monitoring data with metadata and contexts"""
 
     metadata: MonitoringMetadata = field(default_factory=MonitoringMetadata)
     contexts: MonitoringContexts = field(default_factory=MonitoringContexts)
+    cdus: dict[str, CDUMonitoringData] = field(default_factory=dict)
