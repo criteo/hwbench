@@ -4,7 +4,13 @@ import configparser
 
 import pytest
 
-from hwbench.environment.environment_file import ENVIRONMENT_FILE, save_environment_file, without_passwords
+from hwbench.environment.environment_file import (
+    ENVIRONMENT_FILE,
+    location_line,
+    read_location,
+    save_environment_file,
+    without_passwords,
+)
 
 ENVIRONMENT = """# The credentials of the BMC
 [default]
@@ -65,3 +71,64 @@ def test_save_missing_environment_file(tmp_path, caplog):
     with pytest.raises(SystemExit):
         save_environment_file(str(tmp_path / "missing.cfg"), tmp_path)
     assert f"Cannot save the environment file '{tmp_path / 'missing.cfg'}'" in caplog.text
+
+
+def environment_file(tmp_path, content: str) -> str:
+    environment = tmp_path / "environment.cfg"
+    environment.write_text(ENVIRONMENT + content)
+    return str(environment)
+
+
+def test_read_location(tmp_path):
+    """The keys set, in the order of importance whatever their order and case in the file, stripped."""
+    location = read_location(
+        environment_file(
+            tmp_path,
+            """
+[Location]
+U=23
+Rack=A12
+Room=
+#Datahall=DH2
+COUNTRY=FR
+Datacenter=PA99
+""",
+        )
+    )
+    assert list(location.items()) == [
+        ("Country", "FR"),
+        ("Datacenter", "PA99"),
+        ("Rack", "A12"),
+        ("U", "23"),
+    ]
+
+
+def test_read_location_extra(tmp_path):
+    """Extra is set alone, when the hierarchy does not match where the server is."""
+    assert read_location(environment_file(tmp_path, "\n[Location]\nextra = Secret Lab 1\n")) == {
+        "Extra": "Secret Lab 1"
+    }
+
+
+@pytest.mark.parametrize("content", ["", "\n[Location]\n", "\n[Location]\nCountry=\n#Rack=A12\n"])
+def test_read_no_location(tmp_path, content):
+    """Without a [Location] section, or without any key set in it, the server has no location."""
+    assert read_location(environment_file(tmp_path, content)) == {}
+    assert location_line({}) is None
+
+
+def test_read_location_unknown_key(tmp_path, caplog):
+    environment = environment_file(tmp_path, "\n[Location]\nBuilding=B1\n")
+    with pytest.raises(SystemExit):
+        read_location(environment)
+    assert (
+        f"{environment}: unknown key 'building' in the [Location] section, expecting Country, Datacenter, Datahall, Room, Rack, U, Extra"
+        in caplog.text
+    )
+
+
+def test_location_line():
+    location = {"Country": "FR", "Datacenter": "PA99", "Datahall": "DH2", "Room": "Cage 1", "Rack": "A12", "U": "23"}
+    assert location_line(location) == "FR / PA99 / DH2 / Cage 1 / Rack A12 / U23"
+    assert location_line({"Rack": "A12", "U": "23"}) == "Rack A12 / U23"
+    assert location_line({"Extra": "Secret Lab 1"}) == "Secret Lab 1"

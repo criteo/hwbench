@@ -298,6 +298,14 @@ therefore run once in a context: two runs of the same server in the same context
 told apart, so running a server again, after fixing the test, takes a new context, like
 `bios-v2-retry`.
 
+Neither can the machine tell where it physically is. The [`[Location]`](monitoring.md#location)
+section of the environment file (`-e`) gives it, from the widest place to the narrowest: the
+country, the datacenter, the datahall, the room, the rack, and the height in the rack, `U`.
+`Extra` describes, alone, a place this hierarchy does not fit, like `Secret Lab 1`. The location
+is kept as `location` in `results.json`, only when at least one key is set: where the context
+says why a run was made, the location says where, and the servers of a same rack or datahall
+share its power and its cooling.
+
 hwgraph shows the context on a dedicated line of the header of every graph, and
 `hwgraph graph --auto-traces` finds the runs of a context in a directory, which is handy after
 a series of runs: see [hwgraph.md](hwgraph.md#context-of-the-runs).
