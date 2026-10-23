@@ -5,6 +5,7 @@ power, the frequencies, the IPC, the fans and the temperatures of the target mac
 are rendered for every benchmark of every trace, unless `--no-env` is given.
 
 - [Per host](#per-host)
+  - [CDU and host comparison](#cdu-and-host-comparison)
   - [Per-core views](#per-core-views)
   - [Reading a violin](#reading-a-violin)
   - [Per NUMA domain](#per-numa-domain)
@@ -31,6 +32,7 @@ in the results, like `cpu_3`, and `<metric>` the kind of metric:
 | `Freq/all_cores` | `Core frequency` | the frequency of every core |
 | `IPC/all_cores` | `Core IPC` | the instructions per cycle of every core |
 | `Monitor` | `Polling` | the time spent by the monitoring to poll its sources |
+| `CDU/<index>-<section>` | `Host power and CPU temperatures_vs_CDU` | CDU circuit and CPU temperatures in °C, with CPU package power and the selected trace power metric in watts on the second axis |
 
 The graphs of this page are rendered from the [reference dataset](example/README.md): the benchmark `cpu_17`, 36 stressors of `stressng cpu int128` during 120 seconds, on a server with 32 physical cores and 8 NUMA domains.
 
@@ -69,6 +71,32 @@ Each host also gets:
 ![NUMA distances](img/hwgraph-env-numa-distances.png)
 
 *`NUMA distances.png`: the distance between the NUMA domains of the host, which domains are close to each other, and which are far.*
+
+## CDU and host comparison
+
+For each configured CDU, hwgraph automatically generates
+`CDU/<index>-<section>/Host power and CPU temperatures_vs_CDU.png` (with `--format png`).
+The left axis shows the primary/secondary supply and return temperatures and the
+CPU temperature sensors. The right axis shows `CPU.package` power, when available,
+and the power metric selected by `--traces`, such as `BMC.Server`. Power curves are
+dashed. Every curve uses the same aggregation grid, with gaps for missing readings.
+
+CDU graph legends summarize the **window means shown on the curves**, excluding
+empty windows. Each valid window has equal weight regardless of its number of
+readings. These min/mean/stddev/max values are not statistics of all raw readings;
+for example, a one-reading window weighs as much as a complete window.
+
+The comparison requires at least one CDU circuit temperature, a CPU temperature
+sensor and a power metric. CDU profiles expose circuit temperatures with the
+optional semantic keys `primary_supply_temperature`, `primary_return_temperature`,
+`secondary_supply_temperature` and `secondary_return_temperature`, in `Celsius`.
+This selection is independent of vendor, model, OIDs and display labels. Other CDU
+readings remain available in the per-unit graphs.
+
+![CDU and host temperatures with power](img/hwgraph-env-cdu-comparison.png)
+
+*Recorded host monitoring from `numa.json`, with synthetic CDU temperatures for
+illustration. The empty window demonstrates a failed CDU reading.*
 
 ## Per-core views
 The per-core metrics (`Core frequency`, `Core IPC`, `CPU Core power consumption`) are

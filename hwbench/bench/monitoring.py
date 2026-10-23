@@ -10,6 +10,7 @@ from hwbench.environment.hardware import BaseHardware
 from hwbench.environment.turbostat import CPUSTATS, Turbostat
 from hwbench.utils import helpers as h
 
+from .cdu_monitoring import CDUMonitoring
 from .monitoring_structs import (
     MonitoringContextKeys,
     MonitoringData,
@@ -46,6 +47,7 @@ class Monitoring:
         self.executor: ThreadWithReturnValue
         self.turbostat: Turbostat | None = None
         self.all_smi: AllSMIMonitoring | None = None
+        self.cdu_monitoring = CDUMonitoring(self.vendor.get_cdus())
         self.prepare()
 
     def __get_metrics(self) -> MonitoringData:
@@ -93,6 +95,8 @@ class Monitoring:
 
         for pdu in pdus:
             print(f"Monitoring/PDU: initialize {pdu.get_name()} with {pdu.get_driver_name()} {pdu.get_detect_string()}")
+        for cdu in self.vendor.get_cdus():
+            print(f"Monitoring/CDU: initialize {cdu.get_name()} with {cdu.get_driver_name()} {cdu.get_detect_string()}")
 
         # - checking if the bmc monitoring works
         # These calls will also initialize the datastructures out of the monitoring loop
@@ -176,6 +180,7 @@ class Monitoring:
         """Compute statistics"""
         # Compact all metrics in contexts
         self.metrics.contexts.compact_all()
+        self.cdu_monitoring.compact()
 
     def monitor(self, precision_s: int, frequency: int, duration_s: int):
         """Method to trigger asynchronous monitoring"""
@@ -194,6 +199,8 @@ class Monitoring:
     def __monitor(self, precision_s: int, frequency: int, duration_s: int) -> MonitoringData:
         """Private method to perform the monitoring."""
         start_monitoring_ns = time.monotonic_ns()
+        self.cdu_monitoring.reset()
+        self.metrics.cdus = self.cdu_monitoring.data
 
         # This function will be a thread of self.monitor()
         #
@@ -213,6 +220,8 @@ class Monitoring:
         self.metrics.contexts.Monitor.BMC = {"Polling": MonitorMetric("Polling", "ms")}
         self.metrics.contexts.Monitor.PDU = {"Polling": MonitorMetric("Polling", "ms")}
         self.metrics.contexts.Monitor.CPU = {"Polling": MonitorMetric("Polling", "ms")}
+        if self.vendor.get_cdus():
+            self.metrics.contexts.Monitor.CDU = {"Polling": MonitorMetric("Polling", "ms")}
         if self.all_smi:
             self.metrics.contexts.Monitor.GPU = {"Polling": MonitorMetric("Polling", "ms")}
 
@@ -255,6 +264,12 @@ class Monitoring:
                 self.__monitor_pdus()
                 # Let's monitor the time spent at monitoring the PDUs, in milliseconds
                 self.metrics.contexts.Monitor.PDU["Polling"].add((time.monotonic_ns() - start_pdu_ns) * 1e-6)
+
+            # CDU requests share the host loop and its aggregation boundaries.
+            if self.vendor.get_cdus():
+                start_cdu_ns = time.monotonic_ns()
+                self.cdu_monitoring.poll()
+                self.metrics.contexts.Monitor.CDU["Polling"].add((time.monotonic_ns() - start_cdu_ns) * 1e-6)
 
             # Now retrieve and parse the turbostat sample that was triggered at the start
             if self.turbostat:

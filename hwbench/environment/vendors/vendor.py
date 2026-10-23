@@ -7,6 +7,8 @@ from abc import ABC, abstractmethod
 from hwbench.utils import helpers as h
 
 from .bmc import BMC
+from .cdu import CDU
+from .cdus import init as init_cdu
 from .pdu import PDU
 
 
@@ -16,6 +18,7 @@ class Vendor(ABC):
         self.dmi = dmi
         self.bmc: BMC | None = None
         self.pdus: list[PDU] = []
+        self.cdus: list[CDU] = []
         self.monitoring_config_filename = monitoring_config_filename
         self.monitoring_config_file: configparser.ConfigParser
 
@@ -65,6 +68,9 @@ class Vendor(ABC):
                     pdu_driver_name = "generic"
                 pdu_driver = self._load_vendor("pdus", pdu_driver_name.lower()).init(self, pdu_section)
                 self.pdus.append(pdu_driver)
+        if not self.cdus:
+            for section in self.find_monitoring_sections("CDU"):
+                self.cdus.append(init_cdu(self, section))
 
     def get_bmc(self) -> BMC:
         """Return the BMC object"""
@@ -76,6 +82,10 @@ class Vendor(ABC):
     def get_pdus(self) -> list[PDU]:
         """Return a list of PDUs object"""
         return self.pdus
+
+    def get_cdus(self) -> list[CDU]:
+        """Return the cooling devices configured for this server."""
+        return self.cdus
 
     def find_monitoring_sections(self, section_type: str, sections_list: list | None = None, max_sections=0):
         """Return sections of section_type from the monitoring configuration file"""
