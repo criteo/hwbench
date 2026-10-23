@@ -20,6 +20,7 @@ dependencies = [
   "pyudev>=0.24.3",
   "pyyaml>=6.0",
   "jsonschema>=4.26.0",
+  "snmp>=1.4,<2",
 ]
 
 [project.urls]
@@ -91,5 +92,5 @@ ignore = [
 known-third-party = ["yaml"]
 
 [[tool.mypy.overrides]]
-module = ["pyudev.*"]
+module = ["pyudev.*", "snmp.*"]
 ignore_missing_imports = true

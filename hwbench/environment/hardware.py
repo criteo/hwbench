@@ -85,6 +85,8 @@ class Hardware(BaseHardware):
         }
         for pdu in self.vendor.get_pdus():
             dump["pdu"][pdu.get_name()] = pdu.dump()
+        if self.vendor.get_cdus():
+            dump["cdu"] = {cdu.get_name(): cdu.dump() for cdu in self.vendor.get_cdus()}
         return dump
 
     def cpu_flags(self) -> list[str]:

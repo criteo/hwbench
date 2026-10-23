@@ -3,6 +3,7 @@
 hwbench is using a specific monitoring engine to collect data from several sources:
 - [BMC](#bmc): thermal, fans and power of the server, through redfish
 - [PDU](#pdu): the power of the outlets the server is connected to, through redfish
+- [CDU](#cdu): cooling telemetry from configured cooling distribution units, using model-specific drivers
 - [Turbostat](#turbostat): the power, frequency and IPC of the processor
 - [all-smi](#all-smi): the inventory of the accelerators, and their power, frequency, utilization, memory and temperature
 
@@ -19,6 +20,8 @@ Depending on the source, power, frequency, thermal or cooling metrics are collec
     - [Accelerators](#accelerators)
   - [PDU](#pdu)
     - [driver](#driver), [url](#url), [outlet](#outlet), [outletgroup](#outletgroup), [separator](#separator), [pdu_id](#pdu_id), [group](#group)
+  - [CDU](#cdu)
+    - [Configuration](#configuration), [Protocols](#protocols), [Supported models](#supported-models), [Collection and results](#collection-and-results)
   - [Location](#location)
 - [Turbostat](#turbostat)
 - [all-smi](#all-smi)
@@ -34,6 +37,9 @@ During each benchmark, and if the monitoring is enabled, metrics are collected a
 > Prefer a `runtime` that is a multiple of 10 seconds. The metrics collected after the last
 > aggregation are not part of any statistics: with `runtime=25`, the aggregations happen
 > at 10 and 20 seconds, and the last 5 seconds of the benchmark are lost for the monitoring.
+
+CDUs run in the same monitoring loop and use the same aggregation windows as the
+host metrics. Each CDU is sampled on every host iteration. See [CDU](#cdu).
 
 At the end of the benchmark the monitoring metrics are added in the result file. hwgraph will use them to plot how these components behave during the benchmark.
 
@@ -64,7 +70,7 @@ url=<url>
 
 | Key | Value | Effect |
 |---|---|---|
-| `type` | `BMC`, `PDU` | the kind of source the section describes |
+| `type` | `BMC`, `PDU`, `CDU` | the kind of source the section describes |
 | `username`, `password` | text | the credentials of the source |
 | `url` | the address of the source | how hwbench reaches it; optional for a BMC |
 
@@ -350,6 +356,107 @@ group=feed_B
 > The group applies to a whole PDU section, and the outlets of a section are summed into a
 > single power measure: outlets on different feeds need a section each, even when they
 > are on the same PDU.
+
+## CDU
+
+hwbench supports cooling distribution units as monitoring sources alongside BMCs
+and PDUs. Each configured CDU is identified by its vendor, model and protocol.
+Its model driver defines the available readings and their units and conversions;
+the shared collector and result format do not require a particular vendor,
+number of sensors or set of metric names.
+
+Model drivers register their definitions in a vendor's registry. A model using
+an existing protocol can reuse its transport without changing the collector or
+result format.
+
+### Configuration
+
+Each CDU gets its own section in the environment file. The section name identifies
+it in the hardware inventory and results. The CDU vendor is independent of the
+server vendor. Keep a BMC section and any PDU sections as usual.
+
+| Key | Value | Effect |
+|---|---|---|
+| `type` | `CDU` | declares a cooling distribution unit |
+| `vendor` | registered vendor name | selects the vendor's model registry |
+| `model` | registered model name | selects the model driver and metric definitions |
+| `protocol` | protocol supported by the selected model | selects the shared communication protocol and applicable credentials |
+| `host` | hostname or IP address | the CDU's endpoint host |
+| `timeout` | finite positive seconds | request timeout; defaults to `2` |
+| `serial` | text | optional inventory metadata; no serial is inferred from the hostname |
+
+Missing or unsupported vendor, model and protocol selections are rejected.
+There is no fallback to another model's metric definitions or an implicit
+protocol downgrade. Endpoint details and credentials belong to the protocol
+driver, rather than the common CDU configuration.
+
+Configuration structure for a registered model (replace the vendor and model placeholders):
+
+```ini
+[CDU_cooling]
+type=CDU
+vendor=<vendor>
+model=<model>
+protocol=SNMP_V2C
+host=cdu.example.net
+community=example-read-community
+timeout=2
+```
+
+Replace `example-read-community` with the read community, then run
+`uv run hwbench -j <job_file> -e <environment_file>`.
+
+### Protocols
+
+Protocol identifiers are shared across all CDU vendors and models:
+
+| Identifier | Protocol |
+|---|---|
+| `SNMP_V2C` | SNMPv2c |
+| `SNMP_V3` | Reserved identifier; no SNMPv3 driver is implemented |
+
+Each model declares its supported subset of this catalogue. A globally known
+identifier is accepted only when listed by the selected model, before credentials
+are validated or any request is sent.
+
+The shared SNMPv2c driver uses the Python `snmp` package (`python-snmp`),
+installed automatically with hwbench. No `snmpget` executable or Net-SNMP
+system package is required. It reads the OIDs supplied by the selected model
+in one batched GET per poll.
+
+Successful GET responses are cached for 1.5 seconds per driver instance, using
+the same TTL as Redfish. Closely spaced calls reuse the response; at the normal
+2-second host cadence, each iteration normally issues a new request. Exceptions
+(including timeouts) are not cached. The cache is local to the hwbench process.
+Each network request owns its SNMP engine; engines are never shared between threads.
+The retransmission period is set beyond the response deadline, preventing retries.
+
+| Key | Value | Effect |
+|---|---|---|
+| `port` | `161` by default | the SNMP UDP destination port |
+| `community` | nonempty read community | required for SNMPv2c |
+
+The read community must be nonempty. It is passed directly to the Python
+library, never through a subprocess, temporary configuration file or log.
+It is excluded from the hardware inventory and results.
+
+### Collection and results
+
+CDUs are polled synchronously on every iteration of the host monitoring loop,
+starting on its first iteration. There is no separate CDU polling interval.
+A slow request delays the loop, just like a BMC or
+PDU request. `contexts.Monitor.CDU.Polling` records the total time spent in CDU
+collection per host iteration. The SNMP response timeout is `timeout` seconds; address resolution
+and processing also contribute to polling time.
+
+The `hardware.cdu` inventory reports `type=CDU`, the configured `vendor`, `model`
+and `protocol`. `monitoring.cdus.<section>` contains metric definitions (`name`,
+`oid`, `unit`, `scale`), `timeout_s` and `readings`. Each reading has
+`mean`, `min`, `max`, `stdev`, `samples` and `errors` arrays, with one entry per
+host aggregation window. Errors are counted per reason within each window.
+A window without valid readings has null statistics and zero samples. A real
+numeric zero remains zero. Individual responses and timestamps are not stored.
+As with host metrics, the unfinished final window is omitted.
 
 ## Location
 The `[Location]` section says where the target machine physically is: nothing in the machine
