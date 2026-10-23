@@ -397,7 +397,8 @@ Startup: Location: FR / PA99 / DH2 / Cage 1 / Rack A12 / U23
 ```
 
 and keeps the keys set as `location` in `results.json`, only when there is at least one, which
-hwgraph shows under the serial of the server, see [hwgraph.md](hwgraph.md#location-of-the-servers):
+hwgraph shows under the serial of the server, see [hwgraph.md](hwgraph.md#location-of-the-servers),
+and uses to group the servers by place with `--auto-group`:
 
 ```json
 "location": {"Country": "FR", "Datacenter": "PA99", "Datahall": "DH2", "Room": "Cage 1", "Rack": "A12", "U": "23"}

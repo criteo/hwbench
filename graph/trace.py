@@ -729,11 +729,16 @@ def shared_location(traces: list) -> dict[str, str]:
     return wide_parts[0]
 
 
+def location_header_line(location: dict[str, str]) -> str | None:
+    """The line of a location in the headers of the graphs: 'Location: FR / PA99 / Rack A12'; None when empty."""
+    line = location_line(location)
+    return f"Location: {line}" if line else None
+
+
 def shared_location_line(traces: list) -> str | None:
     """The line of the location in the headers of the graphs of several servers:
     the wide part of their location, when they all share it; None otherwise."""
-    location = location_line(shared_location(traces))
-    return f"Location: {location}" if location else None
+    return location_header_line(shared_location(traces))
 
 
 class Trace:

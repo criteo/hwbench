@@ -21,6 +21,7 @@ from hwbench.bench.monitoring_structs import (
 )
 
 try:
+    from graph.auto_group import GROUP_DIRECTORY, LocationGroup, group_problem, location_groups
     from graph.auto_traces import AUTO_TRACES_FILE, find_auto_traces, print_contexts
     from graph.chassis import graph_chassis
     from graph.common import fatal
@@ -44,6 +45,7 @@ try:
         ScalingUnit,
         Trace,
         context_line,
+        location_header_line,
         shared_location_line,
     )
     from graph.versus import (
@@ -113,10 +115,20 @@ def _task_chassis(bench_name, output_dir_str):
     return graph_chassis(_pool_args, bench_name, pathlib.Path(output_dir_str))
 
 
-def _task_group(bench_name, output_dir_str):
-    """Generate group graphs for a single bench."""
+def _task_group(bench_name, output_dir_str, trace_indexes=None, location=None):
+    """Generate group graphs for a single bench, of all the traces or of a group found by --auto-group."""
     global _pool_args
-    return graph_group_env(_pool_args, bench_name, pathlib.Path(output_dir_str))
+    args = _pool_args
+    if trace_indexes is not None:
+        # The graphs of a group of --auto-group give the location of its place in their header,
+        # even when its servers are in several racks, with the number of servers it holds,
+        # and the name of the place in their file names
+        args = copy.copy(_pool_args)
+        args.traces = [_pool_args.traces[index] for index in trace_indexes]
+        group = LocationGroup(location, args.traces)
+        args.location = f"{location_header_line(location)} ({len(args.traces)} servers)"
+        args.place_name = group.place_name()
+    return graph_group_env(args, bench_name, pathlib.Path(output_dir_str))
 
 
 def _task_scaling(job, output_dir_str, traces_name):
@@ -150,10 +162,12 @@ def _task_versus(job, output_dir_str, traces_name):
 def _collect_group_tasks(args, output_dir):
     """Collect group graph tasks."""
     tasks = []
+    if args.auto_group:
+        return _collect_auto_group_tasks(args, output_dir)
     if not args.same_group:
         return tasks
     # Graphs below are per group
-    output_dir = output_dir.joinpath("by_group")
+    output_dir = output_dir.joinpath(GROUP_DIRECTORY)
     for trace in args.traces:
         try:
             metric = f"BMC/{PowerCategories.SERVER}"
@@ -171,6 +185,27 @@ def _collect_group_tasks(args, output_dir):
     print(f"group: rendering {len(args.traces[0].bench_list())} jobs")
     for bench_name in sorted(args.traces[0].bench_list()):
         tasks.append((_task_group, bench_name, str(output_dir)))
+    return tasks
+
+
+def _collect_auto_group_tasks(args, output_dir):
+    """Collect the group graph tasks of each place of the location of the traces, found by --auto-group."""
+    groups = location_groups(args.traces)
+    if not groups:
+        print("auto-group: no place shared by several traces, nothing to group")
+        return []
+    tasks = []
+    for group in groups:
+        names = ", ".join(trace.get_name() for trace in group.traces)
+        problem = group_problem(group)
+        if problem:
+            print(f"auto-group: {group.name()}: not rendered, {problem}")
+            continue
+        print(f"auto-group: {group.name()}: {names}")
+        group_dir = output_dir.joinpath(GROUP_DIRECTORY, *group.directories())
+        trace_indexes = [args.traces.index(trace) for trace in group.traces]
+        for bench_name in sorted(group.traces[0].bench_list()):
+            tasks.append((_task_group, bench_name, str(group_dir), trace_indexes, group.location))
     return tasks
 
 
@@ -893,9 +928,17 @@ duration     : duration of the event (in seconds)
         help="All traces are from the same chassis",
         action="store_true",
     )
-    parser_graph.add_argument(
+    group_group = parser_graph.add_mutually_exclusive_group()
+    group_group.add_argument(
         "--same-group",
         help="All traces are from the same group of servers",
+        action="store_true",
+    )
+    group_group.add_argument(
+        "--auto-group",
+        help="""Render the graphs of a group for each place shared by several traces, found in their location:
+in by_group/, one subdirectory per key of the location, from the widest, like by_group/FR/PA99/DH2/Cage_1/Rack_A12.
+A place holding the same traces as its single subplace is only rendered in the subplace.""",
         action="store_true",
     )
     parser_graph.add_argument(

@@ -5,6 +5,11 @@ from graph.graph import Graph
 from hwbench.bench.monitoring_structs import MonitoringContextKeys, PowerCategories, PowerConsumptionContextKeys
 
 
+def place_suffix(args) -> str:
+    """The name of the place of a group of --auto-group in the file names of its graphs: '_Rack_A12'."""
+    return f"_{args.place_name}" if getattr(args, "place_name", None) else ""
+
+
 def graph_sum_ratio(args, bench, bench_name, output_dir, time_serie, serie, base_outfile) -> int:
     # Render the ratio of power consumption
     order = np.argsort(time_serie)
@@ -15,7 +20,7 @@ def graph_sum_ratio(args, bench, bench_name, output_dir, time_serie, serie, base
         "Time [seconds]",
         "Percent of the whole server",
         output_dir,
-        f"time_watt_percent_{base_outfile}_by_group",
+        f"time_watt_percent_{base_outfile}{place_suffix(args)}_by_group",
     )
 
     # For each type metrics stored into the serie
@@ -47,7 +52,7 @@ def graph_sum_of_servers(args, bench, bench_name, output_dir, time_serie, serie,
         "Time [seconds]",
         "Watts",
         output_dir,
-        f"time_watt_{base_outfile}_by_group",
+        f"time_watt_{base_outfile}{place_suffix(args)}_by_group",
     )
 
     # For each type metrics stored into the serie
@@ -79,7 +84,7 @@ def graph_servers(args, bench, bench_name, output_dir, time_serie, serie, base_o
         "Time [seconds]",
         "Watts",
         output_dir,
-        f"time_watt_{base_outfile}_by_servers",
+        f"time_watt_{base_outfile}{place_suffix(args)}_by_servers",
     )
 
     for trace in args.traces:
