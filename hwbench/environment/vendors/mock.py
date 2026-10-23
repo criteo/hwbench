@@ -69,7 +69,7 @@ class MockVendor(Vendor):
         self,
         out_dir,
         dmi,
-        monitoring_config_filename="hwbench/tests/mocked_monitoring.cfg",
+        monitoring_config_filename="hwbench/tests/mocked_environment.cfg",
     ):
         super().__init__(out_dir, dmi, monitoring_config_filename)
         self.bmc = MockedBMC(self.out_dir, self)

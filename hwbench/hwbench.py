@@ -61,7 +61,7 @@ def main():
     print("Startup: Dumping software environment")
     env = env_soft.Environment(out_dir)
     print("Startup: Dumping hardware environment")
-    hw = env_hw.Hardware(out_dir, args.monitoring_config)
+    hw = env_hw.Hardware(out_dir, args.environment)
 
     hwbench_config.set_hardware(hw)
     benches.set_hardware(hw)
@@ -126,6 +126,28 @@ def create_output_directory(directory, timestamp: str) -> tuple[pathlib.Path, pa
     return out_dir.absolute(), tuning_out_dir.absolute()
 
 
+class ReplacedOption(argparse.Action):
+    """An option replaced by another one: using it stops with the option to use instead."""
+
+    def __init__(self, option_strings, dest, replacement: str, **kwargs):
+        self.replacement = replacement
+        super().__init__(option_strings, dest, help=argparse.SUPPRESS, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        parser.error(f"{option_string} is replaced by {self.replacement}")
+
+
+def add_environment_option(parser: argparse.ArgumentParser, required: bool = False) -> None:
+    """The -e/--environment option, shared by hwbench and redfish_dump; -m/--monitoring-config it replaces stops."""
+    parser.add_argument(
+        "-e",
+        "--environment",
+        help="Specify the file describing the environment of the server, like environment.cfg: the credentials to monitor its BMC and PDUs",
+        required=required,
+    )
+    parser.add_argument("-m", "--monitoring-config", action=ReplacedOption, replacement="-e/--environment")
+
+
 def parse_options():
     parser = argparse.ArgumentParser(
         prog="hwbench",
@@ -138,11 +160,7 @@ def parse_options():
         help="Specify the file containing jobs to runs",
         required=True,
     )
-    parser.add_argument(
-        "-m",
-        "--monitoring-config",
-        help="Specify the file containing the credentials to monitor the BMC",
-    )
+    add_environment_option(parser)
     parser.add_argument(
         "-o",
         "--output-directory",

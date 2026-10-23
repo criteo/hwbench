@@ -27,7 +27,7 @@ uv run mypy hwbench csv graph tools
 
 Run the tools (need root for hwbench):
 ```bash
-uv run hwbench -j configs/curve-cpu.conf -m monitoring.cfg   # -j jobs config (required), -m monitoring creds, -o out dir, --no-tuning
+uv run hwbench -j configs/curve-cpu.conf -e environment.cfg   # -j jobs config (required), -e environment file (BMC/PDU creds), -o out dir, --no-tuning
 uv run hwgraph ...    # requires `uv sync --extra graph` (pulls pycairo/matplotlib)
 ```
 
@@ -55,7 +55,7 @@ Key subsystems under `hwbench/`:
 
 - **utils/** — `external.py` (subprocess base class), `helpers.py` (`h.fatal`, binary checks), `hwlogging.py`, `archive.py`, `dataclasses.py`.
 
-`tools/redfish_dump.py` is a script out of the package, like `csv/convert.py`: it records the Redfish urls the BMC driver reads on the target machine, anonymized, as the fixtures of `hwbench/environment/tests/vendors/<vendor>/<model>/` (`sudo uv run tools/redfish_dump.py -m monitoring.cfg -o <dir>`).
+`tools/redfish_dump.py` is a script out of the package, like `csv/convert.py`: it records the Redfish urls the BMC driver reads on the target machine, anonymized, as the fixtures of `hwbench/environment/tests/vendors/<vendor>/<model>/` (`sudo uv run tools/redfish_dump.py -e environment.cfg -o <dir>`).
 
 `graph/` is a separate package (`hwgraph.py` entry) that reads result trace files (`trace_filename:logical_name:power_metric` syntax, a `results.json` or a `hwbench-<serial>-<timestamp>.tar.xz` archive) and renders/compares them; it imports shared structs from `hwbench.bench.monitoring_structs`.
 

@@ -29,3 +29,18 @@ def test_context_option():
         assert parse_options().context == "new thermal paste"
     with patch("sys.argv", ["hwbench", "-j", "jobs.conf"]):
         assert parse_options().context is None
+
+
+def test_environment_option():
+    with patch("sys.argv", ["hwbench", "-j", "jobs.conf", "-e", "environment.cfg"]):
+        assert parse_options().environment == "environment.cfg"
+    with patch("sys.argv", ["hwbench", "-j", "jobs.conf"]):
+        assert parse_options().environment is None
+
+
+@pytest.mark.parametrize("option", ["-m", "--monitoring-config"])
+def test_replaced_monitoring_config_option(option, capsys):
+    """-m/--monitoring-config stops hwbench with the option replacing it."""
+    with patch("sys.argv", ["hwbench", "-j", "jobs.conf", option, "monitoring.cfg"]), pytest.raises(SystemExit):
+        parse_options()
+    assert f"{option} is replaced by -e/--environment" in capsys.readouterr().err
