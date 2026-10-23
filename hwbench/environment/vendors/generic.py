@@ -15,10 +15,11 @@ class GenericVendor(Vendor):
         return True
 
     def prepare(self):
+        # A server of unknown vendor, like a laptop, has no BMC to detect unless the environment file declares one
+        if not self.find_monitoring_sections("BMC"):
+            self.bmc = MockedBMC(self.out_dir, self)
         if self.get_monitoring_config_filename():
             super().prepare()
-        else:
-            self.bmc = MockedBMC(self.out_dir, self)
 
     def save_bios_config(self):
         print("Warning: using Generic BIOS vendor")
