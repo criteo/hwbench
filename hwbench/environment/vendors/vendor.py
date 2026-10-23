@@ -87,7 +87,8 @@ class Vendor(ABC):
 
         if not os.path.isfile(self.get_monitoring_config_filename()):
             h.fatal(f"Environment file ({self.get_monitoring_config_filename()}) is not a file or does not exists.")
-        self.monitoring_config_file = configparser.ConfigParser(allow_no_value=True)
+        # No interpolation: a password taking its value from another key would be left in the saved environment file
+        self.monitoring_config_file = configparser.ConfigParser(allow_no_value=True, interpolation=None)
         self.monitoring_config_file.read(self.get_monitoring_config_filename())
 
         # If no sections list is provided, let's consider all of them
