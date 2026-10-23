@@ -22,6 +22,7 @@ from hwbench.bench.monitoring_structs import (
 
 try:
     from graph.auto_traces import AUTO_TRACES_FILE, find_auto_traces, print_contexts
+    from graph.cdu import graph_cdu
     from graph.chassis import graph_chassis
     from graph.common import fatal
     from graph.graph import (
@@ -89,6 +90,7 @@ def _task_env_bench(trace_idx, bench_name, output_dir_str):
     count += graph_cpu_numa(args, trace, bench_name, output_dir)
     count += graph_gpu(args, trace, bench_name, output_dir)
     count += graph_pdu(args, trace, bench_name, output_dir)
+    count += graph_cdu(args, trace, bench_name, output_dir)
     count += graph_thermal(args, trace, bench_name, output_dir)
     return count
 

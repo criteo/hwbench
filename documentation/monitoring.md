@@ -363,7 +363,7 @@ number of sensors or set of metric names.
 The initial model implementation is **HPE MCDU-4U-FR-2**, using **SNMP_V2C**.
 Other models can be added to a vendor's registry, and other vendors have separate
 model registries. A model using an existing protocol can reuse its transport
-without changing the shared collector or result format.
+without changing the shared collector or graph renderer.
 
 ### Configuration
 
@@ -472,6 +472,15 @@ A window without valid readings has null statistics and zero samples. A real
 numeric zero remains zero. Individual responses and timestamps are not stored.
 As with host metrics, the unfinished final window is omitted.
 
+hwgraph groups each CDU's readings by unit under
+`environment/by_host/<trace>/<benchmark>/CDU/<index>-<section>/`. Metric names and
+units come from the results. Graphs plot window means using the shared
+`metadata.iteration_time`, leaving gaps for empty windows. The initial HPE model
+produces five graphs: temperatures, raw readings, flows, percentage readings and
+rotational speeds. Legend statistics describe the displayed window means, with
+equal weight per valid window, rather than all raw readings. A separate `Host power and CPU temperatures_vs_CDU` graph
+superposes circuit and CPU temperatures with CPU/selected trace power; see
+[CDU and host comparison](hwgraph-environment.md#cdu-and-host-comparison).
 
 # Turbostat
 On x86_64 systems, turbostat is used automatically when the monitoring is enabled, and no configuration is required. It is mandatory there: hwbench stops with `Missing turbostat binary, please install it.` when it is not installed, or with `Monitoring/turbostat: minimal expected release is 2022.04.16` when it is older.
