@@ -299,7 +299,8 @@ told apart, so running a server again, after fixing the test, takes a new contex
 `bios-v2-retry`.
 
 Neither can the machine tell where it physically is. The [`[Location]`](monitoring.md#location)
-section of the environment file (`-e`) gives it, from the widest place to the narrowest: the
+section of the environment file (`-e`), or the [topology file](topology.md) (`-t`) locating
+every server of a fleet by its serial, gives it, from the widest place to the narrowest: the
 country, the datacenter, the datahall, the room, the rack, and the height in the rack, `U`.
 `Extra` describes, alone, a place this hierarchy does not fit, like `Secret Lab 1`. The location
 is kept as `location` in `results.json`, only when at least one key is set, and hwgraph shows it
@@ -369,6 +370,7 @@ Knowing which word applies to which artifact saves time when reading a result:
 | `job_file.conf` | the job file, copied as is: one section per **job** |
 | `expanded_job_file.conf` | one section per **benchmark** |
 | `environment.cfg` | the environment file (`-e`), without its passwords: the target machine, for the whole **run** |
+| `topology.json` | the topology file (`-t`), copied as is: the servers of a fleet, for the whole **run** |
 | `results.json`, `bench` key | one entry per **benchmark**, keyed `<job>_<number>` |
 | the engine output files | one set per **benchmark** |
 | `tuning/` | one per **run** |

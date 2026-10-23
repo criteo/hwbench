@@ -144,4 +144,5 @@ All the pages are in the [documentation/](./documentation/) directory.
 | [cpu-selection.md](./documentation/cpu-selection.md) | how a job selects the CPUs to load |
 | [engines.md](./documentation/engines.md) | the engine model, with [stressng.md](./documentation/stressng.md), [fio.md](./documentation/fio.md), [pantheon.md](./documentation/pantheon.md), [spike.md](./documentation/spike.md) and [sleep.md](./documentation/sleep.md) |
 | [monitoring.md](./documentation/monitoring.md) | the BMC, the PDU, turbostat and all-smi metrics, and the environment file |
+| [topology.md](./documentation/topology.md) | the topology file locating the servers of a fleet, its validator, and how to write an exporter |
 | [hwgraph.md](./documentation/hwgraph.md) | the graphs and the comparison of the results, with [hwgraph-environment.md](./documentation/hwgraph-environment.md), [hwgraph-scaling.md](./documentation/hwgraph-scaling.md) and [hwgraph-versus.md](./documentation/hwgraph-versus.md) |

@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/criteo/hwbench/blob/main/hwbench/environment/topology-v1.schema.json",
+  "title": "hwbench topology, version 1",
+  "description": "Where each server is, given to hwbench with -t/--topology: the location of the server whose serial it finds. Every server is either in 'topology', a fixed hierarchy of 6 levels from the country to the height in the rack, or in 'extra', a place this hierarchy does not describe; a serial appears only once in the whole file, which this schema cannot check: run tools/topology_check.py. See documentation/topology.md.",
+  "type": "object",
+  "required": ["version", "topology", "extra"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "description": "The version of the format: 1 for this schema.",
+      "const": 1
+    },
+    "topology": {
+      "$ref": "#/$defs/Country"
+    },
+    "extra": {
+      "description": "The servers out of the hierarchy, by the free text naming their place, like 'Secret Lab 1'.",
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/name"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/serials"
+      }
+    }
+  },
+  "$defs": {
+    "Country": {
+      "description": "The countries, by their ISO 3166-1 alpha-2 code, like 'FR', each holding its datacenters. The name '' stands for a country not known.",
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/level_name"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/Datacenter"
+      }
+    },
+    "Datacenter": {
+      "description": "The datacenters of a country, like 'PA99', each holding its datahalls. The name '' stands for a datacenter not known.",
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/level_name"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/Datahall"
+      }
+    },
+    "Datahall": {
+      "description": "The halls of a datacenter, like 'DH2', each holding its rooms. The name '' stands for a datahall not known, or a datacenter without datahalls.",
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/level_name"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/Room"
+      }
+    },
+    "Room": {
+      "description": "The rooms of a datahall, like 'Room 1' or 'Cage 1', shown as is: the name holds its kind of room, each holding its racks. The name '' stands for a room not known, or a datahall without rooms.",
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/level_name"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/Rack"
+      }
+    },
+    "Rack": {
+      "description": "The racks of a room, like 'A12', shown as 'Rack A12': the name does not hold 'Rack', each holding its heights. The name '' stands for a rack not known.",
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/level_name"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/U"
+      }
+    },
+    "U": {
+      "description": "The heights in a rack, like '23', shown as 'U23': the name does not hold 'U', the lowest height of a server spanning several, each holding the serials of the servers at that height: several for the nodes of a multi-node chassis. The name '' stands for a height not known.",
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/level_name"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/serials"
+      }
+    },
+    "serials": {
+      "description": "The serial numbers of the servers, as the DMI of each server gives them (/sys/devices/virtual/dmi/id/product_serial), without the spaces at their ends: the one of the node, not of the chassis, compared with case.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/name"
+      }
+    },
+    "name": {
+      "description": "A text without spaces at its ends.",
+      "type": "string",
+      "pattern": "^\\S(.*\\S)?$"
+    },
+    "level_name": {
+      "description": "The name of a level of the hierarchy, without spaces at its ends, or '' when the level is not known.",
+      "type": "string",
+      "pattern": "^(\\S(.*\\S)?)?$"
+    }
+  }
+}
