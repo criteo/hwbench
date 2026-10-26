@@ -1,7 +1,7 @@
 import numpy as np
 
 from graph.common import context_header, location_header
-from graph.graph import Graph, get_max_value_string_length, statistics_in_label
+from graph.graph import MAX_LEGEND_ITEMS, Graph, draw_lines, get_max_value_string_length, statistics_in_label
 from hwbench.bench.monitoring_structs import MonitoringContextKeys, PowerCategories, PowerConsumptionContextKeys
 
 
@@ -10,6 +10,18 @@ def statistics_labels(series: dict[str, np.ndarray]) -> dict[str, str]:
     title_length = max(len(name) for name in series)
     value_length = max(get_max_value_string_length(serie) for serie in series.values())
     return {name: statistics_in_label(name, serie, title_length, value_length) for name, serie in series.items()}
+
+
+def named_servers(series: dict[str, np.ndarray], capacity: int = MAX_LEGEND_ITEMS) -> tuple[list[str], list[str]]:
+    """The servers named in the legend of the graph of the servers, a legend naming a fleet being longer
+    than the graph: all of them when they fit in its capacity, as the first list. Otherwise the ones of
+    the highest means, then the ones of the lowest, each by decreasing mean, filling the legend but a
+    line telling how many servers are between them."""
+    if len(series) <= capacity:
+        return list(series), []
+    by_mean = sorted(series, key=lambda name: np.mean(series[name]), reverse=True)
+    room = max(2, capacity - 1)
+    return by_mean[: (room + 1) // 2], by_mean[len(by_mean) - room // 2 :]
 
 
 def place_suffix(args) -> str:
@@ -93,9 +105,17 @@ def graph_servers(args, bench, bench_name, output_dir, time_serie, serie, base_o
     )
 
     series = {trace.get_name(): np.array(serie[trace.get_name()])[order] for trace in args.traces}
-    labels = statistics_labels(series)
-    for name, y_serie in series.items():
-        graph.get_ax().plot(x_serie, y_serie, "", label=labels[name], marker=".")
+    highest, lowest = named_servers(series)
+    labels = statistics_labels({name: series[name] for name in highest + lowest})
+    for name in highest:
+        graph.get_ax().plot(x_serie, series[name], "", label=labels[name], marker=".")
+    if lowest:
+        # The legend gives the highest means, the number of servers between them and the lowest means
+        others = [name for name in series if name not in labels]
+        graph.get_ax().plot([], [], " ", label=f"… {len(others)} other servers between")
+        for name in lowest:
+            graph.get_ax().plot(x_serie, series[name], "", label=labels[name], marker=".")
+        draw_lines(graph.get_ax(), x_serie, [series[name] for name in others])
 
     graph.prepare_axes(
         3 * bench.get_time_interval(),

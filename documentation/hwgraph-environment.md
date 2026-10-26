@@ -208,7 +208,10 @@ For each benchmark, `by_group/` contains:
 | `time_watt_<benchmark> …_by_group` | the sum of the servers: of `BMC.Server`, of `CPU.package`, and the difference between both, what the processors do not account for |
 | `time_watt_percent_<benchmark> …_by_group` | the share of the CPU packages, and of the rest of the servers, in percent of the sum of `BMC.Server` |
 
-The legend gives the `[min; mean; stddev; max]` of each curve.
+The legend gives the `[min; mean; stddev; max]` of each curve. Beyond 36 servers, the most a legend
+holds within the height of the graph, as for the other graphs, the legend of `…_by_servers` is
+filled with the servers of the highest means, then a line `… <n> other servers between`, then the
+servers of the lowest means, by decreasing mean; the servers between them are drawn without name.
 
 For example, a group of four servers of the [reference dataset](example/README.md), which ran the
 same benchmark at the same time while the cooling distribution unit was rebooted, with
