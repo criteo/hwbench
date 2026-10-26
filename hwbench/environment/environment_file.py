@@ -17,12 +17,14 @@ LOCATION_KEYS = ("separator", "levels", "location")
 # The separator of the values of the location and of the names of its levels, when not given
 DEFAULT_SEPARATOR = "/"
 
-# A password key, even commented out, as configparser reads it: any case, '=' or ':', or no value
-PASSWORD_LINE = re.compile(r"^\s*[#;]?\s*password\s*([=:].*)?$", re.IGNORECASE)
+# A secret key, the password of a BMC or a PDU, or the SNMP community of a CDU, even commented out,
+# as configparser reads it: any case, '=' or ':', or no value
+PASSWORD_LINE = re.compile(r"^\s*[#;]?\s*(password|community)\s*([=:].*)?$", re.IGNORECASE)
 
 
 def without_passwords(content: str) -> str:
-    """The environment file without its password keys, nor the indented lines continuing their value."""
+    """The environment file without its secret keys, password and community, nor the indented lines
+    continuing their value."""
     lines = []
     in_password = False
     # The blank and comment lines after a password: configparser continues its value past them
@@ -49,7 +51,8 @@ def without_passwords(content: str) -> str:
 
 
 def save_environment_file(environment_file: str, out_dir: pathlib.Path) -> None:
-    """Copy the environment file in the output directory, without the passwords of the BMC and the PDUs."""
+    """Copy the environment file in the output directory, without the passwords of the BMC and the PDUs,
+    nor the SNMP communities of the CDUs."""
     out_file = out_dir.joinpath(ENVIRONMENT_FILE)
     try:
         out_file.write_text(without_passwords(pathlib.Path(environment_file).read_text()))
