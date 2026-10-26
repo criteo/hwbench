@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from graph.common import context_header
-from graph.graph import Graph, statistics_in_label
+from graph.graph import Graph, statistics_in_label, zero_margin
 from graph.trace import Trace
 from hwbench.bench.monitoring_structs import GPU_FAMILY
 
@@ -66,6 +66,7 @@ def graph_cdu(args, trace: Trace, bench_name: str, output_dir) -> int:
             graph.prepare_axes(30, 5, points_to_plot=metadata["samples_count"], interval=metadata["iteration_time"])
             # A failure at either end must not shorten the visible benchmark period.
             graph.get_ax().set_xlim(0, max(1, bench.duration()))
+            graph.get_ax().set_xlim(left=zero_margin(graph.get_ax().xaxis, max(1, bench.duration())))
             graph.render()
             count += 1
         count += graph_cdu_host(args, trace, bench, name, data, directory)
@@ -165,5 +166,6 @@ def graph_cdu_host(args, trace: Trace, bench, name: str, data: dict, directory) 
         )
     graph.prepare_axes(30, 5, points_to_plot=metadata["samples_count"], interval=metadata["iteration_time"])
     graph.get_ax().set_xlim(0, max(1, bench.duration()))
+    graph.get_ax().set_xlim(left=zero_margin(graph.get_ax().xaxis, max(1, bench.duration())))
     graph.render()
     return 1

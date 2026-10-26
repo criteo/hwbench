@@ -21,6 +21,7 @@ from graph.graph import (
     numa_aggregated_components,
     numa_core_blocks,
     statistics_in_label,
+    zero_margin,
 )
 from graph.trace import CPU_SCALING_UNIT, GPU_SCALING_UNIT, ScalingUnit
 from hwbench.bench.monitoring_structs import CORE_FAMILY, MonitoringContextKeys
@@ -619,6 +620,7 @@ def render_scaling_linearity_deviation(args, temp_outdir, job: str, emp: str) ->
             ax.set_xlim(xmin=0)
             ax.xaxis.set_major_locator(MultipleLocator(8))
             ax.xaxis.set_minor_locator(MultipleLocator(4))
+            ax.set_xlim(left=zero_margin(ax.xaxis, ax.get_xlim()[1]))
             # Grid to ease reading the depth: solid major lines plus a fainter dashed
             # midline between ticks (Y midline kept between the major Y ticks).
             ax.yaxis.set_minor_locator(AutoMinorLocator(2))

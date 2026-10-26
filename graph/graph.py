@@ -34,6 +34,23 @@ GRAPH_TYPES = ["perf", "perf_watt", "watts", "cpu_clock"]
 # top curve is not merged with the frame. Graphs stay zero-based (comparable
 # across CPUs/products); we only push the top of the axis a bit above the data.
 YMAX_HEADROOM = 1.05
+# Room before the 0 of an axis starting at 0, as a share of its end, so that a curve at 0, or
+# starting at 0, is not merged with the frame
+ZERO_MARGIN = 0.02
+# The most of the smallest tick step the room takes, so that no tick is drawn before 0
+ZERO_MARGIN_STEP = 0.4
+
+
+def zero_margin(axis, end: float) -> float:
+    """The start of an axis from 0 to end, before 0 by ZERO_MARGIN of its end, but less than
+    the smallest step of its ticks, major or minor: no tick is drawn before 0."""
+    margin = end * ZERO_MARGIN
+    steps = [np.diff(ticks).min() for ticks in (axis.get_majorticklocs(), axis.get_minorticklocs()) if len(ticks) > 1]
+    if steps:
+        margin = min(margin, ZERO_MARGIN_STEP * min(steps))
+    return -margin
+
+
 # The entries a legend beside the axes holds within their height: beyond, it is longer than the graph
 MAX_LEGEND_ITEMS = 36
 
@@ -130,12 +147,17 @@ class Graph:
             if data_top and 0 < data_top < float("inf"):
                 ymax = data_top * YMAX_HEADROOM
         self.ax.set_ylim(None, ymin=0, ymax=ymax, emit=True, auto=True)
+        self.ax.set_ylim(bottom=zero_margin(self.ax.yaxis, self.ax.get_ylim()[1]))
         # If we have a 2nd axis, let's prepare it
         if self.ax2:
             self.ax2.set_ylim(None, ymin=0, ymax=self.y2_max, emit=True, auto=True)
+            top = self.ax2.get_ylim()[1]
+            self.ax2.set_ylim(bottom=zero_margin(self.ax2.yaxis, top))
             self.ax2.yaxis.set_major_formatter(FuncFormatter(self.human_format))
             self.fig.tight_layout()  # otherwise the right y-label is slightly clipped
-            self.ax2.yaxis.set_major_locator(matplotlib.ticker.LinearLocator(len(self.ax.get_yticks()) - 2))
+            # Evenly spread from 0 to the top, the margin below 0 having no tick
+            ticks = len(self.ax.get_yticks()) - 2
+            self.ax2.yaxis.set_major_locator(matplotlib.ticker.FixedLocator(np.linspace(0, top, ticks)))
 
         # If we have less than 15 points to render, let's use the real time interval
         if points_to_plot and points_to_plot < 30:
@@ -154,6 +176,8 @@ class Graph:
             )
         else:
             self.ax.xaxis.set_minor_locator(AutoMinorLocator())
+        if x_major_locator:
+            self.ax.set_xlim(left=zero_margin(self.ax.xaxis, self.ax.get_xlim()[1]))
 
         self.ax.yaxis.set_major_formatter(FuncFormatter(self.human_format))
         self.prepare_grid()
