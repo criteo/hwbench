@@ -46,7 +46,8 @@ def graph_cdu(args, trace: Trace, bench_name: str, output_dir) -> int:
         if not metadata["samples_count"]:
             continue
         directory = output_dir / trace.get_name() / bench_name / "CDU" / f"{index}-{quote(name, safe='')}"
-        for unit, series in cdu_series(data, metadata["iteration_time"]).items():
+        groups = cdu_series(data, metadata["iteration_time"])
+        for unit, series in groups.items():
             title = TITLES.get(unit, unit)
             graph = Graph(
                 args,
@@ -69,8 +70,53 @@ def graph_cdu(args, trace: Trace, bench_name: str, output_dir) -> int:
             graph.get_ax().set_xlim(left=zero_margin(graph.get_ax().xaxis, max(1, bench.duration())))
             graph.render()
             count += 1
+        for unit in VS_THERMAL:
+            count += graph_cdu_vs_thermal(args, trace, bench, name, groups, unit, directory)
         count += graph_cdu_host(args, trace, bench, name, data, directory)
     return count
+
+
+# The readings of a CDU drawn against the temperatures of its circuits, the speeds of its pumps
+# and its flow rates, named as the other graphs with a second axis: <graph>_vs_Thermal
+VS_THERMAL = ("RPM", "L/min")
+
+
+def graph_cdu_vs_thermal(args, trace: Trace, bench, name: str, groups: dict, unit: str, directory) -> int:
+    """The readings of a CDU in a unit, with its temperatures on a second axis, when it has both."""
+    if unit not in groups or "Celsius" not in groups:
+        return 0
+    metadata = bench.get("monitoring")["metadata"]
+    graph = Graph(
+        args,
+        f'CDU {name}: {TITLES.get(unit, unit)} during "{bench.get_bench_name()}" benchmark job'
+        f"{context_header(args)}\n{args.title}\n{bench.get_system_title()}",
+        "Time [seconds]",
+        unit,
+        directory,
+        f"{quote(TITLES.get(unit, unit), safe=' ')}_vs_Thermal",
+        show_source_file=trace,
+        legend_title=WINDOW_MEAN_LEGEND,
+    )
+    graph.set_y2_axis("Temperature (°C)")
+    # Share the color cycle across both axes, with dashed lines identifying the temperatures.
+    series = [(False, *serie) for serie in groups[unit]] + [(True, *serie) for serie in groups["Celsius"]]
+    for index, (is_temperature, label, timestamps, values) in enumerate(series):
+        axis = graph.get_ax2() if is_temperature else graph.get_ax()
+        valid = np.array(values)[np.isfinite(values)]
+        legend = statistics_in_label(label, valid) if len(valid) else f"{label} [no readings]"
+        axis.plot(
+            timestamps,
+            values,
+            color=f"C{index % 10}",
+            linestyle="--" if is_temperature else "-",
+            marker=".",
+            label=legend,
+        )
+    graph.prepare_axes(30, 5, points_to_plot=metadata["samples_count"], interval=metadata["iteration_time"])
+    graph.get_ax().set_xlim(0, max(1, bench.duration()))
+    graph.get_ax().set_xlim(left=zero_margin(graph.get_ax().xaxis, max(1, bench.duration())))
+    graph.render()
+    return 1
 
 
 # Optional semantic metric keys shared by CDU profiles, independent of vendor and OIDs.

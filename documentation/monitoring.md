@@ -508,7 +508,8 @@ hwgraph groups each CDU's readings by unit under
 units come from the results. Graphs plot window means using the shared
 `metadata.iteration_time`, leaving gaps for empty windows. The initial HPE model
 produces five graphs: temperatures, raw readings, flows, percentage readings and
-rotational speeds. Legend statistics describe the displayed window means, with
+rotational speeds, and two more, `Rotational speeds_vs_Thermal` and `Flow rates_vs_Thermal`,
+the speeds of the pumps and the flow rates with the temperatures of the CDU on a second axis. Legend statistics describe the displayed window means, with
 equal weight per valid window, rather than all raw readings. A separate `CDU and host temperatures_vs_PowerConsumption` graph
 superposes circuit, CPU and GPU temperatures with CPU, selected trace and GPU power; see
 [CDU and host comparison](hwgraph-environment.md#cdu-and-host-comparison).

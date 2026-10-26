@@ -33,6 +33,7 @@ in the results, like `cpu_3`, and `<metric>` the kind of metric:
 | `Freq/all_cores` | `Core frequency` | the frequency of every core |
 | `IPC/all_cores` | `Core IPC` | the instructions per cycle of every core |
 | `Monitor` | `Polling` | the time spent by the monitoring to poll its sources |
+| `CDU/<index>-<section>` | `Rotational speeds_vs_Thermal`, `Flow rates_vs_Thermal` | the speeds of the pumps, and the flow rates, of the CDU, with its temperatures on the second axis, when it has both |
 | `CDU/<index>-<section>` | `CDU and host temperatures_vs_PowerConsumption` | CDU circuit, CPU and GPU temperatures in °C, with CPU package power, the selected trace power metric and the GPU power in watts on the second axis |
 
 The graphs of this page are rendered from the [reference dataset](example/README.md): the benchmark `cpu_17`, 36 stressors of `stressng cpu int128` during 120 seconds, on a server with 32 physical cores and 8 NUMA domains.
