@@ -83,7 +83,9 @@ The left axis shows the primary/secondary supply and return temperatures, the
 CPU temperature sensors, and the temperatures of the GPUs when the run has some. The
 right axis shows `CPU.package` power, when available, the power metric selected by
 `--traces`, such as `BMC.Server`, and the power of each GPU. Power curves are
-dashed. Beyond 10 curves, they take the 20 colors of the `tab20` palette. Every curve uses the same aggregation grid, with gaps for missing readings.
+dashed. Beyond the 10 colors of the default cycle, the curves change of marker, `.`, then
+`x`, `^`, `s`, `+` and `D`, shapes far apart drawn at the same size, so that two curves of the
+same color still look different. Every curve uses the same aggregation grid, with gaps for missing readings.
 
 CDU graph legends summarize the **window means shown on the curves**, excluding
 empty windows. Each valid window has equal weight regardless of its number of

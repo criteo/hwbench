@@ -188,6 +188,13 @@ def test_comparison_adds_the_gpus():
     assert [label for label, _ in watts] == ["CPU.package", "BMC.Server", "GPU.GPU_0"]
 
 
+def test_curve_style():
+    """The 10 colors of the default cycle, then the same colors with another marker."""
+    from graph.graph import curve_style
+
+    assert [curve_style(index) for index in (0, 9, 10, 25)] == [("C0", "."), ("C9", "."), ("C0", "x"), ("C5", "^")]
+
+
 def test_rotational_speeds_and_flow_rates_vs_thermal(monkeypatch, tmp_path):
     """The speeds of the pumps and the flow rates, with the temperatures on a second axis, when the CDU has both."""
     data = {
