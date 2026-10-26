@@ -9,6 +9,7 @@ from hwbench.utils import helpers as h
 from .bmc import BMC
 from .cdu import CDU
 from .cdus import init as init_cdu
+from .monitoring_device import section_value
 from .pdu import PDU
 
 
@@ -60,9 +61,7 @@ class Vendor(ABC):
         if not self.pdus:
             pdu_sections = self.find_monitoring_sections("PDU")
             for pdu_section in pdu_sections:
-                pdu_driver_name = self.monitoring_config_file.get(pdu_section, "driver", fallback="")
-                if not pdu_driver_name:
-                    h.fatal("PDU configuration requires a driver.")
+                pdu_driver_name = section_value(self.monitoring_config_file, "PDU", pdu_section, "driver")
                 # for config backwards compatibility
                 if pdu_driver_name.lower() == "raritan":
                     pdu_driver_name = "generic"

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 from typing import Any
@@ -7,6 +9,28 @@ import redfish  # type: ignore
 
 from hwbench.bench.monitoring_structs import MonitorMetric
 from hwbench.utils import helpers as h
+
+# The kinds of the values of the environment file, as the errors name them
+VALUE_KINDS: dict[Any, str] = {int: "an integer", float: "a number"}
+
+
+def section_value(config, device: str, section: str | None, key: str, fallback: Any = None, convert: Any = None) -> Any:
+    """The value of a key of the section of a device in the environment file: the BMC, a PDU or a CDU.
+
+    A key absent or empty takes the fallback, or stops hwbench when there is none, as it is required.
+    A value convert cannot read, like a timeout of '0.5s', stops hwbench too: both errors name the
+    device, its section and the key, '<device> <section>: <key> ...'."""
+    value = config.get(section, key, fallback="")
+    if not value:
+        if fallback is None:
+            h.fatal(f"{device} {section}: {key} is required")
+        return fallback
+    if convert is None:
+        return value
+    try:
+        return convert(value)
+    except ValueError:
+        h.fatal(f"{device} {section}: {key} must be {VALUE_KINDS.get(convert, convert.__name__)}, got {value!r}")
 
 
 class MonitoringDevice:

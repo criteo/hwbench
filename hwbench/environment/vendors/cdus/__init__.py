@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from hwbench.environment.vendors.cdu import CDU
+from hwbench.environment.vendors.monitoring_device import section_value
 from hwbench.utils import helpers as h
 
 from .hpe import MODELS as HPE_MODELS
@@ -11,8 +12,8 @@ VENDORS: dict[str, dict[str, type[CDU]]] = {"HPE": HPE_MODELS}
 
 def init(vendor, section: str) -> CDU:
     config = vendor.monitoring_config_file
-    manufacturer = config.get(section, "vendor", fallback="").strip().upper()
-    model = config.get(section, "model", fallback="").strip()
+    manufacturer = section_value(config, "CDU", section, "vendor", "").upper()
+    model = section_value(config, "CDU", section, "model", "")
     if manufacturer not in VENDORS:
         h.fatal(f"CDU {section}: unsupported vendor {manufacturer!r}; supported vendors: {', '.join(VENDORS)}")
     models = VENDORS[manufacturer]

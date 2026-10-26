@@ -7,7 +7,7 @@ from enum import StrEnum
 from hwbench.bench.monitoring_structs import MONITORING_PRECISION_S, CDUMetric, CDUSample
 from hwbench.utils import helpers as h
 
-from .monitoring_device import MonitoringDevice
+from .monitoring_device import MonitoringDevice, section_value
 
 
 class CDUProtocol(StrEnum):
@@ -31,8 +31,7 @@ class CDU(MonitoringDevice, ABC):
     def __init__(self, vendor, section: str):
         super().__init__(vendor)
         self.section = section
-        config = vendor.monitoring_config_file
-        protocol = config.get(section, "protocol", fallback="").strip()
+        protocol = self.config_value("protocol", "")
         try:
             self.protocol = CDUProtocol(protocol)
         except ValueError:
@@ -40,10 +39,8 @@ class CDU(MonitoringDevice, ABC):
         if self.protocol not in self.SUPPORTED_PROTOCOLS:
             supported = ", ".join(sorted(self.SUPPORTED_PROTOCOLS))
             h.fatal(f"CDU {section}: this model does not support {self.protocol}; supported protocols: {supported}")
-        self.host = config.get(section, "host", fallback="").strip()
-        self.timeout = config.getfloat(section, "timeout", fallback=DEFAULT_TIMEOUT)
-        if not self.host:
-            h.fatal(f"CDU {section}: a host is required")
+        self.host = self.config_value("host")
+        self.timeout = self.config_value("timeout", DEFAULT_TIMEOUT, float)
         if not math.isfinite(self.timeout) or self.timeout <= 0:
             h.fatal(f"CDU {section}: timeout must be positive and finite")
         if self.timeout > MAX_TIMEOUT:
@@ -51,7 +48,11 @@ class CDU(MonitoringDevice, ABC):
                 f"CDU {section}: timeout must be at most {MAX_TIMEOUT:g}s, half the monitoring precision, "
                 "not to delay the monitoring loop when the CDU does not answer"
             )
-        self.serialnumber = config.get(section, "serial", fallback="")
+        self.serialnumber = self.config_value("serial", "")
+
+    def config_value(self, key: str, fallback=None, convert=None):
+        """The value of a key of the section of the CDU, see section_value()."""
+        return section_value(self.vendor.monitoring_config_file, "CDU", self.section, key, fallback, convert)
 
     def get_name(self) -> str:
         return self.section

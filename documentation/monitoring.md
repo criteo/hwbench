@@ -74,7 +74,11 @@ url=<url>
 | `username`, `password` | text | the credentials of the source |
 | `url` | the address of the source | how hwbench reaches it; optional for a BMC |
 
-The keys specific to each kind of source are described below.
+The keys specific to each kind of source are described below. A key the source requires,
+absent or empty, stops hwbench with `<type> <section>: <key> is required`, like
+`BMC default: password is required`, and a value that is not the number the key expects
+with `<type> <section>: <key> must be a number, got '<value>'` (or `an integer`), like
+`CDU CDU_cooling: timeout must be a number, got '0.5s'`.
 
 ## BMC
 When defining a BMC, the `type` must be set to `BMC`. The BMC type, and the driver used to

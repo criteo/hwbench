@@ -1,22 +1,22 @@
 from __future__ import annotations
 
 from hwbench.bench.monitoring_structs import Power, PowerConsumptionContext
-from hwbench.utils import helpers as h
 
-from .monitoring_device import MonitoringDevice
+from .monitoring_device import MonitoringDevice, section_value
 
 
 class PDU(MonitoringDevice):
     def __init__(self, vendor, pdu_section: str):
         super().__init__(vendor)
         self.pdu_section = pdu_section
-        self.outlet: str = self.vendor.monitoring_config_file.get(self.pdu_section, "outlet", fallback="")
+        self.outlet: str = self.config_value("outlet", "")
+
+    def config_value(self, key: str, fallback=None, convert=None):
+        """The value of a key of the section of the PDU, see section_value()."""
+        return section_value(self.vendor.monitoring_config_file, "PDU", self.pdu_section, key, fallback, convert)
 
     def get_url(self):
-        url = super().get_url()
-        if not url:
-            h.fatal(f"Cannot find url for PDU {self.pdu_section}")
-        return url
+        return self.config_value("url")
 
     def get_name(self) -> str:
         """Return the pdu name."""
@@ -24,14 +24,7 @@ class PDU(MonitoringDevice):
 
     def connect_redfish(self):
         """Connect to the PDU using Redfish."""
-        username = self.vendor.monitoring_config_file.get(self.pdu_section, "username", fallback="")
-        if not username:
-            h.fatal(f"Cannot find a username for PDU {self.pdu_section}")
-
-        password = self.vendor.monitoring_config_file.get(self.pdu_section, "password", fallback="")
-        if not password:
-            h.fatal(f"Cannot find a password for PDU {self.pdu_section}")
-        return super().connect_redfish(username, password, self.get_url())
+        return super().connect_redfish(self.config_value("username"), self.config_value("password"), self.get_url())
 
     def get_power_total(self):
         """Return the power metrics."""

@@ -20,13 +20,10 @@ class SNMPv2cCDU(CDU):
 
     def __init__(self, vendor, section: str, manufacturer: str, model: str, metrics: dict[str, CDUMetric]):
         super().__init__(vendor, section)
-        config = vendor.monitoring_config_file
-        self.port = config.getint(section, "port", fallback=161)
+        self.port = self.config_value("port", 161, int)
         if not 1 <= self.port <= 65535:
-            h.fatal(f"CDU {section}: a valid UDP port is required")
-        self.community = config.get(section, "community", raw=True, fallback="")
-        if not self.community:
-            h.fatal(f"CDU {section}: missing SNMP_V2C community directive in configuration file")
+            h.fatal(f"CDU {section}: port must be a UDP port, from 1 to 65535, got {self.port}")
+        self.community = self.config_value("community")
         self.manufacturer = manufacturer
         self.model = model
         self.metrics = metrics.copy()

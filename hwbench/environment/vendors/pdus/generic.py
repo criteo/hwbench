@@ -12,16 +12,16 @@ def init(vendor, pdu_section):
 class Generic(PDU):
     def __init__(self, vendor, pdu_section: str):
         super().__init__(vendor, pdu_section)
-        pdu_id: str = self.vendor.monitoring_config_file.get(self.pdu_section, "pdu_id", fallback="1")
+        pdu_id: str = self.config_value("pdu_id", "1")
         self.redfish_root = f"/redfish/v1/PowerEquipment/RackPDUs/{pdu_id}/"
-        self.outletgroup: str = self.vendor.monitoring_config_file.get(self.pdu_section, "outletgroup", fallback="")
-        self.multi_separator: str = self.vendor.monitoring_config_file.get(self.pdu_section, "separator", fallback=",")
+        self.outletgroup: str = self.config_value("outletgroup", "")
+        self.multi_separator: str = self.config_value("separator", ",")
         if not self.outlet and not self.outletgroup:
-            h.fatal("PDU/Generic: An outlet or an outletgroup must be defined.")
+            h.fatal(f"PDU {self.pdu_section}: outlet or outletgroup is required")
 
         if self.outlet and self.outletgroup:
-            h.fatal("PDU/Generic: outlet and outletgroup are mutually exclusive.")
-        self.group = self.vendor.monitoring_config_file.get(self.pdu_section, "group", fallback="")
+            h.fatal(f"PDU {self.pdu_section}: outlet and outletgroup are mutually exclusive")
+        self.group = self.config_value("group", "")
 
     def detect(self):
         """Detect monitoring device"""
