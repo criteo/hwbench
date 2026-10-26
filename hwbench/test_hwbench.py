@@ -45,6 +45,13 @@ def test_environment_option():
         assert parse_options().environment is None
 
 
+def test_topology_option():
+    with patch("sys.argv", ["hwbench", "-j", "jobs.conf", "-t", "topology.json"]):
+        assert parse_options().topology == "topology.json"
+    with patch("sys.argv", ["hwbench", "-j", "jobs.conf"]):
+        assert parse_options().topology is None
+
+
 @pytest.mark.parametrize("option", ["-m", "--monitoring-config"])
 def test_replaced_monitoring_config_option(option, capsys):
     """-m/--monitoring-config stops hwbench with the option replacing it."""

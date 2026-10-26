@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "levels": ["Country", "Datacenter", "Datahall", "Room", "Rack", "Position"],
+  "topology": {
+    "FR": {
+      "PA99": {
+        "2": {
+          "1": {
+            "A12": {
+              "22": ["EXAMPLE0001"],
+              "23": ["EXAMPLE0002"]
+            },
+            "A13": {
+              "10": ["NODE0001", "NODE0002", "NODE0003", "NODE0004"]
+            }
+          }
+        },
+        "3": {
+          "": {
+            "B01": {
+              "": ["EXAMPLE0003"]
+            }
+          }
+        }
+      }
+    },
+    "Secret Lab 1": ["LAB0001", "LAB0002"]
+  }
+}
