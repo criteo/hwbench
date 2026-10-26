@@ -283,7 +283,7 @@ sense for a single server, so what hwgraph shows depends on the number of server
 | Header | Location shown |
 |---|---|
 | a single server: the graphs of a single trace, the NUMA distances, `benchmarks_summary.txt` | the whole location, under the `System` line giving its serial |
-| several servers: the group, chassis, versus and scaling comparison graphs and reports | the places all the servers share, under the line of the context, only when they share at least the widest: a server without location, or in another datacenter, removes it |
+| several servers: the group, chassis, versus and scaling comparison graphs and reports | the places all the servers share, under the line of the context, only when they share at least the widest: a server without location, or in another datacenter, removes it; a group of `--auto-group` gives its place, like a room over several racks, and its number of servers |
 | each server of the executive summary of versus | the places of its own, below the shared ones, under its `System` line, only when the header gives the shared ones |
 
 The places not known, left empty in the location, are not shown. The line goes from the widest
@@ -307,6 +307,9 @@ server-1 (ref):
   System   : EXAMPLE0003 ProLiant DL365 Gen11
   Location : Position 20
 ```
+
+`--auto-group` renders the group graphs of each place shared by several servers: see
+[groups of the location](hwgraph-environment.md#groups-of-the-location).
 
 Before rendering, hwgraph prints on the console the line of the location shared by the
 servers, under the one of the context:
@@ -335,6 +338,7 @@ Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12
 | `--events` | `<event_name>:<start_time>:<duration>` | [marks periods on the time graphs](#events) |
 | `--same-chassis` | flag | all the traces are servers of the same chassis: [chassis graphs](hwgraph-environment.md#per-chassis) |
 | `--same-group` | flag | all the traces are a group of servers: [group graphs](hwgraph-environment.md#per-group) |
+| `--auto-group` | flag | the group graphs of each place of the location shared by several traces: [groups of the location](hwgraph-environment.md#groups-of-the-location); not with `--same-group` |
 | `--ignore-missing-datapoint` | `zero`, `last`, default not set | [replaces the missing data points](#missing-data-points) instead of stopping |
 | `--jobs`, `-j` | integer, default half the CPUs of the host | the number of worker processes rendering the graphs; with 1, the graphs are rendered one after the other |
 | `--verbose` | flag | prints more information, like the metrics without samples that are skipped |
@@ -395,6 +399,7 @@ Everything is written under `--outdir`, or under `<outdir>/<context>/` with [`--
 │   │       └── <benchmark>/<metric>/…
 │   └── by_chassis/chassis/       with --same-chassis, or all the traces of a same chassis
 ├── by_group/                     with --same-group
+│   └── <place>/…/<place>/        with --auto-group: one subdirectory per place of the location
 ├── scaling/                      performance of a job along its scaling steps
 │   ├── perf/ perf_watt/ watts/ cpu_clock/ cpu_ipc/ cpu_core_power/
 │   └── summary/
