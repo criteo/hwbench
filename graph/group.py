@@ -1,8 +1,15 @@
 import numpy as np
 
 from graph.common import context_header, location_header
-from graph.graph import Graph
+from graph.graph import Graph, get_max_value_string_length, statistics_in_label
 from hwbench.bench.monitoring_structs import MonitoringContextKeys, PowerCategories, PowerConsumptionContextKeys
+
+
+def statistics_labels(series: dict[str, np.ndarray]) -> dict[str, str]:
+    """The labels of curves with their [min; mean; stddev; max], aligned on each other."""
+    title_length = max(len(name) for name in series)
+    value_length = max(get_max_value_string_length(serie) for serie in series.values())
+    return {name: statistics_in_label(name, serie, title_length, value_length) for name, serie in series.items()}
 
 
 def place_suffix(args) -> str:
@@ -24,12 +31,10 @@ def graph_sum_ratio(args, bench, bench_name, output_dir, time_serie, serie, base
     )
 
     # For each type metrics stored into the serie
-    for component in serie:
-        if len(serie[str(component)]) == 0:
-            continue
-        y_serie = np.array(serie[str(component)])[order]
-        curve_label = f"{component!s}"
-        graph.get_ax().plot(x_serie, y_serie, "", label=curve_label, marker=".")
+    series = {f"{component!s}": np.array(serie[str(component)])[order] for component in serie if serie[str(component)]}
+    labels = statistics_labels(series) if series else {}
+    for name, y_serie in series.items():
+        graph.get_ax().plot(x_serie, y_serie, "", label=labels[name], marker=".")
 
     graph.prepare_axes(
         3 * bench.get_time_interval(),
@@ -56,12 +61,12 @@ def graph_sum_of_servers(args, bench, bench_name, output_dir, time_serie, serie,
     )
 
     # For each type metrics stored into the serie
-    for component in serie:
-        if len(serie[str(component)]) == 0:
-            continue
-        y_serie = np.array(serie[str(component)])[order]
-        curve_label = f"sum of {component!s}"
-        graph.get_ax().plot(x_serie, y_serie, "", label=curve_label, marker=".")
+    series = {
+        f"sum of {component!s}": np.array(serie[str(component)])[order] for component in serie if serie[str(component)]
+    }
+    labels = statistics_labels(series) if series else {}
+    for name, y_serie in series.items():
+        graph.get_ax().plot(x_serie, y_serie, "", label=labels[name], marker=".")
 
     graph.prepare_axes(
         3 * bench.get_time_interval(),
@@ -87,15 +92,10 @@ def graph_servers(args, bench, bench_name, output_dir, time_serie, serie, base_o
         f"time_watt_{base_outfile}{place_suffix(args)}_by_servers",
     )
 
-    for trace in args.traces:
-        y_serie = np.array(serie[trace.get_name()])[order]
-        graph.get_ax().plot(
-            x_serie,
-            y_serie,
-            "",
-            label=trace.get_name(),
-            marker=".",
-        )
+    series = {trace.get_name(): np.array(serie[trace.get_name()])[order] for trace in args.traces}
+    labels = statistics_labels(series)
+    for name, y_serie in series.items():
+        graph.get_ax().plot(x_serie, y_serie, "", label=labels[name], marker=".")
 
     graph.prepare_axes(
         3 * bench.get_time_interval(),

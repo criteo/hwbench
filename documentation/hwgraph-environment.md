@@ -208,6 +208,8 @@ For each benchmark, `by_group/` contains:
 | `time_watt_<benchmark> …_by_group` | the sum of the servers: of `BMC.Server`, of `CPU.package`, and the difference between both, what the processors do not account for |
 | `time_watt_percent_<benchmark> …_by_group` | the share of the CPU packages, and of the rest of the servers, in percent of the sum of `BMC.Server` |
 
+The legend gives the `[min; mean; stddev; max]` of each curve.
+
 For example, a group of four servers of the [reference dataset](example/README.md), which ran the
 same benchmark at the same time while the cooling distribution unit was rebooted, with
 the [event](hwgraph.md#events) `cdu_reboot:80:100`:
