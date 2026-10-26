@@ -293,10 +293,14 @@ def _collect_environment_tasks(args, output_dir):
 
     # Graphs below are per host
     host_output_dir = output_dir.joinpath("by_host")
+    if not args.verbose:
+        jobs = sum(len(trace.bench_list()) for trace in args.traces)
+        print(f"environment: rendering {jobs} jobs of {len(args.traces)} traces in {host_output_dir}")
     for trace_idx, trace in enumerate(args.traces):
         host_output_dir.joinpath(f"{trace.get_name()}").mkdir(parents=True, exist_ok=True)
         benches = trace.bench_list()
-        print(f"environment: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})")
+        if args.verbose:
+            print(f"environment: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})")
         for bench_name in sorted(benches):
             tasks.append((_task_env_bench, trace_idx, bench_name, str(host_output_dir)))
         # One NUMA distance heatmap per host, not tied to any benchmark.
@@ -472,10 +476,17 @@ def render_traces(args: argparse.Namespace):
         banner = f"Context {index}/{len(args.auto_traces)}: {auto_traces.context}"
         print(f"\n{'=' * 80}\n{banner}\n{'=' * 80}")
         output_dir.mkdir(parents=True, exist_ok=True)
-        # The traces found are listed on the console and in the output directory
+        # The traces found are listed in the output directory, and on the console only when verbose
         description = auto_traces.description()
-        print("\n".join(description))
-        output_dir.joinpath(AUTO_TRACES_FILE).write_text("\n".join(description) + "\n")
+        traces_file = output_dir.joinpath(AUTO_TRACES_FILE)
+        traces_file.write_text("\n".join(description) + "\n")
+        if args.verbose:
+            print("\n".join(description))
+        else:
+            print(
+                f"{len(auto_traces.traces)} traces of the context '{auto_traces.context}' "
+                f"found in {auto_traces.directory}, listed in {traces_file}"
+            )
         context_args.traces = auto_traces.traces
         render_trace_set(context_args, output_dir)
 
@@ -506,6 +517,11 @@ def render_trace_set(args: argparse.Namespace, output_dir: pathlib.Path):
         host_output_dir = output_dir.joinpath("environment", "by_host")
         for trace in args.traces:
             write_benchmarks_summary(args, host_output_dir, trace)
+        if not args.verbose:
+            print(
+                f"benchmarks: wrote the benchmarks summary of {len(args.traces)} traces in "
+                f"{host_output_dir}/<trace>/benchmarks_summary.txt"
+            )
 
     # Collect all graph generation tasks
     # (This also performs validation and creates output directories)
@@ -530,9 +546,15 @@ def render_trace_set(args: argparse.Namespace, output_dir: pathlib.Path):
 def generate_stats(args) -> None:
     if not args.no_stats:
         return
+    # One line per trace only when verbose: a fleet would flood the console
+    if not args.verbose:
+        print(
+            f"stats: rendering {sum(len(trace.bench_list()) for trace in args.traces)} jobs of {len(args.traces)} traces"
+        )
     for trace in args.traces:
         benches = trace.bench_list()
-        print(f"stats: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})")
+        if args.verbose:
+            print(f"stats: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})")
         max_power = {key: ("", 0.0) for key in PowerConsumptionContextKeys}
         for bench_name in sorted(benches):
             bench = trace.bench(bench_name)

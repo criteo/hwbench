@@ -636,7 +636,8 @@ def write_benchmarks_summary(args, output_dir, trace) -> int:
     trace_dir.mkdir(parents=True, exist_ok=True)
     summary_file = trace_dir.joinpath("benchmarks_summary.txt")
     summary_file.write_text(text)
-    print(f"benchmarks: {trace.get_name()} - wrote {len(rows)} entries to {summary_file}")
+    if getattr(args, "verbose", False):
+        print(f"benchmarks: {trace.get_name()} - wrote {len(rows)} entries to {summary_file}")
     return 1
 
 
