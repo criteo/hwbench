@@ -85,6 +85,12 @@ where lower is better for the power and the CoV.
 
 *`performance_summary_scorecard.png`: one row per trace, one column per aggregate metric, with the description of each system below.*
 
+Beyond 36 traces, a row per trace would not be readable: the scorecard of a fleet gives the row
+of the reference, then the distribution of each metric over all the traces, `max of <n>`,
+`Q3 of <n>`, `median of <n>`, `Q1 of <n>` and `min of <n>`, the max and the min naming their
+trace, colored against the reference as the other rows. The description below counts the
+servers of each system, `128 servers (ref):`, instead of describing them one by one.
+
 > ℹ️ **Info**
 >
 > The colors of a column are scaled to the largest difference of that column, so a small

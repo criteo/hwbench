@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from graph.common import context_header, location_header
-from graph.graph import GRAPH_TYPES, Graph
+from graph.graph import GRAPH_TYPES, MAX_LEGEND_ITEMS, Graph
 from graph.scaling import _scaling_perf_value
 from graph.trace import GPU_SCALING_UNIT, gpu_description, own_location, shared_location
 from hwbench.bench.monitoring_structs import CORE_FAMILY, GPU_FAMILY, MonitoringContextKeys
@@ -936,31 +936,52 @@ def _aggregate_metrics(traces) -> tuple[list, str, dict]:
     return [trace.get_name() for trace in traces], ref_name, out
 
 
+def _system_lines(trace) -> list[str]:
+    """The description of the system of a trace but its serial: Bios / Kernel / Processor."""
+    dmi = trace.get_dmi()
+    cpu = trace.get_cpu()
+    kernel = trace.get_kernel()
+    return [
+        f"  Bios     : v{dmi['bios']['version']}",
+        f"  Kernel   : {kernel['release']}",
+        f"  Processor: {cpu.get('sockets', 1)}x {cpu['model']}",
+        f"             {cpu['physical_cores']} physical cores, {cpu['numa_domains']} NUMA domains",
+    ]
+
+
+def _fleet_caption(traces) -> str:
+    """The system description of a fleet, below its scorecard: one block per system, the servers
+    sharing it counted rather than described one by one."""
+    systems = {}  # type: dict[tuple, list]
+    for trace in traces:
+        systems.setdefault((trace.get_dmi()["product"], *_system_lines(trace)), []).append(trace)
+    parts = []
+    for (product, *lines), members in systems.items():
+        reference = " (ref)" if traces[0] in members else ""
+        parts.append("\n".join([f"{len(members)} servers{reference}:", f"  System   : {product}", *lines]))
+    return "\n\n".join(parts)
+
+
 def _traces_caption(traces) -> str:
     """Full per-trace system description block, rendered below the exec graphs.
 
     System / Bios / Kernel / Processor each on their own line. The header gives the location
     the servers share, so each one only gives the places of its own below it, like its height in
-    their rack, and nothing when they do not share one.
+    their rack, and nothing when they do not share one. A fleet, too many servers to describe one
+    by one, is described per system, see _fleet_caption().
     """
+    if len(traces) > MAX_LEGEND_ITEMS:
+        return _fleet_caption(traces)
     shared = shared_location(traces)
     parts = []
     for i, trace in enumerate(traces):
         tag = trace.get_name() + (" (ref)" if i == 0 else "")
         dmi = trace.get_dmi()
-        cpu = trace.get_cpu()
-        kernel = trace.get_kernel()
         own = own_location(trace, shared) if shared else None
         lines = [f"{tag}:", f"  System   : {dmi['serial']} {dmi['product']}"]
         if own:
             lines.append(f"  Location : {own.line()}")
-        lines += [
-            f"  Bios     : v{dmi['bios']['version']}",
-            f"  Kernel   : {kernel['release']}",
-            f"  Processor: {cpu.get('sockets', 1)}x {cpu['model']}",
-            f"             {cpu['physical_cores']} physical cores, {cpu['numa_domains']} NUMA domains",
-        ]
-        parts.append("\n".join(lines))
+        parts.append("\n".join(lines + _system_lines(trace)))
     return "\n\n".join(parts)
 
 
@@ -979,6 +1000,31 @@ _METRICS_CAPTION = (
     "\n"
     "Color: green = better than the reference, red = worse, neutral = same."
 )
+
+
+# The rows of the scorecard of a fleet, after the reference: the distribution of each metric
+FLEET_ROWS = [("max", 100), ("Q3", 75), ("median", 50), ("Q1", 25), ("min", 0)]
+
+
+def _fleet_rows(names: list, agg: dict, keys: list) -> tuple[list, list, list]:
+    """The rows of the scorecard of a fleet, too many servers for a row each: the distribution of
+    each metric over the servers, as labels, values and the server of each min and max value."""
+    labels, rows, servers = [], [], []
+    for label, percentile in FLEET_ROWS:
+        row = {}  # type: dict[str, float | None]
+        row_servers = {}  # type: dict[str, str]
+        for key in keys:
+            values = [(agg[name][key], name) for name in names if agg[name][key] is not None]
+            if not values:
+                row[key] = None
+                continue
+            row[key] = float(np.percentile([value for value, _ in values], percentile))
+            if percentile in (0, 100):
+                row_servers[key] = (min if percentile == 0 else max)(values)[1]
+        labels.append(label)
+        rows.append(row)
+        servers.append(row_servers)
+    return labels, rows, servers
 
 
 def render_versus_scorecard(args, output_dir) -> int:
@@ -1029,28 +1075,41 @@ def render_versus_scorecard(args, output_dir) -> int:
         ),
     ]
 
+    # A row per trace, but for a fleet: the reference, then the distribution of each metric over the
+    # servers, the min and the max naming their server
+    row_labels = [n + (" *" if n == ref_name else "") for n in names]
+    rows = [agg[n] for n in names]
+    row_servers = [{} for _ in names]  # type: list[dict]
+    if len(names) > MAX_LEGEND_ITEMS:
+        labels, fleet_rows, fleet_servers = _fleet_rows(names, agg, [key for _, key, _, _ in cols])
+        row_labels = [f"{ref_name} *", *(f"{label} of {len(names)}" for label in labels)]
+        rows = [ref, *fleet_rows]
+        row_servers = [{}, *fleet_servers]
+
     # Per column: normalize the signed goodness to [-1, 1] (0 = reference) so a
     # single diverging colormap works across metrics with different units.
-    grid = np.full((len(names), len(cols)), np.nan)
+    grid = np.full((len(rows), len(cols)), np.nan)
     for j, (_, _, _, gfn) in enumerate(cols):
         if gfn is None:
             continue
-        vals = np.array([gfn(agg[n]) if gfn(agg[n]) is not None else np.nan for n in names])
+        vals = np.array([gfn(row) if gfn(row) is not None else np.nan for row in rows])
         scale = np.nanmax(np.abs(vals)) if np.any(np.isfinite(vals)) else 0.0
         if scale > 0:
             grid[:, j] = vals / scale
 
-    fig, ax = plt.subplots(figsize=(1.15 * len(cols) + 2.5, 0.62 * len(names) + 1.8))
+    fig, ax = plt.subplots(figsize=(1.15 * len(cols) + 2.5, 0.62 * len(rows) + 1.8))
     cmap = plt.get_cmap("RdYlGn").copy()
     cmap.set_bad("0.9")  # neutral / missing cells
     ax.imshow(np.ma.masked_invalid(grid), cmap=cmap, vmin=-1, vmax=1, aspect="auto")
     ax.set_xticks(range(len(cols)))
     ax.set_xticklabels([c for c, _, _, _ in cols])
-    ax.set_yticks(range(len(names)))
-    ax.set_yticklabels([n + (" *" if n == ref_name else "") for n in names])
-    for i, n in enumerate(names):
+    ax.set_yticks(range(len(rows)))
+    ax.set_yticklabels(row_labels)
+    for i, row in enumerate(rows):
         for j, (_, key, dfn, _) in enumerate(cols):
-            ax.text(j, i, dfn(agg[n][key]), ha="center", va="center", fontsize=9)
+            server = row_servers[i].get(key)
+            text = dfn(row[key]) + (f"\n{server}" if server else "")
+            ax.text(j, i, text, ha="center", va="center", fontsize=9 if not server else 7)
 
     title = (
         f"{args.title}\n\nPerformance executive summary (vs {ref_name}){context_header(args)}{location_header(args)}\n"
