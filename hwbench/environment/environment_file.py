@@ -31,8 +31,10 @@ def without_passwords(content: str) -> str:
     held: list[str] = []
     for line in content.splitlines(keepends=True):
         if PASSWORD_LINE.match(line):
-            in_password = True
+            # Another secret key ends the value of the previous one: the lines held after it are kept
+            lines.extend(held)
             held = []
+            in_password = True
             continue
         if in_password:
             if not line.strip() or line.lstrip().startswith(("#", ";")):

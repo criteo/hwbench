@@ -205,3 +205,16 @@ def test_location_dict():
     assert Location.from_dict(location.to_dict()) == location
     assert Location(["Secret Lab 1"]).to_dict() == {"path": ["Secret Lab 1"], "separator": "/"}
     assert Location.from_dict({"path": ["Secret Lab 1"]}) == Location(["Secret Lab 1"])
+
+
+def test_without_passwords_keeps_the_lines_before_another_password():
+    """The blank and comment lines held after a secret are kept when another secret key follows them:
+    it ends the value of the first one."""
+    content = (
+        "[CDU_cooling]\ntype=CDU\nhost=cdu.example.net\ncommunity=secret\n\n"
+        "# This part is used to define PDUs\n#[PDU_1]\n#username=admin\n#password=admin\n#type=PDU\n"
+    )
+    assert without_passwords(content) == (
+        "[CDU_cooling]\ntype=CDU\nhost=cdu.example.net\n\n"
+        "# This part is used to define PDUs\n#[PDU_1]\n#username=admin\n#type=PDU\n"
+    )
