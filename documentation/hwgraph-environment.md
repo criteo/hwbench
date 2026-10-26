@@ -54,7 +54,7 @@ The power, frequency and IPC graphs of the CPU and of the PDU exist in several v
 | Variant | Effect |
 |---|---|
 | `<graph>` | the metric alone |
-| `<graph>_vs_Thermal` | the metric, with the temperature sensors on a second axis |
+| `<graph>_vs_Thermal` | the metric, with the temperature sensors on a second axis, the ones of the CDUs included, a window without CDU reading being a gap |
 | `<graph>_vs_PowerConsumption` | the metric, with the power consumption metrics, and the power supplies, on a second axis |
 
 > ℹ️ **Info**

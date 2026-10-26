@@ -226,7 +226,7 @@ class Monitoring:
     def __monitor(self, precision_s: int, frequency: int, duration_s: int) -> MonitoringData:
         """Private method to perform the monitoring."""
         start_monitoring_ns = time.monotonic_ns()
-        self.cdu_monitoring.reset()
+        self.cdu_monitoring.reset(self.metrics.contexts)
         self.metrics.cdus = self.cdu_monitoring.data
 
         # This function will be a thread of self.monitor()

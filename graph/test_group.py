@@ -64,3 +64,10 @@ def test_zero_is_not_merged_with_the_frame(tmp_path):
     ):
         assert limits[0] < 0
         assert all(tick >= 0 for tick in ticks if limits[0] <= tick <= limits[1])
+
+
+def test_statistics_ignore_the_gaps():
+    """The gaps of a device that did not answer, NaN, are left out of the statistics of the legend."""
+    from graph.graph import statistics_in_label
+
+    assert statistics_in_label("CDU", np.array([20.0, np.nan, 22.0])) == "CDU [20.0; 21.0; 1.0; 22.0]"
