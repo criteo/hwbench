@@ -4,13 +4,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from hwbench.environment.environment_file import Location
 from hwbench.hwbench import format_output, parse_options
 
 
-def output(context: str | None) -> dict:
+def output(context: str | None, location: Location | None = None) -> dict:
     config = MagicMock()
     config.to_dict.return_value = {}
-    return format_output({}, {}, {}, config, context)
+    return format_output({}, {}, {}, config, context, location)
 
 
 def test_context():
@@ -22,6 +23,12 @@ def test_context():
 def test_without_context(context):
     """The context is optional: without it, results.json has no context."""
     assert "context" not in output(context)
+
+
+def test_location():
+    """The location of the server is kept in results.json, only when given."""
+    assert output(None, Location(["PA3", "A12"]))["location"] == {"path": ["PA3", "A12"], "separator": "/"}
+    assert "location" not in output(None)
 
 
 def test_context_option():
