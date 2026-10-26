@@ -85,7 +85,10 @@ where lower is better for the power and the CoV.
 
 *`performance_summary_scorecard.png`: one row per trace, one column per aggregate metric, with the description of each system below.*
 
-Beyond 36 traces, a row per trace would not be readable: the scorecard of a fleet gives the row
+Beyond 36 traces, a bar or a row per trace would not be readable. The max versus graphs of a
+fleet give the bar of the reference, then the distribution of the traces which ran the benchmark,
+`max of <n>`, `Q3 of <n>`, `median of <n>`, `Q1 of <n>` and `min of <n>`, in another color, the
+max and the min naming their trace. The scorecard of a fleet gives the row
 of the reference, then the distribution of each metric over all the traces, `max of <n>`,
 `Q3 of <n>`, `median of <n>`, `Q1 of <n>` and `min of <n>`, the max and the min naming their
 trace, colored against the reference as the other rows. The description below counts the
