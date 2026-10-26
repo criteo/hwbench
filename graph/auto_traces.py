@@ -16,8 +16,18 @@ ARCHIVE_PATTERN = "hwbench-*.tar.xz"
 AUTO_TRACES_FILE = "auto_traces.txt"
 # The sections of the results.json of hwbench
 TRACE_KEYS = ["environment", "hardware", "bench", "config"]
-# The characters kept in the name of the output directory of a context
+# The characters kept in the name of an output directory, of a context or of a location
 CONTEXT_DIRECTORY_CHARACTERS = re.compile(r"[^A-Za-z0-9.-]+")
+
+
+def ascii_directory_name(text: str) -> str:
+    """A text in a directory name: in ASCII, '_' replacing the rest; empty when no character is usable.
+
+    The accents are removed (é gives e), the spaces and the other characters
+    replaced by a single '_': 'bios tuning' gives bios_tuning.
+    """
+    ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    return CONTEXT_DIRECTORY_CHARACTERS.sub("_", ascii_text).strip("_.")
 
 
 def find_trace_files(directory: pathlib.Path) -> list[pathlib.Path]:
@@ -98,13 +108,8 @@ class AutoTraces:
         return lines
 
     def output_directory_name(self) -> str:
-        """The subdirectory of --outdir rendering the context: its name in ASCII, '_' replacing the rest.
-
-        The accents are removed (é gives e), the spaces and the other characters
-        replaced by a single '_': 'bios tuning' gives bios_tuning.
-        """
-        ascii_context = unicodedata.normalize("NFKD", self.context).encode("ascii", "ignore").decode()
-        name = CONTEXT_DIRECTORY_CHARACTERS.sub("_", ascii_context).strip("_.")
+        """The subdirectory of --outdir rendering the context: its name in ASCII, see ascii_directory_name()."""
+        name = ascii_directory_name(self.context)
         if not name:
             fatal(f"the context '{self.context}' has no character usable in a directory name")
         return name

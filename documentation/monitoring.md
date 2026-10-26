@@ -403,7 +403,8 @@ Startup: Location: Country FR / DC PA3 / DH 12.34 / Room LH1234.12 / Rack 12.23 
 
 and keeps it as `location` in `results.json`, with its separator, and its levels when given,
 which hwgraph shows under the serial of the server, see
-[hwgraph.md](hwgraph.md#location-of-the-servers):
+[hwgraph.md](hwgraph.md#location-of-the-servers), and uses to group the servers by place with
+`--auto-group`:
 
 ```json
 "location": {"path": ["FR", "PA3", "12.34", "LH1234.12", "12.23", "3"], "separator": "/", "levels": ["Country", "DC", "DH", "Room", "Rack", "Position"]}

@@ -11,6 +11,7 @@ are rendered for every benchmark of every trace, unless `--no-env` is given.
   - [Benchmarks summary](#benchmarks-summary)
 - [Per chassis](#per-chassis)
 - [Per group](#per-group)
+  - [Groups of the location](#groups-of-the-location)
 
 Related pages: [hwgraph.md](hwgraph.md) (the command line, the traces and the output tree),
 [monitoring.md](monitoring.md) (where the metrics come from), [cpu-selection.md](cpu-selection.md)
@@ -231,3 +232,52 @@ uv run hwgraph graph --same-group --no-env --no-scaling --no-versus --events cdu
 ![Share of the whole server](img/hwgraph-group-percent.png)
 
 *`by_group/time_watt_percent_… _by_group.png`: what the CPU packages, and the rest of the servers, represent in percent of the power of the group: about 68% and 32% of the power, and about 35% and 65% during the event. The first sample is above 100%: at the beginning of the benchmark, the power reported by the BMC is lower than the one of the CPU packages.*
+
+## Groups of the location
+`--auto-group` finds the groups in the [location](hwgraph.md#location-of-the-servers) of the
+servers, instead of taking all the traces as one group: it renders the graphs of a group for
+each place shared by several traces, after the grouping by
+[context](hwgraph.md#context-of-the-runs) of `--auto-traces`. It cannot be used with `--same-group`:
+`argument --auto-group: not allowed with argument --same-group`.
+
+hwgraph does not know what the places are, it only follows the paths of the locations: a place
+holds the traces whose path starts the same way up to it. `by_group/` then holds the tree of
+the places found, one subdirectory per place, from the widest, named after the place in ASCII,
+after the name of its level when the location has levels, as the directory of a context. For example, two servers in the rack `A12` and two in the rack
+`A13` of a same room:
+
+```
+by_group/Country_FR/Datacenter_PA99/Datahall_2/Room_1/            the four servers
+by_group/Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A12/   the two servers of the rack A12
+by_group/Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A13/   the two servers of the rack A13
+```
+
+| Rule | Effect |
+|---|---|
+| a place | holds the traces whose path goes through it; the graphs give its location and its number of servers in their header, `Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 (4 servers)`, and its name in their file names, `time_watt_<benchmark> …_Room_1_by_group` |
+| a place holding a single trace | not rendered: the group would be the server itself |
+| a place holding the same traces as its single subplace | not rendered: its graphs would be the ones of the subplace; `Country_FR/`, `Datacenter_PA99/` and `Datahall_2/` above |
+| servers at the same place, like the nodes of a chassis | a group of their whole location: `by_group/Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A12/Position_23/` |
+| a place not known, left empty | not a place, only a step to the next one: `FR / / A12`, without levels, is rendered in `by_group/FR/A12/` |
+| a location of a single place, out of the hierarchy | the place of its servers: `by_group/Secret_Lab_1/` |
+| locations of other hierarchies | compared by their paths alone: `PA3 / A12` and `FR / PA99 / A12` share no place; the names of the levels are shown only when all the servers of the place give the same |
+| a trace without location | in no group |
+| no place shared by several traces | nothing rendered: `auto-group: no place shared by several traces, nothing to group` |
+| two places with the same directory name in ASCII | stops hwgraph: `auto-group: the places '<location>', '<location>' are all rendered in the directory <directory>` |
+
+hwgraph prints the groups as a tree, each under the narrowest group holding it, with its number
+of servers, the servers themselves being listed under it with `--verbose`. The graphs of a
+group add up the same benchmarks of its servers, so every trace must have the benchmarks of
+the first one of the group, with the same settings, and the `BMC.Server` and `CPU.package`
+metrics. A group that does not is not rendered, the other groups are:
+
+```
+auto-group: 3 places shared by several traces, in by_group/:
+  Country_FR/Datacenter_PA99/Datahall_2/Room_1     4 servers
+    Rack_A12                                       2 servers, not rendered, server-2 does not have the benchmarks of server-1
+    Rack_A13                                       2 servers
+```
+
+The other reasons are `<trace> has no '<metric>' metric in <benchmark>`, and the first line of
+`Setting <benchmark>/<setting> does not match between <trace_filename> and <trace_filename>`.
+As with `--same-group`, nothing tells whether the servers ran the benchmarks at the same time.

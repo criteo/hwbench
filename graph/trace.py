@@ -746,11 +746,15 @@ def own_location(trace, shared: Location) -> Location | None:
     return own if any(own.path) else None
 
 
+def location_header_line(location: Location | None) -> str | None:
+    """The line of a location in the headers of the graphs: 'Location: FR / PA99 / A12'; None without one."""
+    return f"Location: {location.line()}" if location else None
+
+
 def shared_location_line(traces: list) -> str | None:
     """The line of the location in the headers of the graphs of several servers:
     the places they all share; None otherwise."""
-    location = shared_location(traces)
-    return f"Location: {location.line()}" if location else None
+    return location_header_line(shared_location(traces))
 
 
 class Trace:
