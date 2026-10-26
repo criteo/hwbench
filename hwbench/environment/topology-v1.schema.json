@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/criteo/hwbench/blob/main/hwbench/environment/topology-v1.schema.json",
+  "title": "hwbench topology, version 1",
+  "description": "Where each server is, given to hwbench with -t/--topology: the location of the server whose serial it finds. The topology is a tree of places, from the widest to the narrowest, each holding either other places or the serials of the servers there; the infrastructure chooses its levels. What this schema cannot check, like a serial appearing only once, is checked by tools/topology_check.py. See documentation/topology.md.",
+  "type": "object",
+  "required": ["version", "topology"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "description": "The version of the format: 1 for this schema.",
+      "const": 1
+    },
+    "levels": {
+      "description": "The names of the levels of the hierarchy, from the widest, like ['Country', 'DC', 'Room', 'Rack', 'Position']: optional. When given, the serials are at this depth of the tree, or right under its root for a place out of the hierarchy.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/name"
+      }
+    },
+    "separator": {
+      "description": "What separates the places when the location of a server is shown: '/' when not given.",
+      "$ref": "#/$defs/name"
+    },
+    "topology": {
+      "$ref": "#/$defs/places"
+    }
+  },
+  "$defs": {
+    "places": {
+      "description": "The places, by their name, each holding either the places it contains, or the serials of the servers there, like a place right under the root out of the hierarchy, 'Secret Lab 1'. The name '' stands for a place not known.",
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/place_name"
+      },
+      "additionalProperties": {
+        "if": {
+          "type": "array"
+        },
+        "then": {
+          "$ref": "#/$defs/serials"
+        },
+        "else": {
+          "$ref": "#/$defs/places"
+        }
+      }
+    },
+    "serials": {
+      "description": "The serial numbers of the servers, as the DMI of each server gives them (/sys/devices/virtual/dmi/id/product_serial), without the spaces at their ends: the one of the node, not of the chassis, compared with case.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/name"
+      }
+    },
+    "name": {
+      "description": "A text without spaces at its ends.",
+      "type": "string",
+      "pattern": "^\\S(.*\\S)?$"
+    },
+    "place_name": {
+      "description": "The name of a place, without spaces at its ends, or '' when the place is not known.",
+      "type": "string",
+      "pattern": "^(\\S(.*\\S)?)?$"
+    }
+  }
+}

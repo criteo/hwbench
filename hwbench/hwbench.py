@@ -19,6 +19,7 @@ from .config import config
 from .environment import hardware as env_hw
 from .environment import software as env_soft
 from .environment.environment_file import Location, read_location, save_environment_file
+from .environment.topology import load_topology, save_topology, topology_location
 from .tuning import setup as tuning_setup
 from .utils import helpers as h
 from .utils.archive import RESULTS_FILE, create_output_archive
@@ -53,6 +54,11 @@ def main():
     if args.environment:
         save_environment_file(args.environment, out_dir)
         location = read_location(args.environment)
+    topology: dict | None = None
+    if args.topology:
+        # Checked before tuning the host, the target machine is found in it once its DMI is dumped
+        topology = load_topology(args.topology)
+        save_topology(args.topology, out_dir)
     benches = benchmarks.Benchmarks(out_dir, hwbench_config, verbose=args.verbose)
 
     problems = env_hw.check_requirements() + benches.check_requirements()
@@ -61,14 +67,17 @@ def main():
 
     if args.context and args.context.strip():
         print(f"Startup: Context of the run: {args.context.strip()}")
-    if location:
-        print(f"Startup: Location: {location.line()}")
     print("Startup: Tuning host")
     tuning_setup.Tuning(tuning_out_dir).apply(args.tuning)
     print("Startup: Dumping software environment")
     env = env_soft.Environment(out_dir)
     print("Startup: Dumping hardware environment")
     hw = env_hw.Hardware(out_dir, args.environment)
+    if topology is not None:
+        # The topology replaces the [Location] section, the serial being the one kept in results.json
+        location = topology_location(topology, args.topology, hw.dmi.info("product_serial"))
+    if location:
+        print(f"Startup: Location: {location.line()}")
 
     hwbench_config.set_hardware(hw)
     benches.set_hardware(hw)
@@ -169,6 +178,11 @@ def parse_options():
     )
     add_environment_option(parser)
     parser.add_argument(
+        "-t",
+        "--topology",
+        help="Specify the JSON file describing where the servers are, like topology.json, checked with tools/topology_check.py: the location of the server, found by its serial, replaces the [Location] section of the environment file",
+    )
+    parser.add_argument(
         "-o",
         "--output-directory",
         help="Specify the directory used to put all results and collected information",
@@ -218,7 +232,7 @@ def format_output(
     # The context of the run is optional: only kept when given
     if context and context.strip():
         out["context"] = context.strip()
-    # The location of the server is optional too: only kept when the environment file gives it
+    # The location of the server is optional too: only kept when the environment file or the topology gives it
     if location:
         out["location"] = location.to_dict()
     return out

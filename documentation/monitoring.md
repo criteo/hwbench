@@ -354,7 +354,8 @@ group=feed_B
 ## Location
 The `[Location]` section says where the target machine physically is: nothing in the machine
 itself tells it. It is read whenever `-e` is given, even when the monitoring is disabled, and
-is not a source: it has no `type`, nor credentials.
+is not a source: it has no `type`, nor credentials. A topology file given with `-t` replaces it,
+locating every server of a fleet in a single file: see [topology.md](topology.md).
 
 The location is a path of places, from the widest to the narrowest, each nested in the
 previous one, like a country, a datacenter, a room, a rack and a height in the rack. hwbench
