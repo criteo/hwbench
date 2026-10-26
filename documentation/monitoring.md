@@ -462,6 +462,16 @@ model supplies its own definitions and can expose different metrics or OIDs.
 
 ### Collection and results
 
+Before the benchmarks, each CDU is read once, as the BMC and the PDUs, and hwbench
+prints `Monitoring/CDU: <section>: <n>/<m> metrics read`. A CDU giving no reading,
+unreachable or with a wrong community, stops hwbench with
+`Monitoring/CDU: <section>: cannot read any metric: <errors>`. An SNMPv2c agent does not
+answer a community it does not know, so a wrong community times out like an unreachable host:
+the message then adds `no answer from <host> within <timeout>s, the community is probably wrong,
+or the host unreachable`. hwbench stops with
+`Monitoring/CDU: <section>: collection failed` when its driver fails, the error not being shown
+as it may hold the credentials.
+
 CDUs are polled synchronously on every iteration of the host monitoring loop,
 starting on its first iteration. There is no separate CDU polling interval.
 A slow request delays the loop, just like a BMC or
