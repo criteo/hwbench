@@ -18,3 +18,9 @@ def location_header(args) -> str:
     """The line of the location shared by the servers, under the line of the contexts of a header
     of several servers, or nothing: a header of a single server gives its location under its serial."""
     return f"\n{args.location}" if getattr(args, "location", None) else ""
+
+
+def cdu_header(args) -> str:
+    """The lines of the CDUs shared by the servers, under the line of their location in a header of
+    several servers, or nothing: a header of a single server gives its CDUs under its serial."""
+    return "".join(f"\nCDU: {cdu}" for cdu in getattr(args, "cdus", None) or [])

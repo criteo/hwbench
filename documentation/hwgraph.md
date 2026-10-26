@@ -15,6 +15,7 @@ machines, or the runs of a same machine, with graphs and text reports.
   - [Comparing traces](#comparing-traces)
   - [Context of the runs](#context-of-the-runs)
   - [Location of the servers](#location-of-the-servers)
+  - [CDUs of the servers](#cdus-of-the-servers)
 - [Options](#options)
 - [Output tree](#output-tree)
 - [Graphs](#graphs)
@@ -325,6 +326,22 @@ servers, under the one of the context:
 Context: bios-v2
 Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12
 ```
+
+## CDUs of the servers
+A run monitoring [CDUs](monitoring.md#cdu) keeps them in `hardware.cdu` of `results.json`, and
+hwgraph gives each of them in the headers, a line per CDU: its section of the environment file,
+its vendor, its model and its protocol, then `FW:` its firmware and `SN:` its serial number,
+when they are known, the serial number coming from the `serial` key of its section, and its host
+between parentheses:
+
+```
+CDU: CDU_cooling HPE MCDU-4U-FR-2 SNMP_V2C SN:CZ1234 (cdu.example.net)
+```
+
+A header of a single server gives its CDUs before the `System` line, so that they do not split
+the description of the host, and
+a header of several servers, under the location they share, the CDUs they were all monitored
+with, only when they are the same for all of them. hwgraph prints them on the console too.
 
 # Options
 

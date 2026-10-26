@@ -13,7 +13,7 @@ from matplotlib.offsetbox import AnchoredOffsetbox, HPacker, TextArea
 from matplotlib.patches import Patch
 from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 
-from graph.common import context_header, location_header
+from graph.common import cdu_header, context_header, location_header
 from graph.graph import (
     GRAPH_TYPES,
     Graph,
@@ -105,7 +105,7 @@ def render_numa_delta_heatmaps(args, temp_outdir, job: str, emp: str) -> int:
                             # Signed delta: reference minus other.
                             matrix[row, col] = ref - oth
 
-                title = f'{args.title}\n\nPerformance scaling NUMA {dirname} delta via "{job}" benchmark job{context_header(args)}{location_header(args)}\n'
+                title = f'{args.title}\n\nPerformance scaling NUMA {dirname} delta via "{job}" benchmark job{context_header(args)}{location_header(args)}{cdu_header(args)}\n'
                 title += f"{unit} performance delta = ({reference.get_name()} (reference) - {other.get_name()})"
                 # Colour legend rendered as a caption below the graph (see below),
                 # with the "red" and "green" words drawn in their respective colour.
@@ -1213,7 +1213,7 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                     if dir_suffix:
                         outdir = outdir.joinpath(dir_suffix)
 
-                    title = f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job{context_header(args)}{location_header(args)}\n\n Stressor: '
+                    title = f'{args.title}\n\n{graph_type_title} via "{job}" benchmark job{context_header(args)}{location_header(args)}{cdu_header(args)}\n\n Stressor: '
                     title += f"{bench.get_title_engine_name()} for {bench.duration()} seconds"
                     scaling_unit = bench.scaling_unit()
                     xlabel = scaling_unit.axis_label

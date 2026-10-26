@@ -2,7 +2,7 @@ import math
 
 import numpy as np
 
-from graph.common import context_header, location_header
+from graph.common import cdu_header, context_header, location_header
 from graph.graph import MAX_LEGEND_ITEMS, Graph, draw_lines, get_max_value_string_length, statistics_in_label
 from hwbench.bench.monitoring_structs import MonitoringContextKeys, PowerCategories, PowerConsumptionContextKeys
 
@@ -45,7 +45,7 @@ def graph_sum_ratio(args, bench, bench_name, output_dir, time_serie, serie, base
     x_serie = np.array(time_serie)[order]
     graph = Graph(
         args,
-        f"{args.title}\n\nRatio of power consumption during {bench_name} benchmark{context_header(args)}{location_header(args)}\n\n{bench.title()}",
+        f"{args.title}\n\nRatio of power consumption during {bench_name} benchmark{context_header(args)}{location_header(args)}{cdu_header(args)}\n\n{bench.title()}",
         "Time [seconds]",
         "Percent of the whole server",
         output_dir,
@@ -75,7 +75,7 @@ def graph_sum_of_servers(args, bench, bench_name, output_dir, time_serie, serie,
     x_serie = np.array(time_serie)[order]
     graph = Graph(
         args,
-        f"{args.title}\n\nSum of servers power consumption during {bench_name} benchmark{context_header(args)}{location_header(args)}\n\n{bench.title()}",
+        f"{args.title}\n\nSum of servers power consumption during {bench_name} benchmark{context_header(args)}{location_header(args)}{cdu_header(args)}\n\n{bench.title()}",
         "Time [seconds]",
         "Watts",
         output_dir,
@@ -109,7 +109,7 @@ def graph_servers(args, bench, bench_name, output_dir, time_serie, serie, base_o
     x_serie = np.array(time_serie)[order]
     graph = Graph(
         args,
-        f"{args.title}\n\nServers power consumption during {bench_name} benchmark{context_header(args)}{location_header(args)}\n\n{bench.title()}",
+        f"{args.title}\n\nServers power consumption during {bench_name} benchmark{context_header(args)}{location_header(args)}{cdu_header(args)}\n\n{bench.title()}",
         "Time [seconds]",
         "Watts",
         output_dir,

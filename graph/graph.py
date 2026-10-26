@@ -476,6 +476,7 @@ def numa_distance_heatmap(args, output_dir, trace) -> int:
     cpu = trace.get_cpu()
     dmi = trace.get_dmi()
     title = f"NUMA distances of {trace.get_name()}{context_header(args)}\n{args.title}\n\n"
+    title += "".join(f"CDU: {cdu}\n" for cdu in trace.get_cdu_lines())
     title += f"System: {dmi['serial']} {dmi['product']}"
     location = trace.get_location_line()
     if location:
@@ -614,6 +615,7 @@ def write_benchmarks_summary(args, output_dir, trace) -> int:
     cpu = trace.get_cpu()
     kernel = trace.get_kernel()
     info = [
+        *(("CDU", cdu) for cdu in trace.get_cdu_lines()),
         ("System", f"{dmi['serial']} {dmi['product']}"),
         *([("Location", location)] if (location := trace.get_location_line()) else []),
         ("Bios", f"v{dmi['bios']['version']}"),

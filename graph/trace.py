@@ -6,6 +6,7 @@ import importlib
 import json
 import pathlib
 import tarfile
+import urllib.parse
 from enum import StrEnum
 from statistics import mean
 from typing import Any, Callable
@@ -413,7 +414,9 @@ class Bench:
         d = self.get_trace().get_dmi()
         c = self.get_trace().get_cpu()
         k = self.get_trace().get_kernel()
-        title = f"System:{d['serial']} {d['product']} Bios:v{d['bios']['version']} Linux Kernel:{k['release']}"
+        # The CDUs come first: between the System and the Processor lines, they would split the description of the host
+        title = "".join(f"CDU: {cdu}\n" for cdu in self.get_trace().get_cdu_lines())
+        title += f"System:{d['serial']} {d['product']} Bios:v{d['bios']['version']} Linux Kernel:{k['release']}"
         location = self.get_trace().get_location_line()
         if location:
             title += f"\nLocation: {location}"
@@ -751,6 +754,13 @@ def location_header_line(location: Location | None) -> str | None:
     return f"Location: {location.line()}" if location else None
 
 
+def shared_cdu_lines(traces: list) -> list[str]:
+    """The CDUs of the headers of the graphs of several servers: the ones of all the servers, when they
+    were all monitored with the same CDUs; none otherwise."""
+    lines = [trace.get_cdu_lines() for trace in traces]
+    return lines[0] if lines and lines[0] and all(line == lines[0] for line in lines) else []
+
+
 def shared_location_line(traces: list) -> str | None:
     """The line of the location in the headers of the graphs of several servers:
     the places they all share; None otherwise."""
@@ -872,6 +882,23 @@ class Trace:
         """The location of the server in one line, like hwbench prints it at startup; None without location."""
         location = self.get_location()
         return location.line() if location else None
+
+    def get_cdu_lines(self) -> list[str]:
+        """The CDUs monitored during the run, one line each: their section, vendor, model and protocol,
+        then their firmware and serial number when known, and their host between parentheses."""
+        lines = []
+        for name, cdu in (self.get_hardware().get("cdu") or {}).items():
+            # The host is the one of the url of the protocol driver, like snmp://cdu.example.net:161
+            host = urllib.parse.urlparse(cdu.get("url", "")).hostname
+            parts = [name, cdu.get("vendor"), cdu.get("model"), cdu.get("protocol")]
+            if cdu.get("firmware_version"):
+                parts.append(f"FW:{cdu['firmware_version']}")
+            if cdu.get("serial_number"):
+                parts.append(f"SN:{cdu['serial_number']}")
+            if host:
+                parts.append(f"({host})")
+            lines.append(" ".join(part for part in parts if part))
+        return lines
 
     def get_dmi(self):
         return self.get_hardware().get("dmi")

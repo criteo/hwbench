@@ -384,7 +384,7 @@ server vendor. Keep a BMC section and any PDU sections as usual.
 | `protocol` | protocol supported by the selected model | selects the shared communication protocol and applicable credentials |
 | `host` | hostname or IP address | the CDU's endpoint host |
 | `timeout` | finite positive seconds | request timeout; defaults to `2` |
-| `serial` | text | optional inventory metadata; no serial is inferred from the hostname |
+| `serial` | text | optional inventory metadata, shown by hwgraph in the [headers](hwgraph.md#cdus-of-the-servers); no serial is inferred from the hostname |
 
 Missing or unsupported vendor, model and protocol selections are rejected.
 There is no fallback to another model's metric definitions or an implicit
