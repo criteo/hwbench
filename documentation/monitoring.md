@@ -488,6 +488,13 @@ A window without valid readings has null statistics and zero samples. A real
 numeric zero remains zero. Individual responses and timestamps are not stored.
 As with host metrics, the unfinished final window is omitted.
 
+The readings in `Celsius` are also kept with the temperatures of the host, in
+`contexts.Thermal.CDU`, one metric per reading named `<section> <name>`, like
+`CDU_cooling Primary supply temperature`, so that the graphs of the host give them on their
+second axis. A window without valid reading is kept as a gap, `null` in its `mean`, `min`,
+`max` and `stdev`, with `0` samples, so that the following windows stay aligned with the ones
+of the other metrics.
+
 hwgraph groups each CDU's readings by unit under
 `environment/by_host/<trace>/<benchmark>/CDU/<index>-<section>/`. Metric names and
 units come from the results. Graphs plot window means using the shared

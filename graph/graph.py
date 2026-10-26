@@ -370,7 +370,10 @@ def statistics_in_label(label: str, serie: np.ndarray, max_title_length=0, max_v
     if not max_title_length:
         max_title_length = len(label)
 
-    return f"{label:{max_title_length}} [{fp(min(serie), max_value_length)}; {fp(np.mean(serie), max_value_length)}; {fp(np.std(serie), max_value_length)}; {fp(max(serie), max_value_length)}]"
+    # The gaps of a device that did not answer, NaN, are not part of the statistics
+    serie = np.asarray(serie, dtype=float)
+    serie = serie[np.isfinite(serie)] if np.isfinite(serie).any() else serie
+    return f"{label:{max_title_length}} [{fp(np.min(serie), max_value_length)}; {fp(np.mean(serie), max_value_length)}; {fp(np.std(serie), max_value_length)}; {fp(np.max(serie), max_value_length)}]"
 
 
 def numa_core_blocks(cpus, width: int = 3) -> str:

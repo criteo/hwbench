@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import dataclasses
+import math
 from types import SimpleNamespace
 
 import pytest
 
 from hwbench.bench.cdu_monitoring import CDUMonitoring
 from hwbench.bench.monitoring import Monitoring
-from hwbench.bench.monitoring_structs import CDUMetric, CDUSample, MonitoringData
+from hwbench.bench.monitoring_structs import CDU_FAMILY, CDUMetric, CDUSample, MonitoringData, MonitorMetric
 from hwbench.environment.vendors.cdu import CDUProtocol
 
 
@@ -171,3 +172,45 @@ def test_prepare_stops_on_a_failing_cdu_without_its_credentials(caplog):
         checked(cdu).check_cdus()
     assert "Monitoring/CDU: cooling: collection failed" in caplog.text
     assert "secret-community" not in caplog.text
+
+
+class FlakyCDU(FakeCDU):
+    """A CDU giving a temperature and a flow, then not answering."""
+
+    def get_metrics(self):
+        return {
+            "temperature": CDUMetric("Supply temperature", "1.2.3", "Celsius"),
+            "flow": CDUMetric("Flow", "1.2.4", "L/min"),
+        }
+
+    def sample(self):
+        self.calls += 1
+        if self.calls > 2:
+            return CDUSample({"temperature": None, "flow": None}, {"temperature": "timeout", "flow": "timeout"})
+        return CDUSample({"temperature": 20.0 + self.calls, "flow": 10.0}, {})
+
+
+def test_cdu_temperatures_join_the_thermal_context():
+    """The temperatures of a CDU go in Thermal.CDU, next to the host ones: a window without reading is a
+    gap, null in results.json, keeping the following windows aligned."""
+    data = MonitoringData()
+    monitor = CDUMonitoring([FlakyCDU()])
+    monitor.reset(data.contexts)
+    for _ in range(2):
+        monitor.poll()
+    data.contexts.compact_all()
+    monitor.poll()
+    data.contexts.compact_all()
+    assert list(data.contexts.Thermal[CDU_FAMILY]) == ["cooling Supply temperature"]
+    temperature = data.contexts.Thermal[CDU_FAMILY]["cooling Supply temperature"]
+    assert (temperature.mean, temperature.samples, temperature.get_unit()) == ([21.5, None], [2, 0], "Celsius")
+    dumped = dataclasses.asdict(data)["contexts"]["Thermal"][CDU_FAMILY]["cooling Supply temperature"]
+    assert dumped["mean"] == [21.5, None]
+
+
+def test_gaps_are_loaded_as_nan():
+    """hwgraph reads a gap, null in results.json, as NaN: drawn as a gap and left out of the statistics."""
+    metric = MonitorMetric("Supply temperature", "Celsius")
+    metric.load_from_dict({"mean": [21.5, None], "min": [21, None], "max": [22, None], "stdev": [0.5, None]}, "t")
+    assert metric.get_mean()[0] == 21.5
+    assert math.isnan(metric.get_mean()[1])

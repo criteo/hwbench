@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import math
 import statistics
 import sys
 from collections import defaultdict
@@ -33,10 +34,12 @@ class MonitorMetric:
         self.full_name = full_name
         self.name = str(input_data.get("name", self.name))
         self.unit = str(input_data.get("unit", self.unit))
-        self.mean = input_data.get("mean", [])
-        self.min = input_data.get("min", [])
-        self.max = input_data.get("max", [])
-        self.stdev = input_data.get("stdev", [])
+        # A gap of a device that did not answer, null in results.json, is not a number: NaN, that
+        # the graphs draw as a gap and the statistics ignore
+        self.mean = [math.nan if value is None else value for value in input_data.get("mean", [])]
+        self.min = [math.nan if value is None else value for value in input_data.get("min", [])]
+        self.max = [math.nan if value is None else value for value in input_data.get("max", [])]
+        self.stdev = [math.nan if value is None else value for value in input_data.get("stdev", [])]
         self.samples = input_data.get("samples", [])
 
     def get_full_name(self) -> str:
@@ -109,6 +112,20 @@ class UnitMetric(MonitorMetric):
 
 class Temperature(UnitMetric):
     UNIT = "Celsius"
+
+
+class GappedTemperature(Temperature):
+    """The temperature of a device that may not answer, like a CDU: a window without any reading
+    is kept as a gap, None (null in results.json), instead of being skipped, so that the
+    following windows stay aligned with the ones of the other metrics."""
+
+    def compact(self) -> None:
+        if self.values:
+            super().compact()
+            return
+        for serie in (self.min, self.max, self.mean, self.stdev):
+            serie.append(None)  # type: ignore[arg-type]
+        self.samples.append(0)
 
 
 class Power(UnitMetric):
@@ -233,6 +250,10 @@ class PowerSuppliesContextKeys(StrEnum):
 # the fixed contexts, and the Thermal key. Shared by the all-smi and the
 # Redfish readers and by hwgraph.
 GPU_FAMILY = "GPU"
+
+# The family the temperatures of the CDUs are reported under in the Thermal context, next to
+# the ones of the host, so that the graphs of the host give them on their second axis.
+CDU_FAMILY = "CDU"
 
 # Component name prefix of the cpu cores, the counterpart of GPU_FAMILY. Note
 # that it is not the key the contexts split the cores under, which is 'CPU'
