@@ -34,6 +34,8 @@ GRAPH_TYPES = ["perf", "perf_watt", "watts", "cpu_clock"]
 # top curve is not merged with the frame. Graphs stay zero-based (comparable
 # across CPUs/products); we only push the top of the axis a bit above the data.
 YMAX_HEADROOM = 1.05
+# The entries a legend beside the axes holds within their height: beyond, it is longer than the graph
+MAX_LEGEND_ITEMS = 36
 
 
 class Graph:
@@ -313,6 +315,26 @@ def fp(value: float, max_value_length=0) -> str:
     if max_value_length:
         return f"{result:>{max_value_length}}"
     return result
+
+
+def draw_lines(ax, x_serie, y_series) -> None:
+    """Draw curves without label as a single LineCollection: visually identical to one plot() per
+    curve, but much cheaper for hundreds of them."""
+    segments = [np.column_stack([x_serie, y_serie]) for y_serie in y_series]
+    # Reproduce the per-line color cycling matplotlib's plot() would apply.
+    cycle_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    colors = [cycle_colors[i % len(cycle_colors)] for i in range(len(segments))]
+    ax.add_collection(
+        LineCollection(
+            segments,
+            colors=colors,
+            linewidths=plt.rcParams["lines.linewidth"],
+            capstyle=plt.rcParams["lines.solid_capstyle"],
+        )
+    )
+    # add_collection updates the data limits but, unlike plot(), does not
+    # refresh the view; do it so the axes autoscale to the data as usual.
+    ax.autoscale_view()
 
 
 def get_max_value_string_length(serie) -> int:
@@ -1061,11 +1083,11 @@ def generic_graph(
             y2_label = statistics_in_label(str(data2_item), y2_serie, max_title_length, max_value_length)
             graph.get_ax2().plot(x_serie, y2_serie, "", label=y2_label, marker=".")
 
-    # If we have more than 36 items to draw, labels will not fit and makes the
+    # If we have more than MAX_LEGEND_ITEMS items to draw, labels will not fit and makes the
     # drawing hard to read. In that case there is no legend, so we can draw all
     # the lines as a single LineCollection: this is visually identical but much
     # cheaper than creating one Line2D per component (e.g. 320 CPU cores).
-    if len(components) < 37:
+    if len(components) <= MAX_LEGEND_ITEMS:
         max_title_length = max(len(component.get_full_name()) for component in components)
         max_value_length = max(
             get_max_value_string_length(np.array(data_serie[component.get_full_name()])) for component in components
@@ -1075,24 +1097,11 @@ def generic_graph(
             y_label = statistics_in_label(component.get_full_name(), y_serie, max_title_length, max_value_length)
             graph.get_ax().plot(x_serie, y_serie, "", label=y_label)
     else:
-        segments = [
-            np.column_stack([x_serie, np.array(data_serie[component.get_full_name()])[order]])
-            for component in components
-        ]
-        # Reproduce the per-line color cycling matplotlib's plot() would apply.
-        cycle_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-        colors = [cycle_colors[i % len(cycle_colors)] for i in range(len(segments))]
-        graph.get_ax().add_collection(
-            LineCollection(
-                segments,
-                colors=colors,
-                linewidths=plt.rcParams["lines.linewidth"],
-                capstyle=plt.rcParams["lines.solid_capstyle"],
-            )
+        draw_lines(
+            graph.get_ax(),
+            x_serie,
+            [np.array(data_serie[component.get_full_name()])[order] for component in components],
         )
-        # add_collection updates the data limits but, unlike plot(), does not
-        # refresh the view; do it so the axes autoscale to the data as usual.
-        graph.get_ax().autoscale_view()
 
     graph.prepare_axes(
         30,
