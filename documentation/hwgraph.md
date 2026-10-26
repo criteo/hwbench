@@ -257,13 +257,20 @@ uv run hwgraph graph --auto-traces runs:bios-v2:BMC.Server
 | the output directory | `<outdir>/<context>/`, `<outdir>` being the directory of the traces when `--outdir` is not given; the context is written in ASCII: accents removed, `_` replacing the spaces and the other characters, so `bios tuning` renders in `runs/bios_tuning/` |
 
 The renderings of several contexts can then share the same `--outdir`.
-Each context starts with a banner on the console, then the traces used, also written in
+Each context starts with a banner on the console, then the number of traces used, listed in
 `auto_traces.txt` of the output directory:
 
 ```
 ================================================================================
 Context 1/1: bios-v2
 ================================================================================
+2 traces of the context 'bios-v2' found in runs, listed in runs/bios-v2/auto_traces.txt
+```
+
+`auto_traces.txt` gives the logical name and the file of each trace, printed on the console
+too with `--verbose`:
+
+```
 Traces of the context 'bios-v2' found in runs:
 SRV01  runs/hwbench-SRV01-20261022120000.tar.xz
 SRV02  runs/other/hwbench-out-20261022121000/results.json
@@ -341,7 +348,7 @@ Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12
 | `--auto-group` | flag | the group graphs of each place of the location shared by several traces: [groups of the location](hwgraph-environment.md#groups-of-the-location); not with `--same-group` |
 | `--ignore-missing-datapoint` | `zero`, `last`, default not set | [replaces the missing data points](#missing-data-points) instead of stopping |
 | `--jobs`, `-j` | integer, default half the CPUs of the host | the number of worker processes rendering the graphs; with 1, the graphs are rendered one after the other |
-| `--verbose` | flag | prints more information, like the metrics without samples that are skipped |
+| `--verbose` | flag | prints more information, like the metrics without samples that are skipped, the traces of a context, a line per trace for the stats, the environment graphs and the benchmarks summaries, and the servers of each group of `--auto-group` |
 
 > ℹ️ **Info**
 >
