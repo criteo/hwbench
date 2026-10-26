@@ -29,6 +29,7 @@ from hwbench.bench.monitoring_structs import (
     Temperature,
     gpu_component_name,
 )
+from hwbench.environment.environment_file import Location
 from hwbench.utils.archive import extract_results_from_archive
 from hwbench.utils.helpers import cpu_list_to_range
 
@@ -413,6 +414,9 @@ class Bench:
         c = self.get_trace().get_cpu()
         k = self.get_trace().get_kernel()
         title = f"System:{d['serial']} {d['product']} Bios:v{d['bios']['version']} Linux Kernel:{k['release']}"
+        location = self.get_trace().get_location_line()
+        if location:
+            title += f"\nLocation: {location}"
         title += (
             f"\nProcessor: {c.get('sockets', 1)}x {c['model']} - "
             f"{c['physical_cores']} physical cores and {c['numa_domains']} NUMA domains"
@@ -714,6 +718,41 @@ def context_line(traces: list) -> str | None:
     return "Contexts: " + ", ".join(f"{name}: {context}" for name, context in contexts.items())
 
 
+def shared_location(traces: list) -> Location | None:
+    """The location shared by all the traces: the places their paths start with, from the widest,
+    like the rack of the servers of a rack. None when they share no known place, or one has no location."""
+    locations = [trace.get_location() for trace in traces]
+    if not locations or any(location is None for location in locations):
+        return None
+    first = locations[0]
+    size = 0
+    while all(size < len(location.path) and location.path[size] == first.path[size] for location in locations):
+        size += 1
+    if not any(first.path[:size]):
+        return None
+    # The levels name the places only when all the servers name them the same way
+    levels = first.levels[:size] if first.levels else None
+    if any(location.levels is None or location.levels[:size] != levels for location in locations):
+        levels = None
+    return Location(first.path[:size], first.separator, levels)
+
+
+def own_location(trace, shared: Location) -> Location | None:
+    """The places of the location of a trace below the location it shares with the others, like its
+    height in their rack; None when it has none of its own."""
+    location = trace.get_location()
+    levels = location.levels[len(shared.path) :] if location.levels else None
+    own = Location(location.path[len(shared.path) :], location.separator, levels)
+    return own if any(own.path) else None
+
+
+def shared_location_line(traces: list) -> str | None:
+    """The line of the location in the headers of the graphs of several servers:
+    the places they all share; None otherwise."""
+    location = shared_location(traces)
+    return f"Location: {location.line()}" if location else None
+
+
 class Trace:
     def __init__(
         self,
@@ -819,6 +858,16 @@ class Trace:
         """The context of the run, given to hwbench with --context; None for a trace without one."""
         context = self.trace.get("context")
         return context if isinstance(context, str) and context else None
+
+    def get_location(self) -> Location | None:
+        """The location of the server, given to hwbench by the environment file; None for a trace without one."""
+        location = self.trace.get("location")
+        return Location.from_dict(location) if isinstance(location, dict) and location.get("path") else None
+
+    def get_location_line(self) -> str | None:
+        """The location of the server in one line, like hwbench prints it at startup; None without location."""
+        location = self.get_location()
+        return location.line() if location else None
 
     def get_dmi(self):
         return self.get_hardware().get("dmi")

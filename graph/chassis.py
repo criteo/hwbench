@@ -4,7 +4,7 @@ from typing import cast
 
 import numpy as np
 
-from graph.common import context_header
+from graph.common import context_header, location_header
 from graph.graph import Graph, statistics_in_label
 from hwbench.bench.monitoring_structs import MonitoringContextKeys, PowerCategories, PowerConsumptionContextKeys
 
@@ -36,7 +36,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
     bench = args.traces[0].bench(bench_name)
     base_outfile = f"{bench_name} {bench.workers()}x{bench.engine()}_{bench.engine_module()}_{bench.engine_module_parameter()}_chassis"
     y_label = "Watts"
-    title = f"{args.title}\n\nChassis power consumption during {bench_name} benchmark{context_header(args)}\n\n{bench.title()}"
+    title = f"{args.title}\n\nChassis power consumption during {bench_name} benchmark{context_header(args)}{location_header(args)}\n\n{bench.title()}"
 
     def get_marker(category: PowerCategories | str) -> str:
         # Handle string input by converting to enum

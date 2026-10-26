@@ -304,8 +304,9 @@ narrowest, like `FR / PA99 / 1 / A12 / 23`: each infrastructure describes its ow
 hierarchy, and may name its levels, like `Country / DC / Room / Rack / Position`, shown before
 the places: `Country FR / DC PA99 / Room 1 / Rack A12 / Position 23`. A single
 place, like `Secret Lab 1`, is out of the hierarchy. The location is kept as `location` in
-`results.json`, only when given: where the context says why a run was made, the location says
-where, and the servers of a same rack or room share its power and its cooling.
+`results.json`, only when given, and hwgraph shows it under the serial of the server: where the
+context says why a run was made, the location says where, and the servers of a same rack or room
+share its power and its cooling.
 
 hwgraph shows the context on a dedicated line of the header of every graph, and
 `hwgraph graph --auto-traces` finds the runs of a context in a directory, which is handy after
