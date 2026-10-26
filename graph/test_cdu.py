@@ -186,3 +186,43 @@ def test_comparison_adds_the_gpus():
     temperatures, watts = cdu_host_series(monitoring, data, "BMC.Server")
     assert [label for label, _ in temperatures][-2:] == ["CPU / Socket 1", "GPU / GPU_0"]
     assert [label for label, _ in watts] == ["CPU.package", "BMC.Server", "GPU.GPU_0"]
+
+
+def test_rotational_speeds_and_flow_rates_vs_thermal(monkeypatch, tmp_path):
+    """The speeds of the pumps and the flow rates, with the temperatures on a second axis, when the CDU has both."""
+    data = {
+        "metrics": {
+            "pump1_rpm": {"name": "Pump 1 RPM", "unit": "RPM"},
+            "primary_flow": {"name": "Primary flow", "unit": "L/min"},
+            "secondary_supply_temperature": {"name": "Secondary supply temperature", "unit": "Celsius"},
+        },
+        "readings": {
+            "pump1_rpm": {"mean": [4450, None]},
+            "primary_flow": {"mean": [17.7, 17.8]},
+            "secondary_supply_temperature": {"mean": [28.0, 28.1]},
+        },
+    }
+    factory = MagicMock()
+    monkeypatch.setattr("graph.cdu.Graph", factory)
+    bench = SimpleNamespace(
+        get=lambda key: {
+            "metadata": {"samples_count": 2, "iteration_time": 10},
+            "contexts": {},
+            "cdus": {"cooling": data},
+        },
+        get_bench_name=lambda: "job",
+        get_system_title=lambda: "server",
+        duration=lambda: 20,
+    )
+    trace = SimpleNamespace(bench=lambda name: bench, get_name=lambda: "server", metric_name="BMC.Server")
+    graph_cdu(SimpleNamespace(title=""), trace, "job", tmp_path)
+    names = [call.args[5] for call in factory.call_args_list]
+    assert {"Rotational speeds_vs_Thermal", "Flow rates_vs_Thermal"} <= set(names)
+    graph = factory.return_value
+    graph.set_y2_axis.assert_any_call("Temperature (°C)")
+    assert graph.get_ax2.return_value.plot.call_args.kwargs["linestyle"] == "--"
+    # Without temperatures, no such graph
+    del data["metrics"]["secondary_supply_temperature"]
+    factory.reset_mock()
+    graph_cdu(SimpleNamespace(title=""), trace, "job", tmp_path)
+    assert not [name for name in (call.args[5] for call in factory.call_args_list) if name.endswith("_vs_Thermal")]
