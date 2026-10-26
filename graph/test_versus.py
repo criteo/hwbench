@@ -2,8 +2,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from graph.graph import MAX_LEGEND_ITEMS
 from graph.test_trace import LOCATION, PATH, at, located_trace
-from graph.versus import _render_traces_comparison, _traces_caption
+from graph.versus import _fleet_rows, _render_traces_comparison, _traces_caption
 
 GPUS = {
     str(index): {"name": "NVIDIA B200", "detail": {"Driver Version": "610.57.04", "CUDA Version": "13.3"}}
@@ -143,3 +144,23 @@ def test_traces_caption_location():
 def test_traces_caption_location_not_shared(other):
     """Servers not sharing their location, or not all located, give none."""
     assert "Location" not in _traces_caption([located_trace(LOCATION), located_trace(other)])
+
+
+def test_fleet_rows():
+    """The distribution of each metric over a fleet, the max and the min naming their server."""
+    agg = {f"SRV{index}": {"dperf": 1.0 + index / 10, "cov": None} for index in range(5)}
+    labels, rows, servers = _fleet_rows(list(agg), agg, ["dperf", "cov"])
+    assert labels == ["max", "Q3", "median", "Q1", "min"]
+    assert [round(row["dperf"], 2) for row in rows] == [1.4, 1.3, 1.2, 1.1, 1.0]
+    assert all(row["cov"] is None for row in rows)
+    assert servers == [{"dperf": "SRV4"}, {}, {}, {}, {"dperf": "SRV0"}]
+
+
+def test_fleet_caption():
+    """Beyond MAX_LEGEND_ITEMS servers, the servers of a same system are counted, not described one by one."""
+    traces = [located_trace(LOCATION) for _ in range(MAX_LEGEND_ITEMS + 1)]
+    assert _traces_caption(traces).splitlines()[:3] == [
+        f"{MAX_LEGEND_ITEMS + 1} servers (ref):",
+        "  System   : ProLiant DL385 Gen11",
+        "  Bios     : v3.16",
+    ]
