@@ -181,24 +181,6 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                         f"{max_perf_type}_{outfile}{graph_type}_{clean_perf}",
                     )
 
-                    # zorder=3 ensure the graph with be on top of the grid
-                    graph.get_ax().bar(traces_name, y_serie, color=bar_colors, zorder=3)
-
-                    # Let's put the normalized value in the center of the bar
-                    for trace_name in range(len(traces_name)):
-                        if y_serie[trace_name] > 0:
-                            graph.get_ax().text(
-                                trace_name,
-                                y_serie[trace_name] // 2,
-                                graph.human_format(y_serie[trace_name]),
-                                ha="center",
-                                color="white",
-                                fontsize=16,
-                                rotation="vertical"
-                                if len(traces_name) > max_bars_for_horizontal_label
-                                else "horizontal",
-                            )
-
                     # Add the number of workers, needed to reach that perf, below the trace name
                     bar_labels = traces_name.copy()
                     for trace_nb in range(len(traces_name)):
@@ -206,7 +188,33 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                             bar_labels[trace_nb] += "\nbenchmark skipped"
                         else:
                             bar_labels[trace_nb] += f"\n{max_workers[perf][trace_nb]} {worker_name}"
-                    graph.get_ax().axes.xaxis.set_ticks(traces_name)
+
+                    # A bar per trace, but for a fleet: the reference, then the distribution of the traces
+                    bars = list(y_serie)
+                    colors = bar_colors
+                    if len(traces_name) > MAX_LEGEND_ITEMS:
+                        bar_labels, bars = _fleet_bars(traces_name, bars, bar_labels, max_workers[perf])
+                        # The distribution in a single color, apart from the reference
+                        colors = [bar_colors[0], *[bar_colors[1]] * (len(bars) - 1)]
+                    positions = range(len(bars))
+
+                    # zorder=3 ensure the graph with be on top of the grid
+                    graph.get_ax().bar(positions, bars, color=colors, zorder=3)
+
+                    # Let's put the normalized value in the center of the bar
+                    for position in positions:
+                        if bars[position] > 0:
+                            graph.get_ax().text(
+                                position,
+                                bars[position] // 2,
+                                graph.human_format(bars[position]),
+                                ha="center",
+                                color="white",
+                                fontsize=16,
+                                rotation="vertical" if len(bars) > max_bars_for_horizontal_label else "horizontal",
+                            )
+
+                    graph.get_ax().axes.xaxis.set_ticks(positions)
                     graph.get_ax().set_xticklabels(bar_labels)
 
                     graph.prepare_axes(legend=False)
@@ -214,6 +222,22 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                     rendered_graphs += 1
 
     return rendered_graphs
+
+
+def _fleet_bars(names: list, values: list, labels: list, workers: list) -> tuple[list, list]:
+    """The bars of the max versus of a fleet, too many traces for a bar each: the reference, then the
+    distribution of the traces which ran the benchmark, the max and the min naming their trace."""
+    ran = [(value, name) for value, name, worker in zip(values, names, workers) if worker >= 0]
+    bar_labels, bars = [labels[0]], [values[0]]
+    if not ran:
+        return bar_labels, bars
+    for label, percentile in FLEET_ROWS:
+        server = ""
+        if percentile in (0, 100):
+            server = "\n" + (min if percentile == 0 else max)(ran)[1]
+        bar_labels.append(f"{label} of {len(ran)}{server}")
+        bars.append(float(np.percentile([value for value, _ in ran], percentile)))
+    return bar_labels, bars
 
 
 def _bench_power(bench, metric_name: str) -> float | None:

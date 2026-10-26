@@ -4,7 +4,7 @@ import pytest
 
 from graph.graph import MAX_LEGEND_ITEMS
 from graph.test_trace import LOCATION, PATH, at, located_trace
-from graph.versus import _fleet_rows, _render_traces_comparison, _traces_caption
+from graph.versus import _fleet_bars, _fleet_rows, _render_traces_comparison, _traces_caption
 
 GPUS = {
     str(index): {"name": "NVIDIA B200", "detail": {"Driver Version": "610.57.04", "CUDA Version": "13.3"}}
@@ -164,3 +164,14 @@ def test_fleet_caption():
         "  System   : ProLiant DL385 Gen11",
         "  Bios     : v3.16",
     ]
+
+
+def test_fleet_bars():
+    """The reference, then the distribution of the traces which ran the benchmark, naming the max and the min."""
+    names = [f"SRV{index}" for index in range(6)]
+    values = [3.0, 1.0, 2.0, 4.0, 5.0, 0.0]
+    labels = [f"{name}\n64 workers" for name in names]
+    workers = [64, 64, 64, 64, 64, -1]
+    bar_labels, bars = _fleet_bars(names, values, labels, workers)
+    assert bar_labels == ["SRV0\n64 workers", "max of 5\nSRV4", "Q3 of 5", "median of 5", "Q1 of 5", "min of 5\nSRV1"]
+    assert bars == [3.0, 5.0, 4.0, 3.0, 2.0, 1.0]
