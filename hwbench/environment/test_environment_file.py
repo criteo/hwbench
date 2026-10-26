@@ -58,6 +58,12 @@ url=http://mypdu2/
     )
 
 
+def test_without_communities():
+    """The SNMP community of a CDU is a secret too: removed like the passwords."""
+    cdu = "[CDU_cooling]\ntype=CDU\nprotocol=SNMP_V2C\nCommunity = example-read-community\n#community=old\nhost=cdu\n"
+    assert without_passwords(cdu) == "[CDU_cooling]\ntype=CDU\nprotocol=SNMP_V2C\nhost=cdu\n"
+
+
 def test_without_passwords_keeps_the_other_keys():
     """Every other key and value is still read the same."""
     original = configparser.ConfigParser(allow_no_value=True)

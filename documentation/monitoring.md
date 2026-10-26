@@ -439,7 +439,8 @@ The retransmission period is set beyond the response deadline, preventing retrie
 
 The read community must be nonempty. It is passed directly to the Python
 library, never through a subprocess, temporary configuration file or log.
-It is excluded from the hardware inventory and results.
+It is excluded from the hardware inventory and results, and from the copy of the environment
+file in the output directory.
 
 ### Supported models
 
