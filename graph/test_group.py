@@ -41,3 +41,26 @@ def test_human_format():
         "1.50K",
         "1.00M",
     ]
+
+
+def test_zero_is_not_merged_with_the_frame(tmp_path):
+    """The axes starting at 0 leave a margin before it, without any negative tick shown."""
+    from types import SimpleNamespace
+
+    from graph.graph import Graph
+
+    args = SimpleNamespace(width=1920, height=1080, title="", format="png", engine="cairo", dpi=100, verbose=False)
+    graph = Graph(args, "title", "x", "y", tmp_path, "zero")
+    graph.get_ax().plot([0, 600], [0, 500])
+    graph.prepare_axes(30, 5, (None, 50, 25))
+    # 2% of 670 workers would be beyond the step of 4 of the minor ticks: the margin stays under it
+    workers = Graph(args, "title", "x", "y", tmp_path, "workers")
+    workers.get_ax().plot([32, 670], [1, 2])
+    workers.prepare_axes(8, 4)
+    assert -4 < workers.get_ax().get_xlim()[0] < 0
+    for limits, ticks in (
+        (graph.get_ax().get_xlim(), graph.get_ax().get_xticks()),
+        (graph.get_ax().get_ylim(), graph.get_ax().get_yticks()),
+    ):
+        assert limits[0] < 0
+        assert all(tick >= 0 for tick in ticks if limits[0] <= tick <= limits[1])
