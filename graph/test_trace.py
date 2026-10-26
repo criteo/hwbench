@@ -1,9 +1,21 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
-from graph.trace import Bench, Trace, context_line, gpu_description
+from graph.common import location_header
+from graph.trace import (
+    Bench,
+    Trace,
+    context_line,
+    gpu_description,
+    own_location,
+    shared_location,
+    shared_location_line,
+)
 from hwbench.bench.monitoring_structs import MonitoringContextKeys
+from hwbench.environment.environment_file import Location
 from hwbench.utils.archive import create_output_archive
 
 
@@ -143,3 +155,102 @@ def test_context_line():
     )
     assert context_line([context_trace("SRV01", "bios-v2"), context_trace("SRV02", None)]) == "Contexts: SRV01: bios-v2"
     assert context_line([context_trace("SRV01", None), context_trace("SRV02", "")]) is None
+
+
+LEVELS = ["Country", "Datacenter", "Datahall", "Room", "Rack", "Position"]
+PATH = ["FR", "PA99", "2", "1", "A12", "23"]
+LOCATION = {"path": PATH, "separator": "/", "levels": LEVELS}
+
+
+def located_trace(location: dict | None) -> Trace:
+    """A trace of a server, located or not."""
+    trace = Trace.__new__(Trace)
+    trace.logical_name = "SRV01"
+    trace.trace = {
+        "hardware": {
+            "dmi": {"serial": "SRV01", "product": "ProLiant DL385 Gen11", "bios": {"version": "3.16"}},
+            "cpu": {"model": "AMD EPYC 9124", "sockets": 2, "physical_cores": 32, "numa_domains": 8},
+        },
+        "environment": {"kernel": {"release": "6.18.52"}},
+        "bench": {"cpu_0": {}},
+    }
+    if location is not None:
+        trace.trace["location"] = location
+    return trace
+
+
+def at(*path: str) -> dict:
+    """A location of these places, without levels."""
+    return {"path": list(path), "separator": "/"}
+
+
+def test_location():
+    """The location of the server, in one line under the System line of the headers."""
+    trace = located_trace(LOCATION)
+    assert trace.get_location() == Location(PATH, "/", LEVELS)
+    assert trace.get_location_line() == "Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12 / Position 23"
+    assert Bench(trace, "cpu_0").get_system_title().splitlines()[:2] == [
+        "System:SRV01 ProLiant DL385 Gen11 Bios:v3.16 Linux Kernel:6.18.52",
+        "Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12 / Position 23",
+    ]
+
+
+@pytest.mark.parametrize("location", [None, {}, at()])
+def test_without_location(location):
+    """A trace without location has no Location line."""
+    trace = located_trace(location)
+    assert trace.get_location() is None
+    assert trace.get_location_line() is None
+    assert "Location" not in Bench(trace, "cpu_0").get_system_title()
+
+
+def test_shared_location_line():
+    """The servers of a same rack share its location, whatever their height."""
+    traces = [located_trace(LOCATION), located_trace(LOCATION | {"path": [*PATH[:-1], "24"]})]
+    assert shared_location(traces) == Location(PATH[:-1], "/", LEVELS[:-1])
+    assert shared_location_line(traces) == "Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12"
+    assert location_header(SimpleNamespace(location=shared_location_line(traces))) == (
+        "\nLocation: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12"
+    )
+    assert own_location(traces[1], shared_location(traces)) == Location(["24"], "/", ["Position"])
+
+
+def test_shared_location_of_the_same_place():
+    """The nodes of a chassis share its whole location, and have none of their own."""
+    traces = [located_trace(LOCATION), located_trace(LOCATION)]
+    assert (
+        shared_location_line(traces)
+        == "Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12 / Position 23"
+    )
+    assert own_location(traces[0], shared_location(traces)) is None
+    lab = located_trace(at("Secret Lab 1"))
+    assert shared_location_line([lab, lab]) == "Location: Secret Lab 1"
+
+
+def test_shared_location_without_levels():
+    """The places are shared whatever their levels, known only when all the servers give the same."""
+    traces = [located_trace(LOCATION), located_trace(at("FR", "PA99", "3"))]
+    assert shared_location(traces) == Location(["FR", "PA99"])
+    other_levels = LOCATION | {"levels": ["Country", "DC", "DH", "Room", "Rack", "Position"]}
+    assert shared_location([located_trace(LOCATION), located_trace(other_levels)]) == Location(PATH)
+
+
+def test_shared_location_with_a_separator():
+    """The shared location is shown with the separator of the servers."""
+    traces = [located_trace({"path": ["PA3", "A12", "1"], "separator": ","}), located_trace(at("PA3", "A12", "2"))]
+    assert shared_location_line(traces) == "Location: PA3 , A12"
+
+
+@pytest.mark.parametrize(
+    "other",
+    [at("DE", "FRA1", "2"), at("Secret Lab 1"), at("", "PA99", "2"), None],
+)
+def test_no_shared_location_line(other):
+    """A location differing from the widest place, or missing, is not shared."""
+    assert shared_location_line([located_trace(LOCATION), located_trace(other)]) is None
+    assert location_header(SimpleNamespace(location=None)) == ""
+
+
+def test_unknown_places_are_not_shared():
+    """Places not known, shared by all the servers, are not a location."""
+    assert shared_location_line([located_trace(at("", "", "A12")), located_trace(at("", "", "A13"))]) is None

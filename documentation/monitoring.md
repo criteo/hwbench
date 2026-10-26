@@ -401,7 +401,9 @@ hwbench prints the location at startup, each place after its level, joined by th
 Startup: Location: Country FR / DC PA3 / DH 12.34 / Room LH1234.12 / Rack 12.23 / Position 3
 ```
 
-and keeps it as `location` in `results.json`, with its separator, and its levels when given:
+and keeps it as `location` in `results.json`, with its separator, and its levels when given,
+which hwgraph shows under the serial of the server, see
+[hwgraph.md](hwgraph.md#location-of-the-servers):
 
 ```json
 "location": {"path": ["FR", "PA3", "12.34", "LH1234.12", "12.23", "3"], "separator": "/", "levels": ["Country", "DC", "DH", "Room", "Rack", "Position"]}
