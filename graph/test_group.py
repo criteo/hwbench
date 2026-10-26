@@ -28,3 +28,16 @@ def test_round_step():
     assert round_step(69376.0) == 5000
     assert round_step(150000.0) == 10000
     assert round_step(0) == 1.0
+
+
+def test_human_format():
+    """1000 is shown 1.00K, as the values above it."""
+    from graph.graph import Graph
+
+    graph = Graph.__new__(Graph)
+    assert [graph.human_format(value) for value in (999.0, 1000.0, 1500.0, 1e6)] == [
+        "999.00",
+        "1.00K",
+        "1.50K",
+        "1.00M",
+    ]
