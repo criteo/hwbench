@@ -4,13 +4,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from graph.common import location_header
+from graph.common import cdu_header, location_header
 from graph.trace import (
     Bench,
     Trace,
     context_line,
     gpu_description,
     own_location,
+    shared_cdu_lines,
     shared_location,
     shared_location_line,
 )
@@ -254,3 +255,41 @@ def test_no_shared_location_line(other):
 def test_unknown_places_are_not_shared():
     """Places not known, shared by all the servers, are not a location."""
     assert shared_location_line([located_trace(at("", "", "A12")), located_trace(at("", "", "A13"))]) is None
+
+
+CDU = {"type": "CDU", "vendor": "HPE", "model": "MCDU-4U-FR-2", "protocol": "SNMP_V2C", "driver": "HPEMCDU4UFR2"}
+
+
+def cooled_trace(**cdus) -> Trace:
+    """A trace of a server monitored with these CDUs, by section."""
+    trace = located_trace(None)
+    trace.trace["hardware"]["cdu"] = cdus
+    return trace
+
+
+def test_cdu_lines():
+    """Each CDU gives its section, vendor, model and protocol, then its firmware and serial only when known."""
+    known = {"firmware_version": "2.1.2", "serial_number": "CZ1234", "url": "snmp://cdu.example.net:161"}
+    trace = cooled_trace(CDU_cooling=CDU, CDU_2=CDU | known)
+    assert trace.get_cdu_lines() == [
+        "CDU_cooling HPE MCDU-4U-FR-2 SNMP_V2C",
+        "CDU_2 HPE MCDU-4U-FR-2 SNMP_V2C FW:2.1.2 SN:CZ1234 (cdu.example.net)",
+    ]
+    # Before the System line, so that it does not split the description of the host
+    assert Bench(trace, "cpu_0").get_system_title().splitlines()[:3] == [
+        "CDU: CDU_cooling HPE MCDU-4U-FR-2 SNMP_V2C",
+        "CDU: CDU_2 HPE MCDU-4U-FR-2 SNMP_V2C FW:2.1.2 SN:CZ1234 (cdu.example.net)",
+        "System:SRV01 ProLiant DL385 Gen11 Bios:v3.16 Linux Kernel:6.18.52",
+    ]
+    assert located_trace(None).get_cdu_lines() == []
+    assert "CDU" not in Bench(located_trace(None), "cpu_0").get_system_title()
+
+
+def test_shared_cdu_lines():
+    """The servers monitored with the same CDUs give them in the header of their graphs, else nothing."""
+    cooled = [cooled_trace(CDU_cooling=CDU), cooled_trace(CDU_cooling=CDU)]
+    assert shared_cdu_lines(cooled) == ["CDU_cooling HPE MCDU-4U-FR-2 SNMP_V2C"]
+    assert cdu_header(SimpleNamespace(cdus=shared_cdu_lines(cooled))) == "\nCDU: CDU_cooling HPE MCDU-4U-FR-2 SNMP_V2C"
+    assert shared_cdu_lines([cooled[0], located_trace(None)]) == []
+    assert shared_cdu_lines([located_trace(None), located_trace(None)]) == []
+    assert cdu_header(SimpleNamespace()) == ""

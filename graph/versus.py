@@ -5,7 +5,7 @@ from typing import Any  # noqa: F401
 import matplotlib.pyplot as plt
 import numpy as np
 
-from graph.common import context_header, location_header
+from graph.common import cdu_header, context_header, location_header
 from graph.graph import GRAPH_TYPES, MAX_LEGEND_ITEMS, Graph
 from graph.scaling import _scaling_perf_value
 from graph.trace import GPU_SCALING_UNIT, gpu_description, own_location, shared_location
@@ -154,7 +154,7 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                 if graph_type != "cpu_clock":
                     max_perf_types.append(per_unit_type)
                 for max_perf_type in max_perf_types:
-                    title = f'{args.title}\n\n{graph_type_title} during "{job}" benchmark{context_header(args)}{location_header(args)}\n'
+                    title = f'{args.title}\n\n{graph_type_title} during "{job}" benchmark{context_header(args)}{location_header(args)}{cdu_header(args)}\n'
                     if max_perf_type == per_unit_type:
                         title += f"\nPer {unit_name} maximum performance during {bench.duration()} seconds"
                         y_max_per_unit = [0.0] * len(y_max[perf])
@@ -586,7 +586,7 @@ def _render_traces_comparison(
     sep = "  ".join("-" * widths[h] for h in headers)
 
     lines = [
-        f"Traces comparison (scaling){scope_title}{context_header(args)}{location_header(args)}",
+        f"Traces comparison (scaling){scope_title}{context_header(args)}{location_header(args)}{cdu_header(args)}",
         args.title,
         "",
         f"Reference : {ref_name}",
@@ -1135,9 +1135,7 @@ def render_versus_scorecard(args, output_dir) -> int:
             text = dfn(row[key]) + (f"\n{server}" if server else "")
             ax.text(j, i, text, ha="center", va="center", fontsize=9 if not server else 7)
 
-    title = (
-        f"{args.title}\n\nPerformance executive summary (vs {ref_name}){context_header(args)}{location_header(args)}\n"
-    )
+    title = f"{args.title}\n\nPerformance executive summary (vs {ref_name}){context_header(args)}{location_header(args)}{cdu_header(args)}\n"
     title += "green = better than reference, red = worse, neutral = same; * = reference"
     ax.set_title(title, fontsize=10)
     # Two side-by-side blocks below the graph: system descriptions on the left

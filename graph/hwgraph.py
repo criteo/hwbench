@@ -47,6 +47,7 @@ try:
         Trace,
         context_line,
         location_header_line,
+        shared_cdu_lines,
         shared_location_line,
     )
     from graph.versus import (
@@ -129,6 +130,7 @@ def _task_group(bench_name, output_dir_str, trace_indexes=None, location=None):
         args.traces = [_pool_args.traces[index] for index in trace_indexes]
         group = LocationGroup(location, args.traces)
         args.location = f"{location_header_line(location)} ({len(args.traces)} servers)"
+        args.cdus = shared_cdu_lines(args.traces)
         args.place_name = group.place_name()
     return graph_group_env(args, bench_name, pathlib.Path(output_dir_str))
 
@@ -508,6 +510,10 @@ def render_trace_set(args: argparse.Namespace, output_dir: pathlib.Path):
     args.location = shared_location_line(args.traces) if len(args.traces) > 1 else None
     if args.location:
         print(args.location)
+    # So do the CDUs monitored with all the servers, under the location: see cdu_header()
+    args.cdus = shared_cdu_lines(args.traces) if len(args.traces) > 1 else []
+    for cdu in args.cdus:
+        print(f"CDU: {cdu}")
 
     compare_traces(args)
     generate_stats(args)
