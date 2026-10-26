@@ -8,6 +8,7 @@ from typing import Any
 from hwbench.environment.all_smi import AllSMIMonitoring, get_version, list_gpus
 from hwbench.environment.hardware import BaseHardware
 from hwbench.environment.turbostat import CPUSTATS, Turbostat
+from hwbench.environment.vendors.cdu import CDUProtocol
 from hwbench.utils import helpers as h
 
 from .cdu_monitoring import CDUMonitoring
@@ -124,6 +125,32 @@ class Monitoring:
             for pdu in pdus:
                 pdu.read_power_consumption(self.metrics.contexts.PowerConsumption)
             check_monitoring("PDU", MonitoringContextKeys.PowerConsumption, self.metrics.contexts.PowerConsumption)
+
+        # - checking if cdu monitoring works
+        self.check_cdus()
+
+    def check_cdus(self):
+        """Read each CDU once before the benchmarks, as the BMC and the PDUs: a CDU giving no reading,
+        unreachable or with a wrong community, stops hwbench instead of monitoring nothing."""
+        for cdu in self.vendor.get_cdus():
+            try:
+                sample = cdu.sample()
+            except Exception:
+                # Never expose credentials contained in driver exception messages.
+                h.fatal(f"Monitoring/CDU: {cdu.get_name()}: collection failed")
+            read = [key for key, value in sample.values.items() if value is not None]
+            if not read:
+                reasons = set(sample.errors.values())
+                errors = ", ".join(sorted(reasons)) or "no reading"
+                hint = ""
+                if reasons == {"timeout"} and getattr(cdu, "protocol", None) == CDUProtocol.SNMP_V2C:
+                    # An SNMPv2c agent does not answer a community it does not know: it times out too
+                    hint = (
+                        f": no answer from {cdu.host} within {cdu.timeout:g}s, the community is probably wrong,"
+                        " or the host unreachable"
+                    )
+                h.fatal(f"Monitoring/CDU: {cdu.get_name()}: cannot read any metric: {errors}{hint}")
+            print(f"Monitoring/CDU: {cdu.get_name()}: {len(read)}/{len(cdu.get_metrics())} metrics read")
 
     def preup(self, precision_s: int):
         """Start turbostat monitoring before a benchmark run.
