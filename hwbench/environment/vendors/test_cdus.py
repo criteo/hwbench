@@ -86,7 +86,7 @@ def test_batched_get_conversion_and_secret_isolation(vendor, monkeypatch):
         @staticmethod
         def get(*oids, **kwargs):
             assert oids == tuple(spec.oid for spec in METRICS.values())
-            assert kwargs == {"timeout": 2, "refreshPeriod": 3, "wait": True}
+            assert kwargs == {"timeout": 0.5, "refreshPeriod": 1.5, "wait": True}
             return response()
 
         def __del__(self):
@@ -173,6 +173,8 @@ def test_no_stale_readings_after_recovery(vendor, monkeypatch):
         ("timeout", "inf"),
         ("timeout", "nan"),
         ("timeout", "-1"),
+        # Beyond half the monitoring precision, a CDU not answering would delay the monitoring loop
+        ("timeout", "1.1"),
         ("community", ""),
     ],
 )

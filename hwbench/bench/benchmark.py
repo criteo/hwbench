@@ -6,6 +6,7 @@ from hwbench.utils import helpers as h
 from hwbench.utils.external import External
 
 from .engine import EngineModuleBase
+from .monitoring_structs import MONITORING_PRECISION_S
 from .parameters import BenchmarkParameters
 
 
@@ -122,10 +123,10 @@ class ExternalBench(External):
                 status += " with wait method"
         if self.monitoring and not self.fully_skipped_job():
             # Start turbostat in background before monitoring begins
-            self.parameters.get_monitoring().preup(precision_s=2)
+            self.parameters.get_monitoring().preup(precision_s=MONITORING_PRECISION_S)
             # Start the monitoring in background
             # It runs the same amount of time as the benchmark
-            self.parameters.get_monitoring().monitor(2, 5, self.parameters.get_runtime())
+            self.parameters.get_monitoring().monitor(MONITORING_PRECISION_S, 5, self.parameters.get_runtime())
         p = self.parameters
         cpu_location = ""
         if p.get_pinned_cpu():

@@ -251,6 +251,9 @@ class PowerSuppliesContextKeys(StrEnum):
 # Redfish readers and by hwgraph.
 GPU_FAMILY = "GPU"
 
+# The interval of the monitoring loop, in seconds: every source is read once per interval
+MONITORING_PRECISION_S = 2
+
 # The family the temperatures of the CDUs are reported under in the Thermal context, next to
 # the ones of the host, so that the graphs of the host give them on their second axis.
 CDU_FAMILY = "CDU"
