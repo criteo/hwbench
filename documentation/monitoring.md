@@ -383,7 +383,7 @@ server vendor. Keep a BMC section and any PDU sections as usual.
 | `model` | registered model name | selects the model driver and metric definitions |
 | `protocol` | protocol supported by the selected model | selects the shared communication protocol and applicable credentials |
 | `host` | hostname or IP address | the CDU's endpoint host |
-| `timeout` | finite positive seconds | request timeout; defaults to `2` |
+| `timeout` | finite positive seconds, at most `1`, half the monitoring precision | request timeout; defaults to `0.5` |
 | `serial` | text | optional inventory metadata, shown by hwgraph in the [headers](hwgraph.md#cdus-of-the-servers); no serial is inferred from the hostname |
 
 Missing or unsupported vendor, model and protocol selections are rejected.
@@ -401,7 +401,7 @@ model=MCDU-4U-FR-2
 protocol=SNMP_V2C
 host=cdu.example.net
 community=example-read-community
-timeout=2
+timeout=0.5
 ```
 
 Replace `example-read-community` with the read community, then run
@@ -475,7 +475,11 @@ as it may hold the credentials.
 CDUs are polled synchronously on every iteration of the host monitoring loop,
 starting on its first iteration. There is no separate CDU polling interval.
 A slow request delays the loop, just like a BMC or
-PDU request. `contexts.Monitor.CDU.Polling` records the total time spent in CDU
+PDU request: the timeout of a CDU is therefore at most 1 second, half the monitoring
+precision of 2 seconds, leaving the other half to the other sources, and several CDUs are
+read at the same time, so that their timeouts do not add up. A longer timeout stops hwbench
+with `CDU <section>: timeout must be at most 1s, half the monitoring precision, not to delay
+the monitoring loop when the CDU does not answer`. `contexts.Monitor.CDU.Polling` records the total time spent in CDU
 collection per host iteration. The SNMP response timeout is `timeout` seconds; address resolution
 and processing also contribute to polling time.
 

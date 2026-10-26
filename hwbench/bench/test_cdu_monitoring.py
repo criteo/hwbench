@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -214,3 +215,20 @@ def test_gaps_are_loaded_as_nan():
     metric.load_from_dict({"mean": [21.5, None], "min": [21, None], "max": [22, None], "stdev": [0.5, None]}, "t")
     assert metric.get_mean()[0] == 21.5
     assert math.isnan(metric.get_mean()[1])
+
+
+class SlowCDU(FakeCDU):
+    """A CDU taking 0.3s to answer, as one timing out."""
+
+    def sample(self):
+        time.sleep(0.3)
+        return super().sample()
+
+
+def test_cdus_are_read_at_the_same_time():
+    """The timeouts of several CDUs not answering do not add up in the monitoring loop."""
+    monitor = CDUMonitoring([SlowCDU("first"), SlowCDU("second"), SlowCDU("third")])
+    start = time.monotonic()
+    monitor.poll()
+    assert time.monotonic() - start < 0.6
+    assert all(monitor.values[name]["temperature"] == [20] for name in ("first", "second", "third"))

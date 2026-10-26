@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 
 from hwbench.environment.vendors.cdu import CDU
 
@@ -41,15 +42,25 @@ class CDUMonitoring:
                         contexts.Thermal[CDU_FAMILY][temperature.get_name()] = temperature
                         self.thermal[name][key] = temperature
 
+    def sample(self, cdu: CDU) -> CDUSample:
+        """One snapshot of a CDU; a failing driver gives errors, never its message."""
+        try:
+            return cdu.sample()
+        except Exception:
+            # Never expose credentials contained in driver exception messages.
+            logging.warning("Monitoring/CDU: %s: collection failed", cdu.get_name())
+            return CDUSample({}, dict.fromkeys(self.data[cdu.get_name()].metrics, "driver_error"))
+
     def poll(self) -> None:
-        for cdu in self.cdus:
+        # The CDUs are read at the same time, each request owning its engine: the time of a poll
+        # is the one of the slowest CDU, the timeouts of several CDUs not answering do not add up
+        if len(self.cdus) > 1:
+            with ThreadPoolExecutor(max_workers=len(self.cdus)) as executor:
+                samples = list(executor.map(self.sample, self.cdus))
+        else:
+            samples = [self.sample(cdu) for cdu in self.cdus]
+        for cdu, sample in zip(self.cdus, samples):
             name = cdu.get_name()
-            try:
-                sample = cdu.sample()
-            except Exception:
-                # Never expose credentials contained in driver exception messages.
-                logging.warning("Monitoring/CDU: %s: collection failed", name)
-                sample = CDUSample({}, dict.fromkeys(self.data[name].metrics, "driver_error"))
             for key in self.data[name].metrics:
                 value = sample.values.get(key)
                 if value is not None:

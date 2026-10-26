@@ -4,7 +4,7 @@ import math
 from abc import ABC, abstractmethod
 from enum import StrEnum
 
-from hwbench.bench.monitoring_structs import CDUMetric, CDUSample
+from hwbench.bench.monitoring_structs import MONITORING_PRECISION_S, CDUMetric, CDUSample
 from hwbench.utils import helpers as h
 
 from .monitoring_device import MonitoringDevice
@@ -15,6 +15,12 @@ class CDUProtocol(StrEnum):
 
     SNMP_V2C = "SNMP_V2C"
     SNMP_V3 = "SNMP_V3"
+
+
+# The longest and the default timeouts of a CDU request, in seconds: the requests are made within
+# the monitoring loop, so a CDU not answering must leave most of its precision to the other sources
+MAX_TIMEOUT = MONITORING_PRECISION_S / 2
+DEFAULT_TIMEOUT = MONITORING_PRECISION_S / 4
 
 
 class CDU(MonitoringDevice, ABC):
@@ -35,11 +41,16 @@ class CDU(MonitoringDevice, ABC):
             supported = ", ".join(sorted(self.SUPPORTED_PROTOCOLS))
             h.fatal(f"CDU {section}: this model does not support {self.protocol}; supported protocols: {supported}")
         self.host = config.get(section, "host", fallback="").strip()
-        self.timeout = config.getfloat(section, "timeout", fallback=2)
+        self.timeout = config.getfloat(section, "timeout", fallback=DEFAULT_TIMEOUT)
         if not self.host:
             h.fatal(f"CDU {section}: a host is required")
         if not math.isfinite(self.timeout) or self.timeout <= 0:
             h.fatal(f"CDU {section}: timeout must be positive and finite")
+        if self.timeout > MAX_TIMEOUT:
+            h.fatal(
+                f"CDU {section}: timeout must be at most {MAX_TIMEOUT:g}s, half the monitoring precision, "
+                "not to delay the monitoring loop when the CDU does not answer"
+            )
         self.serialnumber = config.get(section, "serial", fallback="")
 
     def get_name(self) -> str:
