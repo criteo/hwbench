@@ -18,7 +18,7 @@ from .bench import benchmarks, cpumap
 from .config import config
 from .environment import hardware as env_hw
 from .environment import software as env_soft
-from .environment.environment_file import save_environment_file
+from .environment.environment_file import Location, read_location, save_environment_file
 from .tuning import setup as tuning_setup
 from .utils import helpers as h
 from .utils.archive import RESULTS_FILE, create_output_archive
@@ -49,8 +49,10 @@ def main():
     hwbench_config = config.Config(args.jobs_config)
     # Saved first, so a run that fails can still be reproduced
     hwbench_config.save(out_dir)
+    location: Location | None = None
     if args.environment:
         save_environment_file(args.environment, out_dir)
+        location = read_location(args.environment)
     benches = benchmarks.Benchmarks(out_dir, hwbench_config, verbose=args.verbose)
 
     problems = env_hw.check_requirements() + benches.check_requirements()
@@ -59,6 +61,8 @@ def main():
 
     if args.context and args.context.strip():
         print(f"Startup: Context of the run: {args.context.strip()}")
+    if location:
+        print(f"Startup: Location: {location.line()}")
     print("Startup: Tuning host")
     tuning_setup.Tuning(tuning_out_dir).apply(args.tuning)
     print("Startup: Dumping software environment")
@@ -73,7 +77,7 @@ def main():
     results = benches.run()
     benches.dump()
 
-    out = format_output(env.dump(), hw.dump(), results, benches.jobs_config, args.context)
+    out = format_output(env.dump(), hw.dump(), results, benches.jobs_config, args.context, location)
 
     write_output(out_dir, out)
 
@@ -145,7 +149,7 @@ def add_environment_option(parser: argparse.ArgumentParser, required: bool = Fal
     parser.add_argument(
         "-e",
         "--environment",
-        help="Specify the file describing the environment of the server, like environment.cfg: the credentials to monitor its BMC and PDUs",
+        help="Specify the file describing the environment of the server, like environment.cfg: its location and the credentials to monitor its BMC and PDUs",
         required=required,
     )
     parser.add_argument("-m", "--monitoring-config", action=ReplacedOption, replacement="-e/--environment")
@@ -202,7 +206,9 @@ def parse_options():
     return parser.parse_args()
 
 
-def format_output(env, hw, results, config, context: str | None = None) -> dict[str, object]:
+def format_output(
+    env, hw, results, config, context: str | None = None, location: Location | None = None
+) -> dict[str, object]:
     out = {
         "environment": env,
         "hardware": hw,
@@ -212,6 +218,9 @@ def format_output(env, hw, results, config, context: str | None = None) -> dict[
     # The context of the run is optional: only kept when given
     if context and context.strip():
         out["context"] = context.strip()
+    # The location of the server is optional too: only kept when the environment file gives it
+    if location:
+        out["location"] = location.to_dict()
     return out
 
 

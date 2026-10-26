@@ -19,6 +19,7 @@ Depending on the source, power, frequency, thermal or cooling metrics are collec
     - [Accelerators](#accelerators)
   - [PDU](#pdu)
     - [driver](#driver), [url](#url), [outlet](#outlet), [outletgroup](#outletgroup), [separator](#separator), [pdu_id](#pdu_id), [group](#group)
+  - [Location](#location)
 - [Turbostat](#turbostat)
 - [all-smi](#all-smi)
   - [Installing all-smi](#installing-all-smi)
@@ -349,6 +350,64 @@ group=feed_B
 > The group applies to a whole PDU section, and the outlets of a section are summed into a
 > single power measure: outlets on different feeds need a section each, even when they
 > are on the same PDU.
+
+## Location
+The `[Location]` section says where the target machine physically is: nothing in the machine
+itself tells it. It is read whenever `-e` is given, even when the monitoring is disabled, and
+is not a source: it has no `type`, nor credentials.
+
+The location is a path of places, from the widest to the narrowest, each nested in the
+previous one, like a country, a datacenter, a room, a rack and a height in the rack. hwbench
+does not impose these places: each infrastructure describes its own hierarchy, with as many
+levels as it needs, and names them if it wants to. The servers sharing a place, a room or a
+rack, share its power and its cooling, which is what this order is made for.
+
+| Key | Value | Effect |
+|---|---|---|
+| `location` | the places, cut by the separator, like `FR / PA99 / 1 / A12 / 23` | where the machine is |
+| `levels` | the names of the levels, cut by the separator, like `Country / DC / Room / Rack / Position` | optional: names the levels of the hierarchy, shown before their places |
+| `separator` | text, `/` by default | what cuts the places of `location` and the names of `levels` |
+
+The section name and the keys are not case sensitive, the spaces around each place and each
+name are removed. A place is its value alone, its level telling what it is: `1` and `23`, not
+`Room 1` and `U23`, the name of the level being shown before it, `Room 1` and `Position 23`.
+Without `levels`, the places are shown alone, so they are better readable on their own. A place
+left empty, like the room of `FR / PA99 / / A12`, is not known: it is not shown, but keeps its
+level. Without `location`, or without any place known, the target
+machine has no location.
+
+A `location` of a single place, like `Secret Lab 1`, is out of the hierarchy: a place the
+levels do not describe, like a lab. Any other `location` has one place for each level when
+`levels` is given. hwbench stops otherwise, or for any other key, the key being given in
+lowercase:
+
+| Message | Cause |
+|---|---|
+| `<environment_file>: unknown key '<key>' in the [Location] section, expecting separator, levels, location` | a key the section does not know |
+| `<environment_file>: the location '<location>' of the [Location] section has <n> places, expecting one for each of the <m> levels '<levels>', or a single one out of the hierarchy` | `location` and `levels` do not match |
+| `<environment_file>: the levels '<levels>' of the [Location] section have an empty name` | a level without name |
+
+For example:
+
+```ini
+[Location]
+levels = Country / DC / DH / Room / Rack / Position
+location = FR / PA3 / 12.34 / LH1234.12 / 12.23 / 3
+```
+
+hwbench prints the location at startup, each place after its level, joined by the separator:
+
+```
+Startup: Location: Country FR / DC PA3 / DH 12.34 / Room LH1234.12 / Rack 12.23 / Position 3
+```
+
+and keeps it as `location` in `results.json`, with its separator, and its levels when given:
+
+```json
+"location": {"path": ["FR", "PA3", "12.34", "LH1234.12", "12.23", "3"], "separator": "/", "levels": ["Country", "DC", "DH", "Room", "Rack", "Position"]}
+```
+
+With `location = Secret Lab 1`, the location is `Secret Lab 1`, kept without levels.
 
 # Turbostat
 On x86_64 systems, turbostat is used automatically when the monitoring is enabled, and no configuration is required. It is mandatory there: hwbench stops with `Missing turbostat binary, please install it.` when it is not installed, or with `Monitoring/turbostat: minimal expected release is 2022.04.16` when it is older.
