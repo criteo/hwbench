@@ -4,16 +4,16 @@ from collections import defaultdict
 from typing import TypeAlias
 from urllib.parse import quote
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 from graph.common import context_header
-from graph.graph import Graph, statistics_in_label, zero_margin
+from graph.graph import MARKER_SIZE, Graph, curve_style, statistics_in_label, zero_margin
 from graph.trace import Trace
 from hwbench.bench.monitoring_structs import GPU_FAMILY
 
 NamedSeries: TypeAlias = tuple[str, list[float]]
 WINDOW_MEAN_LEGEND = "component [min; mean; stddev; max]\nof window means\n"
+
 
 TITLES = {
     "Celsius": "Temperatures",
@@ -101,15 +101,17 @@ def graph_cdu_vs_thermal(args, trace: Trace, bench, name: str, groups: dict, uni
     # Share the color cycle across both axes, with dashed lines identifying the temperatures.
     series = [(False, *serie) for serie in groups[unit]] + [(True, *serie) for serie in groups["Celsius"]]
     for index, (is_temperature, label, timestamps, values) in enumerate(series):
+        color, marker = curve_style(index)
         axis = graph.get_ax2() if is_temperature else graph.get_ax()
         valid = np.array(values)[np.isfinite(values)]
         legend = statistics_in_label(label, valid) if len(valid) else f"{label} [no readings]"
         axis.plot(
             timestamps,
             values,
-            color=f"C{index % 10}",
+            color=color,
             linestyle="--" if is_temperature else "-",
-            marker=".",
+            marker=marker,
+            markersize=MARKER_SIZE,
             label=legend,
         )
     graph.prepare_axes(30, 5, points_to_plot=metadata["samples_count"], interval=metadata["iteration_time"])
@@ -190,14 +192,10 @@ def graph_cdu_host(args, trace: Trace, bench, name: str, data: dict, directory) 
         legend_title=WINDOW_MEAN_LEGEND,
     )
     graph.set_y2_axis("Power (Watts)")
-    # Share the color cycle across both axes, with dashed lines identifying power. Beyond the 10
-    # colors of the default cycle, as with the GPUs, the 20 of tab20 keep every curve apart.
-    series = temperatures + watts
-    # A color is a name, or the RGBA of a palette
-    colors: list = [f"C{index}" for index in range(10)]
-    if len(series) > 10:
-        colors = [plt.get_cmap("tab20")(index) for index in range(20)]
-    for index, (label, values) in enumerate(series):
+    # Share the color cycle across both axes, with dashed lines identifying power: beyond its 10
+    # colors, as with the GPUs, the curves change of marker, see curve_style()
+    for index, (label, values) in enumerate(temperatures + watts):
+        color, marker = curve_style(index)
         is_power = index >= len(temperatures)
         axis = graph.get_ax2() if is_power else graph.get_ax()
         valid = np.array(values)[np.isfinite(values)]
@@ -205,9 +203,10 @@ def graph_cdu_host(args, trace: Trace, bench, name: str, data: dict, directory) 
         axis.plot(
             times,
             values,
-            color=colors[index % len(colors)],
+            color=color,
             linestyle="--" if is_power else "-",
-            marker=".",
+            marker=marker,
+            markersize=MARKER_SIZE,
             label=legend,
         )
     graph.prepare_axes(30, 5, points_to_plot=metadata["samples_count"], interval=metadata["iteration_time"])

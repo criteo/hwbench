@@ -41,6 +41,19 @@ ZERO_MARGIN = 0.02
 ZERO_MARGIN_STEP = 0.4
 
 
+# The markers of the curves, changing each time the 10 colors of the default cycle are all used,
+# so that two curves of the same color still look different: shapes far apart, a dot, a cross, a
+# triangle, a square, a plus and a diamond, all drawn at the same size, MARKER_SIZE, as a larger
+# dot would not tell the curves apart
+MARKERS = (".", "x", "^", "s", "+", "D")
+MARKER_SIZE = 5
+
+
+def curve_style(index: int) -> tuple[str, str]:
+    """The color and the marker of the curve of an index on an axis, see MARKERS."""
+    return f"C{index % 10}", MARKERS[(index // 10) % len(MARKERS)]
+
+
 def zero_margin(axis, end: float) -> float:
     """The start of an axis from 0 to end, before 0 by ZERO_MARGIN of its end, but less than
     the smallest step of its ticks, major or minor: no tick is drawn before 0."""
@@ -1105,10 +1118,14 @@ def generic_graph(
         max_value_length = max(
             get_max_value_string_length(np.array(data2_serie[data2_item])) for data2_item in data2_serie
         )
-        for data2_item in data2_serie:
+        for index, data2_item in enumerate(data2_serie):
             y2_serie = np.array(data2_serie[data2_item])[order]
             y2_label = statistics_in_label(str(data2_item), y2_serie, max_title_length, max_value_length)
-            graph.get_ax2().plot(x_serie, y2_serie, "", label=y2_label, marker=".")
+            # Beyond the 10 colors of the cycle, the curves change of marker, see curve_style()
+            color, marker = curve_style(index)
+            graph.get_ax2().plot(
+                x_serie, y2_serie, "", label=y2_label, color=color, marker=marker, markersize=MARKER_SIZE
+            )
 
     # If we have more than MAX_LEGEND_ITEMS items to draw, labels will not fit and makes the
     # drawing hard to read. In that case there is no legend, so we can draw all
@@ -1119,10 +1136,20 @@ def generic_graph(
         max_value_length = max(
             get_max_value_string_length(np.array(data_serie[component.get_full_name()])) for component in components
         )
-        for component in components:
+        for index, component in enumerate(components):
             y_serie = np.array(data_serie[component.get_full_name()])[order]
             y_label = statistics_in_label(component.get_full_name(), y_serie, max_title_length, max_value_length)
-            graph.get_ax().plot(x_serie, y_serie, "", label=y_label)
+            # The lines of the first axis have no marker, until the colors of the cycle are all used
+            color, marker = curve_style(index)
+            graph.get_ax().plot(
+                x_serie,
+                y_serie,
+                "",
+                label=y_label,
+                color=color,
+                marker=marker if index >= 10 else None,
+                markersize=MARKER_SIZE,
+            )
     else:
         draw_lines(
             graph.get_ax(),
