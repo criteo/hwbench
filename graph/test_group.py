@@ -1,6 +1,6 @@
 import numpy as np
 
-from graph.group import named_servers, statistics_labels
+from graph.group import named_servers, round_step, statistics_labels
 
 
 def test_statistics_labels():
@@ -19,3 +19,12 @@ def test_named_servers():
     fleet = {f"SRV{index}": np.array([float(index), 1.0]) for index in range(10)}
     assert named_servers(fleet, 6) == (["SRV9", "SRV8", "SRV7"], ["SRV1", "SRV0"])
     assert named_servers(fleet, 1) == (["SRV9"], ["SRV0"])
+
+
+def test_round_step():
+    """The smallest round step keeping up to 15 ticks: precise for a rack, and for a site."""
+    assert round_step(4336.0) == 500
+    assert round_step(1306.2) == 100
+    assert round_step(69376.0) == 5000
+    assert round_step(150000.0) == 10000
+    assert round_step(0) == 1.0

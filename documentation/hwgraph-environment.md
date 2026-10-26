@@ -212,6 +212,8 @@ The legend gives the `[min; mean; stddev; max]` of each curve. Beyond 36 servers
 holds within the height of the graph, as for the other graphs, the legend of `…_by_servers` is
 filled with the servers of the highest means, then a line `… <n> other servers between`, then the
 servers of the lowest means, by decreasing mean; the servers between them are drawn without name.
+The power of the sum has up to 15 ticks, at a round step: every 500 W for a rack of 8 servers,
+every 5 kW for 128 servers.
 
 For example, a group of four servers of the [reference dataset](example/README.md), which ran the
 same benchmark at the same time while the cooling distribution unit was rebooted, with

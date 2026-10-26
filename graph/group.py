@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 
 from graph.common import context_header, location_header
@@ -22,6 +24,14 @@ def named_servers(series: dict[str, np.ndarray], capacity: int = MAX_LEGEND_ITEM
     by_mean = sorted(series, key=lambda name: np.mean(series[name]), reverse=True)
     room = max(2, capacity - 1)
     return by_mean[: (room + 1) // 2], by_mean[len(by_mean) - room // 2 :]
+
+
+def round_step(top: float, max_ticks: int = 15) -> float:
+    """The smallest round step, 1, 2, 2.5 or 5 times a power of ten, giving at most max_ticks ticks up to top."""
+    if top <= 0:
+        return 1.0
+    power = 10 ** math.floor(math.log10(top / max_ticks))
+    return next(step * power for step in (1, 2, 2.5, 5, 10) if top / (step * power) <= max_ticks)
 
 
 def place_suffix(args) -> str:
@@ -80,10 +90,12 @@ def graph_sum_of_servers(args, bench, bench_name, output_dir, time_serie, serie,
     for name, y_serie in series.items():
         graph.get_ax().plot(x_serie, y_serie, "", label=labels[name], marker=".")
 
+    # The axis keeps up to 15 ticks, as precise for a rack as for a whole site
+    y_major = round_step(max((max(y_serie) for y_serie in series.values()), default=0))
     graph.prepare_axes(
         3 * bench.get_time_interval(),
         bench.get_time_interval(),
-        (None, 1000, 500),
+        (None, y_major, y_major / 2),
         points_to_plot=len(serie[next(iter(serie))]),
         interval=bench.get_time_interval(),
     )
