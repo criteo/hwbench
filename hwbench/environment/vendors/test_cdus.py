@@ -35,7 +35,8 @@ class ExampleCDU(SNMPv2cCDU):
 @pytest.fixture
 def vendor(monkeypatch):
     monkeypatch.setitem(VENDORS, "EXAMPLE", {"different-cdu": ExampleCDU})
-    config = configparser.ConfigParser()
+    # As Vendor reads the environment file: without interpolation
+    config = configparser.ConfigParser(allow_no_value=True, interpolation=None)
     config.read_dict(
         {
             "cooling": {
@@ -360,3 +361,21 @@ def test_endpoint_formats_ipv6_without_changing_request_host(vendor, host, endpo
     cdu = init_cdu(vendor, "cooling")
     assert cdu.get_url() == endpoint
     assert cdu.host == host
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "error"),
+    [
+        ("timeout", "0.5s", "CDU cooling: timeout must be a number, got '0.5s'"),
+        ("port", "snmp", "CDU cooling: port must be an integer, got 'snmp'"),
+        ("port", "70000", "CDU cooling: port must be a UDP port, from 1 to 65535, got 70000"),
+        ("host", "", "CDU cooling: host is required"),
+        ("community", "", "CDU cooling: community is required"),
+    ],
+)
+def test_configuration_errors_name_the_section_and_the_key(vendor, caplog, key, value, error):
+    """A wrong value stops hwbench with a message naming the device, its section and the key."""
+    vendor.monitoring_config_file.set("cooling", key, value)
+    with pytest.raises(SystemExit):
+        init_cdu(vendor, "cooling")
+    assert error in caplog.text

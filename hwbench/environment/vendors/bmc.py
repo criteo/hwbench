@@ -24,7 +24,7 @@ from hwbench.bench.monitoring_structs import (
 from hwbench.utils import helpers as h
 from hwbench.utils.external import External
 
-from .monitoring_device import MonitoringDevice
+from .monitoring_device import MonitoringDevice, section_value
 
 # Redfish PhysicalContext values denoting an accelerator, see
 # https://redfish.dmtf.org/schemas/v1/PhysicalContext.json#/definitions/PhysicalContext
@@ -96,7 +96,7 @@ class BMC(MonitoringDevice, External):
         # For testing purposes, vendor can be None
         if self.vendor:
             # If the configuration file provides and url, let's use it
-            url = self.vendor.monitoring_config_file.get(self.bmc_section, "url", fallback="")
+            url = section_value(self.vendor.monitoring_config_file, "BMC", self.bmc_section, "url", "")
             if url:
                 return url
 
@@ -113,8 +113,8 @@ class BMC(MonitoringDevice, External):
         if not sections:
             h.fatal("Cannot find any valid BMC entry of the environment file")
 
-        bmc_username = self.vendor.monitoring_config_file.get(sections[0], "username")
-        bmc_password = self.vendor.monitoring_config_file.get(sections[0], "password")
+        bmc_username = section_value(self.vendor.monitoring_config_file, "BMC", sections[0], "username")
+        bmc_password = section_value(self.vendor.monitoring_config_file, "BMC", sections[0], "password")
         return super().connect_redfish(bmc_username, bmc_password, self.get_url())
 
     def _get_members(self, url: str, log_failure=True) -> list[str]:
