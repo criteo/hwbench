@@ -158,7 +158,7 @@ def add_environment_option(parser: argparse.ArgumentParser, required: bool = Fal
     parser.add_argument(
         "-e",
         "--environment",
-        help="Specify the file describing the environment of the server, like environment.cfg: its location and the credentials to monitor its BMC and PDUs",
+        help="Specify the file describing the environment of the server, like environment.cfg: its location and the credentials to monitor its BMC, PDUs and CDUs",
         required=required,
     )
     parser.add_argument("-m", "--monitoring-config", action=ReplacedOption, replacement="-e/--environment")

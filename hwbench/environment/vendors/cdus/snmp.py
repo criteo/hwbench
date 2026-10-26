@@ -26,7 +26,7 @@ class SNMPv2cCDU(CDU):
             h.fatal(f"CDU {section}: a valid UDP port is required")
         self.community = config.get(section, "community", raw=True, fallback="")
         if not self.community:
-            h.fatal(f"CDU {section}: missing SNMP_V2C read community")
+            h.fatal(f"CDU {section}: missing SNMP_V2C community directive in configuration file")
         self.manufacturer = manufacturer
         self.model = model
         self.metrics = metrics.copy()
