@@ -58,11 +58,15 @@ def graph_chassis(args, bench_name, output_dir) -> int:
     sum_serie_in_chassis = {}  # type: dict[str, list]
     server_serie = {}  # type: dict[str, list]
     serverinchassis_serie = {}  # type: dict[str, list]
+    # What does not change with the samples is computed once: loading a benchmark parses all its monitoring
+    benches = {trace.get_name(): trace.bench(bench_name) for trace in args.traces}
+    components = chassis_components(bench)
+    psus = bench.get_psu_power()
     for sample in range(0, bench.get_samples_count()):
         time = sample * bench.get_time_interval()
         time_serie.append(time)
         # Collect the mean value of the components the chassis graph plots
-        for component in chassis_components(bench):
+        for component in components:
             if str(component) not in sum_serie:
                 sum_serie[str(component)] = []
                 sum_serie_in_chassis[str(component)] = []
@@ -74,7 +78,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             if component in [PowerCategories.SERVER, PowerCategories.SERVERINCHASSIS]:
                 # so let's add all server's value from each trace
                 for trace in args.traces:
-                    pc = trace.bench(bench_name).get_single_metric(
+                    pc = benches[trace.get_name()].get_single_metric(
                         MonitoringContextKeys.PowerConsumption, PowerConsumptionContextKeys.BMC, component
                     )
                     if sample >= len(pc.get_mean()):
@@ -110,7 +114,6 @@ def graph_chassis(args, bench_name, output_dir) -> int:
                 sum_serie_in_chassis[str(component)].append(value)
 
             # Let's add the PSUs
-            psus = bench.get_psu_power()
             if psus:
                 sum_serie[MonitoringContextKeys.PowerSupplies].append(psus[sample])
                 sum_serie_in_chassis[MonitoringContextKeys.PowerSupplies].append(psus[sample])
