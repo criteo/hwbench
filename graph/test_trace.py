@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pickle
 from types import SimpleNamespace
 
 import pytest
@@ -80,6 +81,21 @@ def test_load_compressed_output_directory(tmp_path):
     archive = create_output_archive(out_dir, "serial", "2")
     with pytest.raises(ValueError, match="does not contain a results.json"):
         Trace(str(archive))
+
+
+def test_content_sent_without(tmp_path):
+    """A trace is sent to the workers without its content, read again on its first use, as after being
+    forgotten at the end of a task."""
+    path = tmp_path / "results.json"
+    path.write_text('{"bench": {}, "hardware": {"dmi": {"serial": "SRV01"}}}')
+    trace = Trace(str(path), "srv01")
+    sent = pickle.loads(pickle.dumps(trace))
+    assert "trace" not in sent.__dict__
+    assert sent.get_name() == "srv01"
+    assert sent.get_server_serial() == "SRV01"
+    trace.forget_content()
+    assert "trace" not in trace.__dict__
+    assert trace.get_trace() == {"bench": {}, "hardware": {"dmi": {"serial": "SRV01"}}}
 
 
 class RamTrace:

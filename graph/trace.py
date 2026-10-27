@@ -785,6 +785,27 @@ class Trace:
     def get_name(self) -> str:
         return self.logical_name
 
+    def __getstate__(self) -> dict:
+        """The trace sent to the workers of the graphs, without its content: a worker reads it again when
+        a task uses it, instead of every worker receiving all the traces, a fleet of long benchmarks
+        exceeding the memory of the host."""
+        state = self.__dict__.copy()
+        state.pop("trace", None)
+        return state
+
+    def __getattr__(self, name: str):
+        """The content of a trace sent to a worker, or forgotten, read again on its first use."""
+        if name != "trace" or "filename" not in self.__dict__:
+            raise AttributeError(name)
+        self.__load_file()
+        return self.__dict__["trace"]
+
+    def forget_content(self) -> None:
+        """Drop the content of the trace, read again on its next use: a worker keeps the traces of its
+        current task only."""
+        if self.filename:
+            self.__dict__.pop("trace", None)
+
     def __load_file(self):
         """Validate the new trace file"""
         if not pathlib.Path(self.filename).is_file():

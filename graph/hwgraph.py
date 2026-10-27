@@ -85,7 +85,13 @@ def _init_pool_worker(args_data):
 def _execute_pool_task(task):
     """Execute a single graph generation task in a worker process."""
     func, *func_args = task
-    return func(*func_args)
+    try:
+        return func(*func_args)
+    finally:
+        # The traces of a task are read again by the next one using them: a worker keeping the ones of
+        # all its tasks would end up holding all of them
+        for trace in _pool_args.traces:
+            trace.forget_content()
 
 
 def _task_env_bench(trace_idx, bench_name, output_dir_str):
@@ -375,7 +381,11 @@ def _execute_tasks(args, tasks):
     else:
         # Multi-process mode
         print(f"Rendering graphs using {num_workers} parallel workers for {len(tasks)} tasks")
+        # The traces are sent without their content, see Trace.__getstate__(), and the main process
+        # drops it too while the workers render: the tasks read the traces they use again
         args_data = pickle.dumps(args, protocol=pickle.HIGHEST_PROTOCOL)
+        for trace in args.traces:
+            trace.forget_content()
         with ProcessPoolExecutor(
             max_workers=num_workers,
             initializer=_init_pool_worker,
