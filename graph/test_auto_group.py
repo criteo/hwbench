@@ -142,8 +142,8 @@ def test_group_problem_missing_metric(tmp_path, cdu_reboot):
 
 
 def test_auto_group_location_header(tmp_path, cdu_reboot):
-    """The graphs of a group give the location of its place in their header, even over several racks,
-    with the number of its servers, and the name of the place in their file names."""
+    """The graphs of a group give the location of its place in their header, even over several racks, its
+    narrowest place in bold, with the number of its servers, and the name of the place in their file names."""
     traces = []
     for index, rack in enumerate(("A12", "A12", "A13", "A13")):
         result = json.loads(json.dumps(cdu_reboot[index % 2])) | {
@@ -156,6 +156,9 @@ def test_auto_group_location_header(tmp_path, cdu_reboot):
     headers = {}
     with patch.object(hwgraph, "_pool_args", args), patch.object(hwgraph, "graph_group_env") as graph_group_env:
         for task, *task_args in _collect_auto_group_tasks(args, tmp_path):
+            # The racks also render their rack view, not a graph of the group
+            if task is not hwgraph._task_group:
+                continue
             task(*task_args)
             group_args = graph_group_env.call_args.args[0]
             headers[pathlib.Path(task_args[1]).relative_to(tmp_path.joinpath("by_group")).as_posix()] = (
@@ -164,15 +167,15 @@ def test_auto_group_location_header(tmp_path, cdu_reboot):
             )
     assert headers == {
         "Country_FR/Datacenter_PA99/Datahall_2/Room_1": (
-            "Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 (4 servers)",
+            "Location: Country FR / Datacenter PA99 / Datahall 2 / $\\bf{Room\\ 1}$ (4 servers)",
             "_Room_1",
         ),
         "Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A12": (
-            "Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12 (2 servers)",
+            "Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / $\\bf{Rack\\ A12}$ (2 servers)",
             "_Rack_A12",
         ),
         "Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A13": (
-            "Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A13 (2 servers)",
+            "Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / $\\bf{Rack\\ A13}$ (2 servers)",
             "_Rack_A13",
         ),
     }
