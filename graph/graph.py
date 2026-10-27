@@ -37,6 +37,14 @@ YMAX_HEADROOM = 1.05
 # Room before the 0 of an axis starting at 0, as a share of its end, so that a curve at 0, or
 # starting at 0, is not merged with the frame
 ZERO_MARGIN = 0.02
+
+# The time axes keep at most this number of major ticks, on a round step multiple of the interval of the
+# monitoring: the ones of 30 seconds of an hour of benchmark overlap each other
+MAX_TIME_TICKS = 20
+TIME_STEPS = (10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400)
+# Beyond this duration, in seconds, the time axes are in minutes
+MINUTES_FROM = 600
+TIME_LABEL = "Time [seconds]"
 # The most of the smallest tick step the room takes, so that no tick is drawn before 0
 ZERO_MARGIN_STEP = 0.4
 
@@ -177,6 +185,10 @@ class Graph:
             x_major_locator = interval
             x_minor_locator = interval / 2
 
+        # interval is only given for the time axes
+        if interval and x_major_locator:
+            x_major_locator, x_minor_locator = self.time_ticks(x_major_locator, x_minor_locator, interval)
+
         if x_major_locator:
             self.ax.set_xlim(None, xmin=0, emit=True)
             self.ax.xaxis.set_major_locator(
@@ -194,6 +206,27 @@ class Graph:
 
         self.ax.yaxis.set_major_formatter(FuncFormatter(self.human_format))
         self.prepare_grid()
+
+    def time_ticks(self, x_major, x_minor, interval) -> tuple[float, float]:
+        """The steps of the ticks of a time axis: the ones given while they are at most MAX_TIME_TICKS,
+        otherwise the first round step giving at most MAX_TIME_TICKS, multiple of the interval; beyond
+        MINUTES_FROM, the axis is in minutes."""
+        duration = self.ax.dataLim.xmax
+        if not 0 < duration < float("inf"):
+            return x_major, x_minor
+        if duration > MINUTES_FROM:
+            self.ax.xaxis.set_major_formatter(FuncFormatter(lambda seconds, _: f"{seconds / 60:g}"))
+            if self.ax.get_xlabel() == TIME_LABEL:
+                self.ax.set_xlabel("Time [minutes]")
+        if duration / x_major <= MAX_TIME_TICKS:
+            return x_major, x_minor
+        step = next(
+            (step for step in TIME_STEPS if duration / step <= MAX_TIME_TICKS and step % interval == 0),
+            TIME_STEPS[-1],
+        )
+        # Five minor ticks per major one when they fall on the samples, two otherwise
+        minor = step / 5 if (step / 5) % interval == 0 else step / 2
+        return step, minor
 
     def human_format(self, num, pos=None):
         """Return format in human readable units."""
