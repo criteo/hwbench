@@ -106,6 +106,8 @@ class Graph:
         output_dir.mkdir(parents=True, exist_ok=True)
         self.set_filename(filename)
         self.needs_legend = True  # Does this graph need a legend to be rendered ?
+        self.rotate_xticks = True  # Vertical xticks, for the large number of cores
+        self.min_dpi = 0  # The lowest dpi keeping the graph readable, whatever --dpi
         self.legend_title = legend_title
 
     def set_filename(self, filename: str):
@@ -347,7 +349,8 @@ class Graph:
         self.trace_events()
 
         # Having vertical xticks makes it scalable for large number of cores
-        self.ax.tick_params(axis="x", labelrotation=90)
+        if self.rotate_xticks:
+            self.ax.tick_params(axis="x", labelrotation=90)
 
         # Plot the legend if necessary
         # (Some graphs, like BarGraphs, do not need legend)
@@ -367,7 +370,7 @@ class Graph:
         self.fig.savefig(
             f"{self.output_dir}/{self.filename}.{file_format}",
             format=file_format,
-            dpi=self.args.dpi,
+            dpi=max(self.args.dpi, self.min_dpi),
             bbox_inches="tight",
             pad_inches=1,
             bbox_extra_artists=legends,

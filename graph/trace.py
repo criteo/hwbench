@@ -1009,6 +1009,15 @@ class Trace:
     def get_chassis_product(self):
         return self.get_dmi()["chassis"]["product"]
 
+    def get_height(self) -> int:
+        """The height of the server in rack units: 1 when hwbench did not save it."""
+        return self.get_dmi().get("height") or 1
+
+    def get_chassis_height(self) -> int:
+        """The height of the chassis holding the server in rack units: the one of the server when hwbench did not
+        save it."""
+        return self.get_dmi()["chassis"].get("height") or self.get_height()
+
     def get_server_serial(self):
         return self.get_dmi()["serial"]
 

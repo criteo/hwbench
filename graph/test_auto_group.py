@@ -156,6 +156,9 @@ def test_auto_group_location_header(tmp_path, cdu_reboot):
     headers = {}
     with patch.object(hwgraph, "_pool_args", args), patch.object(hwgraph, "graph_group_env") as graph_group_env:
         for task, *task_args in _collect_auto_group_tasks(args, tmp_path):
+            # The racks also render their rack view, not a graph of the group
+            if task is not hwgraph._task_group:
+                continue
             task(*task_args)
             group_args = graph_group_env.call_args.args[0]
             headers[pathlib.Path(task_args[1]).relative_to(tmp_path.joinpath("by_group")).as_posix()] = (

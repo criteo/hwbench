@@ -39,6 +39,7 @@ try:
         yerr_graph,
     )
     from graph.group import graph_group_env
+    from graph.rack import graph_rack, rack_positions
     from graph.scaling import performance_scaling_graph
     from graph.trace import (
         CPU_SCALING_UNIT,
@@ -126,21 +127,28 @@ def _task_chassis(bench_name, output_dir_str):
     return graph_chassis(_pool_args, bench_name, pathlib.Path(output_dir_str))
 
 
+def group_args(trace_indexes, location):
+    """The arguments of the graphs of a group of --auto-group: they give the location of its place in their
+    header, even when its servers are in several racks, with the number of servers it holds, and the name
+    of the place in their file names."""
+    args = copy.copy(_pool_args)
+    args.traces = [_pool_args.traces[index] for index in trace_indexes]
+    group = LocationGroup(location, args.traces)
+    args.location = f"{location_header_line(location)} ({len(args.traces)} servers)"
+    args.cdus = shared_cdu_lines(args.traces)
+    args.place_name = group.place_name()
+    return args
+
+
 def _task_group(bench_name, output_dir_str, trace_indexes=None, location=None):
     """Generate group graphs for a single bench, of all the traces or of a group found by --auto-group."""
-    global _pool_args
-    args = _pool_args
-    if trace_indexes is not None:
-        # The graphs of a group of --auto-group give the location of its place in their header,
-        # even when its servers are in several racks, with the number of servers it holds,
-        # and the name of the place in their file names
-        args = copy.copy(_pool_args)
-        args.traces = [_pool_args.traces[index] for index in trace_indexes]
-        group = LocationGroup(location, args.traces)
-        args.location = f"{location_header_line(location)} ({len(args.traces)} servers)"
-        args.cdus = shared_cdu_lines(args.traces)
-        args.place_name = group.place_name()
+    args = _pool_args if trace_indexes is None else group_args(trace_indexes, location)
     return graph_group_env(args, bench_name, pathlib.Path(output_dir_str))
+
+
+def _task_rack(bench_name, output_dir_str, trace_indexes, location, positions):
+    """Generate the rack graphs of a single bench, for a rack found by --auto-group."""
+    return graph_rack(group_args(trace_indexes, location), bench_name, pathlib.Path(output_dir_str), positions)
 
 
 def _task_scaling(job, output_dir_str, traces_name):
@@ -209,12 +217,21 @@ def _collect_auto_group_tasks(args, output_dir):
     tasks = []
     rendered = {}
     for group in groups:
-        problem = group_problem(group)
-        rendered[group.name()] = f"not rendered, {problem}" if problem else ""
-        if problem:
-            continue
         group_dir = output_dir.joinpath(GROUP_DIRECTORY, *group.directories())
         trace_indexes = [args.traces.index(trace) for trace in group.traces]
+        # A rack, the place right above the positions of its servers, also renders its rack view
+        positions, rack_problem = rack_positions(group.location.path, group.traces)
+        notes = [rack_problem] if rack_problem else ["rack view"] if positions else []
+        if positions:
+            benches = set.intersection(*(set(trace.bench_list()) for trace in group.traces))
+            for bench_name in sorted(benches):
+                tasks.append((_task_rack, bench_name, str(group_dir), trace_indexes, group.location, positions))
+        problem = group_problem(group)
+        if problem:
+            notes.insert(0, f"not rendered, {problem}")
+        rendered[group.name()] = ", ".join(notes)
+        if problem:
+            continue
         for bench_name in sorted(group.traces[0].bench_list()):
             tasks.append((_task_group, bench_name, str(group_dir), trace_indexes, group.location))
     print(f"auto-group: {len(groups)} places shared by several traces, in {GROUP_DIRECTORY}/:")
