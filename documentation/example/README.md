@@ -35,3 +35,15 @@ no trace has a PDU.
 `traces/cdu_comparison.json` combines the recorded `cpu_17` host monitoring of
 `numa.json` with **synthetic** CDU circuit temperatures. These illustrate the
 shared aggregation grid and a failed window; they are not measured CDU data.
+
+`rack.py` builds the rack of the [rack view](../hwgraph-environment.md#rack-view) from
+`traces/cdu_comparison.json`, when the images are rendered, instead of storing its traces: ten
+servers in the rack `A12`, positions 1 to 12, with a chassis of 2U of 4 nodes at the position 4,
+a server of 2U at the position 7, two servers with **synthetic** GPU temperatures and empty
+positions. The servers differ by **synthetic**, fixed amounts depending on their position and
+their load, the same at every rendering; they keep only the metrics the rack and group graphs read,
+about 26 KB per trace:
+
+```bash
+uv run python documentation/example/rack.py <directory>
+```
