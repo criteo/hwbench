@@ -70,8 +70,9 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             if str(component) not in sum_serie:
                 sum_serie[str(component)] = []
                 sum_serie_in_chassis[str(component)] = []
-                sum_serie[MonitoringContextKeys.PowerSupplies] = []
-                sum_serie_in_chassis[MonitoringContextKeys.PowerSupplies] = []
+                # Created once, after the first component, not emptied by the next ones
+                sum_serie.setdefault(MonitoringContextKeys.PowerSupplies, [])
+                sum_serie_in_chassis.setdefault(MonitoringContextKeys.PowerSupplies, [])
 
             value = 0
             # We want to get the sum of servers/serversinchassis vs chassis
@@ -113,10 +114,10 @@ def graph_chassis(args, bench_name, output_dir) -> int:
                 sum_serie[str(component)].append(value)
                 sum_serie_in_chassis[str(component)].append(value)
 
-            # Let's add the PSUs
-            if psus:
-                sum_serie[MonitoringContextKeys.PowerSupplies].append(psus[sample])
-                sum_serie_in_chassis[MonitoringContextKeys.PowerSupplies].append(psus[sample])
+        # Let's add the PSUs, once per sample: they are not a component
+        if psus:
+            sum_serie[MonitoringContextKeys.PowerSupplies].append(psus[sample])
+            sum_serie_in_chassis[MonitoringContextKeys.PowerSupplies].append(psus[sample])
 
     order = np.argsort(time_serie)
     x_serie = np.array(time_serie)[order]
