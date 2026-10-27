@@ -157,6 +157,8 @@ def graph_group_env(args, bench_name, output_dir) -> int:
     sum_server_ratio = {}  # type: dict[str, list]
     server_serie = {}  # type: dict[str, list]
 
+    # Loading a benchmark parses all its monitoring: once per trace, not once per sample
+    benches = {trace.get_name(): trace.bench(bench_name) for trace in args.traces}
     for sample in range(0, bench.get_samples_count()):
         time = sample * bench.get_time_interval()
         time_serie.append(time)
@@ -172,7 +174,7 @@ def graph_group_env(args, bench_name, output_dir) -> int:
             values[name] = 0
 
             for trace in args.traces:
-                pc = trace.bench(bench_name).get_single_metric(
+                pc = benches[trace.get_name()].get_single_metric(
                     MonitoringContextKeys.PowerConsumption, context, category
                 )
 
