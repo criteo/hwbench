@@ -13,6 +13,7 @@ are rendered for every benchmark of every trace, unless `--no-env` is given.
 - [Per chassis](#per-chassis)
 - [Per group](#per-group)
   - [Groups of the location](#groups-of-the-location)
+  - [Rack view](#rack-view)
 
 Related pages: [hwgraph.md](hwgraph.md) (the command line, the traces and the output tree),
 [monitoring.md](monitoring.md) (where the metrics come from), [cpu-selection.md](cpu-selection.md)
@@ -321,3 +322,104 @@ auto-group: 3 places shared by several traces, in by_group/:
 The other reasons are `<trace> has no '<metric>' metric in <benchmark>`, and the first line of
 `Setting <benchmark>/<setting> does not match between <trace_filename> and <trace_filename>`.
 As with `--same-group`, nothing tells whether the servers ran the benchmarks at the same time.
+
+## Rack view
+A place of `--auto-group` holding its servers right at their last place, the place right above their
+positions, is a rack: hwgraph also renders its rack view, the metrics of its servers by position,
+from the bottom of the rack to its top, for every benchmark all its servers ran. The tree of the
+groups tells it:
+
+```
+auto-group: 2 places shared by several traces, in by_group/:
+  Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A12    10 servers, rack view
+    Position_4                                              4 servers
+```
+
+| Rule | Effect |
+|---|---|
+| the position, the last place of a location | a number, after `U` for a 19" rack or `OU` for an OCP one, in upper or lower case: `23`, `U23`, `OU23` |
+| a position that is not a number | no rack view: `Rack_A12    3 servers, rack view not rendered, positions not numbers: 'A', 'B'` |
+| a place holding servers several levels lower, like a room | no rack view, only the one of each of its racks |
+| a group not rendered, like servers without the same benchmarks | its rack view is rendered all the same, on the benchmarks all its servers have |
+| the positions | from the first one of the rack to the highest server, the empty ones in gray |
+
+### Height of the servers
+hwbench saves the height of the server, `hardware.dmi.height`, and the one of its chassis,
+`hardware.dmi.chassis.height`, in rack units, read in the SMBIOS: the server has the height of
+the chassis of its serial, 1U otherwise; its chassis is the one of another serial holding it,
+the server itself otherwise.
+
+| Target machine | What its SMBIOS gives | Server | Chassis |
+|---|---|---|---|
+| a server of 1U, like an HPE ProLiant DL365 Gen11 | a chassis of its serial, of 1U | 1U | 1U |
+| a server of 2U, like an HPE ProLiant DL385 Gen11 | a chassis of its serial, of 2U | 2U | 2U |
+| a node of a Dell C6600 | only the chassis of 2U of its 4 nodes, of another serial | 1U | 2U |
+| a node of an HPE Apollo 2000 | a chassis of its serial, of 1U, then the one of 2U of its 4 nodes | 1U | 2U |
+
+The servers of a position fill the height of their chassis, by rows of the height of a server, from
+the bottom left, in the order of their names: the 4 nodes of 1U of a chassis of 2U on 2 rows of 2,
+a server of 2U alone on both positions. A trace recorded before hwbench saved the heights is of 1U,
+in a chassis of 1U: the servers of its position share a single one, side by side.
+
+### Metrics
+Each server gives a value per window of the monitoring, from its sensors, in the cells, their trends and
+the profiles alike:
+
+| Metric | Sensors | Value of a window |
+|---|---|---|
+| Inlet | the `Intake` family of the BMC, the air entering the server | the hottest sensor |
+| Fans | all the fans, in percent or in RPM as the BMC gives them | the mean of the fans |
+| CPU | the `CPU` family of the BMC, like a sensor per socket | the mean of the sensors |
+| Memory | the `Memory` family of the BMC, like a sensor per group of DIMMs | the mean of the sensors |
+| GPU | the `GPU` family, the accelerators | the mean of the GPUs |
+| Exhaust | the `Exhaust` family, and the sensors named `exhaust` in another one, like the `Sys Exhaust` of the `SystemBoard` of HPE; never the ones of a CDU | the mean of the sensors |
+| Power | the [`power_metric`](hwgraph.md#power_metric) given with each trace, like `BMC.Server` or `CPU.package` | its value |
+
+A metric no server has, like the GPUs of a rack without, is left out. Its title gives the number of
+sensors per server when there are several, as a range when the servers differ, a component of
+several sensors in plural: `CPUs x2 (°C)`, `GPUs x4–8 (°C)`, `Memory x4 (°C)`, `Inlet (°C)`. The cooling distribution
+units (CDUs) monitored with the servers give the temperatures of their circuits, the primary and
+the secondary, at their supply and their return, and the delta of each circuit, `ΔT`, its return
+minus its supply on the windows having both: the heat it carries. A CDU shared by several servers
+is shown once.
+
+### Graphs
+For each benchmark, the directory of the rack contains:
+
+| Graph | What it plots |
+|---|---|
+| `rack_elevation_<benchmark>_<place>` | the rack seen from the front, a row per position and a column per metric, from the front of the servers to their rear: each cell the mean of the window means of a server, its color from the coolest server of the column to the hottest; the CDUs below the rack, the mean of their window means and their coolest and hottest windows |
+| `rack_elevation_trends_<benchmark>_<place>` | the same, with the window means of each server drawn in its cell, on the same scale in a column, its 95th percentile window above its 5th right of them; the CDUs with their own, each on the scale of its cell |
+| `rack_profile_<benchmark>_<place>` | the profile of the rack, a panel per metric: Inlet, Fans, CPU, Memory, GPU, Exhaust and Power, each server at its row with the mean of its window means and the [violin](#reading-a-violin) of its windows from its 5th percentile to its 95th; left of the panels, below the legend, the CDUs in a frame, their circuits by rows of three, the supply, the return and the delta, each the mean of its window means and its coolest and hottest windows |
+| `rack_profile_<component>_<benchmark>_<place>` | the profile of a component, `CPU`, `Memory` or `GPU`, with what cools it: Inlet, Fans, the component on a panel twice as wide, Exhaust and Power, and the CDUs; only when a server has it |
+
+The ranges leave out the 5% of the lowest and of the highest windows, like the warm up of a long
+benchmark. The graphs of a rack are rendered at 200 dpi at least, whatever `--dpi`, their figures
+being small, and explain in a note under them the sensors of each metric.
+
+For example, a rack of ten servers built from `cdu_comparison.json` of the
+[reference dataset](example/README.md): servers of 1U, two of them with GPUs, a chassis of 2U of 4
+nodes at the position 4 and a server of 2U at the position 7:
+
+```bash
+uv run python documentation/example/rack.py rack-traces
+uv run hwgraph graph --format png --auto-group --no-env --no-scaling --no-versus \
+    --traces $(for trace in rack-traces/*.json; do printf '%s::BMC.Server ' "$trace"; done) \
+    --outdir graphs
+```
+
+![Elevation of the rack](img/hwgraph-rack-elevation.png)
+
+*`by_group/…/Rack_A12/rack_elevation_cpu_17_Rack_A12.png`: the air entering the servers is warmer at the top of the rack, from 25.8 °C at the position 1 to 29.1 °C at the position 12. The 4 nodes of the chassis of the position 4 fill its two positions, and the server of 2U the positions 7 and 8. Below the rack, the CDU gives its circuits and their deltas.*
+
+![Elevation of the rack, with the trends](img/hwgraph-rack-elevation-trends.png)
+
+*`by_group/…/Rack_A12/rack_elevation_trends_cpu_17_Rack_A12.png`: the same rack, with the window means of each server during the benchmark; the nodes, narrower, give their trends only.*
+
+![Profile of the rack](img/hwgraph-rack-profile.png)
+
+*`by_group/…/Rack_A12/rack_profile_cpu_17_Rack_A12.png`: the profile of every metric, a violin per server, the nodes of a row joined by their mean; the legend gives the statistics of the means of the servers, and the CDU below it its circuits.*
+
+![Profile of the GPUs](img/hwgraph-rack-profile-gpu.png)
+
+*`by_group/…/Rack_A12/rack_profile_GPU_cpu_17_Rack_A12.png`: the GPUs and what cools them, only the two servers with GPUs having a point in their panel.*

@@ -363,7 +363,7 @@ with, only when they are the same for all of them. hwgraph prints them on the co
 | `--events` | `<event_name>:<start_time>:<duration>` | [marks periods on the time graphs](#events) |
 | `--same-chassis` | flag | all the traces are servers of the same chassis: [chassis graphs](hwgraph-environment.md#per-chassis) |
 | `--same-group` | flag | all the traces are a group of servers: [group graphs](hwgraph-environment.md#per-group) |
-| `--auto-group` | flag | the group graphs of each place of the location shared by several traces: [groups of the location](hwgraph-environment.md#groups-of-the-location); not with `--same-group` |
+| `--auto-group` | flag | the group graphs of each place of the location shared by several traces: [groups of the location](hwgraph-environment.md#groups-of-the-location), and the [rack view](hwgraph-environment.md#rack-view) of each rack; not with `--same-group` |
 | `--ignore-missing-datapoint` | `zero`, `last`, default not set | [replaces the missing data points](#missing-data-points) instead of stopping |
 | `--jobs`, `-j` | integer, default half the CPUs of the host | the number of worker processes rendering the graphs; with 1, the graphs are rendered one after the other |
 | `--verbose` | flag | prints more information, like the metrics without samples that are skipped, the traces of a context, a line per trace for the stats, the environment graphs and the benchmarks summaries, and the servers of each group of `--auto-group` |
@@ -425,7 +425,8 @@ Everything is written under `--outdir`, or under `<outdir>/<context>/` with [`--
 │   │       └── <benchmark>/<metric>/…
 │   └── by_chassis/chassis/       with --same-chassis, or all the traces of a same chassis
 ├── by_group/                     with --same-group
-│   └── <place>/…/<place>/        with --auto-group: one subdirectory per place of the location
+│   └── <place>/…/<place>/        with --auto-group: one subdirectory per place of the location,
+│                                 with the rack_* graphs of a rack
 ├── scaling/                      performance of a job along its scaling steps
 │   ├── perf/ perf_watt/ watts/ cpu_clock/ cpu_ipc/ cpu_core_power/
 │   └── summary/
@@ -495,6 +496,11 @@ Fatal: <trace>/<benchmark>: <metric> is missing the 4th data point. Use --ignore
   `generic_graph()` and `yerr_graph()` draw the time graphs, `numa_*` the NUMA ones.
 - **Environment**: `graph/chassis.py` (`graph_chassis()`) and `graph/group.py`
   (`graph_group_env()`); the per-host graphs are `graph_*()` in `hwgraph.py`.
+- **Rack view**: `graph/rack.py`. `rack_positions()` tells whether a group of `--auto-group` is
+  a rack, `load_rack()` reads the metrics of `RACK_METRICS` and the CDUs of `rack_cdus()` once per
+  benchmark, `place_nodes()` lays the servers out in the height of their chassis, and
+  `graph_rack()` renders the profiles of `graph_rack_panels()` and the elevations of
+  `graph_rack_elevation()`; the heights come from `heights()` of `hwbench/environment/dmi.py`.
 - **Performance**: `graph/scaling.py` (`performance_scaling_graph()` and the `render_*()`
   functions of the distributions) and `graph/versus.py` (`max_versus_graph()`,
   `write_scaling_comparison()`, `write_scaling_step_comparisons()`,
