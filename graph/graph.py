@@ -26,6 +26,13 @@ def init_matplotlib(args):
     except ValueError:
         fatal(f"Cannot load matplotlib backend engine {args.engine}")
     matplotlib.rcParams["font.family"] = "monospace"
+    # The bold words of a title, see bold(), in the font of the rest of it
+    matplotlib.rcParams["mathtext.fontset"] = "custom"
+    matplotlib.rcParams["mathtext.bf"] = "monospace:bold"
+    matplotlib.rcParams["mathtext.rm"] = "monospace"
+    # A custom fontset loads all the fonts of the mathtext: the calligraphic one, cursive by default, is
+    # missing on most servers, warning about it in each graph
+    matplotlib.rcParams["mathtext.cal"] = "monospace"
 
 
 GRAPH_TYPES = ["perf", "perf_watt", "watts", "cpu_clock"]
@@ -106,6 +113,8 @@ class Graph:
         output_dir.mkdir(parents=True, exist_ok=True)
         self.set_filename(filename)
         self.needs_legend = True  # Does this graph need a legend to be rendered ?
+        self.rotate_xticks = True  # Vertical xticks, for the large number of cores
+        self.min_dpi = 0  # The lowest dpi keeping the graph readable, whatever --dpi
         self.legend_title = legend_title
 
     def set_filename(self, filename: str):
@@ -347,7 +356,8 @@ class Graph:
         self.trace_events()
 
         # Having vertical xticks makes it scalable for large number of cores
-        self.ax.tick_params(axis="x", labelrotation=90)
+        if self.rotate_xticks:
+            self.ax.tick_params(axis="x", labelrotation=90)
 
         # Plot the legend if necessary
         # (Some graphs, like BarGraphs, do not need legend)
@@ -367,7 +377,7 @@ class Graph:
         self.fig.savefig(
             f"{self.output_dir}/{self.filename}.{file_format}",
             format=file_format,
-            dpi=self.args.dpi,
+            dpi=max(self.args.dpi, self.min_dpi),
             bbox_inches="tight",
             pad_inches=1,
             bbox_extra_artists=legends,

@@ -74,3 +74,13 @@ def progress(step: str, done: int, total: int, unit: str) -> None:
         print(f"\r\033[K{step} [{bar}] {done}/{total} {unit}{eta}", end="\n" if done == total else "\r", flush=True)
     elif done % 10 == 0 or done == total:
         print(f"{step}: {done}/{total} {unit}{eta}")
+
+
+# The characters the mathtext of matplotlib needs escaped
+MATHTEXT_SPECIALS = set("_$#%&{} ")
+
+
+def bold(text: str) -> str:
+    """A text drawn in bold in a title, through the mathtext of matplotlib: a title has a single weight."""
+    escaped = "".join(f"\\{char}" if char in MATHTEXT_SPECIALS else char for char in text)
+    return f"$\\bf{{{escaped}}}$"

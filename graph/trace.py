@@ -13,7 +13,7 @@ from enum import StrEnum
 from statistics import mean
 from typing import Any, Callable
 
-from graph.common import fatal
+from graph.common import bold, fatal
 from graph.trace_cache import cache_files, read_cache, write_cache
 from hwbench.bench.engine import Resource
 from hwbench.bench.monitoring_structs import (
@@ -421,12 +421,11 @@ class Bench:
         # cpu_list_to_range sorts its argument in place, so pass a copy.
         return f"[{cpu_list_to_range(list(cpu_pin))}]"
 
-    def title(self) -> str:
-        """Prepare the benchmark title name."""
-        title = f"Stressor: {self.workers()} x {self.engine()} "
-        title += f"{self.engine_module()} "
-        title += f"{self.engine_module_parameter()} for {self.duration()} seconds"
-        return title
+    def title(self, workers: str | None = None, emphasis: bool = False) -> str:
+        """Prepare the benchmark title name; <workers> replaces the number of workers, like the range of the
+        servers of a rack, and <emphasis> draws what the benchmark runs in bold."""
+        engine = f"{self.engine()} {self.engine_module()} {self.engine_module_parameter()}"
+        return f"Stressor: {workers or self.workers()} x {bold(engine) if emphasis else engine} for {self.duration()} seconds"
 
     def get_system_title(self):
         """Prepare the graph system title."""
@@ -791,9 +790,15 @@ def own_location(trace, shared: Location) -> Location | None:
     return own if any(own.path) else None
 
 
-def location_header_line(location: Location | None) -> str | None:
-    """The line of a location in the headers of the graphs: 'Location: FR / PA99 / A12'; None without one."""
-    return f"Location: {location.line()}" if location else None
+def location_header_line(location: Location | None, emphasis: bool = False) -> str | None:
+    """The line of a location in the headers of the graphs: 'Location: FR / PA99 / A12'; None without one.
+    <emphasis> draws its narrowest place in bold, like the rack of a rack view."""
+    if not location:
+        return None
+    places = location.places()
+    if emphasis and places:
+        places = [*places[:-1], bold(places[-1])]
+    return f"Location: {f' {location.separator} '.join(places)}"
 
 
 def shared_cdu_lines(traces: list) -> list[str]:
@@ -803,10 +808,10 @@ def shared_cdu_lines(traces: list) -> list[str]:
     return lines[0] if lines and lines[0] and all(line == lines[0] for line in lines) else []
 
 
-def shared_location_line(traces: list) -> str | None:
+def shared_location_line(traces: list, emphasis: bool = False) -> str | None:
     """The line of the location in the headers of the graphs of several servers:
     the places they all share; None otherwise."""
-    return location_header_line(shared_location(traces))
+    return location_header_line(shared_location(traces), emphasis)
 
 
 def read_trace_file(filename: str):
@@ -1098,6 +1103,15 @@ class Trace:
 
     def get_chassis_product(self):
         return self.get_dmi()["chassis"]["product"]
+
+    def get_height(self) -> int:
+        """The height of the server in rack units: 1 when hwbench did not save it."""
+        return self.get_dmi().get("height") or 1
+
+    def get_chassis_height(self) -> int:
+        """The height of the chassis holding the server in rack units: the one of the server when hwbench did not
+        save it."""
+        return self.get_dmi()["chassis"].get("height") or self.get_height()
 
     def get_server_serial(self):
         return self.get_dmi()["serial"]
