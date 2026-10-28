@@ -150,23 +150,23 @@ def cdu_host_series(monitoring: dict, data: dict, power_metric: str) -> tuple[li
     processors = [
         (f"CPU / {metric.get('name', key)}", means(metric))
         for key, metric in contexts.get("Thermal", {}).get("CPU", {}).items()
-        if metric["unit"] == "Celsius" and metric.get("mean")
+        if metric["unit"] == "Celsius" and len(metric.get("mean", []))
     ]
     # The accelerators, when the run has some, are cooled by the same circuit as the processors
     accelerators = [
         (f"GPU / {metric.get('name', key)}", means(metric))
         for key, metric in contexts.get("Thermal", {}).get(GPU_FAMILY, {}).items()
-        if metric["unit"] == "Celsius" and metric.get("mean")
+        if metric["unit"] == "Celsius" and len(metric.get("mean", []))
     ]
     power = contexts.get("PowerConsumption", {})
     watts: list[NamedSeries] = []
     for name in dict.fromkeys(("CPU.package", power_metric)):
         family, key = name.split(".", 1)
         metric = power.get(family, {}).get(key)
-        if metric and metric["unit"] == "Watts" and metric.get("mean"):
+        if metric and metric["unit"] == "Watts" and len(metric.get("mean", [])):
             watts.append((name, means(metric)))
     for key, metric in power.get(GPU_FAMILY, {}).items():
-        if metric["unit"] == "Watts" and metric.get("mean"):
+        if metric["unit"] == "Watts" and len(metric.get("mean", [])):
             watts.append((f"{GPU_FAMILY}.{key}", means(metric)))
     return (circuits + processors + accelerators, watts) if circuits and processors else ([], [])
 

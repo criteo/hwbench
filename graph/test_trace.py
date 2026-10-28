@@ -83,9 +83,18 @@ def test_load_compressed_output_directory(tmp_path):
         Trace(str(archive))
 
 
+def test_trace_read_on_first_use(tmp_path):
+    """A trace given with --traces is read on its first use, when rendered."""
+    path = tmp_path / "results.json"
+    path.write_text('{"bench": {}, "hardware": {"dmi": {"serial": "SRV01"}}}')
+    trace = Trace(str(path), load=False)
+    assert "trace" not in trace.__dict__
+    assert trace.get_server_serial() == "SRV01"
+
+
 def test_content_sent_without(tmp_path):
-    """A trace is sent to the workers without its content, read again on its first use, as after being
-    forgotten at the end of a task."""
+    """A trace is sent to the workers without its content, read again on the first use of its benchmarks,
+    as after being forgotten at the end of a task: its hardware is read without reading it again."""
     path = tmp_path / "results.json"
     path.write_text('{"bench": {}, "hardware": {"dmi": {"serial": "SRV01"}}}')
     trace = Trace(str(path), "srv01")
@@ -93,6 +102,9 @@ def test_content_sent_without(tmp_path):
     assert "trace" not in sent.__dict__
     assert sent.get_name() == "srv01"
     assert sent.get_server_serial() == "SRV01"
+    assert "trace" not in sent.__dict__
+    assert sent.bench_list() == {}
+    assert "trace" in sent.__dict__
     trace.forget_content()
     assert "trace" not in trace.__dict__
     assert trace.get_trace() == {"bench": {}, "hardware": {"dmi": {"serial": "SRV01"}}}

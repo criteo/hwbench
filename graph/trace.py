@@ -12,6 +12,7 @@ from statistics import mean
 from typing import Any, Callable
 
 from graph.common import fatal
+from graph.trace_cache import cache_files, read_cache, write_cache
 from hwbench.bench.engine import Resource
 from hwbench.bench.monitoring_structs import (
     CORE_FAMILY,
@@ -373,7 +374,7 @@ class Bench:
                     # A component can be registered without ever reporting a
                     # sample (all-smi does that for the metrics a GPU does not
                     # support): there is nothing to render for it.
-                    if component.get_mean():
+                    if len(component.get_mean()):
                         metrics.append(component)
         except KeyError:
             pass
@@ -767,28 +768,61 @@ def shared_location_line(traces: list) -> str | None:
     return location_header_line(shared_location(traces))
 
 
+def read_trace_file(filename: str):
+    """The content of a trace file: a results.json, or the one an archive of hwbench carries."""
+    if not pathlib.Path(filename).is_file():
+        raise ValueError(f"{filename} is not a valid file")
+
+    # A compressed output directory of hwbench carries its results.json
+    if tarfile.is_tarfile(filename):
+        content = extract_results_from_archive(filename)
+        if content is None:
+            raise ValueError(f"{filename} does not contain a results.json")
+    else:
+        content = pathlib.Path(filename).read_bytes()
+
+    # Can we load the input file as a valid json ?
+    try:
+        return json.loads(content)
+    except ValueError:
+        raise ValueError(f"{filename} is not a valid JSON file")
+
+
+def convert_trace(filename: str, directory: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
+    """Convert a trace file in directory, the cache of an output directory, unless an earlier rendering
+    in this output directory did it; run by the workers of the conversion. The file is converted as is:
+    the serials left unset are replaced on every read, by the trace numbering them."""
+    files = cache_files(directory, filename)
+    if not files[0].exists():
+        write_cache(read_trace_file(filename), *files)
+    return files
+
+
 class Trace:
     def __init__(
         self,
         filename: str = "",
         logical_name: str = "",
         metric_name: str = "",
+        load: bool = True,
     ):
+        """A trace of hwbench, read on its first use when not loaded now."""
         self.filename = filename
         self.logical_name = logical_name
         self.metric_name = metric_name
         # Benchmarks already reported as not completing on time, so the warning
         # is printed only once per bench instead of on every add_perf() call.
         self.incomplete_runtime_reported: set = set()
-        self.__load_file()
+        if load:
+            self.__load_file()
 
     def get_name(self) -> str:
         return self.logical_name
 
     def __getstate__(self) -> dict:
         """The trace sent to the workers of the graphs, without its content: a worker reads it again when
-        a task uses it, instead of every worker receiving all the traces, a fleet of long benchmarks
-        exceeding the memory of the host."""
+        a task uses its benchmarks, from the cache of the output directory, instead of every worker
+        receiving all the traces, a fleet of long benchmarks exceeding the memory of the host."""
         state = self.__dict__.copy()
         state.pop("trace", None)
         return state
@@ -801,31 +835,45 @@ class Trace:
         return self.__dict__["trace"]
 
     def forget_content(self) -> None:
-        """Drop the content of the trace, read again on its next use: a worker keeps the traces of its
-        current task only."""
+        """Drop the content of the trace, read again on the next use of its benchmarks: a worker keeps the
+        traces of its current task only, the main process a single trace at a time."""
         if self.filename:
             self.__dict__.pop("trace", None)
 
+    def use_cache(self, directory: pathlib.Path, files: tuple[pathlib.Path, pathlib.Path] | None = None) -> None:
+        """Read the trace from now on from its conversion in directory, the cache of the output directory:
+        its series mapped in memory are shared by the workers instead of being parsed and copied by each
+        of them. The trace is converted unless an earlier rendering in this output directory did it, or
+        unless <files>, its conversion by a worker, is given: see convert_trace()."""
+        self.cache = files or convert_trace(self.filename, directory)
+        self.forget_content()
+
+    def forget_cache(self) -> None:
+        """Read the trace from its file again, its conversion being deleted."""
+        self.forget_content()
+        self.__dict__.pop("cache", None)
+
     def __load_file(self):
+        """Read the trace: from its conversion in the cache when it has one, from its file otherwise."""
+        cache = self.__dict__.get("cache")
+        self.trace = read_cache(*cache) if cache else self.__read_file()
+        # Its hardware, environment and location, a few kB, kept when its content is forgotten: reading
+        # them does not read the trace again
+        self.header = (
+            {key: value for key, value in self.trace.items() if key != "bench"} if isinstance(self.trace, dict) else {}
+        )
+
+    def __header(self) -> dict:
+        """The trace without its benchmarks: the part kept when its content is forgotten, its content when
+        read or not read yet."""
+        return self.trace if "trace" in self.__dict__ or "header" not in self.__dict__ else self.header
+
+    def __read_file(self):
         """Validate the new trace file"""
-        if not pathlib.Path(self.filename).is_file():
-            raise ValueError(f"{self.filename} is not a valid file")
+        return read_trace_file(self.filename)
 
-        # A compressed output directory of hwbench carries its results.json
-        if tarfile.is_tarfile(self.filename):
-            content = extract_results_from_archive(self.filename)
-            if content is None:
-                raise ValueError(f"{self.filename} does not contain a results.json")
-        else:
-            content = pathlib.Path(self.filename).read_bytes()
-
-        # Can we load the input file as a valid json ?
-        try:
-            self.trace = json.loads(content)
-        except ValueError:
-            raise ValueError(f"{self.filename} is not a valid JSON file")
-
-    def validate(self) -> None:
+    def set_logical_name(self) -> None:
+        """Name the trace, from its header only."""
         # If no logical name was given, let's use the serial number as a default
         if not self.logical_name:
             self.logical_name = self.default_logical_name()
@@ -836,6 +884,8 @@ class Trace:
                 self.logical_name = f"{self.get_sockets_count()} x "
             self.logical_name += self.get_sanitized_cpu_model()
 
+    def validate(self) -> None:
+        self.set_logical_name()
         # Let's check if the monitoring metrics exists in the first job
         first_bench = self.first_bench()
         metrics = first_bench.load_monitoring()
@@ -881,22 +931,22 @@ class Trace:
         return self.trace
 
     def get_hardware(self) -> dict:
-        return self.trace["hardware"]
+        return self.__header()["hardware"]
 
     def get_original_config(self) -> dict:
-        return self.trace["config"]
+        return self.__header()["config"]
 
     def get_environment(self) -> dict:
-        return self.trace["environment"]
+        return self.__header()["environment"]
 
     def get_context(self) -> str | None:
         """The context of the run, given to hwbench with --context; None for a trace without one."""
-        context = self.trace.get("context")
+        context = self.__header().get("context")
         return context if isinstance(context, str) and context else None
 
     def get_location(self) -> Location | None:
         """The location of the server, given to hwbench by the environment file; None for a trace without one."""
-        location = self.trace.get("location")
+        location = self.__header().get("location")
         return Location.from_dict(location) if isinstance(location, dict) and location.get("path") else None
 
     def get_location_line(self) -> str | None:

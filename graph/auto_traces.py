@@ -64,6 +64,8 @@ def load_traces(directory: pathlib.Path) -> list[Trace]:
         if not isinstance(trace.get_trace(), dict) or not all(key in trace.get_trace() for key in TRACE_KEYS):
             print(f"auto-traces: ignoring {path}: not a trace of hwbench")
             continue
+        # Its header gives its context and its server: its content is read again when rendered
+        trace.forget_content()
         traces.append(trace)
     return traces
 
@@ -146,7 +148,8 @@ def context_traces(directory: pathlib.Path, context: str, traces: list[Trace], p
     for trace in traces:
         # No logical name: the trace is named after its server, as with <file>::<power_metric>
         trace.metric_name = power_metric
-        trace.validate()
+        # Validated when rendered, one trace at a time, from the cache of the output directory
+        trace.set_logical_name()
     return AutoTraces(directory, context, sorted(traces, key=lambda trace: trace.get_name()))
 
 

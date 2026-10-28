@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import numpy as np
+
 from graph.graph import redfish_timeouts, timeouts_graph
 from graph.trace import Bench
 
@@ -51,6 +53,15 @@ def test_redfish_timeouts():
         "PDU": {"Timeouts": {"name": "Timeouts", "unit": "requests"}},
     }
     assert redfish_timeouts(bench(monitor)) == {"BMC": [0, 3, 1]}
+
+
+def test_redfish_timeouts_from_cache():
+    """The cache of the traces gives the series back as numpy arrays."""
+    timeouts = {
+        key: np.array(value) if isinstance(value, list) else value
+        for key, value in counts("Timeouts", "requests", [0, 3, 1]).items()
+    }
+    assert redfish_timeouts(bench({"BMC": {"Timeouts": timeouts}})) == {"BMC": [0, 3, 1]}
 
 
 def test_no_timeouts_graph_without_timeout():

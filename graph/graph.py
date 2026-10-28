@@ -947,7 +947,7 @@ def component_distribution_graph(
         # sample -- all-smi registers those for the metrics a GPU does not
         # support -- but a caller-supplied list has not been through it, and
         # averaging an empty serie would inject a NaN into the distribution.
-        components = [component for component in components if component.get_mean()]
+        components = [component for component in components if len(component.get_mean())]
     if not components:
         return 0
     unit = components[0].get_unit() or bench.get_metric_unit(component_type)
@@ -1222,7 +1222,7 @@ def redfish_timeouts(bench: Bench) -> dict[str, list[int]]:
         except KeyError:
             continue
         # A trace made before the timeouts were saved, or without any PDU, has no such metric
-        if metric and metric.get_samples():
+        if metric and len(metric.get_samples()):
             totals[source] = window_totals(metric)
     return totals
 
