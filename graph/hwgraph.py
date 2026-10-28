@@ -9,6 +9,7 @@ import pickle
 import re
 import shlex
 import sys
+import tarfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from graph.graph import InvalidValue
@@ -418,18 +419,11 @@ def valid_trace_file(trace_arg: str) -> Trace:
             f"{trace_arg} does not match 'trace_filename:logical_name:power_metric' syntax"
         )
 
-    try:
-        trace = Trace(
-            match.group("filename"),
-            match.group("logical_name"),
-            match.group("power_metric"),
-        )
-        trace.validate()
-        return trace
-    except BaseException as e:
-        # Print validation failure and pass it on
-        print(f"Trace validation failure: {e}")
-        raise e
+    # The trace is read and validated when rendered, one trace at a time, from the cache of the
+    # output directory: see render_trace_set()
+    if not pathlib.Path(match.group("filename")).is_file():
+        raise argparse.ArgumentTypeError(f"{match.group('filename')} is not a valid file")
+    return Trace(match.group("filename"), match.group("logical_name"), match.group("power_metric"), load=False)
 
 
 def valid_events(event_arg: str) -> Event:
@@ -520,9 +514,15 @@ def render_trace_set(args: argparse.Namespace, output_dir: pathlib.Path):
     """Render the traces of args.traces in output_dir"""
     output_dir.mkdir(parents=True, exist_ok=True)
     write_cmdline(output_dir)
-    # The traces are read from now on from their conversion in the cache of the output directory
+    # The traces are read from now on from their conversion in the cache of the output directory, then
+    # validated, one at a time: the main process holds the content of a single trace
     for trace in args.traces:
-        trace.use_cache(output_dir.joinpath(CACHE_DIRECTORY))
+        try:
+            trace.use_cache(output_dir.joinpath(CACHE_DIRECTORY))
+        except (ValueError, OSError, tarfile.TarError, EOFError) as e:
+            fatal(f"Trace validation failure: {e}")
+        trace.validate()
+        trace.forget_content()
 
     # The context of the runs, given to hwbench with --context, gets its own line in the
     # header of every graph, under the line naming the benchmark: see context_header()

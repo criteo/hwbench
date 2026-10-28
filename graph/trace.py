@@ -774,22 +774,25 @@ class Trace:
         filename: str = "",
         logical_name: str = "",
         metric_name: str = "",
+        load: bool = True,
     ):
+        """A trace of hwbench, read on its first use when not loaded now."""
         self.filename = filename
         self.logical_name = logical_name
         self.metric_name = metric_name
         # Benchmarks already reported as not completing on time, so the warning
         # is printed only once per bench instead of on every add_perf() call.
         self.incomplete_runtime_reported: set = set()
-        self.__load_file()
+        if load:
+            self.__load_file()
 
     def get_name(self) -> str:
         return self.logical_name
 
     def __getstate__(self) -> dict:
         """The trace sent to the workers of the graphs, without its content: a worker reads it again when
-        a task uses it, from the cache of the output directory, instead of every worker receiving all the
-        traces, a fleet of long benchmarks exceeding the memory of the host."""
+        a task uses its benchmarks, from the cache of the output directory, instead of every worker
+        receiving all the traces, a fleet of long benchmarks exceeding the memory of the host."""
         state = self.__dict__.copy()
         state.pop("trace", None)
         return state
@@ -802,8 +805,8 @@ class Trace:
         return self.__dict__["trace"]
 
     def forget_content(self) -> None:
-        """Drop the content of the trace, read again on its next use: a worker keeps the traces of its
-        current task only."""
+        """Drop the content of the trace, read again on the next use of its benchmarks: a worker keeps the
+        traces of its current task only, the main process a single trace at a time."""
         if self.filename:
             self.__dict__.pop("trace", None)
 
@@ -823,12 +826,22 @@ class Trace:
         self.__dict__.pop("cache", None)
 
     def __load_file(self):
-        """Validate the new trace file"""
+        """Read the trace: from its conversion in the cache when it has one, from its file otherwise."""
         cache = self.__dict__.get("cache")
-        if cache:
-            self.trace = read_cache(*cache)
-            return
+        self.trace = read_cache(*cache) if cache else self.__read_file()
+        # Its hardware, environment and location, a few kB, kept when its content is forgotten: reading
+        # them does not read the trace again
+        self.header = (
+            {key: value for key, value in self.trace.items() if key != "bench"} if isinstance(self.trace, dict) else {}
+        )
 
+    def __header(self) -> dict:
+        """The trace without its benchmarks: the part kept when its content is forgotten, its content when
+        read or not read yet."""
+        return self.trace if "trace" in self.__dict__ or "header" not in self.__dict__ else self.header
+
+    def __read_file(self):
+        """Validate the new trace file"""
         if not pathlib.Path(self.filename).is_file():
             raise ValueError(f"{self.filename} is not a valid file")
 
@@ -842,11 +855,12 @@ class Trace:
 
         # Can we load the input file as a valid json ?
         try:
-            self.trace = json.loads(content)
+            return json.loads(content)
         except ValueError:
             raise ValueError(f"{self.filename} is not a valid JSON file")
 
-    def validate(self) -> None:
+    def set_logical_name(self) -> None:
+        """Name the trace, from its header only."""
         # If no logical name was given, let's use the serial number as a default
         if not self.logical_name:
             self.logical_name = self.default_logical_name()
@@ -857,6 +871,8 @@ class Trace:
                 self.logical_name = f"{self.get_sockets_count()} x "
             self.logical_name += self.get_sanitized_cpu_model()
 
+    def validate(self) -> None:
+        self.set_logical_name()
         # Let's check if the monitoring metrics exists in the first job
         first_bench = self.first_bench()
         metrics = first_bench.load_monitoring()
@@ -902,22 +918,22 @@ class Trace:
         return self.trace
 
     def get_hardware(self) -> dict:
-        return self.trace["hardware"]
+        return self.__header()["hardware"]
 
     def get_original_config(self) -> dict:
-        return self.trace["config"]
+        return self.__header()["config"]
 
     def get_environment(self) -> dict:
-        return self.trace["environment"]
+        return self.__header()["environment"]
 
     def get_context(self) -> str | None:
         """The context of the run, given to hwbench with --context; None for a trace without one."""
-        context = self.trace.get("context")
+        context = self.__header().get("context")
         return context if isinstance(context, str) and context else None
 
     def get_location(self) -> Location | None:
         """The location of the server, given to hwbench by the environment file; None for a trace without one."""
-        location = self.trace.get("location")
+        location = self.__header().get("location")
         return Location.from_dict(location) if isinstance(location, dict) and location.get("path") else None
 
     def get_location_line(self) -> str | None:
