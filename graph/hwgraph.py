@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import argparse
 import copy
+import itertools
 import os
 import pathlib
 import pickle
 import re
 import shlex
 import sys
+import tarfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from graph.graph import InvalidValue
@@ -25,7 +27,7 @@ try:
     from graph.auto_traces import AUTO_TRACES_FILE, find_auto_traces, print_contexts
     from graph.cdu import graph_cdu
     from graph.chassis import graph_chassis
-    from graph.common import fatal
+    from graph.common import fatal, progress
     from graph.graph import (
         TIMEOUTS,
         component_distribution_graph,
@@ -48,10 +50,12 @@ try:
         ScalingUnit,
         Trace,
         context_line,
+        convert_trace,
         location_header_line,
         shared_cdu_lines,
         shared_location_line,
     )
+    from graph.trace_cache import CACHE_DIRECTORY, remove_cache
     from graph.versus import (
         max_versus_graph,
         render_versus_scorecard,
@@ -384,7 +388,7 @@ def _execute_tasks(args, tasks):
         # Multi-process mode
         print(f"Rendering graphs using {num_workers} parallel workers for {len(tasks)} tasks")
         # The traces are sent without their content, see Trace.__getstate__(), and the main process
-        # drops it too while the workers render: the tasks read the traces they use again
+        # drops it too while the workers render: the tasks read the traces they use again, from the cache
         args_data = pickle.dumps(args, protocol=pickle.HIGHEST_PROTOCOL)
         for trace in args.traces:
             trace.forget_content()
@@ -419,18 +423,11 @@ def valid_trace_file(trace_arg: str) -> Trace:
             f"{trace_arg} does not match 'trace_filename:logical_name:power_metric' syntax"
         )
 
-    try:
-        trace = Trace(
-            match.group("filename"),
-            match.group("logical_name"),
-            match.group("power_metric"),
-        )
-        trace.validate()
-        return trace
-    except BaseException as e:
-        # Print validation failure and pass it on
-        print(f"Trace validation failure: {e}")
-        raise e
+    # The trace is read and validated when rendered, one trace at a time, from the cache of the
+    # output directory: see render_trace_set()
+    if not pathlib.Path(match.group("filename")).is_file():
+        raise argparse.ArgumentTypeError(f"{match.group('filename')} is not a valid file")
+    return Trace(match.group("filename"), match.group("logical_name"), match.group("power_metric"), load=False)
 
 
 def valid_events(event_arg: str) -> Event:
@@ -480,7 +477,7 @@ def render_traces(args: argparse.Namespace):
     """Render the trace files passed in arguments, or each context found by --auto-traces"""
     init_matplotlib(args)
     if not args.auto_traces:
-        render_trace_set(args, pathlib.Path(args.outdir))
+        render_and_remove_cache(args, pathlib.Path(args.outdir))
         return
 
     # The traces of each context are rendered in a subdirectory named after it, so the
@@ -504,13 +501,41 @@ def render_traces(args: argparse.Namespace):
                 f"found in {auto_traces.directory}, listed in {traces_file}"
             )
         context_args.traces = auto_traces.traces
-        render_trace_set(context_args, output_dir)
+        render_and_remove_cache(context_args, output_dir)
+
+
+def render_and_remove_cache(args: argparse.Namespace, output_dir: pathlib.Path):
+    """Render the traces of args.traces in output_dir, then delete the cache of their conversion unless
+    --keep-cache: it takes about the size of the traces. A rendering stopping keeps it: running it again
+    in the same output directory reads the traces without converting them again."""
+    render_trace_set(args, output_dir)
+    if not args.keep_cache:
+        remove_cache(args.traces, output_dir.joinpath(CACHE_DIRECTORY))
 
 
 def render_trace_set(args: argparse.Namespace, output_dir: pathlib.Path):
     """Render the traces of args.traces in output_dir"""
     output_dir.mkdir(parents=True, exist_ok=True)
     write_cmdline(output_dir)
+    # The traces are read from now on from their conversion in the cache of the output directory, then
+    # validated, one at a time: the main process holds the content of a single trace
+    cache_directory = output_dir.joinpath(CACHE_DIRECTORY)
+    # Converting the traces of a fleet takes a while: the workers convert them, then the main process
+    # validates them in their order, which numbers the serials left unset
+    print(f"cache: preparing {len(args.traces)} traces in {cache_directory}")
+    filenames = [trace.get_filename() for trace in args.traces]
+    with ProcessPoolExecutor(max_workers=max(1, min(args.jobs, len(filenames)))) as pool:
+        conversions = pool.map(convert_trace, filenames, itertools.repeat(cache_directory))
+        for index, trace in enumerate(args.traces, 1):
+            try:
+                trace.use_cache(cache_directory, next(conversions))
+            except (ValueError, OSError, tarfile.TarError, EOFError) as e:
+                # Not waiting for the conversion of the other traces before stopping
+                pool.shutdown(cancel_futures=True)
+                fatal(f"Trace validation failure: {e}")
+            trace.validate()
+            trace.forget_content()
+            progress("cache", index, len(args.traces), "traces ready")
 
     # The context of the runs, given to hwbench with --context, gets its own line in the
     # header of every graph, under the line naming the benchmark: see context_header()
@@ -593,7 +618,7 @@ def generate_stats(args) -> None:
                                     continue
                                 else:
                                     max_values = metrics[metric].get_max()
-                                    if max_values:
+                                    if len(max_values):
                                         current_max = max(max_values)
                                         if current_max > max_power[metric_name][1]:
                                             max_power[metric_name] = (bench_name, float(current_max))
@@ -1030,6 +1055,11 @@ A place holding the same traces as its single subplace is only rendered in the s
         choices=["zero", "last"],
         default="",
         help="Replace a missing datapoint instead of stopping the rendering. Could be by a zero or the last known value.",
+    )
+    parser_graph.add_argument(
+        "--keep-cache",
+        action="store_true",
+        help=f"Keep the traces converted in <outdir>/{CACHE_DIRECTORY}, for the next renderings in the same directory",
     )
     parser_graph.add_argument(
         "--jobs",
