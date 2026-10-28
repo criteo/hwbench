@@ -40,6 +40,9 @@ PROCESSOR_METRICS: dict[str, type[UnitMetric]] = {
     "OperatingSpeedMHz": Frequency,
 }
 
+# The resources of a Manager holding the configuration of the BMC, when it exposes them
+MANAGER_CONFIG = ("NetworkProtocol", "EthernetInterfaces", "SerialInterfaces", "HostInterfaces")
+
 # Prefix of the accelerator metrics read from the BMC, deliberately distinct
 # from the GPU_<index> ones all-smi reports: both numberings are unrelated.
 BMC_GPU_PREFIX = "BMC_GPU_"
@@ -202,6 +205,37 @@ class BMC(MonitoringDevice, External):
     def _get_systems(self) -> list[str]:
         # List all available ComputerSystem item URLs
         return self._get_members("/redfish/v1/Systems", False)
+
+    def get_bios_config(self) -> dict[str, dict]:
+        """Return the BIOS resource of every system, by url."""
+        bios = {}
+        for system_url in self._get_systems():
+            system = self.get_redfish_url(system_url) or {}
+            bios_url = system.get("Bios", {}).get("@odata.id")
+            if bios_url:
+                bios[bios_url] = self.get_redfish_url(bios_url)
+        return bios
+
+    def _manager_config_urls(self, manager: dict) -> list[str]:
+        """Return the urls of the configuration resources of a manager."""
+        urls = []
+        for item in MANAGER_CONFIG:
+            link = manager.get(item)
+            if isinstance(link, dict) and isinstance(link.get("@odata.id"), str):
+                urls.append(link["@odata.id"])
+        return urls
+
+    def get_bmc_config(self) -> dict[str, dict]:
+        """Return every manager and its configuration resources, collection members included, by url."""
+        config = {}
+        for manager_url in self._get_members("/redfish/v1/Managers/", False):
+            manager = self.get_redfish_url(manager_url) or {}
+            config[manager_url] = manager
+            for url in self._manager_config_urls(manager):
+                config[url] = self.get_redfish_url(url)
+                for member in self._get_members(url, False):
+                    config[member] = self.get_redfish_url(member)
+        return config
 
     def _collection_items(self, parents: list[str], item: str) -> Iterator[tuple[str, str, dict]]:
         """Walk the <item> collection of each parent resource.

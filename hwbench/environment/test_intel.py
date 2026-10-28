@@ -1,4 +1,5 @@
 import pathlib
+from unittest.mock import patch
 
 from hwbench.bench.monitoring_structs import (
     MonitorMetric,
@@ -6,7 +7,8 @@ from hwbench.bench.monitoring_structs import (
     Temperature,
 )
 
-from .test_vendors import PATCH_TYPES, TestVendors
+from .test_vendors import PATCH_TYPES, TestVendors, saved_redfish_config, vendors_tree
+from .vendors.intel.intel_bmc import IntelBMC
 from .vendors.intel.intel_vendor import Intel
 
 path = pathlib.Path("")
@@ -138,3 +140,42 @@ class TestIntel(TestVendors):
             "PSU2": Power("PSU2", 187.5),
         }
         super().generic_power_supplies_test(expected_output)
+
+
+REDFISH_TREE = vendors_tree("Intel/AvenueCity")
+
+
+def intel_vendor(out_dir: pathlib.Path) -> Intel:
+    """Return an Intel vendor with an Intel BMC."""
+    vendor = Intel(out_dir, None, "hwbench/tests/mocked_environment.cfg")
+    vendor.bmc = IntelBMC(out_dir, vendor)
+    return vendor
+
+
+def test_save_bios_config(tmp_path):
+    bios = saved_redfish_config(intel_vendor(tmp_path), REDFISH_TREE, "save_bios_config")
+    assert list(bios) == ["/redfish/v1/Systems/system/Bios"]
+    assert bios["/redfish/v1/Systems/system/Bios"]["Attributes"]["ARIEnable"] == "0x01"
+
+
+def test_save_bmc_config(tmp_path):
+    config = saved_redfish_config(intel_vendor(tmp_path), REDFISH_TREE, "save_bmc_config")
+    assert list(config) == [
+        "/redfish/v1/Managers/bmc",
+        "/redfish/v1/Managers/bmc/NetworkProtocol",
+        "/redfish/v1/Managers/bmc/EthernetInterfaces",
+        "/redfish/v1/Managers/bmc/EthernetInterfaces/eth0",
+        "/redfish/v1/Managers/bmc/EthernetInterfaces/eth1",
+    ]
+    # The OEM configuration of the manager, like the fan profile of OpenBMC, comes with it
+    assert config["/redfish/v1/Managers/bmc"]["Oem"]["OpenBmc"]["Fan"]["Profile"] == "Performance"
+
+
+def test_save_config_without_bmc(tmp_path):
+    """Without BMC in the environment file, nothing is read nor saved."""
+    vendor = intel_vendor(tmp_path)
+    vendor.bmc.bmc_section = None
+    with patch.object(IntelBMC, "connect_redfish") as connect:
+        vendor.save_bios_config()
+    connect.assert_not_called()
+    assert not list(tmp_path.iterdir())

@@ -18,6 +18,12 @@ from hwbench.utils import helpers as h
 class IDRAC(BMC):
     oem_endpoint = ""
 
+    def _manager_config_urls(self, manager: dict) -> list[str]:
+        # The configuration of the iDRAC is in its Dell attributes, linked from the manager
+        attributes = manager.get("Links", {}).get("Oem", {}).get("Dell", {}).get("DellAttributes", [])
+        oem = [link["@odata.id"] for link in attributes if isinstance(link, dict) and "@odata.id" in link]
+        return super()._manager_config_urls(manager) + oem
+
     def get_thermal(self):
         return self.get_redfish_url("/redfish/v1/Chassis/System.Embedded.1/Thermal")
 
@@ -106,10 +112,12 @@ class Dell(Vendor):
         return self.dmi.info("sys_vendor") == "Dell Inc."
 
     def save_bios_config(self):
-        return
+        """Save the BIOS configuration, read through Redfish."""
+        self.save_redfish_bios_config()
 
     def save_bmc_config(self):
-        return
+        """Save the BMC configuration, read through Redfish."""
+        self.save_redfish_bmc_config()
 
     def name(self) -> str:
         return "DELL"

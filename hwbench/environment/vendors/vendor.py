@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import configparser
+import json
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 
 from hwbench.utils import helpers as h
 
 from .bmc import BMC
 from .cdu import CDU
 from .cdus import init as init_cdu
-from .monitoring_device import section_value
+from .monitoring_device import redact_secrets, section_value
 from .pdu import PDU
 
 
@@ -77,6 +79,33 @@ class Vendor(ABC):
             return self.bmc
         else:
             h.fatal("No bmc is configured")
+
+    def save_redfish_config(self, filename: str, read: Callable[[BMC], dict]):
+        """Save in filename of the out dir, as json, what read() returns from the BMC, its secrets redacted.
+
+        It runs before the monitoring connects to the BMC: the session opened
+        here is closed once saved, not to leave one behind on the BMC.
+        """
+        bmc = self.bmc
+        # No BMC in the environment file, nothing to read from
+        if not bmc or not bmc.bmc_section:
+            return
+        connected = bmc.logged
+        if not connected:
+            bmc.connect_redfish()
+        try:
+            self.out_dir.joinpath(filename).write_text(json.dumps(redact_secrets(read(bmc)), indent=2))
+        finally:
+            if not connected:
+                bmc.disconnect_redfish()
+
+    def save_redfish_bios_config(self):
+        """Save the BIOS configuration, read through Redfish, in bios-config.json."""
+        self.save_redfish_config("bios-config.json", BMC.get_bios_config)
+
+    def save_redfish_bmc_config(self):
+        """Save the BMC configuration, read through Redfish, in bmc-config.json."""
+        self.save_redfish_config("bmc-config.json", BMC.get_bmc_config)
 
     def get_pdus(self) -> list[PDU]:
         """Return a list of PDUs object"""

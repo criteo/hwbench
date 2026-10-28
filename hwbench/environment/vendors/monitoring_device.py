@@ -71,11 +71,17 @@ class MonitoringDevice:
         self.serialnumber = ""
 
     def __del__(self):
+        self.disconnect_redfish()
+
+    def disconnect_redfish(self):
+        """Close the Redfish session, if any."""
         if self.logged:
             try:
                 self.redfish_obj.logout()
             except redfish.rest.v1.RetriesExhaustedError:
                 logging.warning("Cannot logout from redfish monitoring device, ignoring.")
+            self.redfish_obj = None
+            self.logged = False
 
     def get_firmware_version(self):
         return self.firmware_version

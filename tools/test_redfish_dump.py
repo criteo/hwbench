@@ -4,7 +4,7 @@ import pathlib
 from redfish_dump import Anonymizer, anonymize, dump_fixtures, format_fixture
 
 from hwbench.bench.monitoring_structs import MonitoringContexts
-from hwbench.environment import test_bmc_gpu
+from hwbench.environment import test_bmc_gpu, test_vendors
 from hwbench.environment.vendors.bmc import BMC
 
 MANAGERS = {
@@ -57,6 +57,13 @@ def test_dump_extra_urls():
         fixtures = dump_fixtures(bmc, list(extra))
     tree = fixtures["redfish_tree"]
     assert all(tree[url] == answer for url, answer in extra.items())
+
+
+def test_dump_bios_and_bmc_config():
+    """The BIOS and BMC configurations hwbench saves are recorded too."""
+    avenue_city = test_vendors.vendors_tree("Intel/AvenueCity")
+    _, _, fixtures = served_bmc(avenue_city)
+    assert set(avenue_city) <= set(fixtures["redfish_tree"])
 
 
 def test_dump_stops_recording():
