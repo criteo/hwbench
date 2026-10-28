@@ -12,6 +12,7 @@ tool, and a read added to a driver is recorded as soon as it is added.
 - [Usage](#usage)
 - [Output](#output)
 - [Anonymization](#anonymization)
+- [TelemetryService and licenses](#telemetryservice-and-licenses)
 - [Exploring other urls](#exploring-other-urls)
 - [Implementation notes](#implementation-notes)
 
@@ -53,6 +54,7 @@ prints what it wrote. For example, on a HPE ProLiant DL365 Gen11:
 HPE vendor with ILO driver @ https://<bmc> Model: 'iLO 6' FW: 'iLO 6 v1.77'
 oem_chassis, power, thermal, redfish_tree written to /home/user/hwbench/hwbench/environment/tests/vendors/Hpe/DL365-Gen11
 13 urls, 23 values anonymized
+Services: none of TelemetryService, LicenseService
 Check the files before committing them: an identifying value under an unknown key is not anonymized.
 ```
 
@@ -77,7 +79,7 @@ each file being a python literal:
 
 | File | Content |
 |---|---|
-| `redfish_tree` | each url read, with its answer: by the detection of the BMC, by one monitoring iteration (thermal, fans, power consumption, power supplies and [accelerators](monitoring.md#accelerators)), by the save of the BIOS and BMC configurations, by the getters below, and the urls given with `-u` |
+| `redfish_tree` | each url read, with its answer: by the detection of the BMC, by one monitoring iteration (thermal, fans, power consumption, power supplies and [accelerators](monitoring.md#accelerators)), by the save of the BIOS and BMC configurations, by the getters below, the [TelemetryService and the LicenseService](#telemetryservice-and-licenses), and the urls given with `-u` |
 | `thermal`, `power` | the answer of the `get_thermal()` and `get_power()` methods of the BMC driver |
 | `oem_*` | the answer of each `get_oem_*()` method of the BMC driver, like `oem_system` for the [Dell driver](monitoring.md#dell-driver) and `oem_chassis` for the [HPE driver](monitoring.md#hpe-driver) |
 
@@ -105,7 +107,7 @@ are kept.
 
 | Value | Placeholder |
 |---|---|
-| serial number, service tag and Dell express service code, processor PPIN, SNMP engine ID, common name of a certificate | `SERIAL<n>` |
+| serial number, service tag and Dell express service code, processor PPIN, SNMP engine ID, common name of a certificate, entitlement ID of a license | `SERIAL<n>` |
 | UUID | `00000000-0000-0000-0000-<n>` |
 | hostname, and the host and the domain of a FQDN | `host<n>`, `domain<n>.example.com` |
 | asset tag, user name | `ASSET<n>`, `user<n>` |
@@ -148,6 +150,20 @@ without separators), the masks `255.*`, and the null UUID
 > Read the files before committing them: a value identifying the target machine under a
 > key the anonymization does not know is kept as is.
 
+# TelemetryService and licenses
+
+hwbench reads the sensors it monitors through a TelemetryService report when the BMC has one,
+in one request per monitoring iteration instead of one per sensor. To tell what a BMC offers, the tool also records, when the
+service root `/redfish/v1` links to them:
+
+| Service | Recorded |
+|---|---|
+| `TelemetryService` | the service, its `MetricReportDefinitions`, `MetricReports` and `Triggers` with their members, and the list of its `MetricDefinitions`, without their members, a Dell iDRAC having hundreds of them |
+| `LicenseService` | the service and its `Licenses` with their members, like the license a Dell iDRAC needs for its TelemetryService |
+
+They are only read: no report is created on the BMC. The line `Services:` of the output tells
+which ones the service root links to, `none` when it links to none, like an iLO 6 v1.77.
+
 # Exploring other urls
 
 `-u` records an url hwbench does not read, to see what the BMC exposes before writing the
@@ -173,7 +189,7 @@ directory, then connects with `BMC.connect_redfish()`.
 function recording each url and its answer, so every read of the driver is recorded,
 whatever its vendor. `dump_fixtures()` runs, while recording, `BMC.detect()`,
 `BMC.read_metrics()` (the reads of one monitoring iteration), each getter matching
-`GETTERS`, then the urls of `-u`.
+`GETTERS`, `dump_services()` reading the services of `SERVICES`, then the urls of `-u`.
 
 **Anonymization.** `anonymize()` first redacts the secrets with
 `hwbench/environment/vendors/monitoring_device.py::redact_secrets()`. `Anonymizer` then

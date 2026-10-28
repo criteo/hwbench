@@ -465,6 +465,19 @@ class IntelBMC(BMC):
 
         return self.read_fans_power(power_consumption)
 
+    def _monitored_sensors(self) -> dict[str, set[str]]:
+        """Add the temperature, fan speed and fan power sensors of Avenue City to the generic ones."""
+        sensors = super()._monitored_sensors()
+        if not self._check_avenue_city():
+            return sensors
+        for collection_url, urls in [
+            *self._get_temperature_sensors().values(),
+            *self._get_fan_sensors().values(),
+            *self._get_fans_power_sensors().items(),
+        ]:
+            sensors.setdefault(collection_url, set()).update(urls)
+        return sensors
+
     @functools.cache
     def _get_fans_power_sensors(self) -> dict[str, set[str]]:
         """Auto-detect the Chassis Sensors of the power of the system fans.

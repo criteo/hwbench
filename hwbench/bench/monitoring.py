@@ -123,6 +123,11 @@ class Monitoring:
         if bmc.has_gpus():
             print(f"Monitoring/BMC: GPU metrics: {bmc.get_gpus_count()}xGPU")
 
+        # - reading the sensors detected above in one request per iteration, when the BMC can
+        telemetry_sensors = bmc.start_telemetry()
+        if telemetry_sensors:
+            print(f"Monitoring/BMC: {telemetry_sensors} sensors read through a TelemetryService report")
+
         # - checking if pdu monitoring works
         if pdus:
             for pdu in pdus:

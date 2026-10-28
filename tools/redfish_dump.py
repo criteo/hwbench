@@ -29,16 +29,31 @@ from hwbench.utils import helpers as h
 # The getters patched by the vendor tests (test_vendors.py), named like their fixture file
 GETTERS = re.compile(r"get_(thermal|power|oem_\w+)")
 
+# The services of the service root telling whether hwbench can read the sensors it monitors through a
+# TelemetryService report, and under which license, with their collections: True when the members of
+# a collection are read too, False for a collection only listing them, like the hundreds of
+# MetricDefinitions of a Dell iDRAC
+SERVICES = {
+    "TelemetryService": {
+        "MetricReportDefinitions": True,
+        "MetricReports": True,
+        "Triggers": True,
+        "MetricDefinitions": False,
+    },
+    "LicenseService": {"Licenses": True},
+}
+
 # The keys whose value identifies the target machine, by the category of its placeholder.
 # A key is matched on its last dotted component, as the Dell attributes are named
 # like "ServerOS.1.HostName". A value found under several categories, like a serial
 # number used as hostname, gets the placeholder of the first one.
 IDENTIFYING_KEYS = {
     # The Dell express service code is the service tag in base 10, the PPIN identifies a processor,
-    # a SNMP engine ID ends with the service tag of a Dell, and the common names of the certificates
-    # of an iDRAC are its service tag or the identifier of its card
+    # a SNMP engine ID ends with the service tag of a Dell, the common names of the certificates
+    # of an iDRAC are its service tag or the identifier of its card, and the entitlement ID of a
+    # license identifies the one bought for the machine
     "serial": re.compile(
-        r"(serialnumber|servicetag|expressservicecode|protectedidentificationnumber|engineid|issuercommonname|subjectcommonname)$",
+        r"(serialnumber|servicetag|expressservicecode|protectedidentificationnumber|engineid|issuercommonname|subjectcommonname|entitlementid)$",
         re.IGNORECASE,
     ),
     "uuid": re.compile(r"uuid$", re.IGNORECASE),
@@ -235,12 +250,31 @@ def recording(device: MonitoringDevice) -> Iterator[dict]:
         delattr(device, "get_redfish_url")
 
 
+def dump_services(bmc: BMC) -> None:
+    """Read the SERVICES the service root links to, with their collections, only with GET requests:
+    no TelemetryService report is created."""
+    root = bmc.get_redfish_url("/redfish/v1", False)
+    for service, collections in SERVICES.items():
+        service_url = bmc._chassis_item_url(root, service)
+        if not service_url:
+            continue
+        body = bmc.get_redfish_url(service_url, False)
+        for collection, read_members in collections.items():
+            collection_url = bmc._chassis_item_url(body, collection)
+            if not collection_url:
+                continue
+            members = bmc._get_members(collection_url, False)
+            if read_members:
+                for url in members:
+                    bmc.get_redfish_url(url, False)
+
+
 def dump_fixtures(bmc: BMC, extra_urls: list[str] | None = None) -> dict[str, object]:
     """Return the fixtures of the BMC, by file name.
 
     redfish_tree holds the urls read by the BMC detection, by one monitoring iteration,
-    by the save of the BIOS and BMC configurations, by the getters, and the <extra_urls>,
-    which hwbench does not read yet.
+    by the save of the BIOS and BMC configurations, by the getters, the SERVICES, and the
+    <extra_urls>, which hwbench does not read yet.
     """
     fixtures: dict[str, object] = {}
     with recording(bmc) as tree:
@@ -251,6 +285,7 @@ def dump_fixtures(bmc: BMC, extra_urls: list[str] | None = None) -> dict[str, ob
         for getter in sorted(dir(bmc)):
             if match := GETTERS.fullmatch(getter):
                 fixtures[match.group(1)] = getattr(bmc, getter)()
+        dump_services(bmc)
         for url in extra_urls or []:
             bmc.get_redfish_url(url)
     fixtures["redfish_tree"] = tree
@@ -298,6 +333,9 @@ def main():
     print(f"{vendor.name()} vendor with {bmc.get_driver_name()} {bmc.get_detect_string()}")
     print(f"{', '.join(fixtures)} written to {out_dir.absolute()}")
     print(f"{len(tree)} urls, {len(anonymizer.placeholders)} values anonymized")
+    root = tree.get("/redfish/v1")
+    services = [service for service in SERVICES if isinstance(root, dict) and service in root]
+    print(f"Services: {', '.join(services) if services else 'none'} of {', '.join(SERVICES)}")
     print("Check the files before committing them: an identifying value under an unknown key is not anonymized.")
 
 

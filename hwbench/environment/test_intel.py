@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import collections
+import os
 import pathlib
 from collections.abc import Callable
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -248,6 +250,136 @@ def test_iteration_requests():
     # 30 temperatures, 16 fans, 2 power supplies and 2 fan boards
     assert len([url for url in requests if "/Sensors/" in url]) == 50
     assert sum(requests.values()) <= 52
+
+
+class FakeTelemetry:
+    """The TelemetryService of the Avenue City BMC, as telemetry_probe.py recorded it, serving REDFISH_TREE."""
+
+    SERVICE = "/redfish/v1/TelemetryService"
+    DEFINITIONS = f"{SERVICE}/MetricReportDefinitions"
+    REPORTS = f"{SERVICE}/MetricReports"
+
+    def __init__(self, status: int = 201, definitions: list[str] | None = None):
+        self.status = status
+        self.definitions = {url: [] for url in definitions or []}  # type: dict[str, list[str]]
+        self.deleted: list[str] = []
+        self.requests: collections.Counter = collections.Counter()
+
+    def get(self, url, *_):
+        self.requests[url] += 1
+        if url == self.SERVICE:
+            return {
+                "MaxReports": 10,
+                "MetricReportDefinitions": {"@odata.id": self.DEFINITIONS},
+                "MetricReports": {"@odata.id": self.REPORTS},
+                "MinCollectionInterval": "PT1.000S",
+                "Status": {"State": "Enabled"},
+            }
+        if url == self.DEFINITIONS:
+            return {"Members": [{"@odata.id": definition} for definition in self.definitions]}
+        if url.startswith(f"{self.REPORTS}/"):
+            sensors = self.definitions.get(f"{self.DEFINITIONS}/{url.rsplit('/', 1)[-1]}")
+            if sensors is None:
+                return {}
+            return {
+                "MetricValues": [
+                    {
+                        "MetricProperty": sensor,
+                        # bmcweb reports a sensor without reading as nan
+                        "MetricValue": "nan"
+                        if REDFISH_TREE[sensor]["Reading"] is None
+                        else f"{REDFISH_TREE[sensor]['Reading']:f}",
+                    }
+                    for sensor in sensors
+                ]
+            }
+        return REDFISH_TREE.get(url)
+
+    def post(self, url, body):
+        if self.status == 201:
+            self.definitions[f"{url}/{body['Id']}"] = [metric["MetricProperties"][0] for metric in body["Metrics"]]
+        return SimpleNamespace(status=self.status, text="")
+
+    def delete(self, url):
+        self.deleted.append(url)
+        self.definitions.pop(url, None)
+        return SimpleNamespace(status=204, text="")
+
+
+def telemetry_bmc(telemetry: FakeTelemetry, bmc_type: type[BMC] = BMC) -> BMC:
+    """Return a BMC driver connected to <telemetry>, the generic one by default."""
+    vendor = intel_vendor(pathlib.Path(""))
+    vendor.bmc = bmc_type(pathlib.Path(""), vendor)
+    vendor.bmc.redfish_obj = telemetry
+    return vendor.bmc
+
+
+def test_telemetry_report():
+    """The monitored sensors are read from one TelemetryService report, giving the same metrics."""
+    telemetry = FakeTelemetry()
+    bmc = telemetry_bmc(telemetry)
+    with patch.object(BMC, "get_redfish_url", side_effect=telemetry.get):
+        bmc.read_metrics(MonitoringContexts())
+        # The input power of the 2 power supplies
+        assert bmc.start_telemetry() == 2
+        telemetry.requests.clear()
+        power_supplies = bmc.read_power_supplies(MonitoringContexts().PowerSupplies)
+    # The report instead of the sensors
+    assert telemetry.requests[f"{FakeTelemetry.REPORTS}/hwbench_{os.getpid()}"] == 1
+    assert not [url for url in telemetry.requests if "/Sensors/" in url]
+    assert power_supplies == avenue_city_metrics(BMC).PowerSupplies
+
+
+def test_telemetry_report_cleanup():
+    """The reports of hwbench a killed run left are deleted when starting, the report of the run when stopping."""
+    left = [f"{FakeTelemetry.DEFINITIONS}/hwbench_1", f"{FakeTelemetry.DEFINITIONS}/other"]
+    telemetry = FakeTelemetry(definitions=left)
+    bmc = telemetry_bmc(telemetry)
+    with patch.object(BMC, "get_redfish_url", side_effect=telemetry.get):
+        bmc.start_telemetry()
+        assert telemetry.deleted == [f"{FakeTelemetry.DEFINITIONS}/hwbench_1"]
+        bmc.stop_telemetry()
+    assert list(telemetry.definitions) == [f"{FakeTelemetry.DEFINITIONS}/other"]
+    assert not bmc.telemetry_report
+
+
+def test_telemetry_report_refused():
+    """A BMC refusing the report has its sensors read one by one."""
+    telemetry = FakeTelemetry(status=400)
+    bmc = telemetry_bmc(telemetry)
+    with patch.object(BMC, "get_redfish_url", side_effect=telemetry.get):
+        assert bmc.start_telemetry() == 0
+        metrics = bmc.read_metrics(MonitoringContexts())
+    assert not bmc.telemetry_report
+    assert metrics == avenue_city_metrics(BMC)
+
+
+def test_telemetry_report_without_reading():
+    """A sensor the report has no reading for, written nan, is skipped like one the BMC reads None for."""
+    psu1 = "/redfish/v1/Chassis/AVC_Baseboard/Sensors/power_PSU1_Input_Power"
+    telemetry = FakeTelemetry()
+    bmc = telemetry_bmc(telemetry)
+    with patch.object(BMC, "get_redfish_url", side_effect=telemetry.get):
+        bmc.read_metrics(MonitoringContexts())
+        bmc.start_telemetry()
+        with patch.dict(REDFISH_TREE, {psu1: REDFISH_TREE[psu1] | {"Reading": None}}):
+            power_supplies = bmc.read_power_supplies(MonitoringContexts().PowerSupplies)
+    assert list(power_supplies.BMC) == ["PSU2"]
+
+
+def test_telemetry_report_avenue_city():
+    """All the sensors the Intel driver monitors are read from the report, giving the same metrics."""
+    telemetry = FakeTelemetry()
+    bmc = telemetry_bmc(telemetry, IntelBMC)
+    with patch.object(IntelBMC, "get_redfish_url", side_effect=telemetry.get):
+        bmc.read_metrics(MonitoringContexts())
+        # 30 temperatures, 16 fans, 2 power supplies and 2 fan boards
+        assert bmc.start_telemetry() == 50
+        telemetry.requests.clear()
+        metrics = bmc.read_metrics(MonitoringContexts())
+    report = f"{FakeTelemetry.REPORTS}/hwbench_{os.getpid()}"
+    assert set(telemetry.requests) == {report, "/redfish/v1/Chassis/AVC_Baseboard/Power"}
+    assert metrics == avenue_city_metrics()
 
 
 def test_save_bios_config(tmp_path):

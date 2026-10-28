@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import functools
+import logging
+import math
+import os
 import os.path
 import pathlib
 import re
@@ -45,6 +48,12 @@ PROCESSOR_METRICS: dict[str, type[UnitMetric]] = {
 # bmcweb, the Redfish server of OpenBMC, exposes it when the Power resource lists no PowerSupplies
 PSU_INPUT_POWER_SENSOR = re.compile(r"(PSU?\d+) Input Power")
 
+# The TelemetryService report hwbench reads the sensors it monitors from, in one request per
+# iteration instead of one per sensor. Named after the process, with the only characters
+# bmcweb accepts in an id ([A-Za-z0-9_]), so the reports a killed run left are recognized.
+TELEMETRY_SERVICE = "/redfish/v1/TelemetryService"
+TELEMETRY_REPORT_PREFIX = "hwbench_"
+
 # The resources of a Manager holding the configuration of the BMC, when it exposes them
 MANAGER_CONFIG = ("NetworkProtocol", "EthernetInterfaces", "SerialInterfaces", "HostInterfaces")
 
@@ -70,6 +79,9 @@ class BMC(MonitoringDevice, External):
         # service that advertises it without honouring it is probed once, not on
         # every monitoring iteration.
         self.expand_works = {}  # type: dict[str, bool]
+        # The urls of the MetricReportDefinition hwbench created, and of its MetricReport
+        self.telemetry_definition = ""
+        self.telemetry_report = ""
 
         # For testing purposes, vendor can be None
         if self.vendor:
@@ -186,8 +198,12 @@ class BMC(MonitoringDevice, External):
         <wanted> restricts the walk to those members, which is what re-reading a
         few known items of a large collection needs; None yields every member.
         Both go through '$expand' when the service honours it, and fall back to
-        one request per member when it does not.
+        one request per member when it does not. <wanted> members are read from
+        the TelemetryService report when the monitoring started one.
         """
+        if wanted is not None and self.telemetry_report:
+            yield from self._telemetry_members(collection_url, wanted)
+            return
         expanded = self._expanded_members(collection_url)
         if expanded is not None:
             for body in expanded:
@@ -422,6 +438,104 @@ class BMC(MonitoringDevice, External):
             if metrics_url:
                 gpus[str(processor.get("Id", os.path.basename(url.rstrip("/"))))] = metrics_url
         return gpus
+
+    def _monitored_sensors(self) -> dict[str, set[str]]:
+        """Return the urls of the sensors the monitoring reads, grouped by the collection holding them.
+
+        Vendors reading more sensors add theirs, so the TelemetryService report holds them all.
+        """
+        sensors: dict[str, set[str]] = {}
+        for detected in (self._get_psu_input_sensors(), self._get_gpu_sensors()):
+            for collection_url, urls in detected.items():
+                sensors.setdefault(collection_url, set()).update(urls)
+        return sensors
+
+    def start_telemetry(self) -> int:
+        """Read the monitored sensors from a TelemetryService report, when the BMC has one.
+
+        Without '$expand', reading a sensor costs a request: a periodic MetricReportDefinition
+        holding them all gets their readings in one request per monitoring iteration. Returns
+        the number of sensors it holds, 0 when the sensors are still read one by one: no
+        TelemetryService, no sensor to monitor, or a definition the BMC refused.
+        """
+        if self.redfish_obj is None or self.telemetry_report:
+            return 0
+        service = self.get_redfish_url(TELEMETRY_SERVICE, False)
+        if not isinstance(service, dict) or service.get("Status", {}).get("State", "Enabled") != "Enabled":
+            return 0
+        definitions_url = self._chassis_item_url(service, "MetricReportDefinitions")
+        sensors = sorted(url for urls in self._monitored_sensors().values() for url in urls)
+        if not definitions_url or not sensors:
+            return 0
+        # The reports a killed run left would fill the few the BMC accepts
+        for url in self._get_members(definitions_url, False):
+            if os.path.basename(url.rstrip("/")).startswith(TELEMETRY_REPORT_PREFIX):
+                self.redfish_obj.delete(url)
+        report_id = f"{TELEMETRY_REPORT_PREFIX}{os.getpid()}"
+        response = self.redfish_obj.post(
+            definitions_url,
+            body={
+                "Id": report_id,
+                "Name": report_id,
+                "MetricReportDefinitionType": "Periodic",
+                "ReportActions": ["LogToMetricReportsCollection"],
+                "ReportUpdates": "Overwrite",
+                # As often as the BMC allows, so a reading is at most that old
+                "Schedule": {"RecurrenceInterval": service.get("MinCollectionInterval", "PT1S")},
+                # bmcweb identifies a metric by its MetricProperties, and rejects a MetricId
+                "Metrics": [{"MetricProperties": [url]} for url in sensors],
+            },
+        )
+        if response.status not in (200, 201, 204):
+            logging.warning(f"BMC refused the TelemetryService report, reading the sensors one by one: {response.text}")
+            return 0
+        self.telemetry_definition = f"{definitions_url}/{report_id}"
+        reports_url = self._chassis_item_url(service, "MetricReports") or f"{TELEMETRY_SERVICE}/MetricReports"
+        self.telemetry_report = f"{reports_url}/{report_id}"
+        return len(sensors)
+
+    def stop_telemetry(self):
+        """Delete the TelemetryService report the monitoring started, if any."""
+        if self.telemetry_definition and self.redfish_obj is not None:
+            self.redfish_obj.delete(self.telemetry_definition)
+        self.telemetry_definition = ""
+        self.telemetry_report = ""
+
+    def disconnect_redfish(self):
+        self.stop_telemetry()
+        super().disconnect_redfish()
+
+    def _telemetry_readings(self) -> dict[str, float | None] | None:
+        """Return the readings of the TelemetryService report by sensor url, None when it has none yet."""
+        report = self.get_redfish_url(self.telemetry_report, False)
+        if not isinstance(report, dict) or "MetricValues" not in report:
+            return None
+        readings: dict[str, float | None] = {}
+        for value in report["MetricValues"]:
+            try:
+                reading: float | None = float(value["MetricValue"])
+            except (KeyError, TypeError, ValueError):
+                reading = None
+            # A sensor without reading is reported as nan
+            readings[value.get("MetricProperty", "")] = None if reading is None or math.isnan(reading) else reading
+        return readings
+
+    def _telemetry_members(self, collection_url: str, wanted: set[str]) -> Iterator[tuple[str, dict]]:
+        """Yield (url, body) of the <wanted> sensors, their Reading taken from the TelemetryService report.
+
+        The rest of their body, like their name and physical context, is the one read when detecting
+        them. A sensor missing from the report, or not answering when detected, is read by itself.
+        """
+        readings = self._telemetry_readings() or {}
+        detected = self._get_sensors().get(collection_url, {})
+        for url in wanted:
+            body = detected.get(url)
+            if url not in readings or body is None:
+                body = self.get_redfish_url(url, False)
+                if isinstance(body, dict):
+                    yield url, body
+                continue
+            yield url, body | {"Reading": readings[url]}
 
     @functools.cache
     def _get_sensors(self) -> dict[str, dict[str, dict | None]]:

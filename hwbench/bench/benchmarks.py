@@ -268,6 +268,9 @@ class Benchmarks:
 
             # Save each benchmark result
             results[benchmark.get_parameters().get_name_with_position()] = benchmark.run()
+        # The TelemetryService report of the monitoring is not needed anymore
+        if self.monitoring:
+            self.get_hardware().vendor.get_bmc().stop_telemetry()
         return results
 
     def dump(self):
