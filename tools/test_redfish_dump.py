@@ -68,6 +68,44 @@ def test_dump_bios_and_bmc_config():
     assert configurations <= set(fixtures["redfish_tree"])
 
 
+TELEMETRY = "/redfish/v1/TelemetryService"
+SERVICES_TREE = {
+    "/redfish/v1": {
+        "TelemetryService": {"@odata.id": TELEMETRY},
+        "LicenseService": {"@odata.id": "/redfish/v1/LicenseService"},
+    },
+    TELEMETRY: {
+        "MetricReportDefinitions": {"@odata.id": f"{TELEMETRY}/MetricReportDefinitions"},
+        "MetricDefinitions": {"@odata.id": f"{TELEMETRY}/MetricDefinitions"},
+    },
+    f"{TELEMETRY}/MetricReportDefinitions": {
+        "Members": [{"@odata.id": f"{TELEMETRY}/MetricReportDefinitions/PowerMetrics"}]
+    },
+    f"{TELEMETRY}/MetricReportDefinitions/PowerMetrics": {"MetricReportDefinitionType": "Periodic"},
+    f"{TELEMETRY}/MetricDefinitions": {"Members": [{"@odata.id": f"{TELEMETRY}/MetricDefinitions/SystemInputPower"}]},
+    "/redfish/v1/LicenseService": {"Licenses": {"@odata.id": "/redfish/v1/LicenseService/Licenses"}},
+    "/redfish/v1/LicenseService/Licenses": {"Members": [{"@odata.id": "/redfish/v1/LicenseService/Licenses/1"}]},
+    "/redfish/v1/LicenseService/Licenses/1": {"EntitlementId": "ABCD1234EFGH", "Name": "iDRAC9 Datacenter License"},
+}
+
+
+def test_dump_services():
+    """The TelemetryService and the LicenseService the service root links to are recorded with their
+    collections, the members of the MetricDefinitions being only listed."""
+    _, _, fixtures = served_bmc(MANAGERS | SERVICES_TREE)
+    tree = fixtures["redfish_tree"]
+    assert set(SERVICES_TREE) <= set(tree)
+    assert f"{TELEMETRY}/MetricDefinitions/SystemInputPower" not in tree
+    anonymized, _ = anonymize(fixtures)
+    assert anonymized["redfish_tree"]["/redfish/v1/LicenseService/Licenses/1"]["EntitlementId"] == "SERIAL1"
+
+
+def test_dump_without_services():
+    """A BMC whose service root links no TelemetryService, like an iLO 6, gets only its service root read."""
+    _, _, fixtures = served_bmc(MANAGERS | {"/redfish/v1": {"Managers": {"@odata.id": "/redfish/v1/Managers/"}}})
+    assert not [url for url in fixtures["redfish_tree"] if "Telemetry" in url or "License" in url]
+
+
 def test_dump_stops_recording():
     bmc, _, _ = served_bmc(MANAGERS)
     assert "get_redfish_url" not in vars(bmc)
