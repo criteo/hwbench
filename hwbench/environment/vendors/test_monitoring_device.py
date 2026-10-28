@@ -10,10 +10,12 @@ import pytest
 import redfish  # type: ignore
 
 from hwbench.environment.vendors.monitoring_device import (
+    REDACTED,
     DeviceError,
     DeviceNotReady,
     RedfishDevice,
     init_timeout,
+    redact_secrets,
     retry_delays,
     section_value,
 )
@@ -222,3 +224,29 @@ def test_retry_settings_errors(caplog, text, error):
     with pytest.raises(SystemExit):
         read_settings()
     assert error in caplog.text
+
+
+def test_redact_secrets():
+    """The secrets are redacted, not their absence nor the flags telling whether one is used."""
+    attributes = {
+        "Users.2.UserName": "root",
+        "Users.2.SHA256Password": "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
+        "Users.2.SHA256PasswordSalt": "FEDCBA9876543210FEDCBA9876543210",
+        "Users.2.IPMIKey": "00112233445566778899AABBCCDDEEFF",
+        "Users.2.Password": None,
+        "Users.3.SHA256Password": "",
+        "Users.2.EnableSNMPv3Passphrase": "Disabled",
+        "SNMP.1.AgentCommunity": "public",
+        "SHA256SetupPassword": "0123456789ABCDEF",
+        "StrongPassword": "Enabled",
+        "ProcCores": 32,
+    }
+    redacted = redact_secrets({"Attributes": attributes, "Members": [{"Password": "secret"}]})
+    assert redacted["Attributes"] == attributes | {
+        "Users.2.SHA256Password": REDACTED,
+        "Users.2.SHA256PasswordSalt": REDACTED,
+        "Users.2.IPMIKey": REDACTED,
+        "SNMP.1.AgentCommunity": REDACTED,
+        "SHA256SetupPassword": REDACTED,
+    }
+    assert redacted["Members"] == [{"Password": REDACTED}]

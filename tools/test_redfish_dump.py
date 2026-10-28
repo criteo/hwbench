@@ -118,6 +118,101 @@ def test_anonymize():
     assert not [value for value in anonymizer.placeholders.values() if value in repr(tree)]
 
 
+def test_uuids_under_any_key():
+    """An UUID is replaced whatever its key and its case, like the SMBIOS UUID a Dell repeats in its BIOS."""
+    tree = {
+        "/redfish/v1/Systems/System.Embedded.1": {
+            "UUID": "4c4c4544-0041-4210-8043-b1c04f123456",
+            "Oem": {"Dell": {"DellSystem": {"smbiosGUID": "44454c4c-4100-1042-8043-b1c04f123456"}}},
+            "TrustedModules": [{"UUID": "00000000-0000-0000-0000-000000000000"}],
+        },
+        "/redfish/v1/Systems/System.Embedded.1/Bios": {
+            "Attributes": {"NvmeofHostId": "4C4C4544-0041-4210-8043-B1C04F123456"},
+        },
+    }
+    anonymized, anonymizer = anonymize({"redfish_tree": tree})
+    out = anonymized["redfish_tree"]
+
+    system = out["/redfish/v1/Systems/System.Embedded.1"]
+    assert system["UUID"] == "00000000-0000-0000-0000-000000000001"
+    assert system["Oem"]["Dell"]["DellSystem"]["smbiosGUID"] == "00000000-0000-0000-0000-000000000002"
+    # The null UUID identifies nothing
+    assert system["TrustedModules"] == [{"UUID": "00000000-0000-0000-0000-000000000000"}]
+    bios = out["/redfish/v1/Systems/System.Embedded.1/Bios"]
+    assert bios["Attributes"]["NvmeofHostId"] == "00000000-0000-0000-0000-000000000001"
+    assert "4c4c4544" not in repr(out).lower()
+
+
+def test_other_serial_numbers():
+    """The Dell express service code and the PPIN of a processor identify the machine like its serial number."""
+    tree = {
+        "/redfish/v1/Systems/System.Embedded.1": {
+            "Oem": {"Dell": {"DellSystem": {"ChassisServiceTag": "AB12CD3", "ExpressServiceCode": "22715473671"}}},
+        },
+        "/redfish/v1/Systems/System.Embedded.1/Processors?$expand=.": {
+            "Members": [{"ProcessorId": {"ProtectedIdentificationNumber": "0123456789ABCDEF"}}],
+        },
+    }
+    anonymized, _ = anonymize({"redfish_tree": tree})
+    out = anonymized["redfish_tree"]
+
+    dell = out["/redfish/v1/Systems/System.Embedded.1"]["Oem"]["Dell"]["DellSystem"]
+    assert dell == {"ChassisServiceTag": "SERIAL1", "ExpressServiceCode": "SERIAL2"}
+    (processor,) = out["/redfish/v1/Systems/System.Embedded.1/Processors?$expand=."]["Members"]
+    assert processor["ProcessorId"]["ProtectedIdentificationNumber"] == "SERIAL3"
+
+
+def test_ip_addresses_in_urls():
+    """The IP address of an url is replaced, not a public host name."""
+    tree = {
+        "/redfish/v1/Managers/iDRAC.Embedded.1": {
+            "Oem": {"Dell": {"DelliDRACCard": {"URLString": "https://10.1.2.3:443"}}},
+            "Links": {"Self": "http://[2001:db8:1::5]/redfish/v1"},
+            "Description": "See https://redfish.dmtf.org/schemas/v1/Manager.json",
+        },
+    }
+    anonymized, _ = anonymize({"redfish_tree": tree})
+    manager = anonymized["redfish_tree"]["/redfish/v1/Managers/iDRAC.Embedded.1"]
+    assert manager["Oem"]["Dell"]["DelliDRACCard"]["URLString"] == "https://192.0.2.1:443"
+    assert manager["Links"]["Self"] == "http://[2001:db8::1]/redfish/v1"
+    assert manager["Description"] == "See https://redfish.dmtf.org/schemas/v1/Manager.json"
+
+
+def test_secrets_are_redacted():
+    tree = {"/redfish/v1/Managers/1/Attributes": {"Attributes": {"Users.2.SHA256Password": "0123ABCD"}}}
+    anonymized, _ = anonymize({"redfish_tree": tree})
+    attributes = anonymized["redfish_tree"]["/redfish/v1/Managers/1/Attributes"]["Attributes"]
+    assert attributes == {"Users.2.SHA256Password": "<redacted>"}
+
+
+def test_flags_and_default_accounts_are_neutral():
+    """A flag or a default account under an identifying key is not replaced everywhere."""
+    attributes = {
+        "Autodiscovery.1.EnableIPChangeAnnounceFrommDNS": "Enabled",
+        "IPv4.1.DHCPEnable": "Enabled",
+        "Users.2.UserName": "Administrator",
+        "Users.2.IpmiLanPrivilege": "Administrator",
+        "DelegatedAuth.1.ServiceEnabled": "Disabled",
+    }
+    anonymized, _ = anonymize({"redfish_tree": {"/redfish/v1/Managers/1/Attributes": {"Attributes": attributes}}})
+    assert anonymized["redfish_tree"]["/redfish/v1/Managers/1/Attributes"]["Attributes"] == attributes
+
+
+def test_engine_id_and_certificate_names():
+    """The SNMP engine ID and the common names of the certificates of an iDRAC identify it."""
+    attributes = {
+        "SNMP.1.EngineID": "0x80001f8804414231324344",
+        "SecurityCertificate.1.IssuerCommonName": "0AB123-0123-4CDE-567F",
+        "SecurityCertificate.1.IssuerOrganization": "Wistron",
+    }
+    anonymized, _ = anonymize({"redfish_tree": {"/redfish/v1/Managers/1/Attributes": {"Attributes": attributes}}})
+    assert anonymized["redfish_tree"]["/redfish/v1/Managers/1/Attributes"]["Attributes"] == {
+        "SNMP.1.EngineID": "SERIAL1",
+        "SecurityCertificate.1.IssuerCommonName": "SERIAL2",
+        "SecurityCertificate.1.IssuerOrganization": "Wistron",
+    }
+
+
 def test_short_values_are_only_replaced_in_place():
     out = Anonymizer()
     out.collect({"HostName": "n1", "Name": "n1 sensor"})
