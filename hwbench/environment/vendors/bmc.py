@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import os.path
 import pathlib
+import re
 from collections.abc import Iterator
 from typing import Any
 
@@ -39,6 +40,10 @@ PROCESSOR_METRICS: dict[str, type[UnitMetric]] = {
     "BandwidthPercent": Utilization,
     "OperatingSpeedMHz": Frequency,
 }
+
+# The sensor of the input power of a power supply, named after it, like "PSU1 Input Power": how
+# bmcweb, the Redfish server of OpenBMC, exposes it when the Power resource lists no PowerSupplies
+PSU_INPUT_POWER_SENSOR = re.compile(r"(PSU?\d+) Input Power")
 
 # The resources of a Manager holding the configuration of the BMC, when it exposes them
 MANAGER_CONFIG = ("NetworkProtocol", "EthernetInterfaces", "SerialInterfaces", "HostInterfaces")
@@ -367,7 +372,37 @@ class BMC(MonitoringDevice, External):
             if psu["Name"] not in power_supplies.BMC:
                 power_supplies.BMC[psu["Name"]] = Power(psu_name)
             power_supplies.BMC[psu["Name"]].add(psu["PowerInputWatts"])
+        for collection_url, sensor_urls in self._get_psu_input_sensors().items():
+            for _, sensor in self._member_bodies(collection_url, sensor_urls):
+                match = PSU_INPUT_POWER_SENSOR.fullmatch(sensor.get("Name", ""))
+                if not match or sensor.get("Reading") is None:
+                    continue
+                psu = match.group(1)
+                if psu not in power_supplies.BMC:
+                    power_supplies.BMC[psu] = Power(psu)
+                power_supplies.BMC[psu].add(sensor["Reading"])
         return power_supplies
+
+    @functools.cache
+    def _get_psu_input_sensors(self) -> dict[str, set[str]]:
+        """Auto-detect the Chassis Sensors of the input power of the power supplies.
+
+        Returns their urls grouped by the collection holding them, like _get_gpu_sensors().
+        Only consulted when the Power resource lists no PowerSupplies, like on OpenBMC:
+        the PowerSupplies of its PowerSubsystem have no Metrics either.
+        """
+        if self.get_power().get("PowerSupplies"):
+            return {}
+        sensors: dict[str, set[str]] = {}
+        for collection_url, collection in self._get_sensors().items():
+            for url, sensor in collection.items():
+                if (
+                    sensor
+                    and sensor.get("ReadingType") == "Power"
+                    and PSU_INPUT_POWER_SENSOR.fullmatch(sensor.get("Name", ""))
+                ):
+                    sensors.setdefault(collection_url, set()).add(url)
+        return sensors
 
     @functools.cache
     def _get_gpu_processors(self) -> dict[str, str]:
@@ -389,6 +424,30 @@ class BMC(MonitoringDevice, External):
         return gpus
 
     @functools.cache
+    def _get_sensors(self) -> dict[str, dict[str, dict | None]]:
+        """Read once every sensor of the Sensors collection of every chassis.
+
+        Returns the body of each sensor by its url, grouped by the collection holding it, None
+        for a sensor the BMC did not answer for. The detections of the sensors to monitor
+        analyze it: walking the collections once per detection would read every sensor again,
+        one request each on a BMC without '$expand'.
+        """
+        sensors: dict[str, dict[str, dict | None]] = {}
+        for chassis_url in self._get_chassis():
+            collection_url = self._chassis_item_url(self.get_redfish_url(chassis_url, False), "Sensors")
+            if not collection_url:
+                continue
+            expanded = self._expanded_members(collection_url)
+            if expanded is not None:
+                sensors[collection_url] = {body.get("@odata.id", ""): body for body in expanded}
+                continue
+            sensors[collection_url] = {}
+            for url in self._get_members(collection_url, False):
+                body = self.get_redfish_url(url, False)
+                sensors[collection_url][url] = body if isinstance(body, dict) else None
+        return sensors
+
+    @functools.cache
     def _get_gpu_sensors(self) -> dict[str, set[str]]:
         """Auto-detect the Chassis Sensors reported in a GPU physical context.
 
@@ -397,19 +456,20 @@ class BMC(MonitoringDevice, External):
         supports '$expand'.
 
         Only consulted when no accelerator was found as a Processor: without
-        expansion this walk GETs every sensor of every chassis to read its
-        PhysicalContext, which is by far the most expensive detection hwbench
-        does, and a BMC exposing ProcessorMetrics already describes the same GPUs
-        more precisely.
+        expansion, reading every sensor of every chassis for its PhysicalContext
+        (_get_sensors()) is by far the most expensive detection hwbench does, and
+        a BMC exposing ProcessorMetrics already describes the same GPUs more
+        precisely.
         """
         if self._get_gpu_processors():
             return {}
         sensors: dict[str, set[str]] = {}
-        for collection_url, url, sensor in self._collection_items(self._get_chassis(), "Sensors"):
-            if sensor.get("PhysicalContext") in GPU_PHYSICAL_CONTEXTS:
-                # A set: _member_bodies() tests every member of the collection
-                # against it on every monitoring iteration.
-                sensors.setdefault(collection_url, set()).add(url)
+        for collection_url, collection in self._get_sensors().items():
+            for url, sensor in collection.items():
+                if sensor and sensor.get("PhysicalContext") in GPU_PHYSICAL_CONTEXTS:
+                    # A set: _member_bodies() tests every member of the collection
+                    # against it on every monitoring iteration.
+                    sensors.setdefault(collection_url, set()).add(url)
         return sensors
 
     def read_metrics(self, contexts: MonitoringContexts) -> MonitoringContexts:

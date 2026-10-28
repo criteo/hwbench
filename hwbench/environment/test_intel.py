@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import collections
 import pathlib
 from unittest.mock import patch
 
+import pytest
+
 from hwbench.bench.monitoring_structs import (
+    MonitoringContexts,
     MonitorMetric,
     Power,
     Temperature,
 )
 
 from .test_vendors import PATCH_TYPES, TestVendors, saved_redfish_config, vendors_tree
+from .vendors.bmc import BMC
 from .vendors.intel.intel_bmc import IntelBMC
 from .vendors.intel.intel_vendor import Intel
 
@@ -99,7 +104,12 @@ class TestIntel(TestVendors):
         super().generic_oob_power_consumption_test(self.generic_oob_power_output())
 
     def test_power_supplies(self):
-        super().generic_power_supplies_test(self.generic_power_supplies_output())
+        expected_output = self.generic_power_supplies_output()
+        expected_output.BMC = {
+            "PSU2": Power("PSU2", 129.0),
+            "PSU1": Power("PSU1", 124.0),
+        }
+        super().generic_power_supplies_test(expected_output)
 
 
 REDFISH_TREE = vendors_tree("Intel/AvenueCity")
@@ -110,6 +120,38 @@ def intel_vendor(out_dir: pathlib.Path) -> Intel:
     vendor = Intel(out_dir, None, "hwbench/tests/mocked_environment.cfg")
     vendor.bmc = IntelBMC(out_dir, vendor)
     return vendor
+
+
+def avenue_city_metrics(bmc: type[BMC] = IntelBMC, tree: dict | None = None) -> MonitoringContexts:
+    """Return the metrics a BMC driver reads from the Redfish dump of a powered-on Avenue City, or from <tree>."""
+    tree = REDFISH_TREE if tree is None else tree
+    vendor = intel_vendor(pathlib.Path(""))
+    vendor.bmc = bmc(pathlib.Path(""), vendor)
+    with patch.object(bmc, "get_redfish_url", side_effect=lambda url, *_: tree.get(url)):
+        return vendor.get_bmc().read_metrics(MonitoringContexts())
+
+
+@pytest.mark.parametrize("bmc", [IntelBMC, BMC])
+def test_power_supplies_input_power(bmc):
+    """The input power of the power supplies is read from their OpenBMC sensors, by the generic driver too."""
+    power_supplies = avenue_city_metrics(bmc).PowerSupplies.BMC
+    assert {psu: metric.get_values() for psu, metric in power_supplies.items()} == {"PSU1": [124.0], "PSU2": [129.0]}
+
+
+def test_sensors_read_once_when_detected():
+    """The detections of the sensors to monitor read every sensor of the chassis once, not once each."""
+    requests: collections.Counter = collections.Counter()
+
+    def get(url, *_):
+        requests[url] += 1
+        return REDFISH_TREE.get(url)
+
+    bmc = BMC(pathlib.Path(""), None)
+    with patch.object(BMC, "get_redfish_url", side_effect=get):
+        assert bmc._get_psu_input_sensors()
+        assert not bmc._get_gpu_sensors()
+    sensors = [url for url in REDFISH_TREE if "/Sensors/" in url]
+    assert {url: requests[url] for url in sensors} == dict.fromkeys(sensors, 1)
 
 
 def test_save_bios_config(tmp_path):
