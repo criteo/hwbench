@@ -947,7 +947,7 @@ def component_distribution_graph(
         # sample -- all-smi registers those for the metrics a GPU does not
         # support -- but a caller-supplied list has not been through it, and
         # averaging an empty serie would inject a NaN into the distribution.
-        components = [component for component in components if component.get_mean()]
+        components = [component for component in components if len(component.get_mean())]
     if not components:
         return 0
     unit = components[0].get_unit() or bench.get_metric_unit(component_type)

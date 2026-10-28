@@ -12,6 +12,7 @@ from statistics import mean
 from typing import Any, Callable
 
 from graph.common import fatal
+from graph.trace_cache import cache_files, read_cache, write_cache
 from hwbench.bench.engine import Resource
 from hwbench.bench.monitoring_structs import (
     CORE_FAMILY,
@@ -373,7 +374,7 @@ class Bench:
                     # A component can be registered without ever reporting a
                     # sample (all-smi does that for the metrics a GPU does not
                     # support): there is nothing to render for it.
-                    if component.get_mean():
+                    if len(component.get_mean()):
                         metrics.append(component)
         except KeyError:
             pass
@@ -787,8 +788,8 @@ class Trace:
 
     def __getstate__(self) -> dict:
         """The trace sent to the workers of the graphs, without its content: a worker reads it again when
-        a task uses it, instead of every worker receiving all the traces, a fleet of long benchmarks
-        exceeding the memory of the host."""
+        a task uses it, from the cache of the output directory, instead of every worker receiving all the
+        traces, a fleet of long benchmarks exceeding the memory of the host."""
         state = self.__dict__.copy()
         state.pop("trace", None)
         return state
@@ -806,8 +807,28 @@ class Trace:
         if self.filename:
             self.__dict__.pop("trace", None)
 
+    def use_cache(self, directory: pathlib.Path) -> None:
+        """Read the trace from now on from its conversion in directory, the cache of the output directory:
+        its series mapped in memory are shared by the workers instead of being parsed and copied by each
+        of them. The trace is converted unless an earlier rendering in this output directory did it."""
+        files = cache_files(directory, self.filename)
+        if not files[0].exists():
+            write_cache(self.trace, *files)
+        self.cache = files
+        self.forget_content()
+
+    def forget_cache(self) -> None:
+        """Read the trace from its file again, its conversion being deleted."""
+        self.forget_content()
+        self.__dict__.pop("cache", None)
+
     def __load_file(self):
         """Validate the new trace file"""
+        cache = self.__dict__.get("cache")
+        if cache:
+            self.trace = read_cache(*cache)
+            return
+
         if not pathlib.Path(self.filename).is_file():
             raise ValueError(f"{self.filename} is not a valid file")
 

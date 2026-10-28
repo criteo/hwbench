@@ -350,6 +350,7 @@ with, only when they are the same for all of them. hwgraph prints them on the co
 | `--traces` | one or several [traces](#trace-files) | mandatory, unless `--auto-traces` is given |
 | `--auto-traces` | `<directory>:<context>:<power_metric>` | [the traces of a context](#context-of-the-runs), found in a directory, instead of `--traces` |
 | `--outdir` | a directory | where the [output tree](#output-tree) is written, created when it does not exist; mandatory with `--traces`, the directory of the traces by default with `--auto-traces`, which renders in [a subdirectory named after the context](#context-of-the-runs) |
+| `--keep-cache` | flag | keeps the traces converted for the rendering in `<outdir>/cache/`, about the size of the traces, so that the next renderings in the same directory read them without converting them again; deleted after the rendering otherwise |
 | `--no-env` | flag | does not render the [environment graphs](hwgraph-environment.md) |
 | `--no-scaling` | flag | does not render the [scaling graphs](hwgraph-scaling.md) |
 | `--no-versus` | flag | does not render the [max versus graphs](hwgraph-versus.md#max-versus) and the [comparison reports](hwgraph-versus.md#traces-comparison-reports) |
@@ -415,6 +416,7 @@ Everything is written under `--outdir`, or under `<outdir>/<context>/` with [`--
 <outdir>/
 ├── cmdline                       the command line of this rendering
 ├── auto_traces.txt               with --auto-traces: the traces used
+├── cache/                        with --keep-cache: the traces converted, reused by the next renderings in this directory
 ├── environment/
 │   ├── by_host/
 │   │   └── <logical_name>/

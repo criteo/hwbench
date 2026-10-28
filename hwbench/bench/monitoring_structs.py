@@ -34,13 +34,23 @@ class MonitorMetric:
         self.full_name = full_name
         self.name = str(input_data.get("name", self.name))
         self.unit = str(input_data.get("unit", self.unit))
+        self.mean = self.series(input_data, "mean")
+        self.min = self.series(input_data, "min")
+        self.max = self.series(input_data, "max")
+        self.stdev = self.series(input_data, "stdev")
+        self.samples = input_data.get("samples", [])
+
+    @staticmethod
+    def series(input_data: dict[str, Any], key: str) -> list[float]:
+        """A series of a dictionary, a value per window."""
+        values = input_data.get(key, [])
+        # The series of a trace read from the cache of hwgraph, arrays mapped in memory, are kept as they
+        # are, without the copy that would duplicate them in every process reading them
+        if hasattr(values, "dtype"):
+            return values
         # A gap of a device that did not answer, null in results.json, is not a number: NaN, that
         # the graphs draw as a gap and the statistics ignore
-        self.mean = [math.nan if value is None else value for value in input_data.get("mean", [])]
-        self.min = [math.nan if value is None else value for value in input_data.get("min", [])]
-        self.max = [math.nan if value is None else value for value in input_data.get("max", [])]
-        self.stdev = [math.nan if value is None else value for value in input_data.get("stdev", [])]
-        self.samples = input_data.get("samples", [])
+        return [math.nan if value is None else value for value in values]
 
     def get_full_name(self) -> str:
         """Return the metric full name"""
