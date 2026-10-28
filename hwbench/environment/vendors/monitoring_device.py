@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 import cachetools.func
@@ -12,6 +13,32 @@ from hwbench.utils import helpers as h
 
 # The kinds of the values of the environment file, as the errors name them
 VALUE_KINDS: dict[Any, str] = {int: "an integer", float: "a number"}
+
+# The keys holding a secret, like the password hashes, the IPMI or SNMPv3 keys and the SNMP
+# communities of the Dell iDRAC users. A key is matched on its last dotted component, as the
+# Dell attributes are named like "Users.2.SHA256Password".
+SECRET_KEYS = re.compile(r"(password|salt|key|passphrase|secret|community|communityname|token)$", re.IGNORECASE)
+# A flag telling whether a secret is used, like StrongPassword in a Dell BIOS, is not one
+NOT_SECRETS = {"enabled", "disabled", "true", "false", "yes", "no"}
+REDACTED = "<redacted>"
+
+
+def redact_secrets(obj: Any, key: str | None = None) -> Any:
+    """Return obj, read from a Redfish device, with the value of every secret replaced by REDACTED.
+
+    An empty secret is kept, to tell whether one is set."""
+    if isinstance(obj, dict):
+        return {k: redact_secrets(v, k) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [redact_secrets(v, key) for v in obj]
+    if (
+        key is not None
+        and SECRET_KEYS.search(key.rsplit(".", 1)[-1])
+        and obj not in (None, "")
+        and str(obj).lower() not in NOT_SECRETS
+    ):
+        return REDACTED
+    return obj
 
 
 def section_value(config, device: str, section: str | None, key: str, fallback: Any = None, convert: Any = None) -> Any:

@@ -22,7 +22,7 @@ from hwbench.bench.monitoring_structs import MonitoringContexts
 from hwbench.environment.dmi import DmiSys
 from hwbench.environment.vendors.bmc import BMC
 from hwbench.environment.vendors.detect import first_matching_vendor
-from hwbench.environment.vendors.monitoring_device import MonitoringDevice
+from hwbench.environment.vendors.monitoring_device import MonitoringDevice, redact_secrets
 from hwbench.hwbench import add_environment_option, is_root
 from hwbench.utils import helpers as h
 
@@ -34,7 +34,13 @@ GETTERS = re.compile(r"get_(thermal|power|oem_\w+)")
 # like "ServerOS.1.HostName". A value found under several categories, like a serial
 # number used as hostname, gets the placeholder of the first one.
 IDENTIFYING_KEYS = {
-    "serial": re.compile(r"(serialnumber|servicetag)$", re.IGNORECASE),
+    # The Dell express service code is the service tag in base 10, the PPIN identifies a processor,
+    # a SNMP engine ID ends with the service tag of a Dell, and the common names of the certificates
+    # of an iDRAC are its service tag or the identifier of its card
+    "serial": re.compile(
+        r"(serialnumber|servicetag|expressservicecode|protectedidentificationnumber|engineid|issuercommonname|subjectcommonname)$",
+        re.IGNORECASE,
+    ),
     "uuid": re.compile(r"uuid$", re.IGNORECASE),
     "host": re.compile(r"(hostname|servername|certcommonname|fqdn)$", re.IGNORECASE),
     "domain": re.compile(r"domainname$", re.IGNORECASE),
@@ -42,8 +48,24 @@ IDENTIFYING_KEYS = {
     "user": re.compile(r"username$", re.IGNORECASE),
     "address": re.compile(r"(address|addresses|gateway|nameservers|dns\d*)$", re.IGNORECASE),
 }
-# The values of an identifying key that identify nothing
-NEUTRAL_VALUES = {"", "unknown", "n/a", "na", "none", "not available", "notavailable", "not specified"}
+# The values of an identifying key that identify nothing: a flag, like the one of the
+# Dell attribute Autodiscovery.1.EnableIPChangeAnnounceFrommDNS, or a default account
+NEUTRAL_VALUES = {
+    "",
+    "unknown",
+    "n/a",
+    "na",
+    "none",
+    "not available",
+    "notavailable",
+    "not specified",
+    "00000000-0000-0000-0000-000000000000",
+    "enabled",
+    "disabled",
+    "root",
+    "admin",
+    "administrator",
+}
 NEUTRAL_ADDRESSES = re.compile(r"0+\.0+\.0+\.0+|::|(00[:-]?){5}00|255\.[0-9.]+")
 # A MAC address or an EUI-64, like the identifier of a NVMe namespace in an UEFI device path
 HEX_ID = re.compile(
@@ -52,6 +74,13 @@ HEX_ID = re.compile(
 # A MAC address without separators is only recognized in an UEFI device path
 UEFI_MAC_ADDRESS = re.compile(r"MAC\(([0-9A-Fa-f]{12})")
 IPV4_ADDRESS = re.compile(r"\d{1,3}(\.\d{1,3}){3}")
+# The address of the BMC is also found in urls, like the URLString of the Dell iDRAC card.
+# Only the IP addresses are replaced: the host names found in urls are public, like redfish.dmtf.org
+URL_IP_ADDRESS = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://(?:(\d{1,3}(?:\.\d{1,3}){3})|\[([0-9A-Fa-f:.]+)\])")
+# An UUID identifies the machine under any key, like the SMBIOS one a Dell repeats as smbiosGUID
+UUID = re.compile(
+    r"(?<![0-9A-Fa-f-])[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}(?![0-9A-Fa-f-])"
+)
 # A shorter value is only replaced where it is found, as it could be part of unrelated strings
 MIN_SUBSTRING_LENGTH = 6
 
@@ -68,6 +97,7 @@ class Anonymizer:
         self.placeholders: dict[str, str] = {}
         self.counters: dict[str, int] = {}
         self.hexids: dict[str, int] = {}
+        self.uuids: dict[str, int] = {}
         self.found: dict[str, list[str]] = {category: [] for category in [*IDENTIFYING_KEYS, "hexid"]}
         self.substrings: re.Pattern | None = None
 
@@ -84,6 +114,9 @@ class Anonymizer:
                 # The same address, written with or without separators, gets the same number
                 normalized = re.sub("[:-]", "", value).upper()
                 n = self.hexids.setdefault(normalized, len(self.hexids) + 1)
+            elif category == "uuid":
+                # The same UUID, written in upper or lower case, gets the same number
+                n = self.uuids.setdefault(value.lower(), len(self.uuids) + 1)
             else:
                 n = self.counters[category] = self.counters.get(category, 0) + 1
             self.placeholders[value] = self.format(category, value, n)
@@ -145,7 +178,13 @@ class Anonymizer:
                 self.found[category].append(obj)
             hexids = [match.group(0) for match in HEX_ID.finditer(obj)]
             hexids += [match.group(1) for match in UEFI_MAC_ADDRESS.finditer(obj)]
+            for match in URL_IP_ADDRESS.finditer(obj):
+                address = match.group(1) or match.group(2)
+                if not NEUTRAL_ADDRESSES.fullmatch(address):
+                    self.found["address"].append(address)
             self.found["hexid"].extend(hexid for hexid in hexids if not NEUTRAL_ADDRESSES.fullmatch(hexid))
+            uuids = [match.group(0) for match in UUID.finditer(obj)]
+            self.found["uuid"].extend(uuid for uuid in uuids if uuid not in NEUTRAL_VALUES)
 
     def compile(self):
         """Give a placeholder to the values collected, and prepare their replacement."""
@@ -216,7 +255,9 @@ def dump_fixtures(bmc: BMC, extra_urls: list[str] | None = None) -> dict[str, ob
 
 
 def anonymize(fixtures: dict[str, object]) -> tuple[dict[str, object], Anonymizer]:
-    """Return the fixtures with the values identifying the target machine replaced, the same way in all of them."""
+    """Return the fixtures with their secrets redacted, and the values identifying the target machine replaced,
+    the same way in all of them."""
+    fixtures = {name: redact_secrets(fixture) for name, fixture in fixtures.items()}
     anonymizer = Anonymizer()
     for fixture in fixtures.values():
         anonymizer.collect(fixture)

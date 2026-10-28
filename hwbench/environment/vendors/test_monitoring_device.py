@@ -4,7 +4,7 @@ import configparser
 
 import pytest
 
-from hwbench.environment.vendors.monitoring_device import section_value
+from hwbench.environment.vendors.monitoring_device import REDACTED, redact_secrets, section_value
 
 
 @pytest.fixture
@@ -35,3 +35,29 @@ def test_section_value_errors(config, caplog, device, section, key, convert, err
     with pytest.raises(SystemExit):
         section_value(config, device, section, key, convert=convert)
     assert error in caplog.text
+
+
+def test_redact_secrets():
+    """The secrets are redacted, not their absence nor the flags telling whether one is used."""
+    attributes = {
+        "Users.2.UserName": "root",
+        "Users.2.SHA256Password": "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
+        "Users.2.SHA256PasswordSalt": "FEDCBA9876543210FEDCBA9876543210",
+        "Users.2.IPMIKey": "00112233445566778899AABBCCDDEEFF",
+        "Users.2.Password": None,
+        "Users.3.SHA256Password": "",
+        "Users.2.EnableSNMPv3Passphrase": "Disabled",
+        "SNMP.1.AgentCommunity": "public",
+        "SHA256SetupPassword": "0123456789ABCDEF",
+        "StrongPassword": "Enabled",
+        "ProcCores": 32,
+    }
+    redacted = redact_secrets({"Attributes": attributes, "Members": [{"Password": "secret"}]})
+    assert redacted["Attributes"] == attributes | {
+        "Users.2.SHA256Password": REDACTED,
+        "Users.2.SHA256PasswordSalt": REDACTED,
+        "Users.2.IPMIKey": REDACTED,
+        "SNMP.1.AgentCommunity": REDACTED,
+        "SHA256SetupPassword": REDACTED,
+    }
+    assert redacted["Members"] == [{"Password": REDACTED}]
