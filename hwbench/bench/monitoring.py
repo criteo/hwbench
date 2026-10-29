@@ -13,7 +13,13 @@ from typing import Any, Callable
 from hwbench.environment.all_smi import AllSMIMonitoring, list_gpus
 from hwbench.environment.hardware import BaseHardware
 from hwbench.environment.turbostat import Turbostat
-from hwbench.environment.vendors.monitoring_device import DeviceError, DeviceNotReady, MonitoringDevice, init_timeout
+from hwbench.environment.vendors.monitoring_device import (
+    DeviceError,
+    DeviceNotReady,
+    MonitoringDevice,
+    RedfishDevice,
+    init_timeout,
+)
 from hwbench.utils import helpers as h
 
 from .cdu_monitoring import CDUMonitoring
@@ -222,7 +228,12 @@ class Monitoring:
         """Read the BMC, each PDU and the CDUs at the same time, each in its thread: a slow device only
         delays the iteration by itself, instead of adding to the others. Each device writes its own
         metrics. Returns the monitor metrics of each kind of device, with the futures of the time spent
-        reading each of its devices."""
+        reading each of its devices.
+
+        The Redfish answers are cached for the reads of the iteration only: the answer of an url read by
+        the previous one, less than the 1.5s of the cache ago after a slow BMC, would be recorded again as
+        a new sample."""
+        RedfishDevice.get_redfish_url.cache_clear()
         start_ns = time.monotonic_ns()
 
         def timed(read: Callable[[], Any]) -> float:
