@@ -41,6 +41,12 @@ During each benchmark, and if the monitoring is enabled, metrics are collected a
 CDUs run in the same monitoring loop and use the same aggregation windows as the
 host metrics. Each CDU is sampled on every host iteration. See [CDU](#cdu).
 
+On each iteration, the BMC, each PDU and the CDUs are read at the same time, each in its own
+thread, while the accelerators and the processors are read by the monitoring itself: a slow
+device delays the iteration by its own time only, instead of adding to the others.
+`contexts.Monitor.<BMC|PDU|CDU>.Polling` records the time spent reading each kind of device, the
+slowest of them for several PDUs or CDUs.
+
 At the end of the benchmark the monitoring metrics are added in the result file. hwgraph will use them to plot how these components behave during the benchmark.
 
 # Usage
@@ -476,11 +482,11 @@ or the host unreachable`. hwbench stops with
 `Monitoring/CDU: <section>: collection failed` when its driver fails, the error not being shown
 as it may hold the credentials.
 
-CDUs are polled synchronously on every iteration of the host monitoring loop,
-starting on its first iteration. There is no separate CDU polling interval.
+CDUs are polled on every iteration of the host monitoring loop, starting on its first
+iteration, at the same time as the BMC and the PDUs. There is no separate CDU polling interval.
 A slow request delays the loop, just like a BMC or
 PDU request: the timeout of a CDU is therefore at most 1 second, half the monitoring
-precision of 2 seconds, leaving the other half to the other sources, and several CDUs are
+precision of 2 seconds, and several CDUs are
 read at the same time, so that their timeouts do not add up. A longer timeout stops hwbench
 with `CDU <section>: timeout must be at most 1s, half the monitoring precision, not to delay
 the monitoring loop when the CDU does not answer`. `contexts.Monitor.CDU.Polling` records the total time spent in CDU

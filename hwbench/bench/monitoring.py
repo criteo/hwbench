@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import dataclasses
+import functools
 import time
+from concurrent.futures import Future, ThreadPoolExecutor
 from threading import Thread
-from typing import Any
+from typing import Any, Callable
 
 from hwbench.environment.all_smi import AllSMIMonitoring, get_version, list_gpus
 from hwbench.environment.hardware import BaseHardware
@@ -206,10 +208,37 @@ class Monitoring:
         """Monitor the bmc metrics"""
         self.vendor.get_bmc().read_metrics(self.metrics.contexts)
 
-    def __monitor_pdus(self):
-        """Monitor the PDU metrics"""
-        for pdu in self.vendor.get_pdus():
-            pdu.read_power_consumption(self.metrics.contexts.PowerConsumption)
+    def __devices_count(self) -> int:
+        """The number of devices read at the same time on each iteration: the BMC, each PDU, the CDUs."""
+        return 1 + len(self.vendor.get_pdus()) + (1 if self.vendor.get_cdus() else 0)
+
+    def __start_devices_polling(
+        self, devices: ThreadPoolExecutor
+    ) -> list[tuple[dict[str, MonitorMetric], list[Future]]]:
+        """Read the BMC, each PDU and the CDUs at the same time, each in its thread: a slow device only
+        delays the iteration by itself, instead of adding to the others. Each device writes its own
+        metrics. Returns the monitor metrics of each kind of device, with the futures of the time spent
+        reading each of its devices."""
+        start_ns = time.monotonic_ns()
+
+        def timed(read: Callable[[], Any]) -> float:
+            """The time spent reading a device, in milliseconds."""
+            read()
+            return (time.monotonic_ns() - start_ns) * 1e-6
+
+        monitor = self.metrics.contexts.Monitor
+        polling = [(monitor.BMC, [devices.submit(timed, self.__monitor_bmc)])]
+        pdus = self.vendor.get_pdus()
+        if pdus:
+            power_consumption = self.metrics.contexts.PowerConsumption
+            futures = [
+                devices.submit(timed, functools.partial(pdu.read_power_consumption, power_consumption)) for pdu in pdus
+            ]
+            polling.append((monitor.PDU, futures))
+        # CDU requests share the host loop and its aggregation boundaries.
+        if self.vendor.get_cdus():
+            polling.append((monitor.CDU, [devices.submit(timed, self.cdu_monitoring.poll)]))
+        return polling
 
     def __compact(self):
         """Compute statistics"""
@@ -269,71 +298,63 @@ class Monitoring:
             # When does the next iteration must starts ?
             return start_monitoring_ns + ((loops_done + 1) * precision_s) * 1e9
 
-        # monitor_loop
-        while True:
-            start_time_loop_ns = time.monotonic_ns()
+        # The threads reading the devices, one per device, for the whole run
+        with ThreadPoolExecutor(max_workers=self.__devices_count(), thread_name_prefix="monitoring") as devices:
+            # monitor_loop
+            while True:
+                start_time_loop_ns = time.monotonic_ns()
 
-            # Trigger turbostat sample collection at the start of the monitoring loop
-            # This allows turbostat to collect metrics while we perform BMC/PDU monitoring
-            if self.turbostat:
-                self.turbostat.trigger_sample()
+                # Trigger turbostat sample collection at the start of the monitoring loop
+                # This allows turbostat to collect metrics while we perform BMC/PDU monitoring
+                if self.turbostat:
+                    self.turbostat.trigger_sample()
 
-            if loops_done and loops_done % frequency == 0:
-                # At every frequency, the maths are computed
-                self.__compact()
-                compact_count = compact_count + 1
+                if loops_done and loops_done % frequency == 0:
+                    # At every frequency, the maths are computed
+                    self.__compact()
+                    compact_count = compact_count + 1
 
-            start_bmc_ns = time.monotonic_ns()
-            self.__monitor_bmc()
-            # Let's monitor the time spent at monitoring the BMC, in milliseconds
-            self.metrics.contexts.Monitor.BMC["Polling"].add((time.monotonic_ns() - start_bmc_ns) * 1e-6)
+                # The BMC, the PDUs and the CDUs are read at the same time, the GPUs meanwhile
+                polling = self.__start_devices_polling(devices)
 
-            if self.all_smi:
-                start_gpu_ns = time.monotonic_ns()
-                self.all_smi.sample()
-                # Let's monitor the time spent at monitoring the GPUs, in milliseconds
-                self.metrics.contexts.Monitor.GPU["Polling"].add((time.monotonic_ns() - start_gpu_ns) * 1e-6)
+                if self.all_smi:
+                    start_gpu_ns = time.monotonic_ns()
+                    self.all_smi.sample()
+                    # Let's monitor the time spent at monitoring the GPUs, in milliseconds
+                    self.metrics.contexts.Monitor.GPU["Polling"].add((time.monotonic_ns() - start_gpu_ns) * 1e-6)
 
-            if self.vendor.get_pdus():
-                start_pdu_ns = time.monotonic_ns()
-                self.__monitor_pdus()
-                # Let's monitor the time spent at monitoring the PDUs, in milliseconds
-                self.metrics.contexts.Monitor.PDU["Polling"].add((time.monotonic_ns() - start_pdu_ns) * 1e-6)
+                # Let's monitor the time spent at monitoring each kind of device, in milliseconds
+                for monitor, futures in polling:
+                    monitor["Polling"].add(max(future.result() for future in futures))
 
-            # CDU requests share the host loop and its aggregation boundaries.
-            if self.vendor.get_cdus():
-                start_cdu_ns = time.monotonic_ns()
-                self.cdu_monitoring.poll()
-                self.metrics.contexts.Monitor.CDU["Polling"].add((time.monotonic_ns() - start_cdu_ns) * 1e-6)
+                # Now retrieve and parse the turbostat sample that was triggered at the start
+                if self.turbostat:
+                    turbostat_timing = self.turbostat.get_and_parse_sample(precision_s)
 
-            # Now retrieve and parse the turbostat sample that was triggered at the start
-            if self.turbostat:
-                turbostat_timing = self.turbostat.get_and_parse_sample(precision_s)
+                    # Let's monitor the time spent at retrieving the CPU metrics, in milliseconds
+                    self.metrics.contexts.Monitor.CPU["Polling"].add((turbostat_timing - start_time_loop_ns) * 1e-6)
 
-                # Let's monitor the time spent at retrieving the CPU metrics, in milliseconds
-                self.metrics.contexts.Monitor.CPU["Polling"].add((turbostat_timing - start_time_loop_ns) * 1e-6)
+                # Based on the time passed, let's compute the amount of sleep time
+                # to keep in sync with the expected precision_s
+                sleep_time_ns = next_iter_ns() - time.monotonic_ns()  # in nanoseconds
+                sleep_time_ms = sleep_time_ns / 1e6  # in milliseconds
+                sleep_time = sleep_time_ns / 1e9  # in seconds
 
-            # Based on the time passed, let's compute the amount of sleep time
-            # to keep in sync with the expected precision_s
-            sleep_time_ns = next_iter_ns() - time.monotonic_ns()  # in nanoseconds
-            sleep_time_ms = sleep_time_ns / 1e6  # in milliseconds
-            sleep_time = sleep_time_ns / 1e9  # in seconds
+                if sleep_time_ms < -5:
+                    # The iteration is already late on schedule
+                    # Only print a warning message if we are more than 5ms late
+                    print(f"Monitoring iteration {loops_done} is {abs(sleep_time_ms):.2f}ms late")
 
-            if sleep_time_ms < -5:
-                # The iteration is already late on schedule
-                # Only print a warning message if we are more than 5ms late
-                print(f"Monitoring iteration {loops_done} is {abs(sleep_time_ms):.2f}ms late")
+                # If the current time + sleep_time is above the total duration_s (we accept up to 500ms overdue)
+                if (time.monotonic_ns() + max(0, sleep_time_ns)) > (end_of_run_ns + 0.5 * 1e9):
+                    # We can stop the monitoring, no more measures will be done
+                    break
 
-            # If the current time + sleep_time is above the total duration_s (we accept up to 500ms overdue)
-            if (time.monotonic_ns() + max(0, sleep_time_ns)) > (end_of_run_ns + 0.5 * 1e9):
-                # We can stop the monitoring, no more measures will be done
-                break
+                if sleep_time > 0:
+                    # The iteration is on time, let's sleep until the next one
+                    time.sleep(sleep_time)
 
-            if sleep_time > 0:
-                # The iteration is on time, let's sleep until the next one
-                time.sleep(sleep_time)
-
-            loops_done = loops_done + 1
+                loops_done = loops_done + 1
 
         # How much time did we spent in this monitoring loop ?
         completed_time_ns = time.monotonic_ns()
