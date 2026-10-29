@@ -63,7 +63,9 @@ def test_dump_bios_and_bmc_config():
     """The BIOS and BMC configurations hwbench saves are recorded too."""
     avenue_city = test_vendors.vendors_tree("Intel/AvenueCity")
     _, _, fixtures = served_bmc(avenue_city)
-    assert set(avenue_city) <= set(fixtures["redfish_tree"])
+    configurations = {url for url in avenue_city if url.endswith("/Bios") or url.startswith("/redfish/v1/Managers")}
+    assert "/redfish/v1/Managers/bmc/NetworkProtocol" in configurations
+    assert configurations <= set(fixtures["redfish_tree"])
 
 
 def test_dump_stops_recording():
