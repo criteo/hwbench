@@ -3,8 +3,10 @@ from __future__ import annotations
 import dataclasses
 import functools
 import importlib
+import itertools
 import json
 import pathlib
+import re
 import tarfile
 import urllib.parse
 from enum import StrEnum
@@ -39,6 +41,22 @@ EVENTS = "events"
 MIN = "min"
 MAX = "max"
 MEAN = "mean"
+
+# The prefix replacing a serial the DMI left unset: empty, made of dots only like the '............' of
+# the Intel Avenue City servers, naming a hidden directory, or the classic 'To Be Filled By O.E.M.',
+# the same for every server having it.
+INVALID_SERIAL = "invalid_serial_"
+# The serials left unset once lowercased, without their spaces and dots
+UNSET_SERIALS = ("", "tobefilledbyoem")
+# The numbers of the servers having such a serial, by order of loading
+INVALID_SERIAL_NUMBERS = itertools.count(1)
+
+
+def is_invalid_serial(serial) -> bool:
+    """Whether a serial is left unset: empty, made of dots only, or 'To Be Filled By O.E.M.'."""
+    if serial is None:
+        return True
+    return isinstance(serial, str) and re.sub(r"[\s.]", "", serial.lower()) in UNSET_SERIALS
 
 
 @dataclasses.dataclass(frozen=True)
@@ -852,6 +870,8 @@ class Trace:
         """Read the trace: from its conversion in the cache when it has one, from its file otherwise."""
         cache = self.__dict__.get("cache")
         self.trace = read_cache(*cache) if cache else self.__read_file()
+        # A conversion in the cache holds the serials already replaced
+        self.__replace_invalid_serials()
         # Its hardware, environment and location, a few kB, kept when its content is forgotten: reading
         # them does not read the trace again
         self.header = (
@@ -881,6 +901,32 @@ class Trace:
             return json.loads(content)
         except ValueError:
             raise ValueError(f"{self.filename} is not a valid JSON file")
+
+    def __replace_invalid_serials(self) -> None:
+        """Replace the serials of the server and of its chassis left unset by invalid_serial_<N>, N counting
+        the servers having one: a trace read again by a worker keeps the number given the first time.
+        A DMI without serial is kept."""
+        hardware = self.trace.get("hardware") if isinstance(self.trace, dict) else None
+        dmi = hardware.get("dmi") if isinstance(hardware, dict) else None
+        if not isinstance(dmi, dict):
+            return
+        chassis = dmi.get("chassis")
+        if not isinstance(chassis, dict):
+            chassis = {}
+        unset = [
+            (item, name)
+            for item, name in ((dmi, "serial"), (chassis, "chassis serial"))
+            if "serial" in item and is_invalid_serial(item["serial"])
+        ]
+        if not unset:
+            return
+        first_load = "invalid_serial" not in self.__dict__
+        if first_load:
+            self.invalid_serial = f"{INVALID_SERIAL}{next(INVALID_SERIAL_NUMBERS)}"
+        for item, name in unset:
+            if first_load:
+                print(f"{self.filename}: invalid {name} '{item['serial']}', replaced by {self.invalid_serial}")
+            item["serial"] = self.invalid_serial
 
     def set_logical_name(self) -> None:
         """Name the trace, from its header only."""
