@@ -1,17 +1,23 @@
 from __future__ import annotations
 
+import itertools
+import json
 import pickle
+from concurrent.futures import ProcessPoolExecutor
 from types import SimpleNamespace
 
 import pytest
 
+import graph.trace
 from graph.common import cdu_header, location_header
 from graph.trace import (
     Bench,
     Trace,
     config_differences,
     context_line,
+    convert_trace,
     gpu_description,
+    is_invalid_serial,
     own_location,
     shared_cdu_lines,
     shared_location,
@@ -111,6 +117,79 @@ def test_content_sent_without(tmp_path):
     assert trace.get_trace() == {"bench": {}, "hardware": {"dmi": {"serial": "SRV01"}}}
 
 
+def test_invalid_serial(tmp_path, monkeypatch, capsys):
+    """A serial made of dots only, the same for every server having it, is replaced by invalid_serial_<N>,
+    N counting these servers; a trace read again by a worker keeps its number."""
+    monkeypatch.setattr(graph.trace, "INVALID_SERIAL_NUMBERS", itertools.count(1))
+    traces = []
+    for name, serial, chassis in (("a", "....", "...."), ("b", "SRV01", "CHS01"), ("c", " .. ", "CHS02")):
+        path = tmp_path / f"{name}.json"
+        path.write_text(json.dumps({"hardware": {"dmi": {"serial": serial, "chassis": {"serial": chassis}}}}))
+        traces.append(Trace(str(path)))
+    assert [t.get_server_serial() for t in traces] == ["invalid_serial_1", "SRV01", "invalid_serial_2"]
+    assert [t.get_chassis_serial() for t in traces] == ["invalid_serial_1", "CHS01", "CHS02"]
+    out = capsys.readouterr().out
+    assert f"{tmp_path / 'a.json'}: invalid chassis serial '....', replaced by invalid_serial_1" in out
+    assert f"{tmp_path / 'c.json'}: invalid serial ' .. ', replaced by invalid_serial_2" in out
+
+    sent = pickle.loads(pickle.dumps(traces[2]))
+    assert sent.get_server_serial() == "invalid_serial_2"
+    traces[0].forget_content()
+    assert traces[0].get_server_serial() == "invalid_serial_1"
+    # Read again from its conversion in the cache of the output directory, by the main process or a worker
+    traces[2].use_cache(tmp_path / "cache")
+    assert traces[2].get_trace()["hardware"]["dmi"]["serial"] == "invalid_serial_2"
+    worker = pickle.loads(pickle.dumps(traces[2]))
+    assert "trace" not in worker.__dict__
+    assert worker.get_trace()["hardware"]["dmi"]["serial"] == "invalid_serial_2"
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize(
+    ("serial", "invalid"),
+    [
+        ("", True),
+        ("  ", True),
+        (None, True),
+        ("............", True),
+        ("To Be Filled By O.E.M.", True),
+        ("TO BE FILLED BY OEM", True),
+        ("SRV01", False),
+        ("A.B", False),
+    ],
+)
+def test_is_invalid_serial(serial, invalid):
+    """A serial left unset is empty, made of dots only, or the classic 'To Be Filled By O.E.M.'."""
+    assert is_invalid_serial(serial) is invalid
+
+
+def test_invalid_serial_converted_by_workers(tmp_path, monkeypatch):
+    """The workers convert the traces as is: the serials left unset are numbered in the order of the traces
+    when the main process reads them from the cache, whichever worker converted them first."""
+    monkeypatch.setattr(graph.trace, "INVALID_SERIAL_NUMBERS", itertools.count(1))
+    filenames = []
+    for name in ("a", "b"):
+        path = tmp_path / f"{name}.json"
+        path.write_text(json.dumps({"bench": {}, "hardware": {"dmi": {"serial": "...."}}}))
+        filenames.append(str(path))
+    cache = tmp_path / "cache"
+    with ProcessPoolExecutor(max_workers=2) as pool:
+        conversions = list(pool.map(convert_trace, reversed(filenames), itertools.repeat(cache)))
+    traces = [Trace(filename, load=False) for filename in filenames]
+    for trace, files in zip(traces, reversed(conversions)):
+        trace.use_cache(cache, files)
+    assert [trace.get_server_serial() for trace in traces] == ["invalid_serial_1", "invalid_serial_2"]
+
+
+def test_without_serial_kept(tmp_path, monkeypatch):
+    """A DMI without serial nor chassis is kept as is, without consuming a number."""
+    monkeypatch.setattr(graph.trace, "INVALID_SERIAL_NUMBERS", itertools.count(1))
+    path = tmp_path / "results.json"
+    path.write_text(json.dumps({"hardware": {"dmi": {}}}))
+    assert Trace(str(path)).get_dmi() == {}
+    assert next(graph.trace.INVALID_SERIAL_NUMBERS) == 1
+
+
 class RamTrace:
     """A trace whose processor meters its memory, with the given samples of ram power."""
 
@@ -148,7 +227,7 @@ def test_incomplete_ram(ram, expected, capsys):
 @pytest.mark.parametrize(
     ("serial", "nodename", "expected"),
     [
-        ("CZ2D2N08V8", "host01", "CZ2D2N08V8"),
+        ("SRV01", "host01", "SRV01"),
         (None, "host01", "host01"),
         ("  ", "host01", "host01"),
     ],

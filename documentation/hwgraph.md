@@ -157,11 +157,17 @@ without a `results.json` with `<trace_filename> does not contain a results.json`
 | Value | Effect |
 |---|---|
 | `<name>` | the name of the trace, like `baseline` |
-| empty, like `results.json::BMC.Server` | the serial number of the server, as hwbench read it in the DMI (`hardware.dmi.serial` of `results.json`); its hostname (`environment.kernel.nodename`) when the DMI gives none |
+| empty, like `results.json::BMC.Server` | the serial number of the server, as hwbench read it in the DMI (`hardware.dmi.serial` of `results.json`); its hostname (`environment.kernel.nodename`) when the DMI has no serial |
 | `CPU` | the model of the processor, with the number of sockets when there are several, like `1 x AMD EPYC 8534P 64-Core`; it must be unique over all the traces |
 
 A trace without serial number nor hostname must be given a name: hwgraph stops with
 `<trace_filename>: no serial number nor hostname to name the trace, please give a logical_name`.
+
+A serial the DMI left unset, of the server or of its chassis, is replaced when the trace is loaded by
+`invalid_serial_<N>`, `N` counting the servers having one by order of loading: an empty serial, one made of
+dots only, like the `............` of the Intel Avenue City servers, or `To Be Filled By O.E.M.`, whatever its case.
+hwgraph prints `<trace_filename>: invalid serial '<serial>', replaced by invalid_serial_<N>`, or
+`invalid chassis serial`. The replacement names the trace and its directories, and appears in the titles.
 
 The name becomes a directory of the [output tree](#output-tree), so keep it short and
 without spaces. Two traces with the same name stop hwgraph with
