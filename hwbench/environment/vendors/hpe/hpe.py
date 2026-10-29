@@ -3,10 +3,13 @@ from __future__ import annotations
 import logging
 import pathlib
 import re
+import time
+from datetime import datetime
 from functools import cache
 from typing import cast
 
 from hwbench.bench.monitoring_structs import (
+    MONITORING_PRECISION_S,
     MonitorMetric,
     Power,
     PowerConsumptionContext,
@@ -29,10 +32,25 @@ METERED_COMPONENTS = {
 }
 
 
+def power_meter_period_ns(samples: list[dict]) -> int | None:
+    """The period of the samples of the FastPowerMeter of an iLO, the smallest interval between their times,
+    like 10 seconds on a ProLiant DL365 Gen11 whose intervals are sometimes 11; None when it cannot be told."""
+    try:
+        times = [datetime.fromisoformat(sample["Time"]) for sample in samples]
+    except (KeyError, TypeError, ValueError):
+        return None
+    intervals = [int((later - earlier).total_seconds() * 1e9) for earlier, later in zip(times, times[1:])]
+    return min(intervals) if intervals and min(intervals) > 0 else None
+
+
 class ILO(BMC):
     def __init__(self, out_dir: pathlib.Path, vendor: Vendor, ilo: ILOREST):
         super().__init__(out_dir, vendor)
         self.ilo = ilo
+        # The last sample of the FastPowerMeter, when it was read, and the period of its samples
+        self.power_meter_sample: dict = {}
+        self.power_meter_read_ns: int | None = None
+        self.power_meter_period_ns: int | None = None
 
     def get_url(self) -> str:
         # If the configuration file provides and url, let's use it
@@ -199,13 +217,32 @@ class ILO(BMC):
         return self.get_redfish_url(url) or {}
 
     def read_metered_components(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
-        """Add the power of the components the iLO meters, from the last sample of its power meter."""
+        """Add the power of the components the iLO meters, from the last sample of its FastPowerMeter.
+
+        A sample is the power of its whole period, recorded on every iteration until the next one: the
+        FastPowerMeter is not read again until an iteration before the next sample is due, its period told
+        by the times of its samples, then on every iteration until it is there, instead of on every
+        iteration. A FastPowerMeter whose period cannot be told is read on every iteration.
+        """
         _, components = self.get_metered_components()
-        samples = self.get_oem_power_meter().get("PowerDetail") or []
-        if not samples:
+        if not components:
             return power_consumption
-        # The samples are sorted by time, the last one is the latest
-        sample = samples[-1]
+        now_ns = time.monotonic_ns()
+        sample = self.power_meter_sample
+        if (
+            self.power_meter_read_ns is None
+            or self.power_meter_period_ns is None
+            or now_ns - self.power_meter_read_ns >= self.power_meter_period_ns - MONITORING_PRECISION_S * 1e9
+        ):
+            samples = self.get_oem_power_meter().get("PowerDetail") or []
+            if not samples:
+                return power_consumption
+            # The samples are sorted by time, the last one is the latest
+            sample = samples[-1]
+            if sample.get("Time") != self.power_meter_sample.get("Time"):
+                self.power_meter_sample = sample
+                self.power_meter_read_ns = now_ns
+                self.power_meter_period_ns = power_meter_period_ns(samples)
         for name, key in components.items():
             # A component the iLO says to meter may still report no value
             if sample.get(key) is None:

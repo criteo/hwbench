@@ -186,6 +186,13 @@ power supplies from the HPE OEM fields, and the enclosure of a multi-node chassi
 | power consumption | `/redfish/v1/Chassis/1/Power/` | `PowerControl` | the power consumed by the server, in Watts; on an Apollo 2000 Gen10+, the power of the server in its chassis |
 | power consumption | `/redfish/v1/Chassis/enclosurechassis/` | `Oem` → `Hpe` → `NodePowerWatts`, `ChassisPowerWatts` | on an Apollo 2000 Gen10+ multi-node chassis: the power of the server, and of the chassis, in Watts |
 | power supplies | `/redfish/v1/Chassis/1/Power/` | `PowerSupplies` → `Oem` → `Hpe` → `AveragePowerOutputWatts` | the output power of every enabled power supply, named after its bay, in Watts |
+| power consumption | the `FastPowerMeter` linked from `/redfish/v1/Chassis/1/Power/` | `PowerDetail` → `DimmWatts`, `FanWatts`, `GpuWatts` | the power of the memory, the fans and the accelerators, in Watts, from the last sample, for the components the `Power` resource says the iLO meters (`HasDimmPowerMetering`, `HasFanPowerMetering`, `HasGpuPowerMetering`) |
+
+The `FastPowerMeter` of the iLO takes a sample every 10 seconds, the power of its whole period: it is
+recorded on every iteration until the next sample, the `FastPowerMeter` being read again only from an
+iteration before that sample is due, until it is there. The period is the smallest interval between the
+times of its samples, sometimes 11 seconds apart on a ProLiant DL365 Gen11; a `FastPowerMeter` whose
+period cannot be told is read on every iteration.
 
 ### Metrics listed at startup
 
