@@ -50,7 +50,31 @@ class TestIntel(TestVendors):
 
     def test_thermal(self):
         expected_output = self.generic_thermal_output()
+        expected_output["SystemBoard"] = {
+            "BMC Temp": Temperature("AVC_Baseboard-BMC", 31.562),
+            "Left Mid Board Temp": Temperature("AVC_Baseboard-Left Mid Board", 28.437),
+            "Left Rear Board Temp": Temperature("AVC_Baseboard-Left Rear Board", 27.375),
+            "Right Mid Board Temp": Temperature("AVC_Baseboard-Right Mid Board", 29.375),
+            "Right Rear Board Temp": Temperature("AVC_Baseboard-Right Rear Board", 29.312),
+            "Front Panel Temp": Temperature("Intel_Front_Panel-Front Panel", 24.062),
+        }
+        expected_output["VoltageRegulator"] = {
+            "CPU1 PVCCA Controller Temp": Temperature("AVC_Baseboard-CPU1 PVCCA Controller", 31.0),
+            "CPU1 PVCCA EHV Temperature": Temperature("AVC_Baseboard-CPU1 PVCCA EHV", 32.0),
+            "CPU1 PVCCD0 Temperature": Temperature("AVC_Baseboard-CPU1 PVCCD0", 33.0),
+            "CPU1 PVCCFA Controller Temp": Temperature("AVC_Baseboard-CPU1 PVCCFA Controller", 32.0),
+            "CPU1 PVCCFA EHV FIVRA Temperature": Temperature("AVC_Baseboard-CPU1 PVCCFA EHV FIVRA", 33.0),
+            "CPU1 VCCIN Temperature": Temperature("AVC_Baseboard-CPU1 VCCIN", 36.0),
+            "CPU2 PVCCA Controller Temp": Temperature("AVC_Baseboard-CPU2 PVCCA Controller", 31.0),
+            "CPU2 PVCCA EHV Temperature": Temperature("AVC_Baseboard-CPU2 PVCCA EHV", 31.0),
+            "CPU2 PVCCD0 Temperature": Temperature("AVC_Baseboard-CPU2 PVCCD0", 33.0),
+            "CPU2 PVCCFA Controller Temp": Temperature("AVC_Baseboard-CPU2 PVCCFA Controller", 33.0),
+            "CPU2 PVCCFA EHV FIVRA Temperature": Temperature("AVC_Baseboard-CPU2 PVCCFA EHV FIVRA", 33.0),
+            "CPU2 VCCIN Temperature": Temperature("AVC_Baseboard-CPU2 VCCIN", 36.0),
+        }
         expected_output["CPU"] = {
+            "DTS CPU1": Temperature("AVC_Baseboard-DTS CPU1", 36.157),
+            "DTS CPU2": Temperature("AVC_Baseboard-DTS CPU2", 39.016),
             "Die CPU1": Temperature("AVC_Baseboard-Die CPU1", 35.86),
             "Die CPU2": Temperature("AVC_Baseboard-Die CPU2", 38.797),
         }
@@ -60,6 +84,17 @@ class TestIntel(TestVendors):
         expected_output["Memory"] = {
             "Left DIMM Bank Temp": Temperature("AVC_Baseboard-Left DIMM Bank", 26.437),
             "Right DIMM Bank Temp": Temperature("AVC_Baseboard-Right DIMM Bank", 28.437),
+        }
+        expected_output["PowerSupply"] = {
+            "PSU1 Temperature": Temperature("AVC_Baseboard-PSU1", 25.0),
+            "PSU2 Temperature": Temperature("AVC_Baseboard-PSU2", 25.875),
+        }
+        expected_output["Exhaust"] = {
+            "Exit Air Temp": Temperature("R4000_Chassis-Exit Air", 40.0),
+        }
+        expected_output["Backplane"] = {
+            "Slot1 HSBP2 Temp": Temperature("Slot1_BHS2U8X4EDSFF_HSBP_2-Slot1 HSBP2", 25.312),
+            "Slot1 HSBP1 Temp": Temperature("Slot1_BHS2U8X4U2_HSBP_1-Slot1 HSBP1", 23.562),
         }
         super().generic_thermal_test(expected_output)
 
@@ -97,6 +132,7 @@ class TestIntel(TestVendors):
             "Memory0": Power("Memory0", 2.7243394274178594),
             "Memory1": Power("Memory1", 2.93665204668058),
             "Memory": Power("Memory", 5.654182944186493),
+            "Fans": Power("Fans", 3.48 + 2.58),
         }
         super().generic_power_consumption_test(expected_output)
 
@@ -153,6 +189,7 @@ def test_sensors_read_once_when_detected():
         assert not bmc._get_gpu_sensors()
         assert bmc._get_temperature_sensors()
         assert bmc._get_fan_sensors()
+        assert bmc._get_fans_power_sensors()
     sensors = [url for url in REDFISH_TREE if "/Sensors/" in url]
     assert {url: requests[url] for url in sensors} == dict.fromkeys(sensors, 1)
 
@@ -165,7 +202,8 @@ def test_bmc_not_answering():
     metrics = avenue_city_metrics(tree=tree)
     assert "Fan 1" not in metrics.Fans.Fan
     assert "Fan 2" in metrics.Fans.Fan
-    assert sorted(metrics.Thermal["CPU"]) == ["Die CPU1", "Die CPU2"]
+    assert "Front Panel Temp" not in metrics.Thermal["SystemBoard"]
+    assert "BMC Temp" in metrics.Thermal["SystemBoard"]
 
 
 def iteration_requests(read: Callable[[BMC], object]) -> collections.Counter:
@@ -186,10 +224,10 @@ def iteration_requests(read: Callable[[BMC], object]) -> collections.Counter:
 
 
 def test_thermals_requests():
-    """An iteration only reads the 5 temperature sensors hwbench reports, not the 54 the BMC exposes."""
+    """An iteration only reads the 30 temperature sensors hwbench reports, not the 54 the BMC exposes."""
     requests = iteration_requests(lambda bmc: bmc.read_thermals(MonitoringContexts().Thermal))
     sensors = [url for url in requests if "/Sensors/" in url]
-    assert len(sensors) == 5
+    assert len(sensors) == 30
     assert all(count == 1 for count in requests.values())
     assert not [url for url in requests if url.endswith("/Sensors")]
 
@@ -207,9 +245,9 @@ def test_iteration_requests():
     requests = iteration_requests(lambda bmc: bmc.read_metrics(MonitoringContexts()))
     powers = [url for url in requests if url.endswith("/Power")]
     assert powers == ["/redfish/v1/Chassis/AVC_Baseboard/Power"]
-    # 5 temperatures, 16 fans and 2 power supplies
-    assert len([url for url in requests if "/Sensors/" in url]) == 23
-    assert sum(requests.values()) <= 25
+    # 30 temperatures, 16 fans, 2 power supplies and 2 fan boards
+    assert len([url for url in requests if "/Sensors/" in url]) == 50
+    assert sum(requests.values()) <= 52
 
 
 def test_save_bios_config(tmp_path):
