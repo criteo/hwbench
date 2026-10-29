@@ -152,10 +152,18 @@ class TestVendors(unittest.TestCase):
 
     def generic_test(self, expected_output, func):
         expected_output_dict = dict(iterate_dataclass(expected_output))
+        output_dict = dict(iterate_dataclass(func))
+        # Every metric expected is reported
+        for pc, expected_context in expected_output_dict.items():
+            reported = dict(iterate_dataclass(output_dict.get(pc, {})))
+            for sensor_name in dict(iterate_dataclass(expected_context)):
+                if sensor_name not in reported:
+                    raise AssertionError(f"Expected sensor '{sensor_name}' in '{pc}' is not reported")
+        # Every metric reported is the expected one
         for pc, context in iterate_dataclass(func):
             if pc not in expected_output_dict:
                 raise AssertionError(f"Missing Physical Context '{pc}' in expected_output")
-            expected_metrics_dict = dict(iterate_dataclass(context))
+            expected_metrics_dict = dict(iterate_dataclass(expected_output_dict[pc]))
             for sensor_name, metric in iterate_dataclass(context):
                 if sensor_name not in expected_metrics_dict:
                     raise AssertionError(f"Missing sensor '{sensor_name}' in '{pc}'")
