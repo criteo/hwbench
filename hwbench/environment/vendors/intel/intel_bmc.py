@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import functools
 import pathlib
+import re
 
 from hwbench.bench.monitoring_structs import (
     FansContext,
@@ -15,6 +16,9 @@ from hwbench.bench.monitoring_structs import (
     ThermalContext,
 )
 from hwbench.environment.vendors.bmc import BMC
+
+# The sensors of the power of the system fans of Avenue City, one per fan board, like "System Fans SE 12V Output Power"
+FANS_POWER_SENSOR = re.compile(r"System Fans .+ Output Power")
 
 
 class IntelBMC(BMC):
@@ -229,8 +233,14 @@ class IntelBMC(BMC):
 
         Categorizes sensors into:
         - Intake: Inlet temperature sensors
-        - CPU: CPU die temperature sensors
+        - Exhaust: Outlet/exhaust temperature sensors
+        - CPU: CPU die and DTS temperature sensors
         - Memory: DIMM/Memory temperature sensors
+        - VoltageRegulator: the CPU voltage regulators, like "CPU1 VCCIN Temperature"
+        - PowerSupply: the power supplies, like "PSU1 Temperature"
+        - SystemBoard and Backplane: the other sensors the BMC reports in these physical contexts,
+          like the board, BMC, front panel and drive backplane ones
+        The individual DIMM sensors are skipped, the DIMM banks summing them up.
 
         The classification only depends on the name and the physical context of the sensor, not on
         its reading: it is done once, when detecting the sensors.
@@ -252,8 +262,12 @@ class IntelBMC(BMC):
         if "INLET" in name_upper or "INTAKE" in name_upper:
             physical_context = "Intake"
 
-        # CPU die temperatures (processor cores)
-        elif ("CPU" in name_upper and "DIE" in name_upper) or "PROCESSOR" in name_upper:
+        # Exhaust temperatures (air leaving chassis), like the "Exit Air Temp" of the R4000 chassis
+        elif "EXIT" in name_upper or "OUTLET" in name_upper or "EXHAUST" in name_upper:
+            physical_context = "Exhaust"
+
+        # CPU die and DTS (digital thermal sensor) temperatures (processor cores)
+        elif ("CPU" in name_upper and "DIE" in name_upper) or "PROCESSOR" in name_upper or name_upper.startswith("DTS"):
             physical_context = "CPU"
 
         # Memory Bank temperatures (aggregate for left/right DIMM banks)
@@ -261,6 +275,18 @@ class IntelBMC(BMC):
         # but NOT: "CPU0 DIMM", "DIMM A0", etc.
         elif "BANK" in name_upper and ("DIMM" in name_upper or "MEMORY" in name_upper or "MEM" in name_upper):
             physical_context = "Memory"
+
+        # CPU voltage regulators, which the BMC reports in the CPU physical context, like the individual DIMMs
+        elif sensor_data.get("PhysicalContext") == "CPU" and "DIMM" not in name_upper:
+            physical_context = "VoltageRegulator"
+
+        # Power supplies, which the BMC reports in the SystemBoard physical context
+        elif "PSU" in name_upper:
+            physical_context = "PowerSupply"
+
+        # The board, BMC, front panel and drive backplane temperatures
+        elif sensor_data.get("PhysicalContext") in ("SystemBoard", "Backplane"):
+            physical_context = sensor_data["PhysicalContext"]
 
         # If sensor doesn't match any enabled category, skip it
         else:
@@ -437,4 +463,37 @@ class IntelBMC(BMC):
                             power_consumption.BMC[mem_name] = Power(mem_name)
                         power_consumption.BMC[mem_name].add(power_watts)
 
+        return self.read_fans_power(power_consumption)
+
+    @functools.cache
+    def _get_fans_power_sensors(self) -> dict[str, set[str]]:
+        """Auto-detect the Chassis Sensors of the power of the system fans.
+
+        Returns their urls grouped by the collection holding them, like _get_gpu_sensors(),
+        analyzed from the sensors read once by _get_sensors().
+        """
+        sensors: dict[str, set[str]] = {}
+        for collection_url, collection in self._get_sensors().items():
+            for url, sensor in collection.items():
+                if (
+                    sensor
+                    and sensor.get("ReadingType") == "Power"
+                    and FANS_POWER_SENSOR.fullmatch(sensor.get("Name", ""))
+                ):
+                    sensors.setdefault(collection_url, set()).add(url)
+        return sensors
+
+    def read_fans_power(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
+        """Add the power of the system fans, the sum of the ones of their fan boards, like HPE reports it."""
+        readings = [
+            sensor["Reading"]
+            for collection_url, sensor_urls in self._get_fans_power_sensors().items()
+            for _, sensor in self._member_bodies(collection_url, sensor_urls)
+            if sensor.get("Reading") is not None
+        ]
+        if readings:
+            name = str(PowerCategories.FANS)
+            if name not in power_consumption.BMC:
+                power_consumption.BMC[name] = Power(name)
+            power_consumption.BMC[name].add(sum(readings))
         return power_consumption
