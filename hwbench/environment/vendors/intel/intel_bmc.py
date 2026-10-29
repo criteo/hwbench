@@ -120,41 +120,28 @@ class IntelBMC(BMC):
             return super().read_thermals(thermals)
 
         # For Avenue City, read from ThermalSubsystem
-        th = self._get_thermals()
+        chassis_thermals = self._get_chassis_thermals()
+        temperature_sensors = self._get_temperature_sensors()
 
-        if not th:
-            return thermals
-
-        for chassis, thermal_data in th.items():
+        for chassis, thermal_url in chassis_thermals.items():
             prefix = ""
-            if len(th) > 1:
+            if len(chassis_thermals) > 1:
                 prefix = chassis + "-"
 
-            # Check if this is a Sensors collection (has Members array)
-            if "Members" in thermal_data:
-                members = thermal_data.get("Members", [])
-                # Filter to only temperature sensors by URL pattern
-                temp_members = [
-                    m
-                    for m in members
-                    if isinstance(m, dict) and "@odata.id" in m and "temperature_" in m["@odata.id"].lower()
-                ]
+            # A Sensors collection: only its temperature sensors hwbench reports are read
+            if chassis in temperature_sensors:
+                collection_url, sensor_urls = temperature_sensors[chassis]
+                for _, sensor_data in self._member_bodies(collection_url, sensor_urls):
+                    self._process_avenue_city_sensor(sensor_data, thermals, prefix)
+                continue
 
-                # Only print debug during first fetch (when we have many members to process)
-                if len(members) > 0 and prefix == "":
-                    print(
-                        f"DEBUG: Found {len(members)} sensor members, filtered to {len(temp_members)} temperature sensors"
-                    )
-
-                # This is a collection of sensors, each Member is a reference
-                for member_ref in temp_members:
-                    sensor_url = member_ref["@odata.id"]
-                    sensor_data = self.get_redfish_url(sensor_url)
-                    if sensor_data:
-                        self._process_avenue_city_sensor(sensor_data, thermals, prefix)
+            thermal_data = self.get_redfish_url(thermal_url)
+            # A BMC not answering for this chassis, its sensors are read again at the next iteration
+            if not thermal_data:
+                continue
 
             # Check if this is ThermalSubsystem format (has Sensors array)
-            elif "Sensors" in thermal_data:
+            if "Sensors" in thermal_data:
                 sensors = thermal_data.get("Sensors", [])
                 # Avenue City format: ThermalSubsystem with Sensors
                 for sensor in sensors:
@@ -180,29 +167,80 @@ class IntelBMC(BMC):
 
         return thermals
 
-    def _process_avenue_city_sensor(self, sensor_data: dict, thermals: ThermalContext, prefix: str):
-        """Process Avenue City sensor data
+    @functools.cache
+    def _get_temperature_sensors(self) -> dict[str, tuple[str, set[str]]]:
+        """Auto-detect the temperature sensors of the Sensors collections of the chassis.
 
-        Categorizes sensors into:
-        - Intake: Inlet temperature sensors
-        - Exhaust: Outlet/exhaust temperature sensors
-        - CPU: CPU die temperature sensors
-        - Memory: DIMM/Memory temperature sensors
-
-        By default, only critical sensors are reported to reduce noise in results.json.
-        Uncomment categories below to enable additional sensors.
+        Returns, for each chassis exposing one, the url of its Sensors collection and the urls
+        of the temperature sensors _temperature_context() classifies, analyzed from the sensors
+        read once by _get_sensors(): reading back only those spares the requests of the others,
+        like the individual DIMMs, on every monitoring iteration of a BMC without '$expand'. A
+        sensor the BMC did not answer for is kept, to be classified when it answers.
         """
+        sensors: dict[str, tuple[str, set[str]]] = {}
+        for chassis, collection_url in self._get_chassis_thermals().items():
+            collection = self._get_sensors().get(collection_url)
+            if collection is None:
+                continue
+            sensors[chassis] = (
+                collection_url,
+                {
+                    url
+                    for url, sensor in collection.items()
+                    # Filter to only temperature sensors by URL pattern
+                    if "temperature_" in url.lower() and (sensor is None or self._temperature_context(sensor))
+                },
+            )
+        return sensors
+
+    def _process_avenue_city_sensor(self, sensor_data: dict, thermals: ThermalContext, prefix: str):
+        """Add the reading of an Avenue City temperature sensor, classified by _temperature_context()."""
         reading = sensor_data.get("Reading")
         name = sensor_data.get("Name", "Unknown")
-        reading_type = sensor_data.get("ReadingType", "")
 
-        # Skip invalid readings or non-temperature sensors
+        # Skip invalid readings
         if reading is None or reading <= 0:
             return
 
+        physical_context = self._temperature_context(sensor_data)
+        # If sensor doesn't match any enabled category, skip it
+        if physical_context is None:
+            return
+
+        # Clean up sensor name - remove temperature-related suffixes only at the end
+        clean_name = name
+        for suffix in [" Temperature", " Temp"]:
+            if clean_name.endswith(suffix):
+                clean_name = clean_name[: -len(suffix)]
+                break
+        clean_name = prefix + clean_name.strip()
+
+        self.add_monitoring_value(
+            thermals,
+            physical_context,
+            Temperature(clean_name),
+            name,
+            reading,
+        )
+
+    @staticmethod
+    def _temperature_context(sensor_data: dict) -> str | None:
+        """Return the physical context of an Avenue City temperature sensor, None for one hwbench skips.
+
+        Categorizes sensors into:
+        - Intake: Inlet temperature sensors
+        - CPU: CPU die temperature sensors
+        - Memory: DIMM/Memory temperature sensors
+
+        The classification only depends on the name and the physical context of the sensor, not on
+        its reading: it is done once, when detecting the sensors.
+        """
+        name = sensor_data.get("Name", "Unknown")
+        reading_type = sensor_data.get("ReadingType", "")
+
         # Only process temperature readings
         if reading_type and reading_type != "Temperature":
-            return
+            return None
 
         # Determine physical context from sensor name
         physical_context = "UnknownPhysicalContext"
@@ -226,75 +264,72 @@ class IntelBMC(BMC):
 
         # If sensor doesn't match any enabled category, skip it
         else:
-            return
+            return None
 
-        # Clean up sensor name - remove temperature-related suffixes only at the end
-        clean_name = name
-        for suffix in [" Temperature", " Temp"]:
-            if clean_name.endswith(suffix):
-                clean_name = clean_name[: -len(suffix)]
-                break
-        clean_name = prefix + clean_name.strip()
+        return physical_context
 
-        self.add_monitoring_value(
-            thermals,
-            physical_context,
-            Temperature(clean_name),
-            name,
-            reading,
-        )
+    @functools.cache
+    def _get_fan_sensors(self) -> dict[str, tuple[str, set[str]]]:
+        """Auto-detect the fan speed sensors of the Sensors collections of the chassis.
+
+        Returns, for each chassis exposing one, the url of its Sensors collection and the urls
+        of its rotational sensors, analyzed from the sensors read once by _get_sensors(), like
+        _get_temperature_sensors(): the other sensors whose url names a fan, like their PWM,
+        current or voltage, are not read back. A sensor the BMC did not answer for is kept.
+        """
+        sensors: dict[str, tuple[str, set[str]]] = {}
+        for chassis, collection_url in self._get_chassis_thermals().items():
+            collection = self._get_sensors().get(collection_url)
+            if collection is None:
+                continue
+            sensors[chassis] = (
+                collection_url,
+                {
+                    url
+                    for url, sensor in collection.items()
+                    # Filter to only fan sensors by URL pattern
+                    if "fan" in url.lower() and (sensor is None or self._is_fan_speed(sensor))
+                },
+            )
+        return sensors
+
+    @staticmethod
+    def _is_fan_speed(sensor_data: dict) -> bool:
+        """Return whether a sensor is a fan/rotational one."""
+        reading_type = sensor_data.get("ReadingType", "")
+        return not reading_type or reading_type.lower() == "rotational"
+
+    @staticmethod
+    def _add_fan(fans: FansContext, fan: dict):
+        name = fan.get("Name", "Unknown Fan")
+        reading = fan.get("Reading")
+        unit = fan.get("ReadingUnits", "RPM")
+
+        if reading is not None and reading > 0:
+            if name not in fans.Fan:
+                fans.Fan[name] = MonitorMetric(name, unit)
+            fans.Fan[name].add(reading)
 
     def read_fans(self, fans: FansContext) -> FansContext:
         """Override to handle Intel Avenue City's fan data"""
         if not self._check_avenue_city():
             return super().read_fans(fans)
 
-        # For Avenue City, get chassis thermal endpoints
-        chassis_thermals = self._get_chassis_thermals()
+        fan_sensors = self._get_fan_sensors()
+        for chassis_name, sensor_url in self._get_chassis_thermals().items():
+            # A Sensors collection: only its fan speed sensors are read
+            if chassis_name in fan_sensors:
+                collection_url, sensor_urls = fan_sensors[chassis_name]
+                for _, sensor_data in self._member_bodies(collection_url, sensor_urls):
+                    # A sensor not answering when detected is classified now
+                    if self._is_fan_speed(sensor_data):
+                        self._add_fan(fans, sensor_data)
+                continue
 
-        for chassis_name, sensor_url in chassis_thermals.items():
-            # Fetch the Sensors collection
-            sensor_collection = self.get_redfish_url(sensor_url)
-
-            # Check if this is a Members collection
-            if "Members" in sensor_collection:
-                members = sensor_collection.get("Members", [])
-
-                # Filter to only fan sensors by URL pattern
-                fan_members = [
-                    m for m in members if isinstance(m, dict) and "@odata.id" in m and "fan" in m["@odata.id"].lower()
-                ]
-
-                # Fetch each fan sensor
-                for member_ref in fan_members:
-                    fan_url = member_ref["@odata.id"]
-                    sensor_data = self.get_redfish_url(fan_url)
-
-                    # Verify this is a fan/rotational sensor
-                    reading_type = sensor_data.get("ReadingType", "")
-                    if reading_type and reading_type.lower() not in ["rotational"]:
-                        continue
-
-                    name = sensor_data.get("Name", "Unknown Fan")
-                    reading = sensor_data.get("Reading")
-                    unit = sensor_data.get("ReadingUnits", "RPM")
-
-                    if reading is not None and reading > 0:
-                        if name not in fans.Fan:
-                            fans.Fan[name] = MonitorMetric(name, unit)
-                        fans.Fan[name].add(reading)
-
-            # Check for embedded Fans array (fallback)
-            elif "Fans" in sensor_collection:
-                for f in sensor_collection.get("Fans", []):
-                    name = f.get("Name", "Unknown Fan")
-                    reading = f.get("Reading")
-                    unit = f.get("ReadingUnits", "RPM")
-
-                    if reading is not None and reading > 0:
-                        if name not in fans.Fan:
-                            fans.Fan[name] = MonitorMetric(name, unit)
-                        fans.Fan[name].add(reading)
+            # Check for embedded Fans array (fallback), empty when the BMC does not answer
+            sensor_collection = self.get_redfish_url(sensor_url) or {}
+            for f in sensor_collection.get("Fans", []):
+                self._add_fan(fans, f)
 
         return fans
 
@@ -307,18 +342,15 @@ class IntelBMC(BMC):
         if not self._check_avenue_city():
             return super().get_power()
 
-        # Get power from all chassis
-        powers = self._get_powers()
+        # The Power urls of all chassis, only the one used being read
+        powers = self._get_chassis_powers()
 
-        # For Avenue City, prefer AVC_Baseboard which has the power data
-        if "AVC_Baseboard" in powers:
-            return powers["AVC_Baseboard"]
-
-        # Fallback to first available
-        if powers:
-            return next(iter(powers.values()))
-
-        return {}
+        # For Avenue City, prefer AVC_Baseboard which has the power data, fallback to first available
+        url = powers.get("AVC_Baseboard") or next(iter(powers.values()), "")
+        if not url:
+            return {}
+        # Empty when the BMC does not answer
+        return self.get_redfish_url(url) or {}
 
     def read_oob_power_consumption(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
         """Override to prevent duplicate power entries.

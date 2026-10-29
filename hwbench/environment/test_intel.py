@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import collections
 import pathlib
+from collections.abc import Callable
 from unittest.mock import patch
 
 import pytest
@@ -146,12 +147,69 @@ def test_sensors_read_once_when_detected():
         requests[url] += 1
         return REDFISH_TREE.get(url)
 
-    bmc = BMC(pathlib.Path(""), None)
-    with patch.object(BMC, "get_redfish_url", side_effect=get):
+    bmc = IntelBMC(pathlib.Path(""), None)
+    with patch.object(IntelBMC, "get_redfish_url", side_effect=get):
         assert bmc._get_psu_input_sensors()
         assert not bmc._get_gpu_sensors()
+        assert bmc._get_temperature_sensors()
+        assert bmc._get_fan_sensors()
     sensors = [url for url in REDFISH_TREE if "/Sensors/" in url]
     assert {url: requests[url] for url in sensors} == dict.fromkeys(sensors, 1)
+
+
+def test_bmc_not_answering():
+    """A sensor or a sensors collection the BMC does not answer for is skipped, not fatal."""
+    tree = dict(REDFISH_TREE)
+    tree["/redfish/v1/Chassis/R4000_Chassis/Sensors/fantach_Fan_1"] = None
+    tree["/redfish/v1/Chassis/Intel_Front_Panel/Sensors"] = None
+    metrics = avenue_city_metrics(tree=tree)
+    assert "Fan 1" not in metrics.Fans.Fan
+    assert "Fan 2" in metrics.Fans.Fan
+    assert sorted(metrics.Thermal["CPU"]) == ["Die CPU1", "Die CPU2"]
+
+
+def iteration_requests(read: Callable[[BMC], object]) -> collections.Counter:
+    """Return the urls <read> requests from the Intel BMC on an iteration, once the sensors detected."""
+    vendor = intel_vendor(pathlib.Path(""))
+    bmc = vendor.get_bmc()
+    requests: collections.Counter = collections.Counter()
+
+    def get(url, *_):
+        requests[url] += 1
+        return REDFISH_TREE.get(url)
+
+    with patch.object(IntelBMC, "get_redfish_url", side_effect=get):
+        bmc.read_metrics(MonitoringContexts())
+        requests.clear()
+        read(bmc)
+    return requests
+
+
+def test_thermals_requests():
+    """An iteration only reads the 5 temperature sensors hwbench reports, not the 54 the BMC exposes."""
+    requests = iteration_requests(lambda bmc: bmc.read_thermals(MonitoringContexts().Thermal))
+    sensors = [url for url in requests if "/Sensors/" in url]
+    assert len(sensors) == 5
+    assert all(count == 1 for count in requests.values())
+    assert not [url for url in requests if url.endswith("/Sensors")]
+
+
+def test_fans_requests():
+    """An iteration only reads the 16 fan speed sensors, not the 32 sensors whose url names a fan."""
+    requests = iteration_requests(lambda bmc: bmc.read_fans(MonitoringContexts().Fans))
+    assert len([url for url in requests if "/Sensors/" in url]) == 16
+    assert all(count == 1 for count in requests.values())
+    assert not [url for url in requests if url.endswith("/Sensors")]
+
+
+def test_iteration_requests():
+    """An iteration only reads the sensors hwbench reports, each once, and the Power resource of the baseboard."""
+    requests = iteration_requests(lambda bmc: bmc.read_metrics(MonitoringContexts()))
+    powers = [url for url in requests if url.endswith("/Power")]
+    assert powers == ["/redfish/v1/Chassis/AVC_Baseboard/Power"]
+    # 5 temperatures, 16 fans and 2 power supplies
+    assert len([url for url in requests if "/Sensors/" in url]) == 23
+    assert sum(requests.values()) <= 25
 
 
 def test_save_bios_config(tmp_path):
