@@ -47,6 +47,10 @@ device delays the iteration by its own time only, instead of adding to the other
 `contexts.Monitor.<BMC|PDU|CDU>.Polling` records the time spent reading each kind of device, the
 slowest of them for several PDUs or CDUs.
 
+An url of a BMC or a PDU read several times in an iteration, like the thermal resource giving the
+temperatures and the fans, is requested once, but every iteration requests its urls again: an
+iteration never records the answers of the previous one, even when a slow BMC delays it.
+
 At the end of the benchmark the monitoring metrics are added in the result file. hwgraph will use them to plot how these components behave during the benchmark.
 
 # Usage

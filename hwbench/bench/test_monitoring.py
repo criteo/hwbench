@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from hwbench.bench.cdu_monitoring import CDUMonitoring
 from hwbench.bench.monitoring import Monitoring
 from hwbench.bench.monitoring_structs import CDUSample, MonitoringData, MonitorMetric
+from hwbench.environment.vendors.monitoring_device import MonitoringDevice
 
 # The time each fake device takes to be read, in seconds
 READ_S = 0.3
@@ -76,3 +77,36 @@ def test_without_pdu_nor_cdu():
     with ThreadPoolExecutor(max_workers=1) as devices:
         polling = monitor._Monitoring__start_devices_polling(devices)
         assert [metrics for metrics, _ in polling] == [monitor.metrics.contexts.Monitor.BMC]
+
+
+class RedfishDevice(MonitoringDevice):
+    """A device whose Redfish answers count the requests reaching it."""
+
+    def __init__(self):
+        super().__init__(None)
+        self.requests = 0
+        outer = self
+
+        class Session:
+            def get(self, url, _):
+                outer.requests += 1
+                return SimpleNamespace(dict={"url": url})
+
+        self.redfish_obj = Session()
+
+    def read_metrics(self, _):
+        # The thermal resource gives the temperatures and the fans
+        self.get_redfish_url("/redfish/v1/Chassis/1/Thermal")
+        self.get_redfish_url("/redfish/v1/Chassis/1/Thermal")
+
+
+def test_redfish_cache_lasts_one_iteration():
+    """An url read twice in an iteration is requested once, and again by the next iteration, however close."""
+    bmc = RedfishDevice()
+    monitor = monitoring(bmc, [], [])
+    with ThreadPoolExecutor(max_workers=1) as devices:
+        for _ in range(2):
+            for _, futures in monitor._Monitoring__start_devices_polling(devices):
+                for future in futures:
+                    future.result()
+    assert bmc.requests == 2
