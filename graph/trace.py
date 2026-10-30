@@ -722,6 +722,29 @@ def context_line(traces: list) -> str | None:
     return "Contexts: " + ", ".join(f"{name}: {context}" for name, context in contexts.items())
 
 
+def config_differences(reference: dict, config: dict) -> list[str]:
+    """The differences between two job files, as kept in the config section of results.json: the
+    [job] of each difference, then its directives, '-' from the reference, '+' from the other."""
+    lines = []
+    for job in list(reference) + [job for job in config if job not in reference]:
+        if job not in config:
+            lines.append(f"- [{job}]")
+        elif job not in reference:
+            lines.append(f"+ [{job}]")
+        else:
+            directives = list(reference[job]) + [key for key in config[job] if key not in reference[job]]
+            changed = [key for key in directives if reference[job].get(key) != config[job].get(key)]
+            if not changed:
+                continue
+            lines.append(f"  [{job}]")
+            for key in changed:
+                if key in reference[job]:
+                    lines.append(f"- {key}={reference[job][key]}")
+                if key in config[job]:
+                    lines.append(f"+ {key}={config[job][key]}")
+    return lines
+
+
 def shared_location(traces: list) -> Location | None:
     """The location shared by all the traces: the places their paths start with, from the widest,
     like the rack of the servers of a rack. None when they share no known place, or one has no location."""

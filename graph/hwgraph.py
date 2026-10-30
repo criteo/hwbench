@@ -47,6 +47,7 @@ try:
         Event,
         ScalingUnit,
         Trace,
+        config_differences,
         context_line,
         location_header_line,
         shared_cdu_lines,
@@ -653,7 +654,11 @@ def compare_traces(args) -> None:
         if args.traces[0].get_original_config() != trace.get_original_config():
             # If a trace is not having the same configuration file,
             # It's impossible to compare & graph the results.
-            fatal(f"{trace.filename} is not having the same configuration file as previous traces")
+            differences = config_differences(args.traces[0].get_original_config(), trace.get_original_config())
+            fatal(
+                f"{trace.filename} is not having the same configuration file as previous traces\n"
+                f"--- {args.traces[0].filename}\n+++ {trace.filename}\n" + "\n".join(differences)
+            )
         if trace.get_name() in names:
             fatal(f"{trace.filename} is using '{trace.get_name()}' as logical_name while it's already in use")
         else:
