@@ -12,6 +12,7 @@ from matplotlib.ticker import AutoMinorLocator, FuncFormatter, MultipleLocator
 
 from graph.common import context_header, fatal
 from graph.trace import Bench, gpu_description
+from graph.windows import high_window, in_range, low_window, warm_up, without_warm_up
 from hwbench.bench.engine import Resource
 from hwbench.bench.monitoring_structs import CORE_FAMILY, MonitoringContextKeys, MonitorMetric
 from hwbench.utils.helpers import cpu_list_to_range
@@ -76,6 +77,12 @@ def zero_margin(axis, end: float) -> float:
 MAX_LEGEND_ITEMS = 36
 
 
+# The legend of the curves, with their statistics: by statistics_in_label(), and of the curves over
+# time by window_statistics_in_label()
+STATISTICS_LEGEND = "component [min; mean; stddev; max]\n"
+WINDOW_STATISTICS_LEGEND = "component [p5; mean; stddev; p95]\n"
+
+
 class Graph:
     def __init__(
         self,
@@ -88,7 +95,7 @@ class Graph:
         square=False,
         show_source_file=None,
         title_note=None,
-        legend_title="component [min; mean; stddev; max]\n",
+        legend_title=STATISTICS_LEGEND,
     ) -> None:
         self.ax2: Axes | None = None
         self.args = args
@@ -388,9 +395,13 @@ def fp(value: float, max_value_length=0) -> str:
     return result
 
 
-def draw_lines(ax, x_serie, y_series) -> None:
+def draw_lines(ax, x_serie, y_series, alpha=None) -> None:
     """Draw curves without label as a single LineCollection: visually identical to one plot() per
-    curve, but much cheaper for hundreds of them."""
+    curve, but much cheaper for hundreds of them. Their warm up is faded, as by plot_windows()."""
+    if alpha is None:
+        # The whole curves faded below, then without their warm up above, same colors in the same order
+        draw_lines(ax, x_serie, y_series, WARM_UP_ALPHA)
+        y_series = [without_warm_up(y_serie) for y_serie in y_series]
     segments = [np.column_stack([x_serie, y_serie]) for y_serie in y_series]
     # Reproduce the per-line color cycling matplotlib's plot() would apply.
     cycle_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
@@ -401,6 +412,7 @@ def draw_lines(ax, x_serie, y_series) -> None:
             colors=colors,
             linewidths=plt.rcParams["lines.linewidth"],
             capstyle=plt.rcParams["lines.solid_capstyle"],
+            alpha=alpha,
         )
     )
     # add_collection updates the data limits but, unlike plot(), does not
@@ -423,6 +435,42 @@ def statistics_in_label(label: str, serie: np.ndarray, max_title_length=0, max_v
     serie = np.asarray(serie, dtype=float)
     serie = serie[np.isfinite(serie)] if np.isfinite(serie).any() else serie
     return f"{label:{max_title_length}} [{fp(np.min(serie), max_value_length)}; {fp(np.mean(serie), max_value_length)}; {fp(np.std(serie), max_value_length)}; {fp(np.max(serie), max_value_length)}]"
+
+
+# The opacity of the warm up of a curve over time, see plot_windows()
+WARM_UP_ALPHA = 0.25
+
+
+def plot_windows(axis, x_serie, y_serie, *args, **kwargs):
+    """Plot a curve over time, its warm up faded, see warm_up(): its other windows as plot() would draw
+    them, above the whole curve drawn faded."""
+    y_serie = np.asarray(y_serie, dtype=float)
+    drawn = without_warm_up(y_serie)
+    line = axis.plot(x_serie, drawn, *args, **kwargs)[0]
+    if not np.array_equal(drawn, y_serie, equal_nan=True):
+        # Without label, the legend naming the curve once, and below it
+        faded = {key: value for key, value in kwargs.items() if key != "label"}
+        faded |= {"color": line.get_color(), "alpha": WARM_UP_ALPHA, "zorder": line.get_zorder() - 0.1}
+        axis.plot(x_serie, y_serie, *args, **faded)
+    return line
+
+
+def window_statistics_in_label(label: str, serie: np.ndarray, max_title_length=0, max_value_length=0) -> str:
+    """Return 'label + [p5, mean, stddev, p95]' of a curve over time: the percentiles of its windows, the
+    mean and stddev of the ones drawn without its warm up, see warm_up(); its lowest and highest windows
+    in place of the percentiles when they are too few to tell."""
+    if not max_title_length:
+        max_title_length = len(label)
+    windows = np.asarray(serie, dtype=float)
+    drawn = windows[np.isfinite(windows) & ~warm_up(windows)]
+    if not len(drawn):
+        low = mean = stddev = high = np.nan
+    elif np.array_equal(in_range(windows), np.isfinite(windows)):
+        low, mean, stddev, high = np.min(drawn), np.mean(drawn), np.std(drawn), np.max(drawn)
+    else:
+        low, mean, stddev, high = low_window(windows), np.mean(drawn), np.std(drawn), high_window(windows)
+    values = "; ".join(fp(value, max_value_length) for value in (low, mean, stddev, high))
+    return f"{label:{max_title_length}} [{values}]"
 
 
 def numa_core_blocks(cpus, width: int = 3) -> str:
@@ -1057,6 +1105,7 @@ def generic_graph(
         outfile,
         show_source_file=trace,
         title_note=title_note,
+        legend_title=WINDOW_STATISTICS_LEGEND,
     )
 
     if second_axis:
@@ -1156,11 +1205,18 @@ def generic_graph(
         )
         for index, data2_item in enumerate(data2_serie):
             y2_serie = np.array(data2_serie[data2_item])[order]
-            y2_label = statistics_in_label(str(data2_item), y2_serie, max_title_length, max_value_length)
+            y2_label = window_statistics_in_label(str(data2_item), y2_serie, max_title_length, max_value_length)
             # Beyond the 10 colors of the cycle, the curves change of marker, see curve_style()
             color, marker = curve_style(index)
-            graph.get_ax2().plot(
-                x_serie, y2_serie, "", label=y2_label, color=color, marker=marker, markersize=MARKER_SIZE
+            plot_windows(
+                graph.get_ax2(),
+                x_serie,
+                y2_serie,
+                "",
+                label=y2_label,
+                color=color,
+                marker=marker,
+                markersize=MARKER_SIZE,
             )
 
     # If we have more than MAX_LEGEND_ITEMS items to draw, labels will not fit and makes the
@@ -1174,10 +1230,11 @@ def generic_graph(
         )
         for index, component in enumerate(components):
             y_serie = np.array(data_serie[component.get_full_name()])[order]
-            y_label = statistics_in_label(component.get_full_name(), y_serie, max_title_length, max_value_length)
+            y_label = window_statistics_in_label(component.get_full_name(), y_serie, max_title_length, max_value_length)
             # The lines of the first axis have no marker, until the colors of the cycle are all used
             color, marker = curve_style(index)
-            graph.get_ax().plot(
+            plot_windows(
+                graph.get_ax(),
                 x_serie,
                 y_serie,
                 "",
@@ -1252,16 +1309,31 @@ def yerr_graph(
         output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{component_type!s}"),
         component.get_name(),
         show_source_file=trace,
+        legend_title=WINDOW_STATISTICS_LEGEND,
     )
 
+    # The whole curve faded, with the errors of its warm up, below the windows without its warm up and
+    # their errors
+    warming = warm_up(y_serie)
+    graph.get_ax().plot(x_serie, y_serie, "-b", alpha=WARM_UP_ALPHA)
+    if warming.any():
+        graph.get_ax().errorbar(
+            x_serie[warming],
+            y_serie[warming],
+            yerr=yerror_serie[:, warming],
+            fmt="none",
+            ecolor="r",
+            capsize=4,
+            alpha=WARM_UP_ALPHA,
+        )
     graph.get_ax().errorbar(
         x_serie,
-        y_serie,
+        without_warm_up(y_serie),
         yerr=yerror_serie,
         fmt="-b",
         ecolor="r",
         capsize=4,
-        label=statistics_in_label(
+        label=window_statistics_in_label(
             component.get_name(), y_serie, len(component.get_full_name()), get_max_value_string_length(y_serie)
         ),
     )

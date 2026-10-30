@@ -509,7 +509,9 @@ Fatal: <trace>/<benchmark>: <metric> is missing the 4th data point. Use --ignore
   resolves `--auto-traces` into one `AutoTraces` per context; `render_traces()` renders each with
   `render_trace_set()`, in the subdirectory of `--outdir` named by `output_directory_name()`.
 - **Graphs**: `graph/graph.py`. `Graph` wraps a matplotlib figure and its legend;
-  `generic_graph()` and `yerr_graph()` draw the time graphs, `numa_*` the NUMA ones.
+  `generic_graph()` and `yerr_graph()` draw the time graphs, `numa_*` the NUMA ones; the curves over
+  time are drawn by `plot_windows()`, their `warm_up()` faded, and labeled by
+  `window_statistics_in_label()`.
 - **Environment**: `graph/chassis.py` (`graph_chassis()`) and `graph/group.py`
   (`graph_group_env()`); the per-host graphs are `graph_*()` in `hwgraph.py`.
 - **Rack view**: `graph/rack.py`. `rack_positions()` tells whether a group of `--auto-group` is

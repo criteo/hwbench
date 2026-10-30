@@ -7,12 +7,12 @@ from urllib.parse import quote
 import numpy as np
 
 from graph.common import context_header
-from graph.graph import MARKER_SIZE, Graph, curve_style, statistics_in_label, zero_margin
+from graph.graph import MARKER_SIZE, Graph, curve_style, plot_windows, window_statistics_in_label, zero_margin
 from graph.trace import Trace
 from hwbench.bench.monitoring_structs import GPU_FAMILY
 
 NamedSeries: TypeAlias = tuple[str, list[float]]
-WINDOW_MEAN_LEGEND = "component [min; mean; stddev; max]\nof window means\n"
+WINDOW_MEAN_LEGEND = "component [p5; mean; stddev; p95]\nof window means\n"
 
 
 TITLES = {
@@ -62,8 +62,8 @@ def graph_cdu(args, trace: Trace, bench_name: str, output_dir) -> int:
             )
             for label, timestamps, values in series:
                 valid = np.array(values)[np.isfinite(values)]
-                legend = statistics_in_label(label, valid) if len(valid) else f"{label} [no readings]"
-                graph.get_ax().plot(timestamps, values, marker=".", label=legend)
+                legend = window_statistics_in_label(label, valid) if len(valid) else f"{label} [no readings]"
+                plot_windows(graph.get_ax(), timestamps, values, marker=".", label=legend)
             graph.prepare_axes(30, 5, points_to_plot=metadata["samples_count"], interval=metadata["iteration_time"])
             # A failure at either end must not shorten the visible benchmark period.
             graph.get_ax().set_xlim(0, max(1, bench.duration()))
@@ -104,8 +104,9 @@ def graph_cdu_vs_thermal(args, trace: Trace, bench, name: str, groups: dict, uni
         color, marker = curve_style(index)
         axis = graph.get_ax2() if is_temperature else graph.get_ax()
         valid = np.array(values)[np.isfinite(values)]
-        legend = statistics_in_label(label, valid) if len(valid) else f"{label} [no readings]"
-        axis.plot(
+        legend = window_statistics_in_label(label, valid) if len(valid) else f"{label} [no readings]"
+        plot_windows(
+            axis,
             timestamps,
             values,
             color=color,
@@ -199,8 +200,9 @@ def graph_cdu_host(args, trace: Trace, bench, name: str, data: dict, directory) 
         is_power = index >= len(temperatures)
         axis = graph.get_ax2() if is_power else graph.get_ax()
         valid = np.array(values)[np.isfinite(values)]
-        legend = statistics_in_label(label, valid) if len(valid) else f"{label} [no readings]"
-        axis.plot(
+        legend = window_statistics_in_label(label, valid) if len(valid) else f"{label} [no readings]"
+        plot_windows(
+            axis,
             times,
             values,
             color=color,

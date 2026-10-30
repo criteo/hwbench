@@ -4,6 +4,7 @@ The environment graphs plot what the monitoring collected **during** each benchm
 power, the frequencies, the IPC, the fans and the temperatures of the target machine. They
 are rendered for every benchmark of every trace, unless `--no-env` is given.
 
+- [Curves over time](#curves-over-time)
 - [Per host](#per-host)
   - [CDU and host comparison](#cdu-and-host-comparison)
   - [Per-core views](#per-core-views)
@@ -19,6 +20,23 @@ Related pages: [hwgraph.md](hwgraph.md) (the command line, the traces and the ou
 [monitoring.md](monitoring.md) (where the metrics come from), [cpu-selection.md](cpu-selection.md)
 (the pinned cores), [hwgraph-scaling.md](hwgraph-scaling.md) and
 [hwgraph-versus.md](hwgraph-versus.md) (the performance graphs).
+
+# Curves over time
+The graphs over time, per host, per chassis, per group and of the CDUs, draw a point per window
+of the monitoring. The **warm up** of a curve, its first windows below its 5th percentile, like the
+ramp up of the load at the start of a benchmark, is **faded**: the whole curve is drawn at 25 %
+opacity, the bars from the lowest to the highest reading of each window of the graphs of a single
+metric included, and its windows after the warm up are drawn normally above it. The first gaps of a curve
+are skipped, a later gap ends its warm up. A dip or a peak later in the benchmark, like the reboot
+of a CDU, is not part of it and stays drawn normally. Nothing is faded when fewer than two windows
+are between the percentiles, as for a curve of three windows.
+
+The legend gives the `[p5; mean; stddev; p95]` of each curve: its 5th and 95th percentile
+windows, and the mean and the standard deviation of its windows after the warm up, the ones drawn
+normally. When its windows are too few to tell, its lowest and highest windows replace the
+percentiles. A window without reading, a gap, is not counted. The scaling graphs and the legends of
+the profiles of the [rack view](#rack-view), which do not draw windows over time, keep
+`[min; mean; stddev; max]`.
 
 # Per host
 For each trace, and for each benchmark of the trace, hwgraph writes
@@ -90,7 +108,7 @@ same color still look different. Every curve uses the same aggregation grid, wit
 
 CDU graph legends summarize the **window means shown on the curves**, excluding
 empty windows. Each valid window has equal weight regardless of its number of
-readings. These min/mean/stddev/max values are not statistics of all raw readings;
+readings. These p5/mean/stddev/p95 values are not statistics of all raw readings;
 for example, a one-reading window weighs as much as a complete window.
 
 The comparison requires at least one CDU circuit temperature, a CPU temperature
@@ -242,7 +260,7 @@ For each benchmark, `by_group/` contains:
 | `time_watt_<benchmark> …_by_group` | the sum of the servers: of `BMC.Server`, of `CPU.package`, and the difference between both, what the processors do not account for |
 | `time_watt_percent_<benchmark> …_by_group` | the share of the CPU packages, and of the rest of the servers, in percent of the sum of `BMC.Server` |
 
-The legend gives the `[min; mean; stddev; max]` of each curve. Beyond 36 servers, the most a legend
+The legend gives the `[p5; mean; stddev; p95]` of each curve, see [Curves over time](#curves-over-time). Beyond 36 servers, the most a legend
 holds within the height of the graph, as for the other graphs, the legend of `…_by_servers` is
 filled with the servers of the highest means, then a line `… <n> other servers between`, then the
 servers of the lowest means, by decreasing mean; the servers between them are drawn without name.

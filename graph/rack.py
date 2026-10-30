@@ -15,6 +15,7 @@ from graph.common import cdu_header, context_header, location_header
 from graph.graph import MARKER_SIZE, Graph, curve_style, get_max_value_string_length, statistics_in_label
 from graph.group import place_suffix
 from graph.trace import Bench, Trace
+from graph.windows import high_window, kept_windows, low_window
 from hwbench.bench.monitoring_structs import (
     CDU_FAMILY,
     GPU_FAMILY,
@@ -421,26 +422,6 @@ def draw_profile(
     if label:
         # The legend gives the line and the marker, as the curves of the other graphs
         axis.plot([], [], color=color, marker=marker, markersize=MARKER_SIZE, label=label)
-
-
-# The range of the windows of a server: the warm up of a long benchmark makes its lowest windows far
-# from the others, the percentiles leave its first ones out
-RANGE_PERCENTILES = (5, 95)
-
-
-def low_window(serie: list[float] | None) -> float:
-    return float(np.percentile(serie or [np.nan], RANGE_PERCENTILES[0]))
-
-
-def high_window(serie: list[float] | None) -> float:
-    return float(np.percentile(serie or [np.nan], RANGE_PERCENTILES[1]))
-
-
-def kept_windows(serie: list[float] | None) -> np.ndarray:
-    """The windows of a server from its 5th percentile to its 95th, all of them when they are too few to tell."""
-    windows = np.array(serie or [], dtype=float)
-    kept = windows[(windows >= low_window(serie)) & (windows <= high_window(serie))]
-    return kept if len(kept) > 1 else windows
 
 
 def profile_graph(args, bench_name: str, rack: Rack, output_dir, kind: str, filename: str):

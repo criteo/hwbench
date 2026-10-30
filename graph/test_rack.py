@@ -14,10 +14,7 @@ from graph.rack import (
     Slot,
     exhaust,
     graph_rack,
-    high_window,
-    kept_windows,
     load_rack,
-    low_window,
     rack_cdus,
     rack_position,
     rack_positions,
@@ -30,6 +27,7 @@ from graph.rack import (
 )
 from graph.test_trace import LOCATION, PATH, located_trace
 from graph.trace import Trace
+from graph.windows import high_window, kept_windows, low_window
 from hwbench.bench.monitoring_structs import MonitoringContextKeys
 
 TRACES = pathlib.Path("documentation/example/traces")
