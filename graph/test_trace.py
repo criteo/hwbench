@@ -9,6 +9,7 @@ from graph.common import cdu_header, location_header
 from graph.trace import (
     Bench,
     Trace,
+    config_differences,
     context_line,
     gpu_description,
     own_location,
@@ -321,3 +322,27 @@ def test_shared_cdu_lines():
     assert shared_cdu_lines([cooled[0], located_trace(None)]) == []
     assert shared_cdu_lines([located_trace(None), located_trace(None)]) == []
     assert cdu_header(SimpleNamespace()) == ""
+
+
+def test_config_differences():
+    """Only the jobs and directives that differ, '-' from the reference, '+' from the other job file."""
+    reference = {
+        "cpu": {"runtime": "120", "engine_module_parameter": "int128,float,matrixprod"},
+        "stream": {"runtime": "120"},
+        "memrate": {"runtime": "60"},
+    }
+    config = {
+        "cpu": {"runtime": "120", "engine_module_parameter": "int128,fft,matrixprod"},
+        "stream": {"runtime": "120", "sync_start": "time"},
+        "qsort": {"runtime": "60"},
+    }
+    assert config_differences(reference, config) == [
+        "  [cpu]",
+        "- engine_module_parameter=int128,float,matrixprod",
+        "+ engine_module_parameter=int128,fft,matrixprod",
+        "  [stream]",
+        "+ sync_start=time",
+        "- [memrate]",
+        "+ [qsort]",
+    ]
+    assert config_differences(reference, reference) == []
