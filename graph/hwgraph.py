@@ -499,7 +499,7 @@ def render_traces(args: argparse.Namespace):
         context_args = copy.copy(args)
         output_dir = pathlib.Path(args.outdir, auto_traces.output_directory_name())
         # A banner on the console separates the rendering of each context
-        banner = f"Context {index}/{len(args.auto_traces)}: {auto_traces.context}"
+        banner = f"Context {index}/{len(args.auto_traces)}: {auto_traces.context or 'none'}"
         print(f"\n{'=' * 80}\n{banner}\n{'=' * 80}")
         output_dir.mkdir(parents=True, exist_ok=True)
         # The traces found are listed in the output directory, and on the console only when verbose
@@ -510,7 +510,7 @@ def render_traces(args: argparse.Namespace):
             print("\n".join(description))
         else:
             print(
-                f"{len(auto_traces.traces)} traces of the context '{auto_traces.context}' "
+                f"{len(auto_traces.traces)} traces {auto_traces.label()} "
                 f"found in {auto_traces.directory}, listed in {traces_file}"
             )
         context_args.traces = auto_traces.traces
@@ -982,7 +982,8 @@ power_metric   : the name of a power metric, from the monitoring, to be used for
         help="""Use the traces of a context, found in a directory.
 Syntax: <directory>:<context>:<power_metric>
 directory    : where the results.json and the hwbench-<serial>-<timestamp>.tar.xz archives are looked for, recursively
-context      : the context given to hwbench with --context, or empty (<directory>::<power_metric>) to render every context;
+context      : the context given to hwbench with --context, or empty (<directory>::<power_metric>) to render every context,
+               then the traces without context, together in the no_context subdirectory;
                the traces are named after their server, which must appear once in a context
 power_metric : the power metric of every trace, as for --traces
 The graphs of each context are rendered in a subdirectory of --outdir named after it, in ASCII, '_' replacing the spaces and the other characters.
