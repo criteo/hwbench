@@ -157,11 +157,17 @@ without a `results.json` with `<trace_filename> does not contain a results.json`
 | Value | Effect |
 |---|---|
 | `<name>` | the name of the trace, like `baseline` |
-| empty, like `results.json::BMC.Server` | the serial number of the server, as hwbench read it in the DMI (`hardware.dmi.serial` of `results.json`); its hostname (`environment.kernel.nodename`) when the DMI gives none |
+| empty, like `results.json::BMC.Server` | the serial number of the server, as hwbench read it in the DMI (`hardware.dmi.serial` of `results.json`); its hostname (`environment.kernel.nodename`) when the DMI has no serial |
 | `CPU` | the model of the processor, with the number of sockets when there are several, like `1 x AMD EPYC 8534P 64-Core`; it must be unique over all the traces |
 
 A trace without serial number nor hostname must be given a name: hwgraph stops with
 `<trace_filename>: no serial number nor hostname to name the trace, please give a logical_name`.
+
+A serial the DMI left unset, of the server or of its chassis, is replaced when the trace is loaded by
+`invalid_serial_<N>`, `N` counting the servers having one by order of loading: an empty serial, one made of
+dots only, like the `............` of the Intel Avenue City servers, or `To Be Filled By O.E.M.`, whatever its case.
+hwgraph prints `<trace_filename>: invalid serial '<serial>', replaced by invalid_serial_<N>`, or
+`invalid chassis serial`. The replacement names the trace and its directories, and appears in the titles.
 
 The name becomes a directory of the [output tree](#output-tree), so keep it short and
 without spaces. Two traces with the same name stop hwgraph with
@@ -197,7 +203,17 @@ follow the question of the study.
 The first trace is the **reference**: the comparisons are expressed relative to it. To be
 compared, the traces must come from the **same job file**: hwgraph compares the `config`
 section of each `results.json` to the first one, and stops with
-`<trace_filename> is not having the same configuration file as previous traces` when they differ.
+`<trace_filename> is not having the same configuration file as previous traces` when they differ,
+followed by their differences, job by job, `-` from the reference and `+` from the trace:
+
+```
+Fatal: runs/hwbench-SRV02-20261029163702.tar.xz is not having the same configuration file as previous traces
+--- runs/hwbench-SRV01-20261029154210.tar.xz
++++ runs/hwbench-SRV02-20261029163702.tar.xz
+  [cpu]
+- engine_module_parameter=int128,float,matrixprod
++ engine_module_parameter=int128,fft,matrixprod
+```
 
 The number of benchmarks may differ: as explained in [concepts.md](concepts.md), hwgraph
 groups the benchmarks by their `job_name`, so a machine with fewer cores, which expanded the
@@ -250,11 +266,11 @@ uv run hwgraph graph --auto-traces runs:bios-v2:BMC.Server
 | an archive next to its output directory | the same run: only the archive is used |
 | a file that is not a trace of hwbench | ignored: `auto-traces: ignoring <file>: not a trace of hwbench` |
 | the context | the exact text given to hwbench; it runs from the first to the last `:`, so it can hold a `:`; quote the value when it holds a space: `--auto-traces "runs:bios tuning:BMC.Server"` |
-| an empty context: `<directory>::<power_metric>` | every context of the directory is rendered, one after the other, each in its own output directory; the traces without context are not rendered |
+| an empty context: `<directory>::<power_metric>` | every context of the directory is rendered, one after the other, each in its own output directory, then the traces without context, together in `<outdir>/no_context/` |
 | the name of each trace | its [server](#logical_name), as with an empty `logical_name` |
-| a server found several times in the context | stops hwgraph: `<serial> is found <n> times with the context '<context>': <files>` |
+| a server found several times in the context | stops hwgraph: `<serial> is found <n> times with the context '<context>': <files>`, or `<serial> is found <n> times without context: <files>` |
 | no trace in the context | stops hwgraph: `no trace with the context '<context>' in <directory>, contexts found: <contexts>` |
-| two contexts giving the same output directory | stops hwgraph: `the contexts '<context>', '<context>' are all rendered in the directory <name>` |
+| two contexts giving the same output directory | stops hwgraph: `the contexts '<context>', '<context>' are all rendered in the directory <name>`; a context like `no context` collides with the traces without context |
 | the output directory | `<outdir>/<context>/`, `<outdir>` being the directory of the traces when `--outdir` is not given; the context is written in ASCII: accents removed, `_` replacing the spaces and the other characters, so `bios tuning` renders in `runs/bios_tuning/` |
 
 The renderings of several contexts can then share the same `--outdir`.
@@ -350,6 +366,7 @@ with, only when they are the same for all of them. hwgraph prints them on the co
 | `--traces` | one or several [traces](#trace-files) | mandatory, unless `--auto-traces` is given |
 | `--auto-traces` | `<directory>:<context>:<power_metric>` | [the traces of a context](#context-of-the-runs), found in a directory, instead of `--traces` |
 | `--outdir` | a directory | where the [output tree](#output-tree) is written, created when it does not exist; mandatory with `--traces`, the directory of the traces by default with `--auto-traces`, which renders in [a subdirectory named after the context](#context-of-the-runs) |
+| `--keep-cache` | flag | keeps the traces converted for the rendering in `<outdir>/cache/`, about the size of the traces, so that the next renderings in the same directory read them without converting them again; deleted after the rendering otherwise |
 | `--no-env` | flag | does not render the [environment graphs](hwgraph-environment.md) |
 | `--no-scaling` | flag | does not render the [scaling graphs](hwgraph-scaling.md) |
 | `--no-versus` | flag | does not render the [max versus graphs](hwgraph-versus.md#max-versus) and the [comparison reports](hwgraph-versus.md#traces-comparison-reports) |
@@ -362,7 +379,7 @@ with, only when they are the same for all of them. hwgraph prints them on the co
 | `--events` | `<event_name>:<start_time>:<duration>` | [marks periods on the time graphs](#events) |
 | `--same-chassis` | flag | all the traces are servers of the same chassis: [chassis graphs](hwgraph-environment.md#per-chassis) |
 | `--same-group` | flag | all the traces are a group of servers: [group graphs](hwgraph-environment.md#per-group) |
-| `--auto-group` | flag | the group graphs of each place of the location shared by several traces: [groups of the location](hwgraph-environment.md#groups-of-the-location); not with `--same-group` |
+| `--auto-group` | flag | the group graphs of each place of the location shared by several traces: [groups of the location](hwgraph-environment.md#groups-of-the-location), and the [rack view](hwgraph-environment.md#rack-view) of each rack; not with `--same-group` |
 | `--ignore-missing-datapoint` | `zero`, `last`, default not set | [replaces the missing data points](#missing-data-points) instead of stopping |
 | `--jobs`, `-j` | integer, default half the CPUs of the host | the number of worker processes rendering the graphs; with 1, the graphs are rendered one after the other |
 | `--verbose` | flag | prints more information, like the metrics without samples that are skipped, the traces of a context, a line per trace for the stats, the environment graphs and the benchmarks summaries, and the servers of each group of `--auto-group` |
@@ -415,6 +432,7 @@ Everything is written under `--outdir`, or under `<outdir>/<context>/` with [`--
 <outdir>/
 ├── cmdline                       the command line of this rendering
 ├── auto_traces.txt               with --auto-traces: the traces used
+├── cache/                        with --keep-cache: the traces converted, reused by the next renderings in this directory
 ├── environment/
 │   ├── by_host/
 │   │   └── <logical_name>/
@@ -423,7 +441,8 @@ Everything is written under `--outdir`, or under `<outdir>/<context>/` with [`--
 │   │       └── <benchmark>/<metric>/…
 │   └── by_chassis/chassis/       with --same-chassis, or all the traces of a same chassis
 ├── by_group/                     with --same-group
-│   └── <place>/…/<place>/        with --auto-group: one subdirectory per place of the location
+│   └── <place>/…/<place>/        with --auto-group: one subdirectory per place of the location,
+│                                 with the rack_* graphs of a rack
 ├── scaling/                      performance of a job along its scaling steps
 │   ├── perf/ perf_watt/ watts/ cpu_clock/ cpu_ipc/ cpu_core_power/
 │   └── summary/
@@ -490,9 +509,16 @@ Fatal: <trace>/<benchmark>: <metric> is missing the 4th data point. Use --ignore
   resolves `--auto-traces` into one `AutoTraces` per context; `render_traces()` renders each with
   `render_trace_set()`, in the subdirectory of `--outdir` named by `output_directory_name()`.
 - **Graphs**: `graph/graph.py`. `Graph` wraps a matplotlib figure and its legend;
-  `generic_graph()` and `yerr_graph()` draw the time graphs, `numa_*` the NUMA ones.
+  `generic_graph()` and `yerr_graph()` draw the time graphs, `numa_*` the NUMA ones; the curves over
+  time are drawn by `plot_windows()`, their `warm_up()` faded, and labeled by
+  `window_statistics_in_label()`.
 - **Environment**: `graph/chassis.py` (`graph_chassis()`) and `graph/group.py`
   (`graph_group_env()`); the per-host graphs are `graph_*()` in `hwgraph.py`.
+- **Rack view**: `graph/rack.py`. `rack_positions()` tells whether a group of `--auto-group` is
+  a rack, `load_rack()` reads the metrics of `RACK_METRICS` and the CDUs of `rack_cdus()` once per
+  benchmark, `place_nodes()` lays the servers out in the height of their chassis, and
+  `graph_rack()` renders the profiles of `graph_rack_panels()` and the elevations of
+  `graph_rack_elevation()`; the heights come from `heights()` of `hwbench/environment/dmi.py`.
 - **Performance**: `graph/scaling.py` (`performance_scaling_graph()` and the `render_*()`
   functions of the distributions) and `graph/versus.py` (`max_versus_graph()`,
   `write_scaling_comparison()`, `write_scaling_step_comparisons()`,

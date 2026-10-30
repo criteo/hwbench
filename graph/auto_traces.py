@@ -18,6 +18,8 @@ AUTO_TRACES_FILE = "auto_traces.txt"
 TRACE_KEYS = ["environment", "hardware", "bench", "config"]
 # The characters kept in the name of an output directory, of a context or of a location
 CONTEXT_DIRECTORY_CHARACTERS = re.compile(r"[^A-Za-z0-9.-]+")
+# The subdirectory of --outdir rendering the traces without context
+NO_CONTEXT_DIRECTORY = "no_context"
 
 
 def ascii_directory_name(text: str) -> str:
@@ -64,6 +66,8 @@ def load_traces(directory: pathlib.Path) -> list[Trace]:
         if not isinstance(trace.get_trace(), dict) or not all(key in trace.get_trace() for key in TRACE_KEYS):
             print(f"auto-traces: ignoring {path}: not a trace of hwbench")
             continue
+        # Its header gives its context and its server: its content is read again when rendered
+        trace.forget_content()
         traces.append(trace)
     return traces
 
@@ -94,21 +98,28 @@ def print_contexts(directory: pathlib.Path) -> None:
 
 @dataclass
 class AutoTraces:
-    """The traces of a context found in a directory by --auto-traces."""
+    """The traces of a context found in a directory by --auto-traces, context None for the traces without one."""
 
     directory: pathlib.Path
-    context: str
+    context: str | None
     traces: list[Trace]
+
+    def label(self) -> str:
+        """The context in a sentence: "with the context '<context>'", or "without context"."""
+        return f"with the context '{self.context}'" if self.context is not None else "without context"
 
     def description(self) -> list[str]:
         """The traces used, one line each: their logical name and their file."""
-        lines = [f"Traces of the context '{self.context}' found in {self.directory}:"]
+        lines = [f"Traces {self.label()} found in {self.directory}:"]
         width = max(len(trace.get_name()) for trace in self.traces)
         lines += [f"{trace.get_name().ljust(width)}  {trace.get_filename()}" for trace in self.traces]
         return lines
 
     def output_directory_name(self) -> str:
-        """The subdirectory of --outdir rendering the context: its name in ASCII, see ascii_directory_name()."""
+        """The subdirectory of --outdir rendering the context: its name in ASCII, see ascii_directory_name(),
+        NO_CONTEXT_DIRECTORY for the traces without context."""
+        if self.context is None:
+            return NO_CONTEXT_DIRECTORY
         name = ascii_directory_name(self.context)
         if not name:
             fatal(f"the context '{self.context}' has no character usable in a directory name")
@@ -118,7 +129,8 @@ class AutoTraces:
 def parse_auto_traces(value: str) -> tuple[pathlib.Path, str | None, str]:
     """Split <directory>:<context>:<power_metric>: the context runs from the first to the last ':'.
 
-    An empty context, <directory>::<power_metric>, gives None: every context of the directory.
+    An empty context, <directory>::<power_metric>, gives None: every context of the directory,
+    and the traces without context.
     """
     directory, separator, rest = value.partition(":")
     context, separator2, power_metric = rest.rpartition(":")
@@ -129,48 +141,54 @@ def parse_auto_traces(value: str) -> tuple[pathlib.Path, str | None, str]:
     return pathlib.Path(directory), context or None, power_metric
 
 
-def context_traces(directory: pathlib.Path, context: str, traces: list[Trace], power_metric: str) -> AutoTraces:
-    """The traces of a context, named after their server.
+def context_traces(directory: pathlib.Path, context: str | None, traces: list[Trace], power_metric: str) -> AutoTraces:
+    """The traces of a context, or without context when None, named after their server.
 
     Each server must appear once: the same serial found several times with the same
     context makes the traces ambiguous, and stops hwgraph with the files involved.
     """
+    auto = AutoTraces(directory, context, traces)
     by_server: dict[str | None, list[Trace]] = {}
     for trace in traces:
         by_server.setdefault(trace.server_name(), []).append(trace)
     for server, server_traces in sorted(by_server.items(), key=lambda item: str(item[0])):
         if len(server_traces) > 1:
             files = ", ".join(trace.get_filename() for trace in server_traces)
-            fatal(f"{server} is found {len(server_traces)} times with the context '{context}': {files}")
+            fatal(f"{server} is found {len(server_traces)} times {auto.label()}: {files}")
 
     for trace in traces:
         # No logical name: the trace is named after its server, as with <file>::<power_metric>
         trace.metric_name = power_metric
-        trace.validate()
-    return AutoTraces(directory, context, sorted(traces, key=lambda trace: trace.get_name()))
+        # Validated when rendered, one trace at a time, from the cache of the output directory
+        trace.set_logical_name()
+    auto.traces = sorted(traces, key=lambda trace: trace.get_name())
+    return auto
 
 
 def find_auto_traces(value: str) -> list[AutoTraces]:
     """The traces of <directory>:<context>:<power_metric>, one AutoTraces per context rendered.
 
     Without context, every context of the directory is rendered, each in its own
-    subdirectory: two contexts giving the same subdirectory stop hwgraph.
+    subdirectory, then the traces without context, together in NO_CONTEXT_DIRECTORY:
+    two contexts giving the same subdirectory stop hwgraph.
     """
     directory, context, power_metric = parse_auto_traces(value)
     contexts = list_contexts(directory)
     named = sorted(c for c in contexts if c is not None)
     if context is None:
-        if not named:
-            fatal(f"no trace with a context in {directory}")
-        if None in contexts:
-            print(f"auto-traces: {len(contexts[None])} trace(s) without context in {directory} are not rendered")
+        if not contexts:
+            fatal(f"no trace in {directory}")
         selected = [context_traces(directory, name, contexts[name], power_metric) for name in named]
+        if None in contexts:
+            selected.append(context_traces(directory, None, contexts[None], power_metric))
         by_directory: dict[str, list[str]] = {}
         for auto in selected:
-            by_directory.setdefault(auto.output_directory_name(), []).append(auto.context)
+            by_directory.setdefault(auto.output_directory_name(), []).append(
+                repr(auto.context) if auto.context is not None else "the traces without context"
+            )
         for name, same in by_directory.items():
             if len(same) > 1:
-                fatal(f"the contexts {', '.join(repr(c) for c in same)} are all rendered in the directory {name}")
+                fatal(f"the contexts {', '.join(same)} are all rendered in the directory {name}")
         return selected
 
     if context not in contexts:

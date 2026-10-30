@@ -1,16 +1,22 @@
 from __future__ import annotations
 
+import itertools
+import json
 import pickle
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
+import graph.trace
 from graph.common import cdu_header, location_header
 from graph.trace import (
     Bench,
     Trace,
+    config_differences,
     context_line,
     gpu_description,
+    is_invalid_serial,
     own_location,
     shared_cdu_lines,
     shared_location,
@@ -83,9 +89,18 @@ def test_load_compressed_output_directory(tmp_path):
         Trace(str(archive))
 
 
+def test_trace_read_on_first_use(tmp_path):
+    """A trace given with --traces is read on its first use, when rendered."""
+    path = tmp_path / "results.json"
+    path.write_text('{"bench": {}, "hardware": {"dmi": {"serial": "SRV01"}}}')
+    trace = Trace(str(path), load=False)
+    assert "trace" not in trace.__dict__
+    assert trace.get_server_serial() == "SRV01"
+
+
 def test_content_sent_without(tmp_path):
-    """A trace is sent to the workers without its content, read again on its first use, as after being
-    forgotten at the end of a task."""
+    """A trace is sent to the workers without its content, read again on the first use of its benchmarks,
+    as after being forgotten at the end of a task: its hardware is read without reading it again."""
     path = tmp_path / "results.json"
     path.write_text('{"bench": {}, "hardware": {"dmi": {"serial": "SRV01"}}}')
     trace = Trace(str(path), "srv01")
@@ -93,9 +108,67 @@ def test_content_sent_without(tmp_path):
     assert "trace" not in sent.__dict__
     assert sent.get_name() == "srv01"
     assert sent.get_server_serial() == "SRV01"
+    assert "trace" not in sent.__dict__
+    assert sent.bench_list() == {}
+    assert "trace" in sent.__dict__
     trace.forget_content()
     assert "trace" not in trace.__dict__
     assert trace.get_trace() == {"bench": {}, "hardware": {"dmi": {"serial": "SRV01"}}}
+
+
+def test_invalid_serial(tmp_path, monkeypatch, capsys):
+    """A serial made of dots only, the same for every server having it, is replaced by invalid_serial_<N>,
+    N counting these servers; a trace read again by a worker keeps its number."""
+    monkeypatch.setattr(graph.trace, "INVALID_SERIAL_NUMBERS", itertools.count(1))
+    traces = []
+    for name, serial, chassis in (("a", "....", "...."), ("b", "SRV01", "CHS01"), ("c", " .. ", "CHS02")):
+        path = tmp_path / f"{name}.json"
+        path.write_text(json.dumps({"hardware": {"dmi": {"serial": serial, "chassis": {"serial": chassis}}}}))
+        traces.append(Trace(str(path)))
+    assert [t.get_server_serial() for t in traces] == ["invalid_serial_1", "SRV01", "invalid_serial_2"]
+    assert [t.get_chassis_serial() for t in traces] == ["invalid_serial_1", "CHS01", "CHS02"]
+    out = capsys.readouterr().out
+    assert f"{tmp_path / 'a.json'}: invalid chassis serial '....', replaced by invalid_serial_1" in out
+    assert f"{tmp_path / 'c.json'}: invalid serial ' .. ', replaced by invalid_serial_2" in out
+
+    sent = pickle.loads(pickle.dumps(traces[2]))
+    assert sent.get_server_serial() == "invalid_serial_2"
+    traces[0].forget_content()
+    assert traces[0].get_server_serial() == "invalid_serial_1"
+    # Read again from its conversion in the cache of the output directory, by the main process or a worker
+    traces[2].use_cache(tmp_path / "cache")
+    assert traces[2].get_trace()["hardware"]["dmi"]["serial"] == "invalid_serial_2"
+    worker = pickle.loads(pickle.dumps(traces[2]))
+    assert "trace" not in worker.__dict__
+    assert worker.get_trace()["hardware"]["dmi"]["serial"] == "invalid_serial_2"
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize(
+    ("serial", "invalid"),
+    [
+        ("", True),
+        ("  ", True),
+        (None, True),
+        ("............", True),
+        ("To Be Filled By O.E.M.", True),
+        ("TO BE FILLED BY OEM", True),
+        ("SRV01", False),
+        ("A.B", False),
+    ],
+)
+def test_is_invalid_serial(serial, invalid):
+    """A serial left unset is empty, made of dots only, or the classic 'To Be Filled By O.E.M.'."""
+    assert is_invalid_serial(serial) is invalid
+
+
+def test_without_serial_kept(tmp_path, monkeypatch):
+    """A DMI without serial nor chassis is kept as is, without consuming a number."""
+    monkeypatch.setattr(graph.trace, "INVALID_SERIAL_NUMBERS", itertools.count(1))
+    path = tmp_path / "results.json"
+    path.write_text(json.dumps({"hardware": {"dmi": {}}}))
+    assert Trace(str(path)).get_dmi() == {}
+    assert next(graph.trace.INVALID_SERIAL_NUMBERS) == 1
 
 
 class RamTrace:
@@ -135,7 +208,7 @@ def test_incomplete_ram(ram, expected, capsys):
 @pytest.mark.parametrize(
     ("serial", "nodename", "expected"),
     [
-        ("CZ2D2N08V8", "host01", "CZ2D2N08V8"),
+        ("SRV01", "host01", "SRV01"),
         (None, "host01", "host01"),
         ("  ", "host01", "host01"),
     ],
@@ -309,3 +382,51 @@ def test_shared_cdu_lines():
     assert shared_cdu_lines([cooled[0], located_trace(None)]) == []
     assert shared_cdu_lines([located_trace(None), located_trace(None)]) == []
     assert cdu_header(SimpleNamespace()) == ""
+
+
+def test_config_differences():
+    """Only the jobs and directives that differ, '-' from the reference, '+' from the other job file."""
+    reference = {
+        "cpu": {"runtime": "120", "engine_module_parameter": "int128,float,matrixprod"},
+        "stream": {"runtime": "120"},
+        "memrate": {"runtime": "60"},
+    }
+    config = {
+        "cpu": {"runtime": "120", "engine_module_parameter": "int128,fft,matrixprod"},
+        "stream": {"runtime": "120", "sync_start": "time"},
+        "qsort": {"runtime": "60"},
+    }
+    assert config_differences(reference, config) == [
+        "  [cpu]",
+        "- engine_module_parameter=int128,float,matrixprod",
+        "+ engine_module_parameter=int128,fft,matrixprod",
+        "  [stream]",
+        "+ sync_start=time",
+        "- [memrate]",
+        "+ [qsort]",
+    ]
+    assert config_differences(reference, reference) == []
+
+
+def test_aggregate_cpu_clock_of_the_pinned_cores():
+    """The clock of a scaling step: the mean of the windows of the pinned cores after their warm up, its error
+    from their 5th percentile window to their 95th, a single low reading of a core not stretching it."""
+    from graph.windows import warm_up
+
+    trace = Trace("documentation/example/traces/numa.json", "numa", "BMC.Server")
+    bench = trace.bench(next(iter(trace.get_trace()["bench"])))
+    cores = bench.get_monitoring_metric(MonitoringContextKeys.Freq)["CPU"]
+    pinned = bench.pinned_core_names()
+    # A core reading a single low frequency once, its warm up long ago
+    core = cores[sorted(pinned & set(cores))[0]]
+    core.get_min()[5] = 100.0
+    core.get_mean()[0] = 1000.0
+    windows = [np.array(cores[name].get_mean(), dtype=float) for name in sorted(pinned & set(cores))]
+    pooled = np.concatenate(windows)
+    drawn = np.concatenate([serie[~warm_up(serie)] for serie in windows])
+    clock, clock_err = [], []
+    bench.add_perf(cpu_clock=clock, cpu_clock_err=clock_err, cpu_clock_cores=pinned)
+    assert clock == [pytest.approx(drawn.mean())]
+    low, high = np.percentile(pooled, 5), np.percentile(pooled, 95)
+    assert clock_err == [(pytest.approx(max(drawn.mean() - low, 0)), pytest.approx(max(high - drawn.mean(), 0)))]
+    assert clock[0] - clock_err[0][0] > 1000.0

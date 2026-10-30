@@ -3,15 +3,23 @@ import math
 import numpy as np
 
 from graph.common import cdu_header, context_header, location_header
-from graph.graph import MAX_LEGEND_ITEMS, Graph, draw_lines, get_max_value_string_length, statistics_in_label
+from graph.graph import (
+    MAX_LEGEND_ITEMS,
+    WINDOW_STATISTICS_LEGEND,
+    Graph,
+    draw_lines,
+    get_max_value_string_length,
+    plot_windows,
+    window_statistics_in_label,
+)
 from hwbench.bench.monitoring_structs import MonitoringContextKeys, PowerCategories, PowerConsumptionContextKeys
 
 
 def statistics_labels(series: dict[str, np.ndarray]) -> dict[str, str]:
-    """The labels of curves with their [min; mean; stddev; max], aligned on each other."""
+    """The labels of curves over time with their [p5; mean; stddev; p95], aligned on each other."""
     title_length = max(len(name) for name in series)
     value_length = max(get_max_value_string_length(serie) for serie in series.values())
-    return {name: statistics_in_label(name, serie, title_length, value_length) for name, serie in series.items()}
+    return {name: window_statistics_in_label(name, serie, title_length, value_length) for name, serie in series.items()}
 
 
 def named_servers(series: dict[str, np.ndarray], capacity: int = MAX_LEGEND_ITEMS) -> tuple[list[str], list[str]]:
@@ -50,13 +58,14 @@ def graph_sum_ratio(args, bench, bench_name, output_dir, time_serie, serie, base
         "Percent of the whole server",
         output_dir,
         f"time_watt_percent_{base_outfile}{place_suffix(args)}_by_group",
+        legend_title=WINDOW_STATISTICS_LEGEND,
     )
 
     # For each type metrics stored into the serie
     series = {f"{component!s}": np.array(serie[str(component)])[order] for component in serie if serie[str(component)]}
     labels = statistics_labels(series) if series else {}
     for name, y_serie in series.items():
-        graph.get_ax().plot(x_serie, y_serie, "", label=labels[name], marker=".")
+        plot_windows(graph.get_ax(), x_serie, y_serie, "", label=labels[name], marker=".")
 
     graph.prepare_axes(
         3 * bench.get_time_interval(),
@@ -80,6 +89,7 @@ def graph_sum_of_servers(args, bench, bench_name, output_dir, time_serie, serie,
         "Watts",
         output_dir,
         f"time_watt_{base_outfile}{place_suffix(args)}_by_group",
+        legend_title=WINDOW_STATISTICS_LEGEND,
     )
 
     # For each type metrics stored into the serie
@@ -88,7 +98,7 @@ def graph_sum_of_servers(args, bench, bench_name, output_dir, time_serie, serie,
     }
     labels = statistics_labels(series) if series else {}
     for name, y_serie in series.items():
-        graph.get_ax().plot(x_serie, y_serie, "", label=labels[name], marker=".")
+        plot_windows(graph.get_ax(), x_serie, y_serie, "", label=labels[name], marker=".")
 
     # The axis keeps up to 15 ticks, as precise for a rack as for a whole site
     y_major = round_step(max((max(y_serie) for y_serie in series.values()), default=0))
@@ -114,19 +124,20 @@ def graph_servers(args, bench, bench_name, output_dir, time_serie, serie, base_o
         "Watts",
         output_dir,
         f"time_watt_{base_outfile}{place_suffix(args)}_by_servers",
+        legend_title=WINDOW_STATISTICS_LEGEND,
     )
 
     series = {trace.get_name(): np.array(serie[trace.get_name()])[order] for trace in args.traces}
     highest, lowest = named_servers(series)
     labels = statistics_labels({name: series[name] for name in highest + lowest})
     for name in highest:
-        graph.get_ax().plot(x_serie, series[name], "", label=labels[name], marker=".")
+        plot_windows(graph.get_ax(), x_serie, series[name], "", label=labels[name], marker=".")
     if lowest:
         # The legend gives the highest means, the number of servers between them and the lowest means
         others = [name for name in series if name not in labels]
         graph.get_ax().plot([], [], " ", label=f"… {len(others)} other servers between")
         for name in lowest:
-            graph.get_ax().plot(x_serie, series[name], "", label=labels[name], marker=".")
+            plot_windows(graph.get_ax(), x_serie, series[name], "", label=labels[name], marker=".")
         draw_lines(graph.get_ax(), x_serie, [series[name] for name in others])
 
     graph.prepare_axes(

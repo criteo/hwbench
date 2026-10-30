@@ -3,15 +3,21 @@ from __future__ import annotations
 import dataclasses
 import functools
 import importlib
+import itertools
 import json
 import pathlib
+import re
 import tarfile
 import urllib.parse
 from enum import StrEnum
 from statistics import mean
 from typing import Any, Callable
 
+import numpy as np
+
 from graph.common import fatal
+from graph.trace_cache import cache_files, read_cache, write_cache
+from graph.windows import high_window, low_window, warm_up
 from hwbench.bench.engine import Resource
 from hwbench.bench.monitoring_structs import (
     CORE_FAMILY,
@@ -38,6 +44,22 @@ EVENTS = "events"
 MIN = "min"
 MAX = "max"
 MEAN = "mean"
+
+# The prefix replacing a serial the DMI left unset: empty, made of dots only like the '............' of
+# the Intel Avenue City servers, naming a hidden directory, or the classic 'To Be Filled By O.E.M.',
+# the same for every server having it.
+INVALID_SERIAL = "invalid_serial_"
+# The serials left unset once lowercased, without their spaces and dots
+UNSET_SERIALS = ("", "tobefilledbyoem")
+# The numbers of the servers having such a serial, by order of loading
+INVALID_SERIAL_NUMBERS = itertools.count(1)
+
+
+def is_invalid_serial(serial) -> bool:
+    """Whether a serial is left unset: empty, made of dots only, or 'To Be Filled By O.E.M.'."""
+    if serial is None:
+        return True
+    return isinstance(serial, str) and re.sub(r"[\s.]", "", serial.lower()) in UNSET_SERIALS
 
 
 @dataclasses.dataclass(frozen=True)
@@ -373,7 +395,7 @@ class Bench:
                     # A component can be registered without ever reporting a
                     # sample (all-smi does that for the metrics a GPU does not
                     # support): there is nothing to render for it.
-                    if component.get_mean():
+                    if len(component.get_mean()):
                         metrics.append(component)
         except KeyError:
             pass
@@ -619,7 +641,9 @@ class Bench:
         named after. names restricts the computation to the components used
         during the benchmark (the pinned cores, the burnt GPUs); None averages
         every component of the family. Nothing is recorded when none reported
-        the metric.
+        the metric. The mean leaves out the warm up of each component, and the
+        error goes from the 5th percentile of their windows to their 95th, as
+        the curves over time and the rack view do.
         """
         if target is None:
             return
@@ -629,29 +653,35 @@ class Bench:
         except KeyError:
             return
 
-        min_values = []
-        mean_values = []
-        max_values = []
+        # The windows of each component, and the ones after its warm up, see warm_up()
+        windows = []
+        drawn = []
         for name, metric in components.get(str(family), {}).items():
             if names is not None and name not in names:
                 continue
-            # MIN of min ? Mean of mean ? Max of max ?
-            min_values.append(min(metric.get_min()))
-            mean_values.append(mean(metric.get_mean()))
-            max_values.append(max(metric.get_max()))
+            serie = np.asarray(metric.get_mean(), dtype=float)
+            if not len(serie):
+                continue
+            windows.append(serie)
+            drawn.append(serie[np.isfinite(serie) & ~warm_up(serie)])
 
-        if not mean_values:
+        if not windows or not len(np.concatenate(drawn)):
             return
 
-        mean_value = mean(mean_values)
+        # The mean of the windows after the warm up of each component
+        mean_value = float(np.mean(np.concatenate(drawn)))
         if index is None:
             target.append(mean_value)
         else:
             target[index] = mean_value
 
-        # If we want to keep the error distribution to plot error bars
+        # If we want to keep the error distribution to plot error bars: from the 5th percentile of the
+        # windows of the components to their 95th, a single low reading of a core does not stretch it.
+        # The mean is not a percentile: when out of them, the bar ends at the mean.
         if target_err is not None:
-            metric_err = (mean_value - min(min_values), max(max_values) - mean_value)
+            pooled = np.concatenate(windows)
+            low, high = low_window(pooled), high_window(pooled)
+            metric_err = (max(mean_value - low, 0.0), max(high - mean_value, 0.0))
             if index is None:
                 target_err.append(metric_err)
             else:
@@ -721,6 +751,29 @@ def context_line(traces: list) -> str | None:
     return "Contexts: " + ", ".join(f"{name}: {context}" for name, context in contexts.items())
 
 
+def config_differences(reference: dict, config: dict) -> list[str]:
+    """The differences between two job files, as kept in the config section of results.json: the
+    [job] of each difference, then its directives, '-' from the reference, '+' from the other."""
+    lines = []
+    for job in list(reference) + [job for job in config if job not in reference]:
+        if job not in config:
+            lines.append(f"- [{job}]")
+        elif job not in reference:
+            lines.append(f"+ [{job}]")
+        else:
+            directives = list(reference[job]) + [key for key in config[job] if key not in reference[job]]
+            changed = [key for key in directives if reference[job].get(key) != config[job].get(key)]
+            if not changed:
+                continue
+            lines.append(f"  [{job}]")
+            for key in changed:
+                if key in reference[job]:
+                    lines.append(f"- {key}={reference[job][key]}")
+                if key in config[job]:
+                    lines.append(f"+ {key}={config[job][key]}")
+    return lines
+
+
 def shared_location(traces: list) -> Location | None:
     """The location shared by all the traces: the places their paths start with, from the widest,
     like the rack of the servers of a rack. None when they share no known place, or one has no location."""
@@ -773,22 +826,25 @@ class Trace:
         filename: str = "",
         logical_name: str = "",
         metric_name: str = "",
+        load: bool = True,
     ):
+        """A trace of hwbench, read on its first use when not loaded now."""
         self.filename = filename
         self.logical_name = logical_name
         self.metric_name = metric_name
         # Benchmarks already reported as not completing on time, so the warning
         # is printed only once per bench instead of on every add_perf() call.
         self.incomplete_runtime_reported: set = set()
-        self.__load_file()
+        if load:
+            self.__load_file()
 
     def get_name(self) -> str:
         return self.logical_name
 
     def __getstate__(self) -> dict:
         """The trace sent to the workers of the graphs, without its content: a worker reads it again when
-        a task uses it, instead of every worker receiving all the traces, a fleet of long benchmarks
-        exceeding the memory of the host."""
+        a task uses its benchmarks, from the cache of the output directory, instead of every worker
+        receiving all the traces, a fleet of long benchmarks exceeding the memory of the host."""
         state = self.__dict__.copy()
         state.pop("trace", None)
         return state
@@ -801,12 +857,44 @@ class Trace:
         return self.__dict__["trace"]
 
     def forget_content(self) -> None:
-        """Drop the content of the trace, read again on its next use: a worker keeps the traces of its
-        current task only."""
+        """Drop the content of the trace, read again on the next use of its benchmarks: a worker keeps the
+        traces of its current task only, the main process a single trace at a time."""
         if self.filename:
             self.__dict__.pop("trace", None)
 
+    def use_cache(self, directory: pathlib.Path) -> None:
+        """Read the trace from now on from its conversion in directory, the cache of the output directory:
+        its series mapped in memory are shared by the workers instead of being parsed and copied by each
+        of them. The trace is converted unless an earlier rendering in this output directory did it."""
+        files = cache_files(directory, self.filename)
+        if not files[0].exists():
+            write_cache(self.trace, *files)
+        self.cache = files
+        self.forget_content()
+
+    def forget_cache(self) -> None:
+        """Read the trace from its file again, its conversion being deleted."""
+        self.forget_content()
+        self.__dict__.pop("cache", None)
+
     def __load_file(self):
+        """Read the trace: from its conversion in the cache when it has one, from its file otherwise."""
+        cache = self.__dict__.get("cache")
+        self.trace = read_cache(*cache) if cache else self.__read_file()
+        # A conversion in the cache holds the serials already replaced
+        self.__replace_invalid_serials()
+        # Its hardware, environment and location, a few kB, kept when its content is forgotten: reading
+        # them does not read the trace again
+        self.header = (
+            {key: value for key, value in self.trace.items() if key != "bench"} if isinstance(self.trace, dict) else {}
+        )
+
+    def __header(self) -> dict:
+        """The trace without its benchmarks: the part kept when its content is forgotten, its content when
+        read or not read yet."""
+        return self.trace if "trace" in self.__dict__ or "header" not in self.__dict__ else self.header
+
+    def __read_file(self):
         """Validate the new trace file"""
         if not pathlib.Path(self.filename).is_file():
             raise ValueError(f"{self.filename} is not a valid file")
@@ -821,11 +909,38 @@ class Trace:
 
         # Can we load the input file as a valid json ?
         try:
-            self.trace = json.loads(content)
+            return json.loads(content)
         except ValueError:
             raise ValueError(f"{self.filename} is not a valid JSON file")
 
-    def validate(self) -> None:
+    def __replace_invalid_serials(self) -> None:
+        """Replace the serials of the server and of its chassis left unset by invalid_serial_<N>, N counting
+        the servers having one: a trace read again by a worker keeps the number given the first time.
+        A DMI without serial is kept."""
+        hardware = self.trace.get("hardware") if isinstance(self.trace, dict) else None
+        dmi = hardware.get("dmi") if isinstance(hardware, dict) else None
+        if not isinstance(dmi, dict):
+            return
+        chassis = dmi.get("chassis")
+        if not isinstance(chassis, dict):
+            chassis = {}
+        unset = [
+            (item, name)
+            for item, name in ((dmi, "serial"), (chassis, "chassis serial"))
+            if "serial" in item and is_invalid_serial(item["serial"])
+        ]
+        if not unset:
+            return
+        first_load = "invalid_serial" not in self.__dict__
+        if first_load:
+            self.invalid_serial = f"{INVALID_SERIAL}{next(INVALID_SERIAL_NUMBERS)}"
+        for item, name in unset:
+            if first_load:
+                print(f"{self.filename}: invalid {name} '{item['serial']}', replaced by {self.invalid_serial}")
+            item["serial"] = self.invalid_serial
+
+    def set_logical_name(self) -> None:
+        """Name the trace, from its header only."""
         # If no logical name was given, let's use the serial number as a default
         if not self.logical_name:
             self.logical_name = self.default_logical_name()
@@ -836,6 +951,8 @@ class Trace:
                 self.logical_name = f"{self.get_sockets_count()} x "
             self.logical_name += self.get_sanitized_cpu_model()
 
+    def validate(self) -> None:
+        self.set_logical_name()
         # Let's check if the monitoring metrics exists in the first job
         first_bench = self.first_bench()
         metrics = first_bench.load_monitoring()
@@ -881,22 +998,22 @@ class Trace:
         return self.trace
 
     def get_hardware(self) -> dict:
-        return self.trace["hardware"]
+        return self.__header()["hardware"]
 
     def get_original_config(self) -> dict:
-        return self.trace["config"]
+        return self.__header()["config"]
 
     def get_environment(self) -> dict:
-        return self.trace["environment"]
+        return self.__header()["environment"]
 
     def get_context(self) -> str | None:
         """The context of the run, given to hwbench with --context; None for a trace without one."""
-        context = self.trace.get("context")
+        context = self.__header().get("context")
         return context if isinstance(context, str) and context else None
 
     def get_location(self) -> Location | None:
         """The location of the server, given to hwbench by the environment file; None for a trace without one."""
-        location = self.trace.get("location")
+        location = self.__header().get("location")
         return Location.from_dict(location) if isinstance(location, dict) and location.get("path") else None
 
     def get_location_line(self) -> str | None:
@@ -971,6 +1088,15 @@ class Trace:
 
     def get_chassis_product(self):
         return self.get_dmi()["chassis"]["product"]
+
+    def get_height(self) -> int:
+        """The height of the server in rack units: 1 when hwbench did not save it."""
+        return self.get_dmi().get("height") or 1
+
+    def get_chassis_height(self) -> int:
+        """The height of the chassis holding the server in rack units: the one of the server when hwbench did not
+        save it."""
+        return self.get_dmi()["chassis"].get("height") or self.get_height()
 
     def get_server_serial(self):
         return self.get_dmi()["serial"]
