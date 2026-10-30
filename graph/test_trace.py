@@ -5,6 +5,7 @@ import json
 import pickle
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 import graph.trace
@@ -405,3 +406,27 @@ def test_config_differences():
         "+ [qsort]",
     ]
     assert config_differences(reference, reference) == []
+
+
+def test_aggregate_cpu_clock_of_the_pinned_cores():
+    """The clock of a scaling step: the mean of the windows of the pinned cores after their warm up, its error
+    from their 5th percentile window to their 95th, a single low reading of a core not stretching it."""
+    from graph.windows import warm_up
+
+    trace = Trace("documentation/example/traces/numa.json", "numa", "BMC.Server")
+    bench = trace.bench(next(iter(trace.get_trace()["bench"])))
+    cores = bench.get_monitoring_metric(MonitoringContextKeys.Freq)["CPU"]
+    pinned = bench.pinned_core_names()
+    # A core reading a single low frequency once, its warm up long ago
+    core = cores[sorted(pinned & set(cores))[0]]
+    core.get_min()[5] = 100.0
+    core.get_mean()[0] = 1000.0
+    windows = [np.array(cores[name].get_mean(), dtype=float) for name in sorted(pinned & set(cores))]
+    pooled = np.concatenate(windows)
+    drawn = np.concatenate([serie[~warm_up(serie)] for serie in windows])
+    clock, clock_err = [], []
+    bench.add_perf(cpu_clock=clock, cpu_clock_err=clock_err, cpu_clock_cores=pinned)
+    assert clock == [pytest.approx(drawn.mean())]
+    low, high = np.percentile(pooled, 5), np.percentile(pooled, 95)
+    assert clock_err == [(pytest.approx(max(drawn.mean() - low, 0)), pytest.approx(max(high - drawn.mean(), 0)))]
+    assert clock[0] - clock_err[0][0] > 1000.0

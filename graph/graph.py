@@ -12,7 +12,7 @@ from matplotlib.ticker import AutoMinorLocator, FuncFormatter, MultipleLocator
 
 from graph.common import context_header, fatal
 from graph.trace import Bench, gpu_description
-from graph.windows import high_window, in_range, low_window, warm_up, without_warm_up
+from graph.windows import RANGE_PERCENTILES, high_window, in_range, low_window, warm_up, without_warm_up
 from hwbench.bench.engine import Resource
 from hwbench.bench.monitoring_structs import CORE_FAMILY, MonitoringContextKeys, MonitorMetric
 from hwbench.utils.helpers import cpu_list_to_range
@@ -81,6 +81,12 @@ MAX_LEGEND_ITEMS = 36
 # time by window_statistics_in_label()
 STATISTICS_LEGEND = "component [min; mean; stddev; max]\n"
 WINDOW_STATISTICS_LEGEND = "component [p5; mean; stddev; p95]\n"
+# The note under the graphs whose error bars go from the 5th percentile of the windows of the cores to
+# their 95th, see Bench.add_perf()
+RANGE_BARS_NOTE = (
+    f"Error bars: the windows of the cores from their {RANGE_PERCENTILES[0]}th percentile to their "
+    f"{RANGE_PERCENTILES[1]}th; the mean leaves out the warm up of each core"
+)
 
 
 class Graph:

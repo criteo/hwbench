@@ -25,7 +25,7 @@ inserted when the module has several:
 | `perf` | `max_perf_total_…`, `max_perf_per_core_…` | the best performance, in total and per physical core of the machine; bigger is better |
 | `perf_watt` | `max_perf_total_…`, `max_perf_per_core_…` | the performance per Watt of that run; bigger is better |
 | `watts` | `max_perf_total_…`, `max_perf_per_core_…` | the power of that run; lower is better |
-| `cpu_clock` | `max_perf_total_…` | the frequency of the pinned cores during that run |
+| `cpu_clock` | `max_perf_total_…` | the frequency of the pinned cores during that run, without the [warm up](hwgraph-environment.md#curves-over-time) of each |
 
 A benchmark that was skipped is labelled `benchmark skipped`.
 

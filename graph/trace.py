@@ -13,8 +13,11 @@ from enum import StrEnum
 from statistics import mean
 from typing import Any, Callable
 
+import numpy as np
+
 from graph.common import fatal
 from graph.trace_cache import cache_files, read_cache, write_cache
+from graph.windows import high_window, low_window, warm_up
 from hwbench.bench.engine import Resource
 from hwbench.bench.monitoring_structs import (
     CORE_FAMILY,
@@ -638,7 +641,9 @@ class Bench:
         named after. names restricts the computation to the components used
         during the benchmark (the pinned cores, the burnt GPUs); None averages
         every component of the family. Nothing is recorded when none reported
-        the metric.
+        the metric. The mean leaves out the warm up of each component, and the
+        error goes from the 5th percentile of their windows to their 95th, as
+        the curves over time and the rack view do.
         """
         if target is None:
             return
@@ -648,29 +653,35 @@ class Bench:
         except KeyError:
             return
 
-        min_values = []
-        mean_values = []
-        max_values = []
+        # The windows of each component, and the ones after its warm up, see warm_up()
+        windows = []
+        drawn = []
         for name, metric in components.get(str(family), {}).items():
             if names is not None and name not in names:
                 continue
-            # MIN of min ? Mean of mean ? Max of max ?
-            min_values.append(min(metric.get_min()))
-            mean_values.append(mean(metric.get_mean()))
-            max_values.append(max(metric.get_max()))
+            serie = np.asarray(metric.get_mean(), dtype=float)
+            if not len(serie):
+                continue
+            windows.append(serie)
+            drawn.append(serie[np.isfinite(serie) & ~warm_up(serie)])
 
-        if not mean_values:
+        if not windows or not len(np.concatenate(drawn)):
             return
 
-        mean_value = mean(mean_values)
+        # The mean of the windows after the warm up of each component
+        mean_value = float(np.mean(np.concatenate(drawn)))
         if index is None:
             target.append(mean_value)
         else:
             target[index] = mean_value
 
-        # If we want to keep the error distribution to plot error bars
+        # If we want to keep the error distribution to plot error bars: from the 5th percentile of the
+        # windows of the components to their 95th, a single low reading of a core does not stretch it.
+        # The mean is not a percentile: when out of them, the bar ends at the mean.
         if target_err is not None:
-            metric_err = (mean_value - min(min_values), max(max_values) - mean_value)
+            pooled = np.concatenate(windows)
+            low, high = low_window(pooled), high_window(pooled)
+            metric_err = (max(mean_value - low, 0.0), max(high - mean_value, 0.0))
             if index is None:
                 target_err.append(metric_err)
             else:
