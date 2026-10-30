@@ -250,11 +250,11 @@ uv run hwgraph graph --auto-traces runs:bios-v2:BMC.Server
 | an archive next to its output directory | the same run: only the archive is used |
 | a file that is not a trace of hwbench | ignored: `auto-traces: ignoring <file>: not a trace of hwbench` |
 | the context | the exact text given to hwbench; it runs from the first to the last `:`, so it can hold a `:`; quote the value when it holds a space: `--auto-traces "runs:bios tuning:BMC.Server"` |
-| an empty context: `<directory>::<power_metric>` | every context of the directory is rendered, one after the other, each in its own output directory; the traces without context are not rendered |
+| an empty context: `<directory>::<power_metric>` | every context of the directory is rendered, one after the other, each in its own output directory, then the traces without context, together in `<outdir>/no_context/` |
 | the name of each trace | its [server](#logical_name), as with an empty `logical_name` |
-| a server found several times in the context | stops hwgraph: `<serial> is found <n> times with the context '<context>': <files>` |
+| a server found several times in the context | stops hwgraph: `<serial> is found <n> times with the context '<context>': <files>`, or `<serial> is found <n> times without context: <files>` |
 | no trace in the context | stops hwgraph: `no trace with the context '<context>' in <directory>, contexts found: <contexts>` |
-| two contexts giving the same output directory | stops hwgraph: `the contexts '<context>', '<context>' are all rendered in the directory <name>` |
+| two contexts giving the same output directory | stops hwgraph: `the contexts '<context>', '<context>' are all rendered in the directory <name>`; a context like `no context` collides with the traces without context |
 | the output directory | `<outdir>/<context>/`, `<outdir>` being the directory of the traces when `--outdir` is not given; the context is written in ASCII: accents removed, `_` replacing the spaces and the other characters, so `bios tuning` renders in `runs/bios_tuning/` |
 
 The renderings of several contexts can then share the same `--outdir`.
