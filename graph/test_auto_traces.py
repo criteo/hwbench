@@ -110,15 +110,28 @@ def test_output_directory_name():
 
 
 def test_auto_traces_every_context(runs, reference, capsys):
-    """Without context, every context is rendered; the traces without context are not."""
+    """Without context, every context is rendered, then the traces without context together."""
     autos = find_auto_traces(f"{runs}::CPU.package")
     assert [(auto.context, [trace.get_name() for trace in auto.traces]) for auto in autos] == [
         ("bios-v1", ["SRV01"]),
         ("bios-v2", ["SRV01", "SRV02"]),
+        (None, ["SRV03"]),
     ]
-    assert "1 trace(s) without context" in capsys.readouterr().out
+    assert [auto.output_directory_name() for auto in autos] == ["bios-v1", "bios-v2", "no_context"]
+    assert autos[2].description()[0] == f"Traces without context found in {runs}:"
+    assert context_line(autos[2].traces) is None
+
+    # A context named like the directory of the traces without context would render over them
+    run(runs / "hwbench-out-8", reference, "SRV01", "no context")
+    with pytest.raises(SystemExit):
+        find_auto_traces(f"{runs}::CPU.package")
+    assert (
+        "the contexts 'no context', the traces without context are all rendered in the directory no_context"
+        in capsys.readouterr().err
+    )
 
     # Two contexts giving the same subdirectory would render over each other
+    (runs / "hwbench-out-8" / "results.json").unlink()
     run(runs / "hwbench-out-6", reference, "SRV01", "bios v2")
     run(runs / "hwbench-out-7", reference, "SRV01", "bios:v2")
     with pytest.raises(SystemExit):
