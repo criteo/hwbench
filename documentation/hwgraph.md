@@ -197,7 +197,17 @@ follow the question of the study.
 The first trace is the **reference**: the comparisons are expressed relative to it. To be
 compared, the traces must come from the **same job file**: hwgraph compares the `config`
 section of each `results.json` to the first one, and stops with
-`<trace_filename> is not having the same configuration file as previous traces` when they differ.
+`<trace_filename> is not having the same configuration file as previous traces` when they differ,
+followed by their differences, job by job, `-` from the reference and `+` from the trace:
+
+```
+Fatal: runs/hwbench-SRV02-20261029163702.tar.xz is not having the same configuration file as previous traces
+--- runs/hwbench-SRV01-20261029154210.tar.xz
++++ runs/hwbench-SRV02-20261029163702.tar.xz
+  [cpu]
+- engine_module_parameter=int128,float,matrixprod
++ engine_module_parameter=int128,fft,matrixprod
+```
 
 The number of benchmarks may differ: as explained in [concepts.md](concepts.md), hwgraph
 groups the benchmarks by their `job_name`, so a machine with fewer cores, which expanded the
