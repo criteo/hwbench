@@ -37,8 +37,8 @@ with `--no-scaling`, or for a job with a single benchmark (`No scaling detected 
 | `perf` | the performance of the engine | dotted lines show the linear performance projection of each trace, when there are more than 3 steps |
 | `perf_watt` | the performance per Watt of the `power_metric` | |
 | `watts` | the power of the `power_metric`, with min and max | |
-| `cpu_clock` | the mean frequency of the cores, with min and max | `all_cores` and `pinned_cores` |
-| `cpu_ipc` | the mean IPC of the cores, with min and max | `all_cores` and `pinned_cores`; only when the trace collected the IPC |
+| `cpu_clock` | the mean frequency of the cores, without the [warm up](hwgraph-environment.md#curves-over-time) of each, from the 5th percentile of their windows to their 95th | `all_cores` and `pinned_cores` |
+| `cpu_ipc` | the mean IPC of the cores, as `cpu_clock` | `all_cores` and `pinned_cores`; only when the trace collected the IPC |
 
 The graphs of this page are rendered from the [reference dataset](example/README.md): the `cpu` job (`float128`) of two configurations of the same server, `baseline` and `hpc`, scaled from 32 to 640 workers.
 
