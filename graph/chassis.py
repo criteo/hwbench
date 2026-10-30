@@ -5,7 +5,7 @@ from typing import cast
 import numpy as np
 
 from graph.common import cdu_header, context_header, location_header
-from graph.graph import Graph, statistics_in_label
+from graph.graph import WINDOW_STATISTICS_LEGEND, Graph, plot_windows, window_statistics_in_label
 from hwbench.bench.monitoring_structs import MonitoringContextKeys, PowerCategories, PowerConsumptionContextKeys
 
 # The components of a server: they are neither a server nor shared on the chassis.
@@ -139,6 +139,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             y_label,
             outdir,
             f"time_watt_{base_outfile}_by_{graph_type!s}",
+            legend_title=WINDOW_STATISTICS_LEGEND,
         )
 
         if graph_type == PowerCategories.SERVERINCHASSIS:
@@ -158,15 +159,21 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             curve_label = str(component)
             if component in [PowerCategories.SERVER, PowerCategories.SERVERINCHASSIS]:
                 curve_label = f"sum of {component!s}"
-            curve_label = statistics_in_label(curve_label, y_serie)
-            graph.get_ax().plot(
-                x_serie, y_serie, "", label=curve_label, marker=get_marker(cast(PowerCategories, component))
+            curve_label = window_statistics_in_label(curve_label, y_serie)
+            plot_windows(
+                graph.get_ax(),
+                x_serie,
+                y_serie,
+                "",
+                label=curve_label,
+                marker=get_marker(cast(PowerCategories, component)),
             )
 
         for trace in args.traces:
             y_serie = np.array(serie[trace.get_name()])[order]
-            y_label = statistics_in_label(trace.get_name() + label_caption, y_serie)
-            graph.get_ax().plot(
+            y_label = window_statistics_in_label(trace.get_name() + label_caption, y_serie)
+            plot_windows(
+                graph.get_ax(),
                 x_serie,
                 y_serie,
                 "",

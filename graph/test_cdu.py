@@ -153,11 +153,11 @@ def test_comparison_is_automatic_with_separate_temperature_and_power_axes(monkey
     power_calls = graph.get_ax2.return_value.plot.call_args_list
     assert [call.kwargs["linestyle"] for call in power_calls] == ["--", "--"]
     assert power_calls[0].args[0] == [0, 10, 20]
-    assert power_calls[0].args[1] == [100, 110, 120]
+    assert list(power_calls[0].args[1]) == [100, 110, 120]
     # All CPU and CDU curves use the common grid on the first axis.
     cpu_call = graph.get_ax.return_value.plot.call_args
     assert cpu_call.args[0] == [0, 10, 20]
-    assert cpu_call.args[1] == [50, 55, 52]
+    assert list(cpu_call.args[1]) == [50, 55, 52]
 
 
 def test_comparison_skips_unavailable_sources(monkeypatch, tmp_path):
