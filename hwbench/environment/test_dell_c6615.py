@@ -8,7 +8,9 @@ from hwbench.bench.monitoring_structs import (
 )
 
 from .test_dell import TestDell
-from .vendors.dell.dell import Dell
+from .test_vendors import saved_redfish_config, vendors_tree
+from .vendors.dell.dell import IDRAC, Dell
+from .vendors.monitoring_device import REDACTED
 
 path = pathlib.Path("")
 
@@ -57,3 +59,57 @@ class TestDell6615(TestDell):
             "PS2 Status": Power("PS2", 171.0),
         }
         super().generic_power_supplies_test(expected_output)
+
+
+def test_save_bios_config(tmp_path):
+    vendor = Dell(tmp_path, None, "hwbench/tests/mocked_environment.cfg")
+    vendor.bmc = IDRAC(tmp_path, vendor)
+    bios = saved_redfish_config(vendor, vendors_tree("Dell/C6615"), "save_bios_config")
+    assert list(bios) == ["/redfish/v1/Systems/System.Embedded.1/Bios"]
+    attributes = bios["/redfish/v1/Systems/System.Embedded.1/Bios"]["Attributes"]
+    assert len(attributes) == 482
+    assert attributes["AgesaVersion"] == "GenoaPI-SP5 1.0.0.A"
+
+
+def test_save_bios_config_redacts_secrets(tmp_path):
+    """A BIOS password, saved as its hash, does not leave the BMC."""
+    tree = vendors_tree("Dell/C6615")
+    bios = tree["/redfish/v1/Systems/System.Embedded.1/Bios"]
+    bios["Attributes"] |= {"SHA256SetupPassword": "0123456789ABCDEF", "SHA256SetupPasswordSalt": "FEDCBA98"}
+    vendor = Dell(tmp_path, None, "hwbench/tests/mocked_environment.cfg")
+    vendor.bmc = IDRAC(tmp_path, vendor)
+    attributes = saved_redfish_config(vendor, tree, "save_bios_config")["/redfish/v1/Systems/System.Embedded.1/Bios"][
+        "Attributes"
+    ]
+    assert attributes["SHA256SetupPassword"] == attributes["SHA256SetupPasswordSalt"] == REDACTED
+    # An unset password is kept as such
+    assert attributes["SHA256SystemPassword"] == ""
+
+
+def test_save_bmc_config(tmp_path):
+    tree = vendors_tree("Dell/C6615")
+    attributes_url = "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/DellAttributes/iDRAC.Embedded.1"
+    tree[attributes_url]["Attributes"]["Users.2.SHA256Password"] = "0123456789ABCDEF"
+    vendor = Dell(tmp_path, None, "hwbench/tests/mocked_environment.cfg")
+    vendor.bmc = IDRAC(tmp_path, vendor)
+    config = saved_redfish_config(vendor, tree, "save_bmc_config")
+    manager = "/redfish/v1/Managers/iDRAC.Embedded.1"
+    assert list(config) == [
+        manager,
+        f"{manager}/NetworkProtocol",
+        f"{manager}/EthernetInterfaces",
+        f"{manager}/EthernetInterfaces/NIC.1",
+        f"{manager}/SerialInterfaces",
+        f"{manager}/SerialInterfaces/Serial.1",
+        f"{manager}/HostInterfaces",
+        f"{manager}/HostInterfaces/Host.1",
+        # The configuration of the iDRAC, linked from the manager
+        attributes_url,
+        f"{manager}/Oem/Dell/DellAttributes/System.Embedded.1",
+        f"{manager}/Oem/Dell/DellAttributes/LifecycleController.Embedded.1",
+    ]
+    attributes = config[attributes_url]["Attributes"]
+    assert len(attributes) == 1269
+    assert attributes["WebServer.1.TLSProtocol"] == "TLS 1.2 and Higher"
+    # The secrets of the users do not leave the BMC
+    assert attributes["Users.2.SHA256Password"] == REDACTED

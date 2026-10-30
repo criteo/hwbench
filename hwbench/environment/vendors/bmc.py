@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import functools
+import logging
+import math
+import os
 import os.path
 import pathlib
+import re
 from collections.abc import Iterator
 from typing import Any
 
@@ -40,6 +44,19 @@ PROCESSOR_METRICS: dict[str, type[UnitMetric]] = {
     "OperatingSpeedMHz": Frequency,
 }
 
+# The sensor of the input power of a power supply, named after it, like "PSU1 Input Power": how
+# bmcweb, the Redfish server of OpenBMC, exposes it when the Power resource lists no PowerSupplies
+PSU_INPUT_POWER_SENSOR = re.compile(r"(PSU?\d+) Input Power")
+
+# The TelemetryService report hwbench reads the sensors it monitors from, in one request per
+# iteration instead of one per sensor. Named after the process, with the only characters
+# bmcweb accepts in an id ([A-Za-z0-9_]), so the reports a killed run left are recognized.
+TELEMETRY_SERVICE = "/redfish/v1/TelemetryService"
+TELEMETRY_REPORT_PREFIX = "hwbench_"
+
+# The resources of a Manager holding the configuration of the BMC, when it exposes them
+MANAGER_CONFIG = ("NetworkProtocol", "EthernetInterfaces", "SerialInterfaces", "HostInterfaces")
+
 # Prefix of the accelerator metrics read from the BMC, deliberately distinct
 # from the GPU_<index> ones all-smi reports: both numberings are unrelated.
 BMC_GPU_PREFIX = "BMC_GPU_"
@@ -62,6 +79,9 @@ class BMC(MonitoringDevice, External):
         # service that advertises it without honouring it is probed once, not on
         # every monitoring iteration.
         self.expand_works = {}  # type: dict[str, bool]
+        # The urls of the MetricReportDefinition hwbench created, and of its MetricReport
+        self.telemetry_definition = ""
+        self.telemetry_report = ""
 
         # For testing purposes, vendor can be None
         if self.vendor:
@@ -178,8 +198,12 @@ class BMC(MonitoringDevice, External):
         <wanted> restricts the walk to those members, which is what re-reading a
         few known items of a large collection needs; None yields every member.
         Both go through '$expand' when the service honours it, and fall back to
-        one request per member when it does not.
+        one request per member when it does not. <wanted> members are read from
+        the TelemetryService report when the monitoring started one.
         """
+        if wanted is not None and self.telemetry_report:
+            yield from self._telemetry_members(collection_url, wanted)
+            return
         expanded = self._expanded_members(collection_url)
         if expanded is not None:
             for body in expanded:
@@ -202,6 +226,37 @@ class BMC(MonitoringDevice, External):
     def _get_systems(self) -> list[str]:
         # List all available ComputerSystem item URLs
         return self._get_members("/redfish/v1/Systems", False)
+
+    def get_bios_config(self) -> dict[str, dict]:
+        """Return the BIOS resource of every system, by url."""
+        bios = {}
+        for system_url in self._get_systems():
+            system = self.get_redfish_url(system_url) or {}
+            bios_url = system.get("Bios", {}).get("@odata.id")
+            if bios_url:
+                bios[bios_url] = self.get_redfish_url(bios_url)
+        return bios
+
+    def _manager_config_urls(self, manager: dict) -> list[str]:
+        """Return the urls of the configuration resources of a manager."""
+        urls = []
+        for item in MANAGER_CONFIG:
+            link = manager.get(item)
+            if isinstance(link, dict) and isinstance(link.get("@odata.id"), str):
+                urls.append(link["@odata.id"])
+        return urls
+
+    def get_bmc_config(self) -> dict[str, dict]:
+        """Return every manager and its configuration resources, collection members included, by url."""
+        config = {}
+        for manager_url in self._get_members("/redfish/v1/Managers/", False):
+            manager = self.get_redfish_url(manager_url) or {}
+            config[manager_url] = manager
+            for url in self._manager_config_urls(manager):
+                config[url] = self.get_redfish_url(url)
+                for member in self._get_members(url, False):
+                    config[member] = self.get_redfish_url(member)
+        return config
 
     def _collection_items(self, parents: list[str], item: str) -> Iterator[tuple[str, str, dict]]:
         """Walk the <item> collection of each parent resource.
@@ -304,6 +359,17 @@ class BMC(MonitoringDevice, External):
             return next(iter(th.values()))  # return only element
         return {}  # return nothing if there are more than 1 elements
 
+    def read_oob_power_consumption(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
+        """Return all power consumptions from BMC (OOB)"""
+        for power_ctrl in self.get_power().get("PowerControl", []):
+            name = power_ctrl.get("Name", "")
+            cpu_power = power_ctrl.get("PowerConsumedWatts", None)
+            if cpu_power:
+                if name not in power_consumption.BMC:
+                    power_consumption.BMC[name] = Power(name)
+                power_consumption.BMC[name].add(cpu_power)
+        return power_consumption
+
     def read_power_consumption(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
         """Return power consumption from server"""
         # Generic for now, could be overridden by vendors
@@ -322,7 +388,37 @@ class BMC(MonitoringDevice, External):
             if psu["Name"] not in power_supplies.BMC:
                 power_supplies.BMC[psu["Name"]] = Power(psu_name)
             power_supplies.BMC[psu["Name"]].add(psu["PowerInputWatts"])
+        for collection_url, sensor_urls in self._get_psu_input_sensors().items():
+            for _, sensor in self._member_bodies(collection_url, sensor_urls):
+                match = PSU_INPUT_POWER_SENSOR.fullmatch(sensor.get("Name", ""))
+                if not match or sensor.get("Reading") is None:
+                    continue
+                psu = match.group(1)
+                if psu not in power_supplies.BMC:
+                    power_supplies.BMC[psu] = Power(psu)
+                power_supplies.BMC[psu].add(sensor["Reading"])
         return power_supplies
+
+    @functools.cache
+    def _get_psu_input_sensors(self) -> dict[str, set[str]]:
+        """Auto-detect the Chassis Sensors of the input power of the power supplies.
+
+        Returns their urls grouped by the collection holding them, like _get_gpu_sensors().
+        Only consulted when the Power resource lists no PowerSupplies, like on OpenBMC:
+        the PowerSupplies of its PowerSubsystem have no Metrics either.
+        """
+        if self.get_power().get("PowerSupplies"):
+            return {}
+        sensors: dict[str, set[str]] = {}
+        for collection_url, collection in self._get_sensors().items():
+            for url, sensor in collection.items():
+                if (
+                    sensor
+                    and sensor.get("ReadingType") == "Power"
+                    and PSU_INPUT_POWER_SENSOR.fullmatch(sensor.get("Name", ""))
+                ):
+                    sensors.setdefault(collection_url, set()).add(url)
+        return sensors
 
     @functools.cache
     def _get_gpu_processors(self) -> dict[str, str]:
@@ -343,6 +439,128 @@ class BMC(MonitoringDevice, External):
                 gpus[str(processor.get("Id", os.path.basename(url.rstrip("/"))))] = metrics_url
         return gpus
 
+    def _monitored_sensors(self) -> dict[str, set[str]]:
+        """Return the urls of the sensors the monitoring reads, grouped by the collection holding them.
+
+        Vendors reading more sensors add theirs, so the TelemetryService report holds them all.
+        """
+        sensors: dict[str, set[str]] = {}
+        for detected in (self._get_psu_input_sensors(), self._get_gpu_sensors()):
+            for collection_url, urls in detected.items():
+                sensors.setdefault(collection_url, set()).update(urls)
+        return sensors
+
+    def start_telemetry(self) -> int:
+        """Read the monitored sensors from a TelemetryService report, when the BMC has one.
+
+        Without '$expand', reading a sensor costs a request: a periodic MetricReportDefinition
+        holding them all gets their readings in one request per monitoring iteration. Returns
+        the number of sensors it holds, 0 when the sensors are still read one by one: no
+        TelemetryService, no sensor to monitor, or a definition the BMC refused.
+        """
+        if self.redfish_obj is None or self.telemetry_report:
+            return 0
+        service = self.get_redfish_url(TELEMETRY_SERVICE, False)
+        if not isinstance(service, dict) or service.get("Status", {}).get("State", "Enabled") != "Enabled":
+            return 0
+        definitions_url = self._chassis_item_url(service, "MetricReportDefinitions")
+        sensors = sorted(url for urls in self._monitored_sensors().values() for url in urls)
+        if not definitions_url or not sensors:
+            return 0
+        # The reports a killed run left would fill the few the BMC accepts
+        for url in self._get_members(definitions_url, False):
+            if os.path.basename(url.rstrip("/")).startswith(TELEMETRY_REPORT_PREFIX):
+                self.redfish_obj.delete(url)
+        report_id = f"{TELEMETRY_REPORT_PREFIX}{os.getpid()}"
+        response = self.redfish_obj.post(
+            definitions_url,
+            body={
+                "Id": report_id,
+                "Name": report_id,
+                "MetricReportDefinitionType": "Periodic",
+                "ReportActions": ["LogToMetricReportsCollection"],
+                "ReportUpdates": "Overwrite",
+                # As often as the BMC allows, so a reading is at most that old
+                "Schedule": {"RecurrenceInterval": service.get("MinCollectionInterval", "PT1S")},
+                # bmcweb identifies a metric by its MetricProperties, and rejects a MetricId
+                "Metrics": [{"MetricProperties": [url]} for url in sensors],
+            },
+        )
+        if response.status not in (200, 201, 204):
+            logging.warning(f"BMC refused the TelemetryService report, reading the sensors one by one: {response.text}")
+            return 0
+        self.telemetry_definition = f"{definitions_url}/{report_id}"
+        reports_url = self._chassis_item_url(service, "MetricReports") or f"{TELEMETRY_SERVICE}/MetricReports"
+        self.telemetry_report = f"{reports_url}/{report_id}"
+        return len(sensors)
+
+    def stop_telemetry(self):
+        """Delete the TelemetryService report the monitoring started, if any."""
+        if self.telemetry_definition and self.redfish_obj is not None:
+            self.redfish_obj.delete(self.telemetry_definition)
+        self.telemetry_definition = ""
+        self.telemetry_report = ""
+
+    def disconnect_redfish(self):
+        self.stop_telemetry()
+        super().disconnect_redfish()
+
+    def _telemetry_readings(self) -> dict[str, float | None] | None:
+        """Return the readings of the TelemetryService report by sensor url, None when it has none yet."""
+        report = self.get_redfish_url(self.telemetry_report, False)
+        if not isinstance(report, dict) or "MetricValues" not in report:
+            return None
+        readings: dict[str, float | None] = {}
+        for value in report["MetricValues"]:
+            try:
+                reading: float | None = float(value["MetricValue"])
+            except (KeyError, TypeError, ValueError):
+                reading = None
+            # A sensor without reading is reported as nan
+            readings[value.get("MetricProperty", "")] = None if reading is None or math.isnan(reading) else reading
+        return readings
+
+    def _telemetry_members(self, collection_url: str, wanted: set[str]) -> Iterator[tuple[str, dict]]:
+        """Yield (url, body) of the <wanted> sensors, their Reading taken from the TelemetryService report.
+
+        The rest of their body, like their name and physical context, is the one read when detecting
+        them. A sensor missing from the report, or not answering when detected, is read by itself.
+        """
+        readings = self._telemetry_readings() or {}
+        detected = self._get_sensors().get(collection_url, {})
+        for url in wanted:
+            body = detected.get(url)
+            if url not in readings or body is None:
+                body = self.get_redfish_url(url, False)
+                if isinstance(body, dict):
+                    yield url, body
+                continue
+            yield url, body | {"Reading": readings[url]}
+
+    @functools.cache
+    def _get_sensors(self) -> dict[str, dict[str, dict | None]]:
+        """Read once every sensor of the Sensors collection of every chassis.
+
+        Returns the body of each sensor by its url, grouped by the collection holding it, None
+        for a sensor the BMC did not answer for. The detections of the sensors to monitor
+        analyze it: walking the collections once per detection would read every sensor again,
+        one request each on a BMC without '$expand'.
+        """
+        sensors: dict[str, dict[str, dict | None]] = {}
+        for chassis_url in self._get_chassis():
+            collection_url = self._chassis_item_url(self.get_redfish_url(chassis_url, False), "Sensors")
+            if not collection_url:
+                continue
+            expanded = self._expanded_members(collection_url)
+            if expanded is not None:
+                sensors[collection_url] = {body.get("@odata.id", ""): body for body in expanded}
+                continue
+            sensors[collection_url] = {}
+            for url in self._get_members(collection_url, False):
+                body = self.get_redfish_url(url, False)
+                sensors[collection_url][url] = body if isinstance(body, dict) else None
+        return sensors
+
     @functools.cache
     def _get_gpu_sensors(self) -> dict[str, set[str]]:
         """Auto-detect the Chassis Sensors reported in a GPU physical context.
@@ -352,19 +570,20 @@ class BMC(MonitoringDevice, External):
         supports '$expand'.
 
         Only consulted when no accelerator was found as a Processor: without
-        expansion this walk GETs every sensor of every chassis to read its
-        PhysicalContext, which is by far the most expensive detection hwbench
-        does, and a BMC exposing ProcessorMetrics already describes the same GPUs
-        more precisely.
+        expansion, reading every sensor of every chassis for its PhysicalContext
+        (_get_sensors()) is by far the most expensive detection hwbench does, and
+        a BMC exposing ProcessorMetrics already describes the same GPUs more
+        precisely.
         """
         if self._get_gpu_processors():
             return {}
         sensors: dict[str, set[str]] = {}
-        for collection_url, url, sensor in self._collection_items(self._get_chassis(), "Sensors"):
-            if sensor.get("PhysicalContext") in GPU_PHYSICAL_CONTEXTS:
-                # A set: _member_bodies() tests every member of the collection
-                # against it on every monitoring iteration.
-                sensors.setdefault(collection_url, set()).add(url)
+        for collection_url, collection in self._get_sensors().items():
+            for url, sensor in collection.items():
+                if sensor and sensor.get("PhysicalContext") in GPU_PHYSICAL_CONTEXTS:
+                    # A set: _member_bodies() tests every member of the collection
+                    # against it on every monitoring iteration.
+                    sensors.setdefault(collection_url, set()).add(url)
         return sensors
 
     def read_metrics(self, contexts: MonitoringContexts) -> MonitoringContexts:
@@ -372,6 +591,7 @@ class BMC(MonitoringDevice, External):
         self.read_thermals(contexts.Thermal)
         self.read_fans(contexts.Fans)
         self.read_power_consumption(contexts.PowerConsumption)
+        self.read_oob_power_consumption(contexts.PowerConsumption)
         self.read_power_supplies(contexts.PowerSupplies)
         # A no-op on a BMC exposing no accelerator: both collections it walks are
         # cached and empty there.

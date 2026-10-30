@@ -41,6 +41,16 @@ During each benchmark, and if the monitoring is enabled, metrics are collected a
 CDUs run in the same monitoring loop and use the same aggregation windows as the
 host metrics. Each CDU is sampled on every host iteration. See [CDU](#cdu).
 
+On each iteration, the BMC, each PDU and the CDUs are read at the same time, each in its own
+thread, while the accelerators and the processors are read by the monitoring itself: a slow
+device delays the iteration by its own time only, instead of adding to the others.
+`contexts.Monitor.<BMC|PDU|CDU>.Polling` records the time spent reading each kind of device, the
+slowest of them for several PDUs or CDUs.
+
+An url of a BMC or a PDU read several times in an iteration, like the thermal resource giving the
+temperatures and the fans, is requested once, but every iteration requests its urls again: an
+iteration never records the answers of the previous one, even when a slow BMC delays it.
+
 At the end of the benchmark the monitoring metrics are added in the result file. hwgraph will use them to plot how these components behave during the benchmark.
 
 # Usage
@@ -176,6 +186,13 @@ power supplies from the HPE OEM fields, and the enclosure of a multi-node chassi
 | power consumption | `/redfish/v1/Chassis/1/Power/` | `PowerControl` | the power consumed by the server, in Watts; on an Apollo 2000 Gen10+, the power of the server in its chassis |
 | power consumption | `/redfish/v1/Chassis/enclosurechassis/` | `Oem` → `Hpe` → `NodePowerWatts`, `ChassisPowerWatts` | on an Apollo 2000 Gen10+ multi-node chassis: the power of the server, and of the chassis, in Watts |
 | power supplies | `/redfish/v1/Chassis/1/Power/` | `PowerSupplies` → `Oem` → `Hpe` → `AveragePowerOutputWatts` | the output power of every enabled power supply, named after its bay, in Watts |
+| power consumption | the `FastPowerMeter` linked from `/redfish/v1/Chassis/1/Power/` | `PowerDetail` → `DimmWatts`, `FanWatts`, `GpuWatts` | the power of the memory, the fans and the accelerators, in Watts, from the last sample, for the components the `Power` resource says the iLO meters (`HasDimmPowerMetering`, `HasFanPowerMetering`, `HasGpuPowerMetering`) |
+
+The `FastPowerMeter` of the iLO takes a sample every 10 seconds, the power of its whole period: it is
+recorded on every iteration until the next sample, the `FastPowerMeter` being read again only from an
+iteration before that sample is due, until it is there. The period is the smallest interval between the
+times of its samples, sometimes 11 seconds apart on a ProLiant DL365 Gen11; a `FastPowerMeter` whose
+period cannot be told is read on every iteration.
 
 ### Metrics listed at startup
 
@@ -476,11 +493,11 @@ or the host unreachable`. hwbench stops with
 `Monitoring/CDU: <section>: collection failed` when its driver fails, the error not being shown
 as it may hold the credentials.
 
-CDUs are polled synchronously on every iteration of the host monitoring loop,
-starting on its first iteration. There is no separate CDU polling interval.
+CDUs are polled on every iteration of the host monitoring loop, starting on its first
+iteration, at the same time as the BMC and the PDUs. There is no separate CDU polling interval.
 A slow request delays the loop, just like a BMC or
 PDU request: the timeout of a CDU is therefore at most 1 second, half the monitoring
-precision of 2 seconds, leaving the other half to the other sources, and several CDUs are
+precision of 2 seconds, and several CDUs are
 read at the same time, so that their timeouts do not add up. A longer timeout stops hwbench
 with `CDU <section>: timeout must be at most 1s, half the monitoring precision, not to delay
 the monitoring loop when the CDU does not answer`. `contexts.Monitor.CDU.Polling` records the total time spent in CDU

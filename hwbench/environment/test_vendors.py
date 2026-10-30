@@ -1,11 +1,12 @@
 import ast
 import errno
+import json
 import os
 import pathlib
 import unittest
 from enum import Enum
 from typing import Any  # noqa: F401
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from hwbench.bench.monitoring_structs import (
     FansContext,
@@ -19,6 +20,31 @@ from hwbench.utils.dataclasses import iterate_dataclass
 from .vendors.vendor import Vendor
 
 path = pathlib.Path("")
+
+
+def vendors_tree(model: str) -> dict:
+    """Return the redfish_tree of a model, like Dell/C6615, recorded by tools/redfish_dump.py."""
+    return ast.literal_eval((pathlib.Path("hwbench/environment/tests/vendors") / model / "redfish_tree").read_text())
+
+
+def saved_redfish_config(vendor: Vendor, tree: dict, save: str) -> dict:
+    """Return what the <save> method of the vendor writes, its BMC answering from <tree>.
+
+    It also checks the vendor closes the Redfish session it opens.
+    """
+    bmc = vendor.get_bmc()
+    with (
+        patch.object(type(bmc), "get_redfish_url", side_effect=lambda url, *_: tree.get(url)),
+        # autospec records the BMC of each call: the BMCs of other tests the garbage collector
+        # destroys meanwhile also disconnect, from MonitoringDevice.__del__()
+        patch.object(type(bmc), "connect_redfish", autospec=True) as connect,
+        patch.object(type(bmc), "disconnect_redfish", autospec=True) as disconnect,
+    ):
+        getattr(vendor, save)()
+        assert [made for made in connect.call_args_list if made.args[0] is bmc] == [call(bmc)]
+        assert [made for made in disconnect.call_args_list if made.args[0] is bmc] == [call(bmc)]
+    (saved,) = pathlib.Path(vendor.out_dir).iterdir()
+    return json.loads(saved.read_text())
 
 
 class PATCH_TYPES(Enum):
@@ -117,12 +143,27 @@ class TestVendors(unittest.TestCase):
     def generic_power_output(self):
         return PowerConsumptionContext()
 
+    def generic_oob_power_output(self):
+        """Return a generic OOB power consumption context for testing"""
+        return PowerConsumptionContext()
+
+    def generic_power_supplies_output(self):
+        return PowerSuppliesContext()
+
     def generic_test(self, expected_output, func):
         expected_output_dict = dict(iterate_dataclass(expected_output))
+        output_dict = dict(iterate_dataclass(func))
+        # Every metric expected is reported
+        for pc, expected_context in expected_output_dict.items():
+            reported = dict(iterate_dataclass(output_dict.get(pc, {})))
+            for sensor_name in dict(iterate_dataclass(expected_context)):
+                if sensor_name not in reported:
+                    raise AssertionError(f"Expected sensor '{sensor_name}' in '{pc}' is not reported")
+        # Every metric reported is the expected one
         for pc, context in iterate_dataclass(func):
             if pc not in expected_output_dict:
                 raise AssertionError(f"Missing Physical Context '{pc}' in expected_output")
-            expected_metrics_dict = dict(iterate_dataclass(context))
+            expected_metrics_dict = dict(iterate_dataclass(expected_output_dict[pc]))
             for sensor_name, metric in iterate_dataclass(context):
                 if sensor_name not in expected_metrics_dict:
                     raise AssertionError(f"Missing sensor '{sensor_name}' in '{pc}'")
@@ -143,6 +184,12 @@ class TestVendors(unittest.TestCase):
     def generic_power_consumption_test(self, expected_output):
         return self.generic_test(
             expected_output, self.get_vendor().get_bmc().read_power_consumption(PowerConsumptionContext())
+        )
+
+    def generic_oob_power_consumption_test(self, expected_output):
+        """Test OOB power consumption reading from BMC"""
+        return self.generic_test(
+            expected_output, self.get_vendor().get_bmc().read_oob_power_consumption(PowerConsumptionContext())
         )
 
     def generic_power_supplies_test(self, expected_output):

@@ -10,7 +10,7 @@ from hwbench.bench.monitoring_structs import (
 )
 
 from .test_vendors import PATCH_TYPES, TestVendors
-from .vendors.hpe.hpe import ILO, Hpe
+from .vendors.hpe.hpe import ILO, Hpe, power_meter_period_ns
 
 path = pathlib.Path("")
 
@@ -236,6 +236,35 @@ class TestHpeDL365Gen11(TestGenericHpe):
             with patch.object(ILO, "get_power", return_value=power):
                 power_consumption = bmc.read_metered_components(PowerConsumptionContext())
             assert list(power_consumption.BMC) == expected
+
+    def test_power_meter_read_once_per_sample(self):
+        """The power meter is read again only from 8s after its last new sample, recorded until the next one."""
+        meter = self.sample(self.path + "oem_power_meter")
+        latest = meter["PowerDetail"][-1]
+        later = meter | {
+            "PowerDetail": [*meter["PowerDetail"], latest | {"Time": "2026-10-16T16:18:06Z", "DimmWatts": 20}]
+        }
+        bmc = ILO("", self.get_vendor(), None)
+        power_consumption = PowerConsumptionContext()
+        now = [0.0]
+        with (
+            patch("hwbench.environment.vendors.hpe.hpe.time.monotonic_ns", side_effect=lambda: int(now[0] * 1e9)),
+            patch.object(ILO, "get_oem_power_meter", side_effect=[meter, meter, later]) as read,
+        ):
+            # The iterations of the monitoring, every 2s: the next sample appears between 8s and 10s
+            for now[0] in (0, 2, 4, 6, 8, 10, 12):
+                bmc.read_metered_components(power_consumption)
+        # Read at 0s, at 8s finding the same sample, at 10s finding the next one
+        assert read.call_count == 3
+        # On every iteration, the last sample until the next one
+        assert power_consumption.BMC[str(PowerCategories.MEMORY)].get_values() == [latest["DimmWatts"]] * 5 + [20] * 2
+
+    def test_power_meter_period(self):
+        """The period of the power meter is the smallest interval between its samples, unknown without two."""
+        samples = self.sample(self.path + "oem_power_meter")["PowerDetail"]
+        assert power_meter_period_ns(samples) == 10 * 10**9
+        assert power_meter_period_ns(samples[-1:]) is None
+        assert power_meter_period_ns([{"Time": "not a time"}, {"Time": "2026-10-16T16:17:56Z"}]) is None
 
 
 class TestHpeDL385Gen11(TestGenericHpe):

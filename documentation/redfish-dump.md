@@ -12,6 +12,7 @@ tool, and a read added to a driver is recorded as soon as it is added.
 - [Usage](#usage)
 - [Output](#output)
 - [Anonymization](#anonymization)
+- [TelemetryService and licenses](#telemetryservice-and-licenses)
 - [Exploring other urls](#exploring-other-urls)
 - [Implementation notes](#implementation-notes)
 
@@ -53,6 +54,7 @@ prints what it wrote. For example, on a HPE ProLiant DL365 Gen11:
 HPE vendor with ILO driver @ https://<bmc> Model: 'iLO 6' FW: 'iLO 6 v1.77'
 oem_chassis, power, thermal, redfish_tree written to /home/user/hwbench/hwbench/environment/tests/vendors/Hpe/DL365-Gen11
 13 urls, 23 values anonymized
+Services: none of TelemetryService, LicenseService
 Check the files before committing them: an identifying value under an unknown key is not anonymized.
 ```
 
@@ -77,7 +79,7 @@ each file being a python literal:
 
 | File | Content |
 |---|---|
-| `redfish_tree` | each url read, with its answer: by the detection of the BMC, by one monitoring iteration (thermal, fans, power consumption, power supplies and [accelerators](monitoring.md#accelerators)), by the getters below, and the urls given with `-u` |
+| `redfish_tree` | each url read, with its answer: by the detection of the BMC, by one monitoring iteration (thermal, fans, power consumption, power supplies and [accelerators](monitoring.md#accelerators)), by the save of the BIOS and BMC configurations, by the getters below, the [TelemetryService and the LicenseService](#telemetryservice-and-licenses), and the urls given with `-u` |
 | `thermal`, `power` | the answer of the `get_thermal()` and `get_power()` methods of the BMC driver |
 | `oem_*` | the answer of each `get_oem_*()` method of the BMC driver, like `oem_system` for the [Dell driver](monitoring.md#dell-driver) and `oem_chassis` for the [HPE driver](monitoring.md#hpe-driver) |
 
@@ -93,13 +95,19 @@ The files are the two kinds of fixtures of the tests:
 
 # Anonymization
 
+The secrets are redacted first: the value of a key ending with `password`, `salt`, `key`,
+`passphrase`, `secret`, `community` or `token`, like the password hash and the IPMI and
+SNMPv3 keys of a Dell iDRAC user, `Users.2.SHA256Password`, is replaced by `<redacted>`.
+An empty secret is kept, to tell whether one is set, and so are the flags telling whether a
+secret is used, like `Enabled` or `Disabled`.
+
 The values identifying the target machine are replaced by placeholders. The same value
 gets the same placeholder in every file, and in the urls: the links between the resources
 are kept.
 
 | Value | Placeholder |
 |---|---|
-| serial number, service tag | `SERIAL<n>` |
+| serial number, service tag and Dell express service code, processor PPIN, SNMP engine ID, common name of a certificate, entitlement ID of a license | `SERIAL<n>` |
 | UUID | `00000000-0000-0000-0000-<n>` |
 | hostname, and the host and the domain of a FQDN | `host<n>`, `domain<n>.example.com` |
 | asset tag, user name | `ASSET<n>`, `user<n>` |
@@ -121,15 +129,40 @@ A MAC address or an EUI-64 is found wherever it is written with separators, like
 without separators in the `MAC()` node of an UEFI device path. The same address, written
 with or without separators, gets the same number.
 
+An IP address is also found in the urls, like the address of the BMC in the `URLString`
+of the Dell iDRAC card. The host names of the urls are kept: they are public ones, like
+`redfish.dmtf.org`.
+
+An UUID is found wherever it is written, whatever its key, like the SMBIOS UUID of the
+server a Dell repeats as `smbiosGUID`. The same UUID, written in upper or lower case, gets
+the same number.
+
 Neutral values are kept: under an identifying key, `Unknown`, `N/A`, `None`,
-`Not Available`, `Not Specified` and the empty string, whatever their case; and, wherever
-they are found, the null addresses `0.0.0.0`, `::` and `00:00:00:00:00:00` (with or without
-separators), and the masks `255.*`.
+`Not Available`, `Not Specified`, the empty string, the flags `Enabled` and `Disabled`, as a
+Dell attribute like `Autodiscovery.1.EnableIPChangeAnnounceFrommDNS` ends like a DNS server
+key, and the default accounts `root`, `admin` and `Administrator`, whatever their case; and,
+wherever they are found, the null addresses `0.0.0.0`, `::` and `00:00:00:00:00:00` (with or
+without separators), the masks `255.*`, and the null UUID
+`00000000-0000-0000-0000-000000000000`.
 
 > 💡 **Good practice**
 >
 > Read the files before committing them: a value identifying the target machine under a
 > key the anonymization does not know is kept as is.
+
+# TelemetryService and licenses
+
+hwbench reads the sensors it monitors through a TelemetryService report when the BMC has one,
+in one request per monitoring iteration instead of one per sensor. To tell what a BMC offers, the tool also records, when the
+service root `/redfish/v1` links to them:
+
+| Service | Recorded |
+|---|---|
+| `TelemetryService` | the service, its `MetricReportDefinitions`, `MetricReports` and `Triggers` with their members, and the list of its `MetricDefinitions`, without their members, a Dell iDRAC having hundreds of them |
+| `LicenseService` | the service and its `Licenses` with their members, like the license a Dell iDRAC needs for its TelemetryService |
+
+They are only read: no report is created on the BMC. The line `Services:` of the output tells
+which ones the service root links to, `none` when it links to none, like an iLO 6 v1.77.
 
 # Exploring other urls
 
@@ -156,8 +189,10 @@ directory, then connects with `BMC.connect_redfish()`.
 function recording each url and its answer, so every read of the driver is recorded,
 whatever its vendor. `dump_fixtures()` runs, while recording, `BMC.detect()`,
 `BMC.read_metrics()` (the reads of one monitoring iteration), each getter matching
-`GETTERS`, then the urls of `-u`.
+`GETTERS`, `dump_services()` reading the services of `SERVICES`, then the urls of `-u`.
 
-**Anonymization.** `Anonymizer` collects the identifying values of all the files first,
-from `IDENTIFYING_KEYS`, `HEX_ID` and `UEFI_MAC_ADDRESS`, then replaces them: the
-placeholders are numbered once for all the files.
+**Anonymization.** `anonymize()` first redacts the secrets with
+`hwbench/environment/vendors/monitoring_device.py::redact_secrets()`. `Anonymizer` then
+collects the identifying values of all the files, from `IDENTIFYING_KEYS`, `HEX_ID`,
+`UEFI_MAC_ADDRESS`, `URL_IP_ADDRESS` and `UUID`, and replaces them: the placeholders are
+numbered once for all the files.
