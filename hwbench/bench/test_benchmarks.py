@@ -98,6 +98,13 @@ class TestParse(tbc.TestCommon):
         # Cores + package: turbostat is initialized in its own contexts, see monitoring.until_ready()
         assert get_monitoring_members(MonitoringContextKeys.PowerConsumption) == 65
 
+    def test_engine_version(self):
+        """Each result reports the release of its engine."""
+        with patch("hwbench.bench.engine.subprocess.run") as run:
+            run.return_value.stdout = b"stress-ng, version 0.17.06 (gcc 13.2, x86_64 Linux 6.8.0)\n"
+            assert self.get_benches().get_benchmarks()[4].format_results()["engine_version"] == "0.17.06"
+        assert run.call_args.args[0] == ["stress-ng", "--version"]
+
     def test_stream_short(self):
         with patch("hwbench.engines.stressng_cpu.EngineModuleCpu.list_module_parameters") as p:
             p.return_value = (
