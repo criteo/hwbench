@@ -262,7 +262,7 @@ uv run hwgraph graph --auto-traces runs:bios-v2:BMC.Server
 
 | Rule | Effect |
 |---|---|
-| where | the `results.json` and the `hwbench-<serial>-<timestamp>.tar.xz` archives of the directory and of its subdirectories |
+| where | the `results.json` and the `.tar.xz` archives holding a `results.json`, whatever their name, of the directory and of its subdirectories |
 | an archive next to its output directory | the same run: only the archive is used |
 | a file that is not a trace of hwbench | ignored: `auto-traces: ignoring <file>: not a trace of hwbench` |
 | the context | the exact text given to hwbench; it runs from the first to the last `:`, so it can hold a `:`; quote the value when it holds a space: `--auto-traces "runs:bios tuning:BMC.Server"` |
