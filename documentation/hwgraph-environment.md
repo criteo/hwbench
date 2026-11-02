@@ -390,7 +390,7 @@ the profiles alike:
 | Metric | Sensors | Value of a window |
 |---|---|---|
 | Inlet | the `Intake` family of the BMC, the air entering the server; without one, the sensors named inlet out of the `PowerSupply`, `GPU` and `CDU` families, like the `Inlet Temp` a Dell R6625 gives in `SystemBoard` | the hottest sensor |
-| Fans | all the fans, in percent or in RPM as the BMC gives them | the mean of the fans |
+| Fans | all the fans, in percent or in RPM as the BMC gives them; a rack mixing both colors each unit on its own scale, the header giving the range of each unit | the mean of the fans |
 | CPU | the `CPU` family of the BMC, like a sensor per socket | the mean of the sensors |
 | Memory | the `Memory` family of the BMC, like a sensor per group of DIMMs | the mean of the sensors |
 | GPU | the `GPU` family, the accelerators | the mean of the GPUs |
@@ -405,12 +405,42 @@ the secondary, at their supply and their return, and the delta of each circuit, 
 minus its supply on the windows having both: the heat it carries. A CDU shared by several servers
 is shown once.
 
+### Colors
+The cells of the elevations are colored on a scale per metric, the header of the inlet and of the
+exhaust giving the ASHRAE air classes of their servers, and the note under the graph the scales:
+
+| Metric | Colors |
+|---|---|
+| Inlet | for a server of an ASHRAE air class: green on its recommended range, from blue to green below it and from yellow to red above it, up to its allowable range, dark blue and dark red out of it; the header gives the class with both ranges, `A1: 18–27 [15–32]` |
+| Exhaust | for a server of an ASHRAE air class, which limits the inlet only: green on its allowable range, then up to red at 60 °C; the header gives `A1: 15–32, 60 red` |
+| Inlet and Exhaust of a server without class | from the coolest server of the column to the hottest |
+| Fans | in percent, from green at 0 % to red at 100 %; in RPM, from green, the slowest server in RPM of the column, to red, the fastest |
+| CPU, Memory, GPU | green up to 30 °C, then up to red at 100 °C |
+| Power | from green, the lowest server of the column, to red, the highest |
+
+The supply of a circuit of a CDU limited by an ASHRAE class, `W17` to `W45` for the primary, `S30`
+to `S50` for the secondary, is named after it, like `Secondary supply S30`, and colored by its
+hottest window: green below the maximum of the class by more than 2 °C, orange up to it, red
+above it. `W+`, without maximum, and the returns and the deltas keep their colors.
+
+The classes come, by family, from the first of:
+
+| Source | Classes |
+|---|---|
+| `--ashrae`, like `--ashrae A1,W32,S30` | of every server and every CDU of the rendering |
+| the `ashrae` key of the section of a CDU in the environment file, see [monitoring.md](monitoring.md#configuration) | of the circuits of this CDU |
+| the [topology](topology.md#ashrae-classes), kept in the `location` of `results.json` | of the server, and of the CDUs monitored with it, from the first server |
+
+A server the topology gives a [label](topology.md#labels) shows it after its name, like
+`EXAMPLE0101 (db-01)`, in the elevations and the profiles; a node sharing its row with others
+shows it under its name.
+
 ### Graphs
 For each benchmark, the directory of the rack contains:
 
 | Graph | What it plots |
 |---|---|
-| `rack_elevation_<benchmark>_<place>` | the rack seen from the front, a row per position and a column per metric, from the front of the servers to their rear: each cell the mean of the window means of a server, its color from the coolest server of the column to the hottest, with its window means drawn on the same scale in a column and its 95th percentile window above its 5th right of them; the place of a chassis without node is gray, like an empty position, and so is a metric a server does not give, like the memory of a BMC without sensor for it; the CDUs below the rack, with their own window means, each on the scale of its cell; the header gives the benchmark in bold, and the workers of the servers, `[64;640] x stressng` when their numbers of cores differ |
+| `rack_elevation_<benchmark>_<place>` | the rack seen from the front, a row per position and a column per metric, from the front of the servers to their rear: each cell the mean of the window means of a server, its color on the scale of its metric, see [Colors](#colors), with its window means drawn on the same scale in a column and its 95th percentile window above its 5th right of them; the place of a chassis without node is gray, like an empty position, and so is a metric a server does not give, like the memory of a BMC without sensor for it; the CDUs below the rack, with their own window means, each on the scale of its cell; the header gives the benchmark in bold, and the workers of the servers, `[64;640] x stressng` when their numbers of cores differ |
 | `rack_profile_<benchmark>_<place>` | the profile of the rack, a panel per metric: Inlet, Fans, CPU, Memory, GPU, Exhaust and Power, each server at its row with the mean of its window means and the [violin](#reading-a-violin) of its windows from its 5th percentile to its 95th; left of the panels, below the legend, the CDUs in a frame, their circuits by rows of three, the supply, the return and the delta, each the mean of its window means and its coolest and hottest windows |
 | `rack_profile_<component>_<benchmark>_<place>` | the profile of a component, `CPU`, `Memory` or `GPU`, with what cools it: Inlet, Fans, the component on a panel twice as wide, Exhaust and Power, and the CDUs; only when a server has it |
 
@@ -420,7 +450,8 @@ being small, and explain in a note under them the sensors of each metric.
 
 For example, a rack of ten servers built from `cdu_comparison.json` of the
 [reference dataset](example/README.md): servers of 1U, two of them with GPUs, a chassis of 2U of 4
-nodes at the position 4 and a server of 2U at the position 7:
+nodes at the position 4 and a server of 2U at the position 7, in the ASHRAE air class `A1`, three
+of them with a label, their CDU in the classes `W27` and `S30`:
 
 ```bash
 uv run python documentation/example/rack.py rack-traces
@@ -431,7 +462,7 @@ uv run hwgraph graph --format png --auto-group --no-env --no-scaling --no-versus
 
 ![Elevation of the rack](img/hwgraph-rack-elevation.png)
 
-*`by_group/…/Rack_A12/rack_elevation_cpu_17_Rack_A12.png`: the air entering the servers is warmer at the top of the rack, from 25.8 °C at the position 1 to 29.1 °C at the position 12. The 4 nodes of the chassis of the position 4 fill its two positions, and the server of 2U the positions 7 and 8; each cell draws the window means of its server during the benchmark, the nodes, narrower, their mean and their trend only. Below the rack, the CDU gives its circuits and their deltas.*
+*`by_group/…/Rack_A12/rack_elevation_cpu_17_Rack_A12.png`: the air entering the servers is warmer at the top of the rack, from 25.8 °C at the position 1 to 29.1 °C at the position 12: green in the recommended range of `A1`, up to 27 °C, yellowing above it. The 4 nodes of the chassis of the position 4 fill its two positions, and the server of 2U the positions 7 and 8; each cell draws the window means of its server during the benchmark, the nodes, narrower, their mean and their trend only. Below the rack, the CDU gives its circuits and their deltas, its secondary supply orange, its hottest window, 28.2 °C, within 2 °C of the 30 °C of `S30`.*
 
 ![Profile of the rack](img/hwgraph-rack-profile.png)
 

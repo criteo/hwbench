@@ -389,6 +389,7 @@ with, only when they are the same for all of them. hwgraph prints them on the co
 | `--same-chassis` | flag | all the traces are servers of the same chassis: [chassis graphs](hwgraph-environment.md#per-chassis) |
 | `--same-group` | flag | all the traces are a group of servers: [group graphs](hwgraph-environment.md#per-group) |
 | `--auto-group` | flag | the group graphs of each place of the location shared by several traces: [groups of the location](hwgraph-environment.md#groups-of-the-location), and the [rack view](hwgraph-environment.md#rack-view) of each rack; not with `--same-group` |
+| `--ashrae` | ASHRAE classes separated by commas, at most one per family, like `A1,W32,S30` | the classes the rack view colors the inlet, the exhaust and the supplies of the CDUs against, over the ones of the traces: [colors of the rack view](hwgraph-environment.md#colors); an unknown class, or two of a family, stop hwgraph: `--ashrae: 'A1', 'A2' are classes of the same family, one per family` |
 | `--ignore-missing-datapoint` | `zero`, `last`, default not set | [replaces the missing data points](#missing-data-points) instead of stopping |
 | `--jobs`, `-j` | integer, default half the CPUs of the host | the number of worker processes rendering the graphs; with 1, the graphs are rendered one after the other |
 | `--verbose` | flag | prints more information, like the metrics without samples that are skipped, the traces of a context, a line per trace for the stats, the environment graphs and the benchmarks summaries, and the servers of each group of `--auto-group` |
@@ -528,6 +529,9 @@ Fatal: <trace>/<benchmark>: <metric> is missing the 4th data point. Use --ignore
   benchmark, `place_nodes()` lays the servers out in the height of their chassis, and
   `graph_rack()` renders the profiles of `graph_rack_panels()` and the elevations of
   `graph_rack_elevation()`; the heights come from `heights()` of `hwbench/environment/dmi.py`.
+  `cell_scale()` gives the colors of a cell, `inlet_colormap()` and `exhaust_colormap()` for the
+  air of a server of an ASHRAE class, and `circuit_style()` the ones of a circuit of a CDU, from
+  the `LIMITS` of `hwbench/environment/ashrae.py`.
 - **Performance**: `graph/scaling.py` (`performance_scaling_graph()` and the `render_*()`
   functions of the distributions) and `graph/versus.py` (`max_versus_graph()`,
   `write_scaling_comparison()`, `write_scaling_step_comparisons()`,

@@ -7,6 +7,8 @@ family wins, each family being inherited separately. See documentation/topology.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 # The classes of each family, each family limiting its own temperature:
 # - air: the air entering the servers (Thermal Guidelines, tables 2.1 and 2.2);
 # - primary: the facility water supplied to the CDUs (Thermal Guidelines, table 3.1);
@@ -15,6 +17,39 @@ FAMILIES = {
     "air": ["A1", "A2", "A3", "A4", "H1"],
     "primary": ["W17", "W27", "W32", "W40", "W45", "W+"],
     "secondary": ["S30", "S35", "S40", "S45", "S50"],
+}
+
+
+@dataclass(frozen=True)
+class Limits:
+    """The temperatures of a class, in °C: the allowable range, where the equipment is tested to work, a bound
+    being None when the class has none, and the recommended range, where to operate it, for the air only."""
+
+    allowable: tuple[float | None, float | None]
+    recommended: tuple[float, float] | None = None
+
+
+# The limits of each class of FAMILIES: the air classes from the tables 2.1 and 2.2 of the Thermal
+# Guidelines, the facility water ones from its table 3.1, the lower limit of the water being 2 °C, and
+# W+ having none above 45 °C; the TCS ones from ASHRAE TC 9.9, their lower limit being 2 °C above the
+# dew point of the room, not known here.
+LIMITS = {
+    "A1": Limits((15, 32), (18, 27)),
+    "A2": Limits((10, 35), (18, 27)),
+    "A3": Limits((5, 40), (18, 27)),
+    "A4": Limits((5, 45), (18, 27)),
+    "H1": Limits((15, 25), (18, 22)),
+    "W17": Limits((2, 17)),
+    "W27": Limits((2, 27)),
+    "W32": Limits((2, 32)),
+    "W40": Limits((2, 40)),
+    "W45": Limits((2, 45)),
+    "W+": Limits((2, None)),
+    "S30": Limits((None, 30)),
+    "S35": Limits((None, 35)),
+    "S40": Limits((None, 40)),
+    "S45": Limits((None, 45)),
+    "S50": Limits((None, 50)),
 }
 
 

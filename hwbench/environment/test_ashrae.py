@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from hwbench.environment.ashrae import line, parse, resolve
+from hwbench.environment.ashrae import FAMILIES, LIMITS, line, parse, resolve
 
 
 def test_resolve():
@@ -23,3 +23,8 @@ def test_parse():
 
 def test_line():
     assert line({"air": "H1", "primary": "W40"}) == "H1 (air), W40 (primary)"
+
+
+def test_limits():
+    """Every class of FAMILIES has its limits."""
+    assert list(LIMITS) == [name for classes in FAMILIES.values() for name in classes]

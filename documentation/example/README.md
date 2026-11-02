@@ -40,7 +40,8 @@ shared aggregation grid and a failed window; they are not measured CDU data.
 `traces/cdu_comparison.json`, when the images are rendered, instead of storing its traces: ten
 servers in the rack `A12`, positions 1 to 12, with a chassis of 2U of 4 nodes at the position 4,
 a server of 2U at the position 7, two servers with **synthetic** GPU temperatures and empty
-positions. The servers differ by **synthetic**, fixed amounts depending on their position and
+positions. Their location gives the ASHRAE class `A1` and a label to three of them, as a
+[topology](../topology.md#ashrae-classes) does, and their CDU the classes `W27` and `S30`. The servers differ by **synthetic**, fixed amounts depending on their position and
 their load, the same at every rendering; they keep only the metrics the rack and group graphs read,
 about 26 KB per trace:
 
