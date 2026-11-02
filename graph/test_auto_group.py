@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from graph import hwgraph
-from graph.auto_group import group_problem, location_groups
+from graph.auto_group import group_benches, group_problem, location_groups
 from graph.group import place_suffix
 from graph.hwgraph import _collect_auto_group_tasks, auto_group_tree, main
 from graph.test_trace import LOCATION, PATH, at, located_trace
@@ -117,19 +117,32 @@ def test_group_problem(tmp_path, cdu_reboot):
 
 
 def test_group_problem_other_benchmarks(tmp_path, cdu_reboot):
+    """The job file expands differently from a machine to another: the benchmarks every server ran are rendered."""
     other = json.loads(json.dumps(cdu_reboot[1]))
     other["bench"]["full_cpu_load_1"] = other["bench"]["full_cpu_load_0"]
-    assert group_problem(group_of(tmp_path, [cdu_reboot[0], other])) == (
-        "server-1 does not have the benchmarks of server-0"
-    )
+    group = group_of(tmp_path, [cdu_reboot[0], other])
+    assert group_problem(group) is None
+    assert group_benches(group) == ["full_cpu_load_0"]
+
+
+def test_group_problem_no_shared_benchmark(tmp_path, cdu_reboot):
+    other = json.loads(json.dumps(cdu_reboot[1]))
+    other["bench"] = {"full_cpu_load_1": other["bench"]["full_cpu_load_0"]}
+    assert group_problem(group_of(tmp_path, [cdu_reboot[0], other])) == "no benchmark ran by every server"
 
 
 def test_group_problem_other_settings(tmp_path, cdu_reboot):
+    """A benchmark set differently by the same job file, like the workers of stressor_range=auto, is added up."""
     other = json.loads(json.dumps(cdu_reboot[1]))
     other["bench"]["full_cpu_load_0"]["workers"] = 1
+    assert group_problem(group_of(tmp_path, [cdu_reboot[0], other])) is None
+
+
+def test_group_problem_other_job_file(tmp_path, cdu_reboot):
+    other = json.loads(json.dumps(cdu_reboot[1]))
+    other["config"]["full_cpu_load"]["runtime"] = "300"
     assert group_problem(group_of(tmp_path, [cdu_reboot[0], other])) == (
-        "Setting full_cpu_load_0/workers does not match between "
-        f"{tmp_path.joinpath('server-0.json')} and {tmp_path.joinpath('server-1.json')}"
+        "server-1 does not have the job file of server-0"
     )
 
 
@@ -212,3 +225,20 @@ def test_help_before_auto_traces(capsys):
         main()
     find.assert_not_called()
     assert "--auto-traces" in capsys.readouterr().out
+
+
+def test_group_without_the_skipped_jobs(tmp_path, cdu_reboot, capsys):
+    """A job a server skipped, like an AVX-512 one on a CPU without it, leaves the graphs of its groups, which add
+    up the samples of their servers, to the jobs they all ran: it no longer prevents them all."""
+    ran, skipped = (json.loads(json.dumps(result)) for result in cdu_reboot)
+    ran["bench"]["avx_0"] = ran["bench"]["full_cpu_load_0"] | {"job_name": "avx"}
+    skipped["bench"]["avx_0"] = {
+        key: value for key, value in skipped["bench"]["full_cpu_load_0"].items() if key != "monitoring"
+    } | {"job_name": "avx", "bogo ops/s": 0, "effective_runtime": 0, "skipped": True}
+    group = group_of(tmp_path, [ran, skipped])
+    assert group_problem(group) is None
+    assert group_benches(group) == ["avx_0", "full_cpu_load_0"]
+    assert group_benches(group, skipped=False) == ["full_cpu_load_0"]
+    tasks = _collect_auto_group_tasks(SimpleNamespace(traces=group.traces, verbose=False), tmp_path)
+    assert [task_args[0] for task, *task_args in tasks if task is hwgraph._task_group] == ["full_cpu_load_0"]
+    assert "not rendered" not in capsys.readouterr().out
