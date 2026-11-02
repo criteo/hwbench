@@ -22,7 +22,7 @@ from hwbench.bench.monitoring_structs import (
 )
 
 try:
-    from graph.auto_group import GROUP_DIRECTORY, LocationGroup, group_problem, location_groups
+    from graph.auto_group import GROUP_DIRECTORY, LocationGroup, group_benches, group_problem, location_groups
     from graph.auto_traces import AUTO_TRACES_FILE, find_auto_traces, print_contexts
     from graph.cdu import graph_cdu
     from graph.chassis import graph_chassis
@@ -227,8 +227,7 @@ def _collect_auto_group_tasks(args, output_dir):
         positions, rack_problem = rack_positions(group.location.path, group.traces)
         notes = [rack_problem] if rack_problem else ["rack view"] if positions else []
         if positions:
-            benches = set.intersection(*(set(trace.bench_list()) for trace in group.traces))
-            for bench_name in sorted(benches):
+            for bench_name in group_benches(group):
                 tasks.append((_task_rack, bench_name, str(group_dir), trace_indexes, group.location, positions))
         problem = group_problem(group)
         if problem:
@@ -236,7 +235,8 @@ def _collect_auto_group_tasks(args, output_dir):
         rendered[group.name()] = ", ".join(notes)
         if problem:
             continue
-        for bench_name in sorted(group.traces[0].bench_list()):
+        # The graphs of a group add up the samples of its servers: only the jobs they all ran
+        for bench_name in group_benches(group, skipped=False):
             tasks.append((_task_group, bench_name, str(group_dir), trace_indexes, group.location))
     print(f"auto-group: {len(groups)} places shared by several traces, in {GROUP_DIRECTORY}/:")
     print("\n".join(auto_group_tree(groups, rendered, args.verbose)))

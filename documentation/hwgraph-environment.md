@@ -327,20 +327,23 @@ by_group/Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A13/   the two server
 
 hwgraph prints the groups as a tree, each under the narrowest group holding it, with its number
 of servers, the servers themselves being listed under it with `--verbose`. The graphs of a
-group add up the same benchmarks of its servers, so every trace must have the benchmarks of
-the first one of the group, with the same settings, and the `BMC.Server` and `CPU.package`
-metrics. A group that does not is not rendered, the other groups are:
+group add up the benchmarks every server of the group ran, so every trace must come from the
+job file of the first one of the group, as for the [scaling](hwgraph-scaling.md), and have the
+`BMC.Server` and `CPU.package` metrics. The job file may expand differently from a machine to
+another, like the workers of `stressor_range=auto` on servers of different processors: only
+the benchmarks they all ran are rendered. A group that does not meet these conditions is not
+rendered, the other groups are:
 
 ```
 auto-group: 3 places shared by several traces, in by_group/:
   Country_FR/Datacenter_PA99/Datahall_2/Room_1     4 servers
-    Rack_A12                                       2 servers, not rendered, server-2 does not have the benchmarks of server-1
+    Rack_A12                                       2 servers, not rendered, server-2 does not have the job file of server-1
     Rack_A13                                       2 servers
 ```
 
-The other reasons are `<trace> has no '<metric>' metric in <benchmark>`, and the first line of
-`Setting <benchmark>/<setting> does not match between <trace_filename> and <trace_filename>`.
-As with `--same-group`, nothing tells whether the servers ran the benchmarks at the same time.
+The other reasons are `no benchmark ran by every server` and `<trace> has no '<metric>' metric
+in <benchmark>`. As with `--same-group`, nothing tells whether the servers ran the benchmarks
+at the same time.
 
 ## Rack view
 A place of `--auto-group` holding its servers right at their last place, the place right above their

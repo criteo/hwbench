@@ -92,20 +92,33 @@ def location_groups(traces: list[Trace]) -> list[LocationGroup]:
     return sorted(groups, key=lambda group: group.directories())
 
 
+def group_benches(group: LocationGroup, skipped: bool = True) -> list[str]:
+    """The benchmarks every server of a group has: the job file expands differently from a machine to another.
+    Without <skipped>, only the ones every server ran: not a job a server skipped, like an AVX-512 one on a
+    CPU without it, that has no monitoring."""
+    names = set.intersection(*(set(trace.bench_list()) for trace in group.traces))
+    if not skipped:
+        names = {name for name in names if not any(trace.bench_list()[name].get("skipped") for trace in group.traces)}
+    return sorted(names)
+
+
 def group_problem(group: LocationGroup) -> str | None:
     """Why the graphs of a group cannot be rendered, or None.
 
-    They add up the samples of the same benchmarks of the servers: every trace must have
-    the benchmarks of the first one, set the same way, and the power metrics added up.
+    They add up the samples of the benchmarks every server ran: the servers must have run the
+    job file of the first one, as the scaling requires, and report the power metrics added up.
+    Its benchmarks may be set differently from a machine to another, like the workers of
+    stressor_range=auto.
     """
     reference = group.traces[0]
     for trace in group.traces:
-        if sorted(trace.bench_list()) != sorted(reference.bench_list()):
-            return f"{trace.get_name()} does not have the benchmarks of {reference.get_name()}"
-        for bench_name in sorted(reference.bench_list()):
-            difference = reference.bench(bench_name).differences(trace.bench(bench_name))
-            if difference:
-                return difference.splitlines()[0]
+        if trace.get_original_config() != reference.get_original_config():
+            return f"{trace.get_name()} does not have the job file of {reference.get_name()}"
+    benches = group_benches(group, skipped=False)
+    if not benches:
+        return "no benchmark ran by every server"
+    for trace in group.traces:
+        for bench_name in benches:
             for context, category in GROUP_METRICS:
                 try:
                     trace.bench(bench_name).get_single_metric(MonitoringContextKeys.PowerConsumption, context, category)
