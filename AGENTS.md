@@ -56,7 +56,7 @@ Key subsystems under `hwbench/`:
 
 - **utils/** — `external.py` (subprocess base class), `helpers.py` (`h.fatal`, binary checks), `hwlogging.py`, `archive.py`, `dataclasses.py`.
 
-`tools/topology_check.py` validates a topology file (`-t`), the JSON locating the servers of a fleet by serial, against the versioned schema `hwbench/environment/topology-v<N>.schema.json` (`environment/topology.py`; format in `documentation/topology.md`).
+`tools/topology_check.py` validates a topology file (`-t`), the JSON locating the servers of a fleet by serial, against the versioned schema `hwbench/environment/topology-v<N>.schema.json` (`environment/topology.py`; format in `documentation/topology.md`). Since v2, a place declares its ASHRAE classes under `@ashrae` (the classes of `environment/ashrae.py::FAMILIES`, each family inherited separately, the narrowest place winning) and a server can be `{"serial", "label"}`.
 
 `tools/redfish_dump.py` is a script out of the package, like `csv/convert.py`: it records the Redfish urls the BMC driver reads on the target machine, anonymized, as the fixtures of `hwbench/environment/tests/vendors/<vendor>/<model>/` (`sudo uv run tools/redfish_dump.py -e environment.cfg -o <dir>`).
 

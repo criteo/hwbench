@@ -12,6 +12,9 @@ generated, can produce it from any inventory tool: this page is its reference, w
 enough to write one.
 
 - [Format](#format)
+  - [ASHRAE classes](#ashrae-classes)
+  - [Labels](#labels)
+  - [Cooling of the components](#cooling-of-the-components)
 - [Checking a topology](#checking-a-topology)
 - [Using a topology with hwbench](#using-a-topology-with-hwbench)
 - [Writing an exporter](#writing-an-exporter)
@@ -27,10 +30,11 @@ A topology is a JSON object with these keys:
 
 | Key | Value | Effect |
 |---|---|---|
-| `version` | `1`, mandatory | the version of the format, see [Versions of the format](#versions-of-the-format) |
+| `version` | `2`, or `1`, mandatory | the version of the format, see [Versions of the format](#versions-of-the-format) |
 | `topology` | the tree of the places, mandatory | where the servers are |
 | `levels` | the names of the levels, from the widest, optional | like the `levels` of the `[Location]` section: names the levels, and fixes the depth of the tree |
 | `separator` | text, `/` by default | what separates the places when the location of a server is shown |
+| `labels` | the cooling of the components of the servers of each label, optional, since the version 2 | see [Cooling of the components](#cooling-of-the-components) |
 
 ## The tree of the places
 `topology` is a tree with a single rule: it maps the names of places to what each place holds,
@@ -52,7 +56,8 @@ of the hierarchy, like the servers of a lab, `Secret Lab 1`, and these servers h
 of a single place, without levels. Without `levels`, the lists of serials can be at any depth.
 
 The serials are a list, even for a single server: the nodes of a multi-node chassis share the
-same position. A server spanning several positions is at the lowest one: the bottom U of a 2U
+same position. An element of the list is the serial of a server, or, since the version 2, an
+object giving its serial and its [label](#labels). A server spanning several positions is at the lowest one: the bottom U of a 2U
 server, the smallest number when the U are numbered from the bottom of the rack.
 
 A serial is the one of the DMI of the server, `/sys/devices/virtual/dmi/id/product_serial`,
@@ -60,11 +65,69 @@ without the spaces at its ends: hwbench removes the ones some firmwares add befo
 it. It is compared in uppercase, as an inventory may not keep the case the DMI gives:
 `qtfcts0130298` in the topology locates the server whose DMI gives `QTFCTS0130298`.
 
+## ASHRAE classes
+A place holding other places can declare, under the key `@ashrae`, the classes of the ASHRAE TC
+9.9 its environment follows, a list of at most one class per family:
+
+| Family | Classes | What it limits |
+|---|---|---|
+| `air` | `A1`, `A2`, `A3`, `A4`, `H1` | the air entering the servers, from the Thermal Guidelines for Data Processing Environments, fifth edition (2021), tables 2.1 and 2.2 |
+| `primary` | `W17`, `W27`, `W32`, `W40`, `W45`, `W+` | the facility water supplied to the CDUs, their primary circuit, from the same guidelines, table 3.1 |
+| `secondary` | `S30`, `S35`, `S40`, `S45`, `S50` | the liquid the CDUs supply to the servers, their secondary circuit, the Technology Cooling System |
+
+The places and the servers a place holds inherit its classes, each family separately: a place
+declaring a class of a family replaces the one of this family it inherits, and keeps the others.
+A datacenter declaring `["A1", "W40", "S40"]` holding a room declaring `["A2"]` gives `A2`, `W40`
+and `S40` to the servers of the room. A server whose places declare no class of a family has
+none for it.
+
+`@ashrae` is not a place: since the version 2, the names of the places cannot start with `@`.
+The list of serials of a position cannot hold it: the narrowest place declaring classes holds
+positions, like a rack.
+
+## Labels
+An element of a list of serials can be an object giving the `serial` of the server, mandatory,
+and its `label`, a text shown next to it, like the name of its service:
+
+```json
+"10": [{"serial": "NODE0001", "label": "db-01"}, "NODE0003"]
+```
+
+The two forms can be mixed in a list: a server without label is its serial alone.
+
+## Cooling of the components
+The optional `labels` key gives, by the name of a label, how the components hwbench monitors are
+cooled on the servers of that label: by the air of the room, `air`, or by a liquid, like a cold
+plate, `liquid`.
+
+```json
+"labels": {
+  "db-01": {"cpu": "liquid", "memory": "liquid"},
+  "gpu-dlc": {"cpu": "liquid", "gpu": "liquid"}
+}
+```
+
+| Component | Value |
+|---|---|
+| `cpu` | `air` or `liquid` |
+| `memory` | `air` or `liquid` |
+| `gpu` | `air` or `liquid` |
+
+A component a label does not give is cooled by air, as are all the components of a server
+without label, or whose label `labels` does not give: a topology describing only air cooled
+servers needs no `labels`. A label of `labels` no server has is reported by a warning,
+probably misspelled. The cooling is the one of a label, not of a place: the servers of a rack
+can be cooled differently.
+
 ## Rules
 | Rule | Checked by |
 |---|---|
 | `version` and `topology`, optionally `levels` and `separator`, and no other key | the schema |
 | a place holds either places or a list of serials | the schema |
+| `@ashrae`: known classes, at least one, at most one per family | the schema |
+| the names of the places do not start with `@`, since the version 2 | the schema |
+| a server: its serial, or an object with its `serial` and optionally its `label`, both text, not empty, without spaces at their ends | the schema |
+| `labels`: names of labels, text, not empty, without spaces at their ends, each giving `cpu`, `memory` or `gpu`, and no other key, each `air` or `liquid` | the schema |
 | the names of the places: text, `""` allowed, without spaces at their ends | the schema |
 | the names of the levels, the separator and the serials: text, not empty, without spaces at their ends | the schema |
 | the levels: at least one, each once | the schema |
@@ -73,25 +136,37 @@ it. It is compared in uppercase, as an inventory may not keep the case the DMI g
 | a list of serials with at least one known place | `tools/topology_check.py` |
 | a serial at a single place: once in the whole file, compared in uppercase | `tools/topology_check.py` |
 | a name of place without the separator, which would make the location ambiguous | a warning of `tools/topology_check.py` and hwbench |
+| a label of `labels` that a server has | a warning of `tools/topology_check.py` and hwbench |
 
 ## Example
 The [`topology.json`](../topology.json) of the repository:
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "levels": ["Country", "Datacenter", "Datahall", "Room", "Rack", "Position"],
+  "labels": {
+    "db-01": {"cpu": "liquid", "memory": "liquid"}
+  },
   "topology": {
     "FR": {
       "PA99": {
+        "@ashrae": ["A1", "W40", "S40"],
         "2": {
           "1": {
+            "@ashrae": ["A2"],
             "A12": {
               "22": ["EXAMPLE0001"],
               "23": ["EXAMPLE0002"]
             },
             "A13": {
-              "10": ["NODE0001", "NODE0002", "NODE0003", "NODE0004"]
+              "@ashrae": ["H1", "S35"],
+              "10": [
+                {"serial": "NODE0001", "label": "db-01"},
+                {"serial": "NODE0002", "label": "db-02"},
+                "NODE0003",
+                "NODE0004"
+              ]
             }
           }
         },
@@ -111,12 +186,12 @@ The [`topology.json`](../topology.json) of the repository:
 
 It locates:
 
-| Serial | Location |
-|---|---|
-| `EXAMPLE0002` | `Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12 / Position 23` |
-| `NODE0001` to `NODE0004` | `Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A13 / Position 10`: the 4 nodes of a chassis |
-| `EXAMPLE0003` | `Country FR / Datacenter PA99 / Datahall 3 / Rack B01`: a datahall without rooms, a position not known |
-| `LAB0001`, `LAB0002` | `Secret Lab 1`, out of the hierarchy |
+| Serial | Location | ASHRAE classes |
+|---|---|---|
+| `EXAMPLE0002` | `Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12 / Position 23` | `A2` from its room, `W40` and `S40` from its datacenter |
+| `NODE0001` to `NODE0004` | `Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A13 / Position 10`: the 4 nodes of a chassis, the first two with a label, the CPUs and the memory of `NODE0001`, of the label `db-01`, cooled by a liquid | `H1` and `S35` from their rack, `W40` from their datacenter |
+| `EXAMPLE0003` | `Country FR / Datacenter PA99 / Datahall 3 / Rack B01`: a datahall without rooms, a position not known | `A1`, `W40` and `S40` from its datacenter |
+| `LAB0001`, `LAB0002` | `Secret Lab 1`, out of the hierarchy | none |
 
 # Checking a topology
 `tools/topology_check.py` checks a topology file before giving it to hwbench: the JSON schema of
@@ -130,16 +205,22 @@ uv run tools/topology_check.py topology.json
 | Option | Value | Effect |
 |---|---|---|
 | `topology` | a file | the topology file to check; mandatory, but with `--schema` |
-| `-s`, `--serial` | a serial | also prints the location of this server |
+| `-s`, `--serial` | a serial | also prints the location of this server, its label, the ASHRAE classes it inherits and the cooling of its components |
 | `--schema` | | prints the path of the JSON schema of the format, and exits |
 
 A valid topology prints its levels and the number of its servers, and exits with 0:
 
 ```
-$ uv run tools/topology_check.py topology.json --serial NODE0003
-topology.json: valid topology, version 1, the levels Country / Datacenter / Datahall / Room / Rack / Position: 9 servers
-NODE0003: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A13 / Position 10
+$ uv run tools/topology_check.py topology.json --serial NODE0001
+topology.json: valid topology, version 2, the levels Country / Datacenter / Datahall / Room / Rack / Position: 9 servers
+NODE0001: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A13 / Position 10
+  label: db-01
+  ASHRAE: H1 (air), W40 (primary), S35 (secondary)
+  cooling: cpu liquid, memory liquid, gpu air
 ```
+
+The label and the classes are printed when the server has them, the cooling with a topology of
+the version 2.
 
 An invalid one prints each problem, with where it is in the file as a JSON path, and exits
 with 1:
@@ -154,8 +235,18 @@ topology.json: invalid topology:
 ```
 
 A serial given as a text instead of a list, like `'NODE0001'` above, is reported as not being
-an object: a place holds either places or a list. The problems found once the schema is
-followed are:
+an object: a place holds either places or a list. The classes and the servers of the version 2
+give these problems:
+
+| Problem | Cause |
+|---|---|
+| `'<name>' starts with '@', kept for the ASHRAE classes of a place` | a place named with a leading `@` |
+| `'<class>' is not one of [...]` | an unknown class in `@ashrae`, with the known ones |
+| `'<class>', '<class>' are classes of the same family, a place declares one per family` | two classes of a family in `@ashrae`, like `A1` and `A2` |
+| `Additional properties are not allowed ('<key>' was unexpected)`, `'serial' is a required property` | an object of a server with another key than `serial` and `label`, or without `serial` |
+| `'<value>' is not one of ['air', 'liquid']`, `Additional properties are not allowed ('<component>' was unexpected)` | in `labels`, a cooling other than `air` and `liquid`, or another component than `cpu`, `memory` and `gpu` |
+
+The problems found once the schema is followed are:
 
 | Problem | Cause |
 |---|---|
@@ -164,7 +255,7 @@ followed are:
 | `the serial '<serial>' is at several places: '<location>', '<location>'` | a serial found twice |
 
 The other problems are `the document: '<key>' is a required property`, when `version` or
-`topology` is missing, `["version"]: unknown version <version>, expecting 1`, for a version this
+`topology` is missing, `["version"]: unknown version <version>, expecting 1, 2`, for a version this
 hwbench does not know, and `cannot read the topology: <error>`, when the file cannot be read,
 or is not JSON.
 
@@ -236,12 +327,16 @@ topology file. Whatever its language, it:
    the inventory gives twice, writing it once;
 9. checks that no name of place holds the separator, or chooses another one, given with
    `separator`;
-10. writes `"version": 1`, in UTF-8; the order of the keys does not matter;
-11. checks its output with `tools/topology_check.py`, which prints every problem with its JSON
+10. writes, when the inventory has them, the ASHRAE classes of a place under its `@ashrae`, at
+    the widest place they apply to, the label of a server in the object giving its serial, and
+    under `labels` the cooling of the components of each label having one cooled by a liquid;
+11. writes `"version": 2`, in UTF-8; the order of the keys does not matter. A file of the
+    version 1, without classes nor labels, stays valid;
+12. checks its output with `tools/topology_check.py`, which prints every problem with its JSON
     path.
 
 The schema, printed by `uv run tools/topology_check.py --schema`, is
-[`hwbench/environment/topology-v1.schema.json`](../hwbench/environment/topology-v1.schema.json):
+[`hwbench/environment/topology-v2.schema.json`](../hwbench/environment/topology-v2.schema.json):
 a JSON Schema, draft 2020-12, describing the tree with a single recursive definition, usable to
 validate the output in the language of the exporter.
 
@@ -254,16 +349,28 @@ version, with its own schema: the files of the previous versions stay valid.
 | Version | Schema | Content |
 |---|---|---|
 | `1` | `topology-v1.schema.json` | the tree of the places, its optional levels and separator |
+| `2` | `topology-v2.schema.json` | the version 1, the [ASHRAE classes](#ashrae-classes) of the places, the [labels](#labels) of the servers, the [cooling of their components](#cooling-of-the-components), and no name of place starting with `@` |
 
 # Implementation notes
 - `hwbench/environment/topology.py` reads the topology files: `read_topology()` reads a file and
   lists its problems with `topology_problems()`, which validates it with the schema of its
   version (`SCHEMAS`), then checks the depth of the serials, their known place, and that each
   serial is at a single place, in uppercase. `separator_warnings()` lists the places whose name
-  holds the separator, with a separator to propose from `OTHER_SEPARATORS`. `leaves()` walks the tree, giving each list of serials with the
-  path of its places, `servers()` gives each serial with its `Location`, the class of
-  `hwbench/environment/environment_file.py` the `[Location]` section gives too, and
-  `find_location()` finds the one of a serial.
+  holds the separator, with a separator to propose from `OTHER_SEPARATORS`, and
+  `label_warnings()` the labels of `labels` no server has. `leaves()` walks the
+  tree, giving each list of servers with the path of its places and the ASHRAE classes they
+  declare, `places()` leaving out the `@ashrae` key of the version 2. `topology_servers()` gives
+  each server as a `TopologyServer`: its serial, its `Location`, the class of
+  `hwbench/environment/environment_file.py` the `[Location]` section gives too, its label, its
+  classes, resolved by `resolve()`, and the cooling of its components since the version 2, resolved
+  by `cooling.resolve()`. `servers()` gives each serial with its location,
+  `find_server()` and `find_location()` find the server and the location of a serial.
+- `hwbench/environment/ashrae.py` holds the classes of each family, `FAMILIES`, the source of
+  truth of the schema of the version 2, and `resolve()`, which keeps the narrowest class of each
+  family declared along the places of a server.
+- `hwbench/environment/cooling.py` holds the components and the modes of the cooling,
+  `COMPONENTS` and `MODES`, the source of truth of the schema of the version 2, and `resolve()`,
+  which gives the cooling of every component of a label, air when the label does not give it.
 - hwbench checks the file with `load_topology()` and copies it with `save_topology()` before
   tuning the host, then finds the location of the serial of the DMI dumped by `Hardware`,
   `hw.dmi.info("product_serial")`, with `topology_location()`.
