@@ -669,6 +669,7 @@ def graph_monitoring_metrics(args, trace: Trace, bench_name: str, output_dir) ->
             metrics = bench.get_component(MonitoringContextKeys.Monitor, metric_name)
         except KeyError:
             print(f"{bench_name}: {metric_name} metric is not present in trace file, skipping.")
+            continue
         if metrics:
             for metric in metrics:
                 # The timeouts are counts, rendered together by timeouts_graph()
