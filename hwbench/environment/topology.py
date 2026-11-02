@@ -80,6 +80,19 @@ class TopologyServer:
     cooling: dict[str, str] = field(default_factory=dict)
 
 
+def location_output(location: Location, server: TopologyServer | None = None) -> dict:
+    """The location as kept in results.json, with the label of the server and the ASHRAE classes its places
+    declare and the cooling of its components when the topology gives them."""
+    output = location.to_dict()
+    if server and server.label:
+        output["label"] = server.label
+    if server and server.ashrae:
+        output["ashrae"] = server.ashrae
+    if server and server.cooling:
+        output["cooling"] = server.cooling
+    return output
+
+
 def places(topology: dict, node: dict) -> Iterator[tuple[str, dict | list]]:
     """The places a place holds, without its ASHRAE classes: a place of the version 1 can be named '@ashrae'."""
     return ((name, child) for name, child in node.items() if name != ASHRAE_KEY or topology["version"] == 1)

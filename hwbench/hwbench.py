@@ -20,7 +20,7 @@ from .environment import ashrae, cooling
 from .environment import hardware as env_hw
 from .environment import software as env_soft
 from .environment.environment_file import Location, read_location, save_environment_file
-from .environment.topology import TopologyServer, load_topology, save_topology, topology_server
+from .environment.topology import TopologyServer, load_topology, location_output, save_topology, topology_server
 from .tuning import setup as tuning_setup
 from .utils import helpers as h
 from .utils.archive import RESULTS_FILE, create_output_archive
@@ -250,16 +250,7 @@ def format_output(
         out["context"] = context.strip()
     # The location of the server is optional too: only kept when the environment file or the topology gives it
     if location:
-        location_dict = location.to_dict()
-        # The topology also gives the label of the server, the ASHRAE classes its places declare and the
-        # cooling of its components
-        if server and server.label:
-            location_dict["label"] = server.label
-        if server and server.ashrae:
-            location_dict["ashrae"] = server.ashrae
-        if server and server.cooling:
-            location_dict["cooling"] = server.cooling
-        out["location"] = location_dict
+        out["location"] = location_output(location, server)
     return out
 
 
