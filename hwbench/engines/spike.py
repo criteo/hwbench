@@ -57,7 +57,8 @@ class Engine(EngineBase):
         return []
 
     def parse_version(self, stdout: bytes, _stderr: bytes) -> str:
-        self.version = stdout.split()[3].decode()
+        # The release follows "stress-ng, version"
+        self.version = stdout.split()[2].decode()
         return self.version
 
     def parse_cmd(self, stdout: bytes, stderr: bytes):
