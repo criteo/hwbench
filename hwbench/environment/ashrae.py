@@ -36,6 +36,24 @@ def resolve(declarations: list[list[str]]) -> dict[str, str]:
     return {name: resolved[name] for name in FAMILIES if name in resolved}
 
 
+def parse(names: list[str]) -> tuple[dict[str, str], list[str]]:
+    """The class of each family of a list of classes, like the ashrae key of a CDU, and what makes the
+    list invalid: an unknown class, or several classes of a family."""
+    classes: dict[str, list[str]] = {}
+    problems = []
+    for name in names:
+        found = family(name)
+        if found is None:
+            known = ", ".join(known_class for known_classes in FAMILIES.values() for known_class in known_classes)
+            problems.append(f"unknown class {name!r}, expecting one of {known}")
+        else:
+            classes.setdefault(found, []).append(name)
+    for same_family in classes.values():
+        if len(same_family) > 1:
+            problems.append(f"{', '.join(map(repr, same_family))} are classes of the same family, one per family")
+    return {name: classes[name][0] for name in FAMILIES if name in classes}, problems
+
+
 def line(classes: dict[str, str]) -> str:
     """The classes of each family in one line: 'H1 (air), W40 (primary), S35 (secondary)'."""
     return ", ".join(f"{name} ({found})" for found, name in classes.items())

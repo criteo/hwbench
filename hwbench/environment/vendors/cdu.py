@@ -3,8 +3,10 @@ from __future__ import annotations
 import math
 from abc import ABC, abstractmethod
 from enum import StrEnum
+from typing import Any
 
 from hwbench.bench.monitoring_structs import MONITORING_PRECISION_S, CDUMetric, CDUSample, MonitoringContexts
+from hwbench.environment import ashrae
 from hwbench.utils import helpers as h
 
 from .monitoring_device import DeviceNotReady, MonitoringDevice, retry_delays, section_value
@@ -50,6 +52,12 @@ class CDU(MonitoringDevice, ABC):
                 "not to delay the monitoring loop when the CDU does not answer"
             )
         self.serialnumber = self.config_value("serial", "")
+        # The ASHRAE classes of its circuits, like 'W32,S30': the facility water of its primary, the
+        # liquid it supplies to the servers on its secondary
+        names = [name.strip() for name in self.config_value("ashrae", "").split(",") if name.strip()]
+        self.ashrae, problems = ashrae.parse(names)
+        if problems:
+            h.fatal(f"CDU {section}: ashrae: {'; '.join(problems)}")
 
     def config_value(self, key: str, fallback=None, convert=None):
         """The value of a key of the section of the CDU, see section_value()."""
@@ -91,11 +99,13 @@ class CDU(MonitoringDevice, ABC):
     def get_url(self) -> str:
         """Return the endpoint described by the protocol driver."""
 
-    def dump(self) -> dict[str, str]:
-        data = super().dump()
+    def dump(self) -> dict[str, Any]:
+        data: dict[str, Any] = super().dump()
         data["type"] = "CDU"
         data["vendor"] = data.pop("manufacturer", "")
         data["protocol"] = self.protocol.value
+        if self.ashrae:
+            data["ashrae"] = self.ashrae
         return data
 
     @abstractmethod

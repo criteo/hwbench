@@ -490,6 +490,7 @@ server vendor. Keep a BMC section and any PDU sections as usual.
 | `host` | hostname or IP address | the CDU's endpoint host |
 | `timeout` | finite positive seconds, at most `1`, half the monitoring precision | request timeout; defaults to `0.5` |
 | `serial` | text | optional inventory metadata, shown by hwgraph in the [headers](hwgraph.md#cdus-of-the-servers); no serial is inferred from the hostname |
+| `ashrae` | ASHRAE classes separated by commas, at most one per family, like `W32,S30` | optional: the classes of its circuits, the facility water of its primary (`W17` to `W+`) and the liquid it supplies on its secondary (`S30` to `S50`), see [topology.md](topology.md#ashrae-classes); an unknown class or two classes of a family stop hwbench |
 
 Missing or unsupported vendor, model and protocol selections are rejected.
 There is no fallback to another model's metric definitions or an implicit
@@ -589,7 +590,8 @@ collection per host iteration. The SNMP response timeout is `timeout` seconds; a
 and processing also contribute to polling time.
 
 The `hardware.cdu` inventory reports `type=CDU`, the configured `vendor`, `model`
-and `protocol`. `monitoring.cdus.<section>` contains metric definitions (`name`,
+and `protocol`, and its `ashrae` classes by family when given, like
+`{"primary": "W32", "secondary": "S30"}`. `monitoring.cdus.<section>` contains metric definitions (`name`,
 `oid`, `unit`, `scale`), `timeout_s` and `readings`. Each reading has
 `mean`, `min`, `max`, `stdev`, `samples` and `errors` arrays, with one entry per
 host aggregation window. Errors are counted per reason within each window.
