@@ -5,17 +5,24 @@ import pathlib
 
 import pytest
 
+from hwbench.environment import cooling
+from hwbench.environment.ashrae import FAMILIES
 from hwbench.environment.environment_file import Location
 from hwbench.environment.topology import (
     TOPOLOGY_FILE,
+    TopologyServer,
     find_location,
+    find_server,
+    label_warnings,
     load_topology,
     read_topology,
     save_topology,
+    schema,
     separator_warnings,
     servers,
     topology_location,
     topology_problems,
+    topology_servers,
 )
 
 # The sample of the repository, described by documentation/topology.md
@@ -101,8 +108,8 @@ def test_mandatory_sections(topology, section):
 
 
 def test_unknown_version(topology):
-    topology["version"] = 2
-    assert topology_problems(topology) == ['["version"]: unknown version 2, expecting 1']
+    topology["version"] = 3
+    assert topology_problems(topology) == ['["version"]: unknown version 3, expecting 1, 2']
 
 
 def test_serial_at_several_places(topology):
@@ -146,13 +153,13 @@ def test_load_topology(topology):
 
 
 def test_load_invalid_topology(tmp_path, topology, caplog):
-    topology["version"] = 2
+    topology["version"] = 3
     invalid = tmp_path.joinpath("topology.json")
     invalid.write_text(json.dumps(topology))
     with pytest.raises(SystemExit):
         load_topology(str(invalid))
     assert (
-        f'{invalid}: invalid topology, check it with tools/topology_check.py:\n  ["version"]: unknown version 2'
+        f'{invalid}: invalid topology, check it with tools/topology_check.py:\n  ["version"]: unknown version 3'
         in caplog.text
     )
 
@@ -186,3 +193,106 @@ def test_separator_warnings(topology, caplog, tmp_path):
     ambiguous.write_text(json.dumps(topology))
     load_topology(str(ambiguous))
     assert f"{ambiguous}: {warning}" in caplog.text
+
+
+def test_ashrae_and_labels(topology):
+    """Each family of classes is inherited separately, the narrowest place declaring it winning."""
+    found = {server.serial: server for server in topology_servers(topology)}
+    assert found["NODE0001"] == TopologyServer(
+        "NODE0001",
+        located("FR", "PA99", "2", "1", "A13", "10"),
+        "db-01",
+        {"air": "H1", "primary": "W40", "secondary": "S35"},
+        {"cpu": "liquid", "memory": "liquid", "gpu": "air"},
+    )
+    assert found["NODE0003"].label is None
+    # A label not declared, or no label, is cooled by air
+    assert found["NODE0002"].cooling == {"cpu": "air", "memory": "air", "gpu": "air"}
+    assert found["NODE0003"].cooling == {"cpu": "air", "memory": "air", "gpu": "air"}
+    assert found["EXAMPLE0001"].ashrae == {"air": "A2", "primary": "W40", "secondary": "S40"}
+    assert found["EXAMPLE0003"].ashrae == {"air": "A1", "primary": "W40", "secondary": "S40"}
+    assert found["LAB0001"].ashrae == {}
+    assert find_server(topology, "node0002").label == "db-02"
+
+
+def test_version_1(topology):
+    """A topology of the version 1, without classes nor labels, is still read."""
+    del topology["topology"]["FR"]["PA99"]["@ashrae"]
+    del topology["labels"]
+    room = topology["topology"]["FR"]["PA99"]["2"]["1"]
+    del room["@ashrae"]
+    del room["A13"]["@ashrae"]
+    room["A13"]["10"] = ["NODE0001", "NODE0002", "NODE0003", "NODE0004"]
+    topology["version"] = 1
+    assert topology_problems(topology) == []
+    assert find_server(topology, "NODE0001") == TopologyServer("NODE0001", located("FR", "PA99", "2", "1", "A13", "10"))
+    # In the version 1, '@ashrae' is the name of a place: here a position holding the serial H1
+    room["A13"]["@ashrae"] = ["H1"]
+    assert topology_problems(topology) == []
+    assert find_location(topology, "H1") == located("FR", "PA99", "2", "1", "A13", "@ashrae")
+
+
+def test_ashrae_problems(topology):
+    room = topology["topology"]["FR"]["PA99"]["2"]["1"]
+    room["@ashrae"] = ["A1", "A2"]
+    room["A12"]["@ashrae"] = ["W33"]
+    room["A13"]["@ashrae"] = []
+    room["@B01"] = {"1": ["SRV1"]}
+    assert topology_problems(topology) == [
+        '["topology"]["FR"]["PA99"]["2"]["1"]: \'@B01\' starts with \'@\', kept for the ASHRAE classes of a place',
+        '["topology"]["FR"]["PA99"]["2"]["1"]["@ashrae"]: \'A1\', \'A2\' are classes of the same family, '
+        "a place declares one per family",
+        '["topology"]["FR"]["PA99"]["2"]["1"]["A12"]["@ashrae"][0]: \'W33\' is not one of '
+        "['A1', 'A2', 'A3', 'A4', 'H1', 'W17', 'W27', 'W32', 'W40', 'W45', 'W+', 'S30', 'S35', 'S40', 'S45', 'S50']",
+        '["topology"]["FR"]["PA99"]["2"]["1"]["A13"]["@ashrae"]: [] should be non-empty',
+    ]
+
+
+def test_server_problems(topology):
+    """A server is a serial or an object with its serial and its label: the error of the form it is written in."""
+    servers = topology["topology"]["FR"]["PA99"]["2"]["1"]["A13"]["10"]
+    servers[0] = {"serial": "NODE0001", "rack": "A13"}
+    servers[1] = {"label": "db-02"}
+    servers[2] = " NODE0003"
+    servers[3] = {"serial": "NODE0004", "label": ""}
+    where = '["topology"]["FR"]["PA99"]["2"]["1"]["A13"]["10"]'
+    assert topology_problems(topology) == [
+        f"{where}[0]: Additional properties are not allowed ('rack' was unexpected)",
+        f"{where}[1]: 'serial' is a required property",
+        f"{where}[2]: ' NODE0003' has spaces at its ends",
+        f"{where}[3]: a name cannot be empty",
+    ]
+
+
+def test_cooling_problems(topology):
+    """A label declares the cooling of the components hwbench monitors, each by air or by a liquid."""
+    topology["labels"] = {"db-01": {"cpu": "water"}, "db-02": {"psu": "liquid"}, " db-03": {}}
+    assert topology_problems(topology) == [
+        "[\"labels\"]: ' db-03' has spaces at its ends",
+        "[\"labels\"][\"db-01\"][\"cpu\"]: 'water' is not one of ['air', 'liquid']",
+        '["labels"]["db-02"]: Additional properties are not allowed (\'psu\' was unexpected)',
+    ]
+
+
+def test_label_warnings(topology, caplog, tmp_path):
+    """A label declaring a cooling no server has is probably misspelled."""
+    assert label_warnings(topology) == []
+    topology["labels"]["db-1"] = {"cpu": "liquid"}
+    warning = "the label 'db-1' declares the cooling of its servers, but no server has it"
+    assert label_warnings(topology) == [warning]
+    misspelled = tmp_path.joinpath("topology.json")
+    misspelled.write_text(json.dumps(topology))
+    load_topology(str(misspelled))
+    assert f"{misspelled}: {warning}" in caplog.text
+
+
+def test_schema_cooling():
+    """The schema accepts the components and the modes of cooling.py, its source of truth."""
+    definitions = schema(2)["$defs"]
+    assert list(definitions["cooling"]["properties"]) == cooling.COMPONENTS
+    assert definitions["cooling_mode"]["enum"] == cooling.MODES
+
+
+def test_schema_classes():
+    """The schema accepts the classes of ashrae.FAMILIES, its source of truth."""
+    assert schema(2)["$defs"]["ashrae"]["items"]["enum"] == [name for classes in FAMILIES.values() for name in classes]

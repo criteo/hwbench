@@ -14,7 +14,7 @@ SAMPLE = str(pathlib.Path(__file__).parents[1].joinpath("topology.json"))
 def test_valid(capsys):
     assert main([SAMPLE]) == 0
     assert capsys.readouterr().out == (
-        f"{SAMPLE}: valid topology, version 1, the levels Country / Datacenter / Datahall / Room / Rack / Position: 9 servers\n"
+        f"{SAMPLE}: valid topology, version 2, the levels Country / Datacenter / Datahall / Room / Rack / Position: 9 servers\n"
     )
 
 
@@ -28,7 +28,18 @@ def test_valid(capsys):
 )
 def test_serial(capsys, serial, location):
     assert main([SAMPLE, "--serial", serial]) == 0
-    assert capsys.readouterr().out.splitlines()[-1] == f"{serial}: {location}"
+    assert capsys.readouterr().out.splitlines()[1] == f"{serial}: {location}"
+
+
+def test_serial_label_and_ashrae(capsys):
+    """The label of the server and the classes it inherits, each with its family."""
+    assert main([SAMPLE, "--serial", "NODE0001"]) == 0
+    assert capsys.readouterr().out.splitlines()[1:] == [
+        "NODE0001: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A13 / Position 10",
+        "  label: db-01",
+        "  ASHRAE: H1 (air), W40 (primary), S35 (secondary)",
+        "  cooling: cpu liquid, memory liquid, gpu air",
+    ]
 
 
 def test_unknown_serial(capsys):

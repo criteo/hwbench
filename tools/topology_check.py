@@ -4,6 +4,8 @@
 
 The file is valid when it follows the JSON schema of its version, printed with --schema, when
 its serials are at the depth of its levels, under a known place, and each at a single place.
+With --serial, it prints where the server of a serial is, with its label, the ASHRAE classes
+it inherits and the cooling of its components.
 See documentation/topology.md.
 """
 
@@ -12,9 +14,11 @@ from __future__ import annotations
 import argparse
 import sys
 
+from hwbench.environment import ashrae, cooling
 from hwbench.environment.topology import (
     TOPOLOGY_VERSION,
-    find_location,
+    find_server,
+    label_warnings,
     read_topology,
     schema_path,
     separator_warnings,
@@ -28,7 +32,11 @@ def parse_options(argv: list[str] | None = None) -> argparse.Namespace:
         description="Check a topology file, the JSON description of where the servers are, before giving it to hwbench.",
     )
     parser.add_argument("topology", nargs="?", help="The topology file to check, like topology.json")
-    parser.add_argument("-s", "--serial", help="Also print the location of the server of this serial")
+    parser.add_argument(
+        "-s",
+        "--serial",
+        help="Also print the location of the server of this serial, its label, its ASHRAE classes and the cooling of its components",
+    )
     parser.add_argument(
         "--schema",
         action="store_true",
@@ -57,14 +65,20 @@ def main(argv: list[str] | None = None) -> int:
     levels = topology.get("levels")
     hierarchy = f"the levels {' / '.join(levels)}" if levels else "no levels"
     print(f"{args.topology}: valid topology, version {topology['version']}, {hierarchy}: {len(located)} servers")
-    for warning in separator_warnings(topology):
+    for warning in separator_warnings(topology) + label_warnings(topology):
         print(f"{args.topology}: warning: {warning}", file=sys.stderr)
     if args.serial:
-        location = find_location(topology, args.serial)
-        if location is None:
+        server = find_server(topology, args.serial)
+        if server is None:
             print(f"{args.serial}: not in the topology", file=sys.stderr)
             return 1
-        print(f"{args.serial}: {location.line()}")
+        print(f"{args.serial}: {server.location.line()}")
+        if server.label:
+            print(f"  label: {server.label}")
+        if server.ashrae:
+            print(f"  ASHRAE: {ashrae.line(server.ashrae)}")
+        if server.cooling:
+            print(f"  cooling: {cooling.line(server.cooling)}")
     return 0
 
 

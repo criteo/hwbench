@@ -5,19 +5,25 @@ import logging
 import pathlib
 import shutil
 from collections.abc import Iterator
+from dataclasses import dataclass, field
+from typing import Any
 
 import jsonschema
 
 from hwbench.utils import helpers as h
 
+from . import cooling
+from .ashrae import resolve
 from .environment_file import DEFAULT_SEPARATOR, Location
 
 # The name of the copy of the topology file in the output directory
 TOPOLOGY_FILE = "topology.json"
 
 # The version of the topology format written by the exporters, and the schema of each version read
-TOPOLOGY_VERSION = 1
-SCHEMAS = {1: "topology-v1.schema.json"}
+TOPOLOGY_VERSION = 2
+SCHEMAS = {1: "topology-v1.schema.json", 2: "topology-v2.schema.json"}
+# The key of a place giving its ASHRAE classes, not a place: the names of places cannot start with '@'
+ASHRAE_KEY = "@ashrae"
 
 # The separators proposed when the names of the places hold the one of the topology
 OTHER_SEPARATORS = ["|", ">", ",", ";", "::"]
@@ -38,33 +44,83 @@ def json_path(path) -> str:
 
 
 def error_message(error: jsonschema.ValidationError) -> str:
-    """The message of a schema error, the patterns of the names told in words."""
+    """The message of a schema error, the patterns of the names and the families of classes told in words."""
+    # The value and the schema in error: Unset only for the errors the schema does not raise
+    instance: Any = error.instance
+    error_schema: Any = error.schema
     if error.validator == "pattern":
-        return "a name cannot be empty" if error.instance == "" else f"{error.instance!r} has spaces at its ends"
+        if instance == "":
+            return "a name cannot be empty"
+        # Only the names of places of the version 2 cannot start with '@'
+        if instance.startswith("@") and instance == instance.strip():
+            return f"{instance!r} starts with '@', kept for the ASHRAE classes of a place"
+        return f"{instance!r} has spaces at its ends"
+    # A server is a serial or an object: the error of the form it is written in
+    if error.validator == "anyOf" and error.context:
+        written = [sub for sub in error.context if sub.validator != "type"]
+        return error_message(jsonschema.exceptions.best_match(written or error.context))
+    if error.validator == "maxContains":
+        family = [name for name in instance if name in error_schema["contains"]["enum"]]
+        return f"{', '.join(map(repr, family))} are classes of the same family, a place declares one per family"
     return error.message
 
 
-def leaves(topology: dict) -> Iterator[tuple[list[str], list[str]]]:
-    """Each list of serials of a topology with the path of its places, from the widest."""
+@dataclass
+class TopologyServer:
+    """A server of a topology: its serial, its location, its label, the ASHRAE classes it inherits and the
+    cooling of its components."""
 
-    def walk(node: dict, path: list[str]) -> Iterator[tuple[list[str], list[str]]]:
-        for name, child in node.items():
+    serial: str
+    location: Location
+    label: str | None = None
+    # The class of each family of ashrae.FAMILIES the places of the server declare, the narrowest winning
+    ashrae: dict[str, str] = field(default_factory=dict)
+    # The cooling of each component of cooling.COMPONENTS since the version 2, the one its label declares,
+    # air otherwise
+    cooling: dict[str, str] = field(default_factory=dict)
+
+
+def places(topology: dict, node: dict) -> Iterator[tuple[str, dict | list]]:
+    """The places a place holds, without its ASHRAE classes: a place of the version 1 can be named '@ashrae'."""
+    return ((name, child) for name, child in node.items() if name != ASHRAE_KEY or topology["version"] == 1)
+
+
+def leaves(topology: dict) -> Iterator[tuple[list[str], list, list[list[str]]]]:
+    """Each list of servers of a topology with the path of its places, from the widest, and the ASHRAE
+    classes these places declare, from the widest."""
+
+    def walk(node: dict, path: list[str], declarations: list[list[str]]):
+        if topology["version"] > 1:
+            declarations = [*declarations, node.get(ASHRAE_KEY, [])]
+        for name, child in places(topology, node):
             if isinstance(child, list):
-                yield [*path, name], child
+                yield [*path, name], child, declarations
             else:
-                yield from walk(child, [*path, name])
+                yield from walk(child, [*path, name], declarations)
 
-    yield from walk(topology["topology"], [])
+    yield from walk(topology["topology"], [], [])
+
+
+def topology_servers(topology: dict) -> Iterator[TopologyServer]:
+    """Each server of a valid topology; a place out of the hierarchy has no levels. A server is its serial,
+    or an object giving its serial and its label since the version 2, the labels declaring the cooling of
+    the components of their servers, air when they do not."""
+    labels = topology.get("labels", {})
+    levels = topology.get("levels")
+    separator = topology.get("separator", DEFAULT_SEPARATOR)
+    for path, entries, declarations in leaves(topology):
+        location = Location(path, separator, levels if levels and len(path) == len(levels) else None)
+        for entry in entries:
+            if isinstance(entry, str):
+                entry = {"serial": entry}
+            label = entry.get("label")
+            components = cooling.resolve(labels.get(label)) if topology["version"] > 1 else {}
+            yield TopologyServer(entry["serial"], location, label, resolve(declarations), components)
 
 
 def servers(topology: dict) -> Iterator[tuple[str, Location]]:
-    """Each serial of a valid topology with its location; a place out of the hierarchy has no levels."""
-    levels = topology.get("levels")
-    separator = topology.get("separator", DEFAULT_SEPARATOR)
-    for path, serials in leaves(topology):
-        location = Location(path, separator, levels if levels and len(path) == len(levels) else None)
-        for serial in serials:
-            yield serial, location
+    """Each serial of a valid topology with its location."""
+    return ((server.serial, server.location) for server in topology_servers(topology))
 
 
 def topology_problems(topology) -> list[str]:
@@ -81,7 +137,7 @@ def topology_problems(topology) -> list[str]:
 
     # What the schema cannot check: the depth of the serials, a known place, a server at a single place
     levels = topology.get("levels")
-    for path, _ in leaves(topology):
+    for path, _, _ in leaves(topology):
         where = json_path(["topology", *path])
         if levels and len(path) not in (1, len(levels)):
             problems.append(
@@ -112,7 +168,7 @@ def separator_warnings(topology: dict) -> list[str]:
     names: list[tuple[list[str], str]] = []
 
     def walk(node: dict, path: list[str]) -> None:
-        for name, child in node.items():
+        for name, child in places(topology, node):
             names.append((path, name))
             if isinstance(child, dict):
                 walk(child, [*path, name])
@@ -130,6 +186,16 @@ def separator_warnings(topology: dict) -> list[str]:
     ]
 
 
+def label_warnings(topology: dict) -> list[str]:
+    """The labels whose cooling the topology declares, but no server has: probably a misspelled label."""
+    used = {server.label for server in topology_servers(topology)}
+    return [
+        f"the label '{label}' declares the cooling of its servers, but no server has it"
+        for label in topology.get("labels", {})
+        if label not in used
+    ]
+
+
 def read_topology(topology_file: str) -> tuple[dict, list[str]]:
     """The topology of a file and what makes it invalid, its reading included."""
     try:
@@ -139,11 +205,17 @@ def read_topology(topology_file: str) -> tuple[dict, list[str]]:
     return topology, topology_problems(topology)
 
 
-def find_location(topology: dict, serial: str) -> Location | None:
-    """The location of the server of a serial in a valid topology, or None when it is not there.
+def find_server(topology: dict, serial: str) -> TopologyServer | None:
+    """The server of a serial in a valid topology, or None when it is not there.
 
     The serials are compared in uppercase: an inventory may not have the case the DMI gives."""
-    return next((location for found, location in servers(topology) if found.upper() == serial.upper()), None)
+    return next((server for server in topology_servers(topology) if server.serial.upper() == serial.upper()), None)
+
+
+def find_location(topology: dict, serial: str) -> Location | None:
+    """The location of the server of a serial in a valid topology, or None when it is not there."""
+    server = find_server(topology, serial)
+    return server.location if server else None
 
 
 def load_topology(topology_file: str) -> dict:
@@ -153,7 +225,7 @@ def load_topology(topology_file: str) -> dict:
         h.fatal(
             f"{topology_file}: invalid topology, check it with tools/topology_check.py:\n  " + "\n  ".join(problems)
         )
-    for warning in separator_warnings(topology):
+    for warning in separator_warnings(topology) + label_warnings(topology):
         logging.warning(f"{topology_file}: {warning}")
     return topology
 
