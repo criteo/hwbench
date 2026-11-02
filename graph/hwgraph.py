@@ -20,6 +20,7 @@ from hwbench.bench.monitoring_structs import (
     MonitoringContextKeys,
     PowerConsumptionContextKeys,
 )
+from hwbench.environment import ashrae
 
 try:
     from graph.auto_group import GROUP_DIRECTORY, LocationGroup, group_benches, group_problem, location_groups
@@ -1078,6 +1079,15 @@ A place holding the same traces as its single subplace is only rendered in the s
         action="store_true",
     )
     parser_graph.add_argument(
+        "--ashrae",
+        default="",
+        metavar="CLASSES",
+        help="""The ASHRAE classes the rack graphs color the temperatures against, separated by commas, at most one
+per family, like --ashrae A1,W40,S40: the air entering the servers (A1 to A4, H1), the facility water of the primary circuit
+of the CDUs (W17 to W+), the liquid of their secondary circuit (S30 to S50). They replace the classes the
+traces give, from the topology or from the sections of the CDUs.""",
+    )
+    parser_graph.add_argument(
         "--verbose",
         action="store_true",
         help="Enable verbose mode",
@@ -1142,6 +1152,13 @@ Example: hwgraph list --contexts runs
         if not args.auto_traces:
             parser_graph.error("the following arguments are required with --traces: --outdir")
         args.outdir = str(args.auto_traces[0].directory)
+
+    if args.func is render_traces:
+        # The classes of each family, replacing the ones of the traces, separated by commas as in the
+        # section of a CDU
+        args.ashrae, problems = ashrae.parse([name.strip() for name in args.ashrae.split(",") if name.strip()])
+        if problems:
+            parser_graph.error(f"--ashrae: {'; '.join(problems)}")
 
     # Call the appropriate sub command
     args.func(args)

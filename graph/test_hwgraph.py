@@ -3,7 +3,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from graph.hwgraph import graph_monitoring_metrics
+import pytest
+
+from graph.hwgraph import graph_monitoring_metrics, main
 from hwbench.bench.monitoring_structs import MonitorContextKeys
 
 
@@ -33,3 +35,25 @@ def test_monitor_key_missing():
     # BMC comes first: the missing PDU, CPU, GPU and CDU used to render it again
     bmc = MagicMock(**{"get_samples.return_value": [1.0]})
     assert render_monitor({MonitorContextKeys.BMC: bmc}) == [bmc]
+
+
+def test_ashrae_option(capsys):
+    """--ashrae takes known classes separated by commas, at most one per family."""
+    with (
+        patch(
+            "sys.argv",
+            [
+                "hwgraph",
+                "graph",
+                "--traces",
+                "documentation/example/traces/numa.json::BMC.Server",
+                "--outdir",
+                "out",
+                "--ashrae",
+                "A1,A2",
+            ],
+        ),
+        pytest.raises(SystemExit),
+    ):
+        main()
+    assert "--ashrae: 'A1', 'A2' are classes of the same family, one per family" in capsys.readouterr().err

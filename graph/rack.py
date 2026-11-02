@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, NamedTuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.colors import Normalize, to_rgba
+from matplotlib.colors import Colormap, LinearSegmentedColormap, Normalize, to_rgba
 from matplotlib.patches import Rectangle
 from matplotlib.transforms import Bbox, ScaledTranslation
 
@@ -21,6 +21,9 @@ from hwbench.bench.monitoring_structs import (
     GPU_FAMILY,
     MonitoringContextKeys,
 )
+from hwbench.environment.ashrae import FAMILIES as ASHRAE_FAMILIES
+from hwbench.environment.ashrae import LIMITS as ASHRAE_LIMITS
+from hwbench.environment.ashrae import Limits
 
 # The prefixes of the positions in a rack, removed before reading their number: U12 in a 19" rack,
 # OU12 in an OCP one; the longest first
@@ -151,19 +154,26 @@ def trace_power(bench: Bench) -> list:
 
 
 # A temperature of a circuit of a CDU, or the delta of a circuit: its name, its window means, if a delta
-CduSerie = tuple[str, list[float], bool]
+class CduCircuit(NamedTuple):
+    """A temperature of a CDU: its name, its window means, if it is the delta of a circuit, and for a supply
+    the family of the ASHRAE class limiting it, 'primary' or 'secondary'."""
+
+    name: str
+    values: list[float]
+    delta: bool = False
+    family: str | None = None
 
 
-def rack_cdus(benches: list[Bench]) -> list[tuple[str, list[CduSerie]]]:
+def rack_cdus(benches: list[Bench]) -> list[tuple[str, list[CduCircuit]]]:
     """The temperatures of the circuits of each CDU monitored with the servers of the rack, once per CDU:
     its window means of each circuit temperature it reads, by name, each circuit followed by its delta,
     its return minus its supply on the windows having both: the heat it carries."""
-    cdus: dict[str, list[CduSerie]] = {}
+    cdus: dict[str, list[CduCircuit]] = {}
     for bench in benches:
         for name, data in ((bench.get("monitoring") or {}).get("cdus") or {}).items():
             if name in cdus:
                 continue
-            circuits: list[CduSerie] = []
+            circuits: list[CduCircuit] = []
             readings = {}
             for key in CIRCUIT_TEMPERATURES:
                 definition = data["metrics"].get(key)
@@ -173,7 +183,9 @@ def rack_cdus(benches: list[Bench]) -> list[tuple[str, list[CduSerie]]]:
                 values = [value for value in readings[key] if value is not None]
                 if values:
                     # The unit tells it is a temperature: 'Primary supply', narrow enough for the cells
-                    circuits.append((definition["name"].removesuffix(" temperature"), values, False))
+                    supplied = key.removesuffix("_supply_temperature")
+                    family = supplied if supplied != key and supplied in ASHRAE_FAMILIES else None
+                    circuits.append(CduCircuit(definition["name"].removesuffix(" temperature"), values, False, family))
                 circuit = key.removesuffix("_return_temperature")
                 if circuit != key and f"{circuit}_supply_temperature" in readings:
                     deltas = [
@@ -182,7 +194,7 @@ def rack_cdus(benches: list[Bench]) -> list[tuple[str, list[CduSerie]]]:
                         if forth is not None and back is not None
                     ]
                     if deltas:
-                        circuits.append((f"{circuit.capitalize()} ΔT", deltas, True))
+                        circuits.append(CduCircuit(f"{circuit.capitalize()} ΔT", deltas, True))
             if circuits:
                 cdus[name] = circuits
     return list(cdus.items())
@@ -242,6 +254,11 @@ class RackServer:
     chassis_height: int = 1
     # The number of sensors of each metric
     counts: dict[str, int] = field(default_factory=dict)
+    # The label the topology gives it, and its ASHRAE classes by family
+    label: str | None = None
+    ashrae: dict[str, str] = field(default_factory=dict)
+    # The unit of its fans, as its BMC gives it: percent or RPM
+    fans_unit: str = ""
 
     def __post_init__(self) -> None:
         self.means = {name: float(np.mean(serie)) for name, serie in self.series.items() if serie}
@@ -249,6 +266,14 @@ class RackServer:
 
     def mean(self, metric: str) -> float | None:
         return self.means.get(metric)
+
+    def named(self, separator: str = " ") -> str:
+        """Its name, followed by its label when it has one."""
+        return f"{self.name}{separator}({self.label})" if self.label else self.name
+
+    def unit(self, metric: str, units: dict[str, str]) -> str:
+        """The unit of a metric of the server: the one of its fans, or the one of the metric."""
+        return self.fans_unit if metric == "Fans" else units.get(metric, "")
 
 
 def fans_unit(benches: list[Bench]) -> str:
@@ -292,9 +317,11 @@ class Rack:
     # The metrics at least one server has, in the order of RACK_METRICS, and their units
     metrics: dict[str, RackMetric]
     units: dict[str, str]
-    cdus: list[tuple[str, list[CduSerie]]]
+    cdus: list[tuple[str, list[CduCircuit]]]
     # The power metrics given with the traces, like BMC.Server
     power_metrics: list[str] = field(default_factory=list)
+    # The ASHRAE classes of the circuits of each CDU by family
+    cdu_ashrae: dict[str, dict[str, str]] = field(default_factory=dict)
     # The numbers of workers of the servers, which differ with their number of cores
     workers: list[int] = field(default_factory=list)
 
@@ -335,6 +362,10 @@ def load_rack(args, bench_name: str, positions: dict[str, int]) -> Rack:
     all its monitoring."""
     benches = {trace.get_name(): trace.bench(bench_name) for trace in args.traces}
     heights = {trace.get_name(): (trace.get_height(), trace.get_chassis_height()) for trace in args.traces}
+    # The classes of --ashrae replace the ones of the traces, family by family
+    forced = getattr(args, "ashrae", None) or {}
+    classes = {trace.get_name(): trace.get_ashrae() | forced for trace in args.traces}
+    labels = {trace.get_name(): trace.get_label() for trace in args.traces}
     servers = sorted(
         (
             RackServer(
@@ -343,17 +374,27 @@ def load_rack(args, bench_name: str, positions: dict[str, int]) -> Rack:
                 {metric.name: metric.series(bench) for metric in RACK_METRICS},
                 *heights[name],
                 {metric.name: len(metric.found(bench)) for metric in RACK_METRICS},
+                labels[name],
+                classes[name],
+                fans_unit([bench]),
             )
             for name, bench in benches.items()
         ),
         key=lambda server: (server.position, server.name),
     )
+    # A CDU takes the classes of the first server monitored with it, from the topology, then the ones of its
+    # section, then the ones of --ashrae
+    cdu_ashrae: dict[str, dict[str, str]] = {}
+    for trace in args.traces:
+        for name, declared in trace.get_cdu_ashrae().items():
+            cdu_ashrae.setdefault(name, trace.get_ashrae() | declared | forced)
     metrics = {metric.name: metric for metric in RACK_METRICS if any(server.series[metric.name] for server in servers)}
+    # The fans of a rack mixing BMCs can be in percent for some servers, in RPM for others: all their units
     units = {
-        name: fans_unit(list(benches.values())) if name == "Fans" else metric.unit for name, metric in metrics.items()
+        name: ", ".join(sorted({server.fans_unit for server in servers} - {""})) if name == "Fans" else metric.unit
+        for name, metric in metrics.items()
     }
     power_metrics = sorted({trace.get_metric_name() for trace in args.traces})
-    workers = sorted({workers for bench in benches.values() if (workers := bench.workers()) is not None})
     return Rack(
         next(iter(benches.values())),
         servers,
@@ -361,14 +402,15 @@ def load_rack(args, bench_name: str, positions: dict[str, int]) -> Rack:
         units,
         rack_cdus(list(benches.values())),
         power_metrics,
-        workers,
+        cdu_ashrae,
+        sorted({workers for bench in benches.values() if (workers := bench.workers()) is not None}),
     )
 
 
 def row_label(servers: list[RackServer]) -> str:
     """The names of the servers of a row of the rack."""
     if len(servers) <= 2:
-        return ", ".join(server.name for server in servers)
+        return ", ".join(server.named() for server in servers)
     return f"{len(servers)} nodes: {servers[0].name} … {servers[-1].name}"
 
 
@@ -420,6 +462,123 @@ def text_color(background) -> str:
     """The color of a text readable on a background: white on the dark ones."""
     red, green, blue, _ = to_rgba(background)
     return "white" if 0.299 * red + 0.587 * green + 0.114 * blue < 0.5 else "black"
+
+
+# The metrics of the air, colored on the allowable range of the ASHRAE air class of each server
+AIR_METRICS = ("Inlet", "Exhaust")
+# The colors of the cells, from the coolest to the hottest
+CELL_COLORMAP = plt.get_cmap("RdYlBu_r")
+# The fans and the power are not temperatures: from green, the slowest or the lowest, to red
+LOAD_COLORMAP = plt.get_cmap("RdYlGn_r")
+LOAD_METRICS = ("Fans", "Power")
+# The components: green up to a realistic lowest temperature, then up to red at the hottest, in °C
+COMPONENT_TEMPERATURES = (30.0, 100.0)
+# The air of a server of an ASHRAE air class: its inlet green on the recommended range of the class, blue
+# below, yellow then red above, dark out of the allowable range; its exhaust green up to the maximum of the
+# allowable range, then yellow and red from EXHAUST_HOT
+EXHAUST_HOT = 60.0
+AIR_GREEN = "#a6d96a"
+AIR_YELLOW = "#fee08b"
+AIR_RED = "#f46d43"
+AIR_DARK_RED = "#a50026"
+AIR_BLUE = "#74add1"
+AIR_DARK_BLUE = "#313695"
+# How close to the maximum of its ASHRAE class the hottest window of the supply of a CDU turns it orange, in °C
+SUPPLY_MARGIN = 2.0
+SUPPLY_COLORS = {"below": "#c7e9c0", "close": "#fdd49e", "above": "#fc9272"}
+
+
+def exhaust_colormap(limits: Limits) -> tuple[Colormap, Normalize]:
+    """The colors of the exhaust of a server of an ASHRAE air class, which limits its inlet only: green on its
+    allowable range, then from green to red at EXHAUST_HOT, red above."""
+    lowest, highest = limits.allowable
+    # The air classes have both bounds
+    assert lowest is not None
+    assert highest is not None
+    green = (highest - lowest) / (EXHAUST_HOT - lowest)
+    colors = [(0, AIR_GREEN), (green, AIR_GREEN), ((green + 1) / 2, AIR_YELLOW), (1, AIR_DARK_RED)]
+    return LinearSegmentedColormap.from_list("exhaust", colors), Normalize(lowest, EXHAUST_HOT, clip=True)
+
+
+def inlet_colormap(limits: Limits) -> tuple[Colormap, Normalize]:
+    """The colors of the inlet of a server of an ASHRAE air class: green on its recommended range, from blue
+    to green below it, from yellow to red above it, dark blue and dark red out of its allowable range."""
+    lowest, highest = limits.allowable
+    # The air classes have both bounds and a recommended range
+    assert lowest is not None
+    assert highest is not None
+    assert limits.recommended is not None
+    low, high = ((bound - lowest) / (highest - lowest) for bound in limits.recommended)
+    colors = [(0, AIR_BLUE), (low, AIR_GREEN), (high, AIR_GREEN), ((high + 1) / 2, AIR_YELLOW), (1, AIR_RED)]
+    cmap = LinearSegmentedColormap.from_list("inlet", colors)
+    cmap.set_under(AIR_DARK_BLUE)
+    cmap.set_over(AIR_DARK_RED)
+    return cmap, Normalize(lowest, highest)
+
+
+def curve_bounds(servers: list[RackServer], name: str, units: dict[str, str]) -> dict[str, tuple[float, float]]:
+    """The lowest and the highest windows of the servers of a column, by unit: its fans can be in percent for
+    some servers, in RPM for others, and a curve in percent would be flat on the scale of the RPM."""
+    windows: dict[str, list[float]] = {}
+    for server in servers:
+        windows.setdefault(server.unit(name, units), []).extend(server.series[name] or [])
+    return {unit: (min(values), max(values)) for unit, values in windows.items() if values}
+
+
+def cell_scale(
+    name: str, server: RackServer, unit: str, relative: Normalize | None
+) -> tuple[Colormap, Normalize | None]:
+    """The colors of a cell and their scale: for a server of an ASHRAE air class, the ones of inlet_colormap()
+    and exhaust_colormap(); green to red from 0 to 100 for the fans in percent, and on COMPONENT_TEMPERATURES
+    for the components; the relative scale of the column otherwise, from green to red for the fans and the
+    power."""
+    limits = ASHRAE_LIMITS.get(server.ashrae.get("air", "")) if name in AIR_METRICS else None
+    if limits and name == "Exhaust":
+        return exhaust_colormap(limits)
+    if limits:
+        return inlet_colormap(limits)
+    if name == "Fans" and unit == "%":
+        return LOAD_COLORMAP, Normalize(0, 100)
+    if name in COMPONENTS:
+        return LOAD_COLORMAP, Normalize(*COMPONENT_TEMPERATURES, clip=True)
+    return LOAD_COLORMAP if name in LOAD_METRICS else CELL_COLORMAP, relative
+
+
+def air_classes_line(servers: list[RackServer], exhaust: bool = False) -> str | None:
+    """The ASHRAE air classes of the servers, each with its recommended range and its allowable one,
+    'A1: 18–27 [15–32]', or for the exhaust the allowable range in green and the red, 'A1: 15–32, 60 red';
+    None when no server has one."""
+    names = sorted({name for server in servers if (name := server.ashrae.get("air"))})
+    lines = []
+    for name in names:
+        limits = ASHRAE_LIMITS[name]
+        allowable = f"{limits.allowable[0]:g}–{limits.allowable[1]:g}"
+        if exhaust:
+            lines.append(f"{name}: {allowable}, {EXHAUST_HOT:g} red")
+            continue
+        recommended = f"{limits.recommended[0]:g}–{limits.recommended[1]:g} " if limits.recommended else ""
+        lines.append(f"{name}: {recommended}[{allowable}]")
+    return ", ".join(lines) or None
+
+
+def supply_class(circuit: CduCircuit, classes: dict[str, str]) -> tuple[str, float] | None:
+    """The ASHRAE class limiting a supply of a CDU, and its maximum; None without one, or without maximum."""
+    name = classes.get(circuit.family or "")
+    maximum = ASHRAE_LIMITS[name].allowable[1] if name else None
+    return (name, maximum) if name and maximum is not None else None
+
+
+def circuit_style(circuit: CduCircuit, classes: dict[str, str], separator: str = " ") -> tuple[str, str]:
+    """The name of a circuit of a CDU and its color: a supply limited by an ASHRAE class is named after it,
+    after the separator, green when its hottest window is below its maximum by more than SUPPLY_MARGIN,
+    orange up to it, red above."""
+    found = supply_class(circuit, classes)
+    if found is None:
+        return circuit.name, "lavender" if circuit.delta else "aliceblue"
+    name, maximum = found
+    hottest = max(circuit.values)
+    level = "above" if hottest > maximum else "close" if hottest > maximum - SUPPLY_MARGIN else "below"
+    return f"{circuit.name}{separator}{name}", SUPPLY_COLORS[level]
 
 
 def draw_profile(
@@ -609,18 +768,17 @@ def cdu_band(graph, panels: list, rack: Rack, legend):
     for name, rows, circuits in blocks:
         band.text(CDU_COLUMNS / 2, top - CDU_TITLE / 2, f"CDU {name}", ha="center", va="center", fontsize=13)
         top -= CDU_TITLE
-        for index, (circuit, values, delta) in enumerate(circuits):
+        for index, circuit in enumerate(circuits):
             row, column = divmod(index, CDU_COLUMNS)
             y = top - row - 1
-            band.add_patch(
-                Rectangle(
-                    (column, y), 1, 1, facecolor="lavender" if delta else "aliceblue", edgecolor="white", linewidth=2
-                )
-            )
+            # The class on its own line, the cells being square
+            title, color = circuit_style(circuit, rack.cdu_ashrae.get(name, {}), "\n")
+            values = circuit.values
+            band.add_patch(Rectangle((column, y), 1, 1, facecolor=color, edgecolor="white", linewidth=2))
             band.text(
                 column + 0.5,
                 y + 0.5,
-                f"{circuit}\n{np.mean(values):.1f} °C\n[{min(values):.1f} – {max(values):.1f}]",
+                f"{title}\n{np.mean(values):.1f} °C\n[{min(values):.1f} – {max(values):.1f}]",
                 ha="center",
                 va="center",
                 fontsize=10,
@@ -664,7 +822,14 @@ def graph_rack_component_profiles(args, bench_name: str, output_dir, rack: Rack)
 
 
 def draw_cdu_row(
-    ax, bottom: float, name_width: float, left: float, right: float, name: str, circuits: list[CduSerie]
+    ax,
+    bottom: float,
+    name_width: float,
+    left: float,
+    right: float,
+    name: str,
+    circuits: list[CduCircuit],
+    classes: dict[str, str],
 ) -> None:
     """A row of two positions of a CDU from its bottom: its name from 0 to name_width, then its circuits side by
     side from left to right, each its name above the mean of its window means, its trend, and its 95th
@@ -673,13 +838,11 @@ def draw_cdu_row(
     ax.add_patch(Rectangle((0, bottom), name_width, 2, facecolor="whitesmoke", edgecolor="white"))
     ax.text(name_width / 2, y - 0.5, f"CDU {name}", ha="center", va="center", fontsize=8)
     width = (right - left) / len(circuits)
-    for index, (circuit, values, delta) in enumerate(circuits):
+    for index, serie in enumerate(circuits):
         x = left + index * width
-        ax.add_patch(
-            Rectangle(
-                (x, bottom), width, 2, facecolor="lavender" if delta else "aliceblue", edgecolor="white", linewidth=1
-            )
-        )
+        circuit, color = circuit_style(serie, classes)
+        values = serie.values
+        ax.add_patch(Rectangle((x, bottom), width, 2, facecolor=color, edgecolor="white", linewidth=1))
         # As a server: its name above its mean, its trend on its own scale and its 95th percentile
         # window above its 5th
         ax.text(x + width / 2, y + 0.1, circuit, ha="center", va="center", fontsize=8)
@@ -698,6 +861,55 @@ def draw_cdu_row(
             ax.text(x + 0.9 * width, middle + offset, value_text(value), ha="center", va="center", fontsize=6)
 
 
+def colors_note(rack: Rack) -> str:
+    """The lines of the note of an elevation telling how its cells are colored."""
+    lines = []
+    air = [name for name in AIR_METRICS if name in rack.metrics]
+    classed = [server for server in rack.servers if server.ashrae.get("air")]
+    if classed and "Inlet" in rack.metrics:
+        lines.append(
+            "    Inlet: green on the recommended range of the ASHRAE air class of each server, before its allowable\n"
+            "        range in the header; blue below it, yellow to red above it, dark out of the allowable range."
+        )
+    if classed and "Exhaust" in rack.metrics:
+        lines.append(
+            "    Exhaust: green on the allowable range of the ASHRAE air class of each server,\n"
+            f"        then up to red at {EXHAUST_HOT:g} °C: ASHRAE limits the inlet only."
+        )
+    if air and len(classed) < len(rack.servers):
+        servers = " of the servers without ASHRAE air class" if classed else ""
+        lines.append(f"    {', '.join(air)}{servers}: from the coolest server to the hottest.")
+    if "Fans" in rack.metrics:
+        lines.append(
+            "    Fans: from green at 0 % to red at 100 %."
+            if rack.units["Fans"] == "%"
+            else "    Fans: in %, from green at 0 % to red at 100 %; in RPM, from green, its slowest server, to red, its fastest."
+            if "%" in rack.units["Fans"].split(", ")
+            else "    Fans: from green, its slowest server, to red, its fastest."
+        )
+    components = [rack.label(name) for name in COMPONENTS if name in rack.metrics]
+    if components:
+        lowest, highest = COMPONENT_TEMPERATURES
+        lines.append(f"    {', '.join(components)}: green up to {lowest:g} °C, then up to red at {highest:g} °C.")
+    if "Power" in rack.metrics:
+        lines.append("    Power: from green, its lowest server, to red, its highest.")
+    return "\n".join([*lines, "    Gray: empty positions, and the metrics a server does not give."]) + "\n"
+
+
+def supplies_note(rack: Rack) -> str:
+    """The lines of the note of an elevation telling how the supplies of the CDUs are colored, when an ASHRAE
+    class limits one of them."""
+    limited = any(
+        supply_class(circuit, rack.cdu_ashrae.get(name, {})) for name, circuits in rack.cdus for circuit in circuits
+    )
+    if not limited:
+        return ""
+    return (
+        f"\n    Supplies by their hottest window: green below the maximum of their ASHRAE class by more than "
+        f"{SUPPLY_MARGIN:g} °C,\n        orange up to it, red above it."
+    )
+
+
 # The gray of the metrics a server does not give, like the memory of a BMC without sensor for it: the one of
 # the empty positions, lightgray at 0.4 over white, opaque as a cell is drawn over the gray of its chassis
 EMPTY_COLOR = tuple(1 - 0.4 * (1 - channel) for channel in to_rgba("lightgray")[:3])
@@ -705,7 +917,7 @@ EMPTY_COLOR = tuple(1 - 0.4 * (1 - channel) for channel in to_rgba("lightgray")[
 
 def graph_rack_elevation(args, bench_name: str, output_dir, rack: Rack) -> int:
     """The rack seen from the front: a row per position, a column per metric, each cell the mean of the
-    window means of a server, its color from the coolest server of the column to the hottest, and its window
+    window means of a server, its color on the scale of its column, see colors_note(), and its window
     means, on the same scale in a column."""
     servers, top, cdus = rack.servers, rack.top, rack.cdus
     metrics = list(rack.metrics.values())
@@ -725,7 +937,6 @@ def graph_rack_elevation(args, bench_name: str, output_dir, rack: Rack) -> int:
     graph.rotate_xticks = False
     graph.min_dpi = RACK_DPI
     ax = graph.get_ax()
-    cmap = plt.get_cmap("RdYlBu_r")
     # The column of the servers is wider than the ones of the metrics, the names being longer; the
     # metrics go from the front of the servers, told left of the positions, to their rear, told right
     name_width = 2.0
@@ -740,16 +951,32 @@ def graph_rack_elevation(args, bench_name: str, output_dir, rack: Rack) -> int:
                 Rectangle((left, position - 0.5), width, height, facecolor="lightgray", alpha=0.4, edgecolor="white")
             )
     for column, metric in enumerate(metrics):
-        means = [mean for server in servers if (mean := server.mean(metric.name)) is not None]
-        # A column without differences between its servers has no color to tell
-        norm = Normalize(min(means), max(means)) if max(means) > min(means) else None
-        windows = [value for server in servers for value in server.series[metric.name] or []]
-        lowest, highest = min(windows), max(windows)
-        headers.append((columns[column] + 0.5, f"{rack.title(metric.name)}\n{min(means):.1f} – {max(means):.1f}"))
+        # The servers of a column by unit, its fans being in percent or in RPM: a scale each
+        by_unit: dict[str, list[float]] = {}
+        for server in servers:
+            if (mean := server.mean(metric.name)) is not None:
+                by_unit.setdefault(server.unit(metric.name, rack.units), []).append(mean)
+        # A column without differences between its servers has no color to tell, but on a fixed scale
+        relatives = {
+            unit: Normalize(min(means), max(means)) if max(means) > min(means) else None
+            for unit, means in by_unit.items()
+        }
+        mixed = len(by_unit) > 1
+        bounds = curve_bounds(servers, metric.name, rack.units)
+        ranges = [
+            f"{min(means):.1f} – {max(means):.1f}" + (f" {unit}" if mixed else "")
+            for unit, means in sorted(by_unit.items())
+        ]
+        # A line per unit, two ranges on a line overlapping the next columns
+        header = "\n".join([rack.title(metric.name), *ranges])
+        classes_line = air_classes_line(servers, metric.name == "Exhaust") if metric.name in AIR_METRICS else None
+        headers.append((columns[column] + 0.5, f"{header}\n{classes_line}" if classes_line else header))
         for server in servers:
             slot = server.slot
             x, width, middle = columns[column] + slot.left, slot.width, slot.middle
             mean = server.mean(metric.name)
+            unit = server.unit(metric.name, rack.units)
+            cmap, norm = cell_scale(metric.name, server, unit, relatives.get(unit))
             color: Any = (
                 cmap(norm(mean)) if mean is not None and norm else "whitesmoke" if mean is not None else EMPTY_COLOR
             )
@@ -779,6 +1006,7 @@ def graph_rack_elevation(args, bench_name: str, output_dir, rack: Rack) -> int:
             serie = server.series[metric.name] or []
             if len(serie) > 1 and text_width < width:
                 left, right = x + text_width + 0.03 * width, x + width - range_width - 0.03 * width
+                lowest, highest = bounds[unit]
                 scale = (
                     (np.array(serie) - lowest) / (highest - lowest) if highest > lowest else np.full(len(serie), 0.5)
                 )
@@ -817,7 +1045,7 @@ def graph_rack_elevation(args, bench_name: str, output_dir, rack: Rack) -> int:
             )
     for server in servers:
         slot = server.slot
-        ax.add_patch(
+        cell = ax.add_patch(
             Rectangle(
                 (slot.left * name_width, slot.bottom),
                 slot.width * name_width,
@@ -826,19 +1054,26 @@ def graph_rack_elevation(args, bench_name: str, output_dir, rack: Rack) -> int:
                 edgecolor="white",
             )
         )
+        # A node sharing its row with others, even half of it, gets its label under its name, smaller, and
+        # its text is cut at its cell: it overlapped its neighbour and the positions of the rack
+        shared = slot.width < 1
         ax.text(
             (slot.left + slot.width / 2) * name_width,
             slot.middle,
-            server.name,
+            server.named("\n" if shared else " "),
             ha="center",
             va="center",
-            fontsize=6 if slot.width < 0.5 else 8,
+            fontsize=6 if shared else 8,
+            clip_path=cell,
+            clip_on=True,
         )
     headers.insert(0, (name_width / 2, "Server"))
 
     # The CDUs below the rack, a row each over the whole width, below a gap of one position
     for row, (name, circuits) in enumerate(cdus):
-        draw_cdu_row(ax, -3 - 2 * row, name_width, columns[0], columns[-1], name, circuits)
+        draw_cdu_row(
+            ax, -3 - 2 * row, name_width, columns[0], columns[-1], name, circuits, rack.cdu_ashrae.get(name, {})
+        )
 
     ax.set_xlim(0, columns[-1] + side)
     ax.set_ylim(-1 - 2 * len(cdus) if cdus else 0.5, top + 0.5)
@@ -855,11 +1090,11 @@ def graph_rack_elevation(args, bench_name: str, output_dir, rack: Rack) -> int:
         sensors_note(rack, rack.metrics) + "\n"
         # A line per subject, the longest ones split: a wide note would widen the image
         "Each cell: the mean of the window means of the server.\n"
-        "    Colors scaled per column, from its coolest server to its hottest.\n"
-        "    Gray: empty positions, and the metrics a server does not give.\n"
-        "CDUs: the mean of their window means"
-        ";\n    ΔT: the return of a circuit minus its supply, window by window."
-        + "\nCurves: the window means of the server during the benchmark, scaled per column,\n"
+        + colors_note(rack)
+        + "CDUs: the mean of their window means"
+        + ";\n    ΔT: the return of a circuit minus its supply, window by window."
+        + supplies_note(rack)
+        + "\nCurves: the window means of the server during the benchmark, scaled per column and unit,\n"
         "    from its lowest window to its highest; right of them, its 95th percentile window above its 5th.\n"
         "    The ones of the CDUs on the scale of each of their cells.",
         transform=ax.transAxes,

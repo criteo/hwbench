@@ -1047,6 +1047,22 @@ class Trace:
         location = self.get_location()
         return location.line() if location else None
 
+    def get_label(self) -> str | None:
+        """The label the topology gives the server, kept in its location; None without one."""
+        location = self.__header().get("location")
+        label = location.get("label") if isinstance(location, dict) else None
+        return label if isinstance(label, str) and label else None
+
+    def get_ashrae(self) -> dict[str, str]:
+        """The ASHRAE classes of the server by family, inherited from the places of the topology."""
+        location = self.__header().get("location")
+        classes = location.get("ashrae") if isinstance(location, dict) else None
+        return dict(classes) if isinstance(classes, dict) else {}
+
+    def get_cdu_ashrae(self) -> dict[str, dict[str, str]]:
+        """The ASHRAE classes of the circuits of each CDU by family, given by its section of the environment file."""
+        return {name: dict(cdu.get("ashrae") or {}) for name, cdu in (self.get_hardware().get("cdu") or {}).items()}
+
     def get_cdu_lines(self) -> list[str]:
         """The CDUs monitored during the run, one line each: their section, vendor, model and protocol,
         then their firmware and serial number when known, and their host between parentheses."""

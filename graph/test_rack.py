@@ -6,12 +6,22 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
+from matplotlib.colors import Normalize, to_rgba
 
 from graph.rack import (
+    AIR_DARK_BLUE,
+    AIR_DARK_RED,
+    AIR_GREEN,
     RACK_METRICS,
+    SUPPLY_COLORS,
+    CduCircuit,
     Rack,
     RackServer,
     Slot,
+    air_classes_line,
+    cell_scale,
+    circuit_style,
+    colors_note,
     exhaust,
     graph_rack,
     inlet,
@@ -98,6 +108,21 @@ def test_reduce_windows():
     assert reduce_windows([], np.max) is None
 
 
+def test_curve_bounds_per_unit():
+    """The curves of a column are scaled per unit: the fans of a rack mixing BMCs, in percent for some servers and in
+    RPM for others, keep curves in percent that are not flat on the scale of the RPM."""
+    from graph.rack import curve_bounds
+
+    servers = [
+        RackServer("percent", 1, {"Fans": [40.0, 56.0], "Power": [800.0, 900.0]}, fans_unit="%"),
+        RackServer("rpm", 2, {"Fans": [9300.0, 10700.0], "Power": [1000.0, 1100.0]}, fans_unit="RPM"),
+        RackServer("unknown", 3, {"Fans": None, "Power": None}, fans_unit="RPM"),
+    ]
+    units = {"Power": "W"}
+    assert curve_bounds(servers, "Fans", units) == {"%": (40.0, 56.0), "RPM": (9300.0, 10700.0)}
+    assert curve_bounds(servers, "Power", units) == {"W": (800.0, 1100.0)}
+
+
 class Monitoring:
     """A benchmark giving its thermal families, and the monitoring of its CDUs."""
 
@@ -171,20 +196,21 @@ def test_rack_cdus():
         (
             "cdu-1",
             [
-                ("Primary supply", [18.0, 18.5], False),
-                ("Primary return", [24.0, 24.5], False),
+                # A supply with the family of the ASHRAE class limiting it
+                CduCircuit("Primary supply", [18.0, 18.5], False, "primary"),
+                CduCircuit("Primary return", [24.0, 24.5]),
                 # On the windows having both
-                ("Primary ΔT", [6.0], True),
-                ("Secondary supply", [28.0, 28.0, 28.0], False),
-                ("Secondary return", [34.0, 35.0, 36.0], False),
-                ("Secondary ΔT", [6.0, 7.0, 8.0], True),
+                CduCircuit("Primary ΔT", [6.0], True),
+                CduCircuit("Secondary supply", [28.0, 28.0, 28.0], False, "secondary"),
+                CduCircuit("Secondary return", [34.0, 35.0, 36.0]),
+                CduCircuit("Secondary ΔT", [6.0, 7.0, 8.0], True),
             ],
         )
     ]
     # Only the temperatures, and a return without its supply has no delta
     assert rack_cdus([Monitoring(cdus={"cdu-2": cdu({"primary_supply_temperature": [1.0]}, "Bar")})]) == []
     assert rack_cdus([Monitoring(cdus={"cdu-3": cdu({"primary_return_temperature": [24.0]})})]) == [
-        ("cdu-3", [("Primary return", [24.0], False)])
+        ("cdu-3", [CduCircuit("Primary return", [24.0])])
     ]
 
 
@@ -328,6 +354,106 @@ def test_rack_power_of_the_traces(tmp_path):
     package = trace.bench("cpu_17").get_monitoring_metric_by_name(MonitoringContextKeys.PowerConsumption, "CPU.package")
     assert rack.servers[0].series["Power"] == [float(value) for value in package.get_mean()]
     assert rack.power_metrics == ["CPU.package"]
+
+
+def test_ashrae_of_the_rack(tmp_path):
+    """--ashrae replaces the classes of the traces; a CDU takes the ones of the topology, then of its section."""
+    result = json.loads(TRACES.joinpath("cdu_comparison.json").read_text())
+    result["location"] = {"path": ["PA3", "A12", "1"], "label": "db-01", "ashrae": {"air": "A2", "secondary": "S40"}}
+    result["hardware"]["cdu"]["CDU_example"]["ashrae"] = {"secondary": "S30"}
+    path = tmp_path / "server.json"
+    path.write_text(json.dumps(result))
+    args = SimpleNamespace(traces=[Trace(str(path), "server", "BMC.Server")], ashrae={"air": "H1"})
+    rack = load_rack(args, "cpu_17", {"server": 1})
+    assert rack.servers[0].ashrae == {"air": "H1", "secondary": "S40"}
+    assert rack.servers[0].named() == "server (db-01)"
+    assert rack.cdu_ashrae == {"CDU_example": {"air": "H1", "secondary": "S30"}}
+
+
+def test_cell_scale():
+    """The inlet on the allowable range of the class of the server, the fans in percent from 0 to 100."""
+    relative = Normalize(20, 21)
+    classed, unclassed = RackServer("a", 1, {}, ashrae={"air": "A1"}), RackServer("b", 2, {})
+    norm = cell_scale("Inlet", classed, "°C", relative)[1]
+    assert (norm.vmin, norm.vmax) == (15, 32)
+    assert cell_scale("Inlet", unclassed, "°C", relative)[1] is relative
+    cmap, norm = cell_scale("Fans", unclassed, "%", relative)
+    assert (norm.vmin, norm.vmax) == (0, 100)
+    assert cmap.name == "RdYlGn_r"
+    assert cell_scale("Fans", unclassed, "RPM", relative)[1] is relative
+    # The power, not a temperature, from green to red on the relative scale of its column
+    cmap, norm = cell_scale("Power", unclassed, "W", relative)
+    assert (cmap.name, norm) == ("RdYlGn_r", relative)
+    # The components green up to 30 °C, then up to red at 100 °C
+    cmap, norm = cell_scale("Memory", unclassed, "°C", relative)
+    assert (cmap.name, norm.vmin, norm.vmax) == ("RdYlGn_r", 30, 100)
+    # The air of a server without class, on the relative scale of its column
+    assert cell_scale("Inlet", unclassed, "°C", relative)[0].name == "RdYlBu_r"
+    assert air_classes_line([classed, RackServer("c", 3, {}, ashrae={"air": "H1"}), unclassed]) == (
+        "A1: 18–27 [15–32], H1: 18–22 [15–25]"
+    )
+    assert air_classes_line([classed], exhaust=True) == "A1: 15–32, 60 red"
+    assert air_classes_line([unclassed]) is None
+
+
+def test_exhaust_scale():
+    """The exhaust of a server of an air class: green on its allowable range, then to red at 60 °C."""
+    cmap, norm = cell_scale("Exhaust", RackServer("a", 1, {}, ashrae={"air": "A1"}), "°C", None)
+    green = to_rgba(AIR_GREEN)
+    assert all(np.allclose(cmap(norm(value)), green) for value in (10, 15, 25, 32))
+    assert not np.allclose(cmap(norm(45)), green)
+    assert np.allclose(cmap(norm(60)), cmap(norm(70)))
+    assert cell_scale("Exhaust", RackServer("b", 2, {}), "°C", None)[1] is None
+
+
+def test_inlet_scale():
+    """The inlet of a server of an air class: green on its recommended range, dark out of its allowable one."""
+    cmap, norm = cell_scale("Inlet", RackServer("a", 1, {}, ashrae={"air": "A1"}), "°C", None)
+    green = to_rgba(AIR_GREEN)
+    assert all(np.allclose(cmap(norm(value)), green) for value in (18, 22.5, 27))
+    assert not np.allclose(cmap(norm(16)), green)
+    assert not np.allclose(cmap(norm(30)), green)
+    assert np.allclose(cmap(norm(14)), to_rgba(AIR_DARK_BLUE))
+    assert np.allclose(cmap(norm(33)), to_rgba(AIR_DARK_RED))
+
+
+@pytest.mark.parametrize(
+    ("values", "classes", "style"),
+    [
+        ([27.0, 27.9], {"secondary": "S30"}, ("Secondary supply S30", SUPPLY_COLORS["below"])),
+        ([27.0, 28.5], {"secondary": "S30"}, ("Secondary supply S30", SUPPLY_COLORS["close"])),
+        ([29.0, 30.5], {"secondary": "S30"}, ("Secondary supply S30", SUPPLY_COLORS["above"])),
+        ([27.0], {}, ("Secondary supply", "aliceblue")),
+    ],
+)
+def test_circuit_style(values, classes, style):
+    """A supply limited by an ASHRAE class, by its hottest window: green, orange within 2 °C of its maximum, red above."""
+    assert circuit_style(CduCircuit("Secondary supply", values, False, "secondary"), classes) == style
+
+
+def test_circuit_style_without_maximum():
+    """W+ has no maximum, a return and a delta no class: their usual colors."""
+    assert circuit_style(CduCircuit("Primary supply", [50.0], False, "primary"), {"primary": "W+"}) == (
+        "Primary supply",
+        "aliceblue",
+    )
+    assert circuit_style(CduCircuit("Primary ΔT", [6.0], True), {"primary": "W32"}) == ("Primary ΔT", "lavender")
+
+
+def test_fans_of_several_units(tmp_path):
+    """A rack mixing BMCs has fans in percent and in RPM: each server keeps its unit, colored on its scale."""
+    traces = []
+    for name, unit in (("hpe", "Percent"), ("dell", "RPM")):
+        result = json.loads(TRACES.joinpath("cdu_comparison.json").read_text())
+        for fan in result["bench"]["cpu_17"]["monitoring"]["contexts"]["Fans"]["Fan"].values():
+            fan["unit"] = unit
+        path = tmp_path / f"{name}.json"
+        path.write_text(json.dumps(result))
+        traces.append(Trace(str(path), name, "BMC.Server"))
+    rack = load_rack(SimpleNamespace(traces=traces), "cpu_17", {"hpe": 1, "dell": 2})
+    assert rack.units["Fans"] == "%, RPM"
+    assert {server.name: server.unit("Fans", rack.units) for server in rack.servers} == {"hpe": "%", "dell": "RPM"}
+    assert "in %, from green at 0 % to red at 100 %; in RPM, from green, its slowest server" in colors_note(rack)
 
 
 def test_rack_header(tmp_path):

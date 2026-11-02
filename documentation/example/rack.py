@@ -7,7 +7,9 @@ It writes a trace per server in <directory>, located in the rack A12, positions 
 
 - 1U servers, two of them with 4 GPUs, the air warmer at the top of the rack;
 - a 2U chassis of 4 nodes of 1U at the position 4, and a 2U server at the position 7;
-- empty positions between them.
+- empty positions between them;
+- the ASHRAE class A1 for the air of the rack, as a topology gives it, W27 and S30 for the circuits of its
+  CDU, as its section of the environment file gives them, and a label for three servers.
 
 The servers are the recorded host monitoring of cdu_comparison.json, with synthetic differences: each
 server is shifted by fixed amounts depending on its position, so that every rendering gives the same
@@ -37,6 +39,11 @@ SERVERS = [
     ("EXAMPLE0110", 10, 1, 1, None, 4),
     ("EXAMPLE0112", 12, 1, 1, None, 0),
 ]
+# The labels of some servers, as a topology gives them
+LABELS = {"EXAMPLE0101": "db-01", "EXAMPLE0102": "db-02", "EXAMPLE0104A": "web-01"}
+# The ASHRAE classes of the rack and of the circuits of its CDU
+ASHRAE = {"air": "A1"}
+CDU_ASHRAE = {"primary": "W27", "secondary": "S30"}
 # The load of each server, in degrees added to its components: fixed, unlike a random one
 LOADS = [0.5, 2.0, 1.0, 3.0, -0.5, 1.5, 2.5, 0.0, 1.0, -1.0]
 
@@ -55,7 +62,11 @@ def scale(metric: dict, factor: float) -> None:
 
 def server(source: dict, serial: str, position: int, height: int, chassis_height: int, chassis, gpus: int, load):
     trace = copy.deepcopy(source)
-    trace["location"] = {"path": [*RACK, str(position)], "separator": "/", "levels": LEVELS}
+    trace["location"] = {"path": [*RACK, str(position)], "separator": "/", "levels": LEVELS, "ashrae": ASHRAE}
+    if serial in LABELS:
+        trace["location"]["label"] = LABELS[serial]
+    for cdu in trace["hardware"].get("cdu", {}).values():
+        cdu["ashrae"] = CDU_ASHRAE
     dmi = trace["hardware"]["dmi"]
     dmi |= {"serial": serial, "height": height}
     dmi["chassis"] = {"product": "", "serial": chassis or serial, "height": chassis_height}
