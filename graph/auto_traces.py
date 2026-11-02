@@ -10,8 +10,8 @@ from graph.common import fatal
 from graph.trace import Trace
 from hwbench.utils.archive import RESULTS_FILE, archive_output_directory
 
-# The archives create_output_archive() writes next to the output directories
-ARCHIVE_PATTERN = "hwbench-*.tar.xz"
+# The archives of create_output_archive(), whatever their name: the ones holding a results.json
+ARCHIVE_PATTERN = "*.tar.xz"
 # The name of the file of the output directory listing the traces found by --auto-traces
 AUTO_TRACES_FILE = "auto_traces.txt"
 # The sections of the results.json of hwbench
@@ -38,14 +38,17 @@ def find_trace_files(directory: pathlib.Path) -> list[pathlib.Path]:
     An archive is written next to the output directory it compresses: the results.json
     of that directory is the same run, so only the archive, the complete one, is kept.
     """
-    archives = sorted(directory.rglob(ARCHIVE_PATTERN))
+    archives = []
     archived = set()
-    for archive in archives:
+    for archive in sorted(directory.rglob(ARCHIVE_PATTERN)):
         try:
             output_directory = archive_output_directory(str(archive))
-        except (OSError, tarfile.TarError, EOFError):
+        except (OSError, tarfile.TarError, EOFError) as e:
+            print(f"auto-traces: ignoring {archive}: not a readable archive: {e}")
             continue
+        # Whatever its name, once renamed by the tool collecting it: an archive holding a results.json
         if output_directory:
+            archives.append(archive)
             archived.add(archive.parent.resolve() / output_directory)
     results = [path for path in sorted(directory.rglob(RESULTS_FILE)) if path.parent.resolve() not in archived]
     return sorted(archives + results)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import tarfile
 
 import pytest
 
@@ -67,6 +68,22 @@ def test_archive_replaces_its_output_directory(runs):
         "old/hwbench-out-4/results.json",
         "other/hwbench-out-2/results.json",
     ]
+
+
+def test_renamed_archive(runs, capsys):
+    """An archive renamed by the tool collecting it is found, a .tar.xz without results.json or unreadable is not."""
+    collected = runs / "collected" / "SRV01"
+    collected.mkdir(parents=True)
+    (runs / "hwbench-SRV01-20261022120000.tar.xz").rename(collected / "20261022T120000Z-SRV01.tar.xz")
+    (runs / "logs.txt").write_text("not a trace")
+    with tarfile.open(runs / "logs.tar.xz", "w:xz") as logs:
+        logs.add(runs / "logs.txt", arcname="logs/logs.txt")
+    (runs / "broken.tar.xz").write_text("not an archive")
+    files = [str(path.relative_to(runs)) for path in find_trace_files(runs)]
+    assert "collected/SRV01/20261022T120000Z-SRV01.tar.xz" in files
+    assert "logs.tar.xz" not in files
+    assert "broken.tar.xz" not in files
+    assert f"auto-traces: ignoring {runs / 'broken.tar.xz'}: not a readable archive" in capsys.readouterr().out
 
 
 def test_list_contexts(runs, capsys):
