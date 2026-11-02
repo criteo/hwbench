@@ -597,44 +597,53 @@ def generate_stats(args) -> None:
         print(
             f"stats: rendering {sum(len(trace.bench_list()) for trace in args.traces)} jobs of {len(args.traces)} traces"
         )
-    for trace in args.traces:
+    # The max of each power metric of all the traces: where it is reached, its benchmark and its value.
+    # The cores give a single line, a server holding hundreds of them.
+    max_power: dict[str, tuple[str, str, float]] = {}
+    for index, trace in enumerate(args.traces, 1):
         benches = trace.bench_list()
         if args.verbose:
             print(f"stats: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})")
-        max_power = {key: ("", 0.0) for key in PowerConsumptionContextKeys}
         for bench_name in sorted(benches):
             bench = trace.bench(bench_name)
-            for metric_name in PowerConsumptionContextKeys:
+            for context in PowerConsumptionContextKeys:
                 try:
-                    for m in [MonitoringContextKeys.PowerConsumption]:
-                        metrics = bench.get_component(m, metric_name)
-                        if metrics:
-                            for metric in metrics:
-                                # If a metric has no measure, let's ignore it
-                                if len(metrics[metric].get_samples()) == 0:
-                                    if args.verbose:
-                                        print(
-                                            f"{bench_name}: No samples found in {metric_name}.{metric}, ignoring metric."
-                                        )
-                                    continue
-                                else:
-                                    max_values = metrics[metric].get_max()
-                                    if len(max_values):
-                                        current_max = max(max_values)
-                                        if current_max > max_power[metric_name][1]:
-                                            max_power[metric_name] = (bench_name, float(current_max))
-                                            bench.get_metric_unit(m)
+                    metrics = bench.get_component(MonitoringContextKeys.PowerConsumption, context)
                 except KeyError:
                     continue
+                for metric, values in metrics.items():
+                    # If a metric has no measure, let's ignore it
+                    if len(values.get_samples()) == 0:
+                        if args.verbose:
+                            print(f"{bench_name}: No samples found in {context}.{metric}, ignoring metric.")
+                        continue
+                    max_values = values.get_max()
+                    if not len(max_values):
+                        continue
+                    core = metric.startswith("Core_")
+                    name = f"{context}.Core_*" if core else f"{context}.{metric}"
+                    where = f"{trace.get_name()} {metric}" if core else trace.get_name()
+                    current_max = float(max(max_values))
+                    if name not in max_power or current_max > max_power[name][2]:
+                        max_power[name] = (where, bench_name, current_max)
+        # Read one at a time, as by the rest of the main process: kept, the traces of a fleet fill the memory
+        trace.forget_content()
+        if not args.verbose:
+            progress("stats", index, len(args.traces), "traces read")
 
-    for metric in [MonitoringContextKeys.PowerConsumption]:
-        print(f"{str(metric):}")
-        for metric_name in PowerConsumptionContextKeys:
-            # Only report a max when data was actually found (a bench was recorded).
-            if max_power[metric_name][0]:
-                print(
-                    f"    {metric_name} max : {max_power[metric_name][1]:.2f} {bench.get_metric_unit(metric)} in {max_power[metric_name][0]}"
-                )
+    print(f"{MonitoringContextKeys.PowerConsumption}")
+    # Only report a max when data was actually found (a bench was recorded).
+    if not max_power:
+        return
+    # Aligned in columns: the metric, its value, its benchmark
+    name_width = max(len(name) for name in max_power)
+    value_width = max(len(f"{value:.2f}") for _, _, value in max_power.values())
+    bench_width = max(len(bench_name) for _, bench_name, _ in max_power.values())
+    unit = bench.get_metric_unit(MonitoringContextKeys.PowerConsumption)
+    for name, (where, bench_name, value) in max_power.items():
+        print(
+            f"    {name:<{name_width}} max : {value:>{value_width}.2f} {unit} in {bench_name:<{bench_width}} of {where}"
+        )
 
 
 def compare_traces(args) -> None:
