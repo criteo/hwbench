@@ -5,13 +5,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from hwbench.environment.environment_file import Location
+from hwbench.environment.topology import TopologyServer
 from hwbench.hwbench import format_output, parse_options
 
 
-def output(context: str | None, location: Location | None = None) -> dict:
+def output(context: str | None, location: Location | None = None, server: TopologyServer | None = None) -> dict:
     config = MagicMock()
     config.to_dict.return_value = {}
-    return format_output({}, {}, {}, config, context, location)
+    return format_output({}, {}, {}, config, context, location, server)
 
 
 def test_context():
@@ -29,6 +30,25 @@ def test_location():
     """The location of the server is kept in results.json, only when given."""
     assert output(None, Location(["PA3", "A12"]))["location"] == {"path": ["PA3", "A12"], "separator": "/"}
     assert "location" not in output(None)
+
+
+def test_label_and_ashrae():
+    """The topology adds the label of the server, its ASHRAE classes and the cooling of its components to
+    its location, when it has them."""
+    location = Location(["PA3", "A12"])
+    cooled = {"cpu": "liquid", "memory": "air", "gpu": "air"}
+    server = TopologyServer("SRV1", location, "db-01", {"air": "A1", "secondary": "S30"}, cooled)
+    assert output(None, location, server)["location"] == {
+        "path": ["PA3", "A12"],
+        "separator": "/",
+        "label": "db-01",
+        "ashrae": {"air": "A1", "secondary": "S30"},
+        "cooling": cooled,
+    }
+    assert output(None, location, TopologyServer("SRV1", location))["location"] == {
+        "path": ["PA3", "A12"],
+        "separator": "/",
+    }
 
 
 def test_context_option():

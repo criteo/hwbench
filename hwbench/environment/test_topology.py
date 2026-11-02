@@ -20,8 +20,8 @@ from hwbench.environment.topology import (
     schema,
     separator_warnings,
     servers,
-    topology_location,
     topology_problems,
+    topology_server,
     topology_servers,
 )
 
@@ -127,24 +127,24 @@ def test_read_topology(tmp_path):
     assert read_topology(str(tmp_path.joinpath("missing.json")))[1][0].startswith("cannot read the topology: [Errno 2]")
 
 
-def test_topology_location(topology):
+def test_topology_server(topology):
     """The serial of the DMI is found without the spaces some firmwares pad it with."""
     assert (
-        topology_location(topology, str(SAMPLE), " NODE0003  ").line()
+        topology_server(topology, str(SAMPLE), " NODE0003  ").location.line()
         == "Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A13 / Position 10"
     )
 
 
 def test_topology_location_unknown_serial(topology, caplog):
     with pytest.raises(SystemExit):
-        topology_location(topology, str(SAMPLE), "UNKNOWN")
+        topology_server(topology, str(SAMPLE), "UNKNOWN")
     assert f"{SAMPLE}: the serial 'UNKNOWN' of the target machine is not in the topology" in caplog.text
 
 
 @pytest.mark.parametrize("serial", [None, "  "])
 def test_topology_location_without_serial(topology, caplog, serial):
     with pytest.raises(SystemExit):
-        topology_location(topology, str(SAMPLE), serial)
+        topology_server(topology, str(SAMPLE), serial)
     assert f"{SAMPLE}: the target machine has no serial in its DMI to find it in the topology" in caplog.text
 
 

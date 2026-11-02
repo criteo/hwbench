@@ -230,16 +230,17 @@ def load_topology(topology_file: str) -> dict:
     return topology
 
 
-def topology_location(topology: dict, topology_file: str, serial: str | None) -> Location:
-    """The location of the target machine in a valid topology, found by the serial of its DMI, without
-    the spaces some firmwares pad it with: stops hwbench when the topology does not have it."""
+def topology_server(topology: dict, topology_file: str, serial: str | None) -> TopologyServer:
+    """The target machine in a valid topology, its location, its label and its ASHRAE classes, found by
+    the serial of its DMI, without the spaces some firmwares pad it with: stops hwbench when the topology
+    does not have it."""
     serial = (serial or "").strip()
     if not serial:
         h.fatal(f"{topology_file}: the target machine has no serial in its DMI to find it in the topology")
-    location = find_location(topology, serial)
-    if location is None:
+    server = find_server(topology, serial)
+    if server is None:
         h.fatal(f"{topology_file}: the serial '{serial}' of the target machine is not in the topology")
-    return location
+    return server
 
 
 def save_topology(topology_file: str, out_dir: pathlib.Path) -> None:

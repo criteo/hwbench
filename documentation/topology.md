@@ -287,6 +287,21 @@ is printed at startup, kept in `results.json`, with the separator and the levels
 topology, and shown by hwgraph as with the `[Location]` section, see
 [monitoring.md](monitoring.md#location).
 
+The label of the server and the ASHRAE classes it inherits, when the topology gives them, and
+the cooling of its components, with a topology of the version 2, are printed at startup too,
+and kept in the location, by family for the classes, by component for the cooling:
+
+```
+Startup: Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A13 / Position 10
+Startup: Label: db-01
+Startup: ASHRAE: H1 (air), W40 (primary), S35 (secondary)
+Startup: Cooling: cpu liquid, memory liquid, gpu air
+```
+
+```json
+"location": {"path": ["FR", "PA99", "2", "1", "A13", "10"], "separator": "/", "levels": ["Country", "Datacenter", "Datahall", "Room", "Rack", "Position"], "label": "db-01", "ashrae": {"air": "H1", "primary": "W40", "secondary": "S35"}, "cooling": {"cpu": "liquid", "memory": "liquid", "gpu": "air"}}
+```
+
 The topology must be valid, and must hold the target machine, otherwise hwbench stops before
 running any benchmark:
 
@@ -372,6 +387,7 @@ version, with its own schema: the files of the previous versions stay valid.
   `COMPONENTS` and `MODES`, the source of truth of the schema of the version 2, and `resolve()`,
   which gives the cooling of every component of a label, air when the label does not give it.
 - hwbench checks the file with `load_topology()` and copies it with `save_topology()` before
-  tuning the host, then finds the location of the serial of the DMI dumped by `Hardware`,
-  `hw.dmi.info("product_serial")`, with `topology_location()`.
+  tuning the host, then finds the server of the serial of the DMI dumped by `Hardware`,
+  `hw.dmi.info("product_serial")`, with `topology_server()`: `format_output()` keeps its
+  location, its label, its classes and its cooling in `results.json`.
 - `tools/topology_check.py` is a script out of the package, like `tools/redfish_dump.py`.
