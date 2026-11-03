@@ -875,6 +875,14 @@ class Trace:
         self.__load_file()
         return self.__dict__["trace"]
 
+    def load_header(self, header: dict) -> None:
+        """Take the header of the trace, the trace without its benchmarks, read by another process: as a
+        trace read then forgotten, its benchmarks are read again on their first use."""
+        self.trace = header
+        self.__replace_invalid_serials()
+        self.header = header
+        self.forget_content()
+
     def forget_content(self) -> None:
         """Drop the content of the trace, read again on the next use of its benchmarks: a worker keeps the
         traces of its current task only, the main process a single trace at a time."""

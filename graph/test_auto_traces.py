@@ -9,10 +9,10 @@ import pytest
 from graph.auto_traces import (
     AutoTraces,
     find_auto_traces,
-    find_trace_files,
     list_contexts,
     parse_auto_traces,
     print_contexts,
+    read_trace_files,
 )
 from graph.trace import context_line
 from hwbench.utils.archive import create_output_archive
@@ -60,11 +60,10 @@ def test_parse_auto_traces():
 
 def test_archive_replaces_its_output_directory(runs):
     """An archive and the output directory it compresses next to it are the same run."""
-    files = [str(path.relative_to(runs)) for path in find_trace_files(runs)]
+    files = [str(path.relative_to(runs)) for path, _ in read_trace_files(runs, jobs=2)]
     assert files == [
         "hwbench-SRV01-20261022120000.tar.xz",
         "hwbench-out-3/results.json",
-        "misc/results.json",
         "old/hwbench-out-4/results.json",
         "other/hwbench-out-2/results.json",
     ]
@@ -79,7 +78,7 @@ def test_renamed_archive(runs, capsys):
     with tarfile.open(runs / "logs.tar.xz", "w:xz") as logs:
         logs.add(runs / "logs.txt", arcname="logs/logs.txt")
     (runs / "broken.tar.xz").write_text("not an archive")
-    files = [str(path.relative_to(runs)) for path in find_trace_files(runs)]
+    files = [str(path.relative_to(runs)) for path, _ in read_trace_files(runs, jobs=2)]
     assert "collected/SRV01/20261022T120000Z-SRV01.tar.xz" in files
     assert "logs.tar.xz" not in files
     assert "broken.tar.xz" not in files
@@ -179,3 +178,13 @@ def test_context_line(runs):
     first.logical_name, second.logical_name = "before", "after"
     assert context_line([first, second]) == "Contexts: before: bios-v1, after: bios-v2"
     assert context_line(contexts[None]) is None
+
+
+def test_header_without_benchmarks(runs):
+    """The workers send the header of the traces, without their benchmarks, read again when rendered."""
+    headers = dict(read_trace_files(runs, jobs=2))
+    header = headers[runs / "hwbench-SRV01-20261022120000.tar.xz"]
+    assert "bench" not in header
+    assert header["hardware"]["dmi"]["serial"] == "SRV01"
+    [trace] = [trace for trace in list_contexts(runs, jobs=2)["bios-v1"]]
+    assert trace.bench_list()
