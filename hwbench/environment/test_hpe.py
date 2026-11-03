@@ -44,10 +44,17 @@ class TestGenericHpe(TestVendors):
             self.sample(self.path + "power"),
         )
 
+        oem_chassis = self.sample(self.path + "oem_chassis")
         self.install_patch(
             "hwbench.environment.vendors.hpe.hpe.ILO.get_oem_chassis",
             PATCH_TYPES.RETURN_VALUE,
-            self.sample(self.path + "oem_chassis"),
+            oem_chassis,
+        )
+        # Only a multi-node chassis answers its enclosure chassis url
+        self.install_patch(
+            "hwbench.environment.vendors.hpe.hpe.ILO.is_multinode_chassis",
+            PATCH_TYPES.RETURN_VALUE,
+            bool(oem_chassis),
         )
         # Only the servers metering their components have a power meter fixture
         try:

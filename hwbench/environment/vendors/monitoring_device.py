@@ -154,14 +154,17 @@ class MonitoringDevice:
             h.fatal(f"unknown exception '{type(exception)}' connecting redfish to {device_url}: {exception}")
 
     @cachetools.func.ttl_cache(maxsize=128, ttl=1.5)
-    def get_redfish_url(self, url, log_failure=True):
-        """Return the content of a Redfish url."""
+    def get_redfish_url(self, url, log_failure=True) -> dict:
+        """Return the content of a Redfish url, an empty dict when there is none.
+
+        A device not answering in time gives an empty dict too: the readings of the iteration are skipped.
+        """
         # The same url can be called several times like read_thermals() and read_fans() consuming the same redfish endpoint.
         # To avoid multiplicating identical redfish calls, a ttl cache is implemented to avoid multiple redfish calls in a row.
         # As we want to keep a possible high frequency (< 5sec) precision, let's consider the cache must live up to 1.5 seconds
         try:
             if self.redfish_obj is None:
-                return None
+                return {}
             content = self.redfish_obj.get(url, None).dict
             # Let's ignore errors and return empty objects
             # It will be up to the caller to see there is no answer and process this
@@ -174,6 +177,6 @@ class MonitoringDevice:
                 return {}
             return content
         except redfish.rest.v1.RetriesExhaustedError:
-            return None
+            return {}
         except json.decoder.JSONDecodeError:
-            return None
+            return {}

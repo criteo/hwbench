@@ -46,4 +46,4 @@ def test_get_redfish_url_failure(error):
     device = MonitoringDevice(None)
     device.redfish_obj = mock.Mock()
     device.redfish_obj.get.side_effect = error
-    assert device.get_redfish_url("/redfish/v1/Chassis/1/Thermal") is None
+    assert device.get_redfish_url("/redfish/v1/Chassis/1/Thermal") == {}

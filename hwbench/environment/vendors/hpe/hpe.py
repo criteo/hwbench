@@ -50,7 +50,7 @@ class ILO(BMC):
         return self.get_redfish_url("/redfish/v1/Chassis/1/Thermal")
 
     def read_thermals(self, thermals: ThermalContext) -> ThermalContext:
-        for t in self.get_thermal().get("Temperatures"):
+        for t in self.get_thermal().get("Temperatures", []):
             if t["ReadingCelsius"] <= 0:
                 continue
             pc = t["PhysicalContext"]
@@ -120,7 +120,7 @@ class ILO(BMC):
 
     def read_power_supplies(self, power_supplies: PowerSuppliesContext) -> PowerSuppliesContext:
         """Return power supplies power from server"""
-        for psu in self.get_power().get("PowerSupplies"):
+        for psu in self.get_power().get("PowerSupplies", []):
             psu_position = str(psu["Oem"]["Hpe"]["BayNumber"])
             # All PSUs are named the same (HpeServerPowerSupply)
             # Let's update it to have a unique name
@@ -153,8 +153,13 @@ class ILO(BMC):
 
         # If server is not in a chassis, the default parsing is good
         # That's the case for regular ProLiant servers
-        if not oem_chassis:
+        if not self.is_multinode_chassis():
             super().read_power_consumption(power_consumption)
+
+        # A chassis not answering in time gives no chassis reading for this iteration: the generic
+        # parsing would report the power of the server in its chassis as the power of the server.
+        elif not oem_chassis:
+            pass
 
         # But for multi-server chassis, ...
         elif "HPE Apollo2000 Gen10+" in oem_chassis["Name"]:
@@ -162,7 +167,9 @@ class ILO(BMC):
             server_in_chassis = str(PowerCat.SERVERINCHASSIS)
             if server_in_chassis not in power_consumption.BMC:
                 power_consumption.BMC[server_in_chassis] = Power(server_in_chassis)
-            power_consumption.BMC[server_in_chassis].add(self.get_power().get("PowerControl")[0]["PowerConsumedWatts"])
+            power_control = self.get_power().get("PowerControl")
+            if power_control:
+                power_consumption.BMC[server_in_chassis].add(power_control[0]["PowerConsumedWatts"])
 
             # And extract SERVER from NodePowerWatts
             server = str(PowerCat.SERVER)
