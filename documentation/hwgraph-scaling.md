@@ -22,8 +22,9 @@ from the same job, with the same `engine_module_parameter`, are one series, what
 > The performance of a benchmark is read for the `stressng` and `sleep` engines only, as
 > `bogo ops/s` for `cpu`, `qsort` and `vnni`, the `write<size>` and `read<size>` of `memrate`
 > and `sum_total`, `sum_write` and `sum_read` of `stream`. With another engine, like `fio`,
-> hwgraph stops with `Fatal: Unsupported <engine> engine` when it gets to the performance graphs:
-> use `--no-scaling --no-versus` to only get the [environment graphs](hwgraph-environment.md).
+> the performance graphs of each job stop with `Fatal: Unsupported <engine> engine`, counted as
+> errors in [`rendering.log`](hwgraph.md#rendering-the-graphs-graph): use `--no-scaling --no-versus` to only get
+> the [environment graphs](hwgraph-environment.md).
 
 # Scaling
 The scaling graphs show how a job behaves when the number of workers grows, with one point

@@ -250,8 +250,8 @@ trace must have the `BMC.Server` and the `CPU.package` power metrics, otherwise 
 The graphs add up the samples of the traces by their position: the first sample of every server with
 the first sample of the others, and so on. The servers must therefore run the benchmark at the same
 time, which is what [`sync_start`](configuration.md#sync_start)`=time` is made for, and with the same
-number of samples: a server that misses one counts 0 W and prints `Warning: <trace>/<benchmark>: Missing
-sample <n>, considering 0 watts.`, unless [`--ignore-missing-datapoint`](hwgraph.md#missing-data-points)
+number of samples: a server that misses one counts 0 W, with `Warning: <trace>/<benchmark>: Missing
+sample <n>, considering 0 watts.` in `rendering.log`, unless [`--ignore-missing-datapoint`](hwgraph.md#missing-data-points)
 replaces its sample, by its last known value with `last`, by 0 with `zero`, without warning; the
 chassis graphs do the same.
 

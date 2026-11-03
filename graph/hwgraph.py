@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import copy
+import io
 import itertools
 import pathlib
 import pickle
@@ -10,6 +12,7 @@ import re
 import shlex
 import sys
 import tarfile
+import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from graph.graph import InvalidValue
@@ -43,6 +46,7 @@ try:
     )
     from graph.group import graph_group_env
     from graph.rack import graph_rack, rack_positions
+    from graph.render_log import RenderLog
     from graph.scaling import performance_scaling_graph
     from graph.trace import (
         CPU_SCALING_UNIT,
@@ -90,16 +94,52 @@ def _init_pool_worker(args_data):
     init_matplotlib(_pool_args)
 
 
-def _execute_pool_task(task):
-    """Execute a single graph generation task in a worker process."""
+def _execute_pool_task(task) -> tuple[int, str, str | None]:
+    """Execute a single graph generation task in a worker process: the number of graphs it rendered, what
+    it printed, kept in the log of the rendering instead of mixed with the progress bar, and why the
+    rendering must stop, None when it goes on."""
     func, *func_args = task
+    output = io.StringIO()
+    rendered = 0
+    abort = None
     try:
-        return func(*func_args)
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+            rendered = func(*func_args)
+    except KeyboardInterrupt:
+        raise
+    except SystemExit:
+        # A fatal() of a graph, its reason already printed: it stops its task, not the rendering
+        pass
+    except OSError as e:
+        # A graph that cannot be written, the disk being full for instance: the next ones would not be
+        # either. Sent as text, as an exception of cairo cannot be sent back to the main process.
+        abort = f"{type(e).__name__}: {e}"
+        output.write(f"Error generating graph: {abort}\n{traceback.format_exc()}")
+    except Exception as e:
+        output.write(f"Error generating graph: {e}\n{traceback.format_exc()}")
     finally:
         # The traces of a task are read again by the next one using them: a worker keeping the ones of
         # all its tasks would end up holding all of them
-        for trace in _pool_args.traces:
+        for trace in _pool_args.traces if _pool_args else []:
             trace.forget_content()
+    return rendered, output.getvalue(), abort
+
+
+def describe_task(args, task) -> tuple[str, str]:
+    """The job of a task, empty for the tasks of all the jobs, and the graphs it renders, for its log."""
+    func, *func_args = task
+    if func is _task_env_bench:
+        return func_args[1], f"environment of {args.traces[func_args[0]].get_name()}"
+    if func is _task_numa_distance:
+        return "", f"NUMA distances of {args.traces[func_args[0]].get_name()}"
+    if func in (_task_group, _task_rack):
+        kind = "group" if func is _task_group else "rack"
+        location = func_args[3] if len(func_args) > 3 else None
+        return func_args[0], f"{kind} {location_header_line(location)}" if location else kind
+    names = {_task_chassis: "chassis", _task_scaling: "performance scaling", _task_versus: "max versus"}
+    if func in names:
+        return func_args[0], names[func]
+    return "", "comparison reports"
 
 
 def _task_env_bench(trace_idx, bench_name, output_dir_str):
@@ -388,20 +428,31 @@ def _collect_plot_tasks(args, output_dir):
 # ---------------------------------------------------------------------------
 
 
-def _execute_tasks(args, tasks):
+def _execute_tasks(args, tasks, output_dir: pathlib.Path):
     """Execute graph generation tasks, using multiprocessing when jobs > 1."""
     global _pool_args
     num_workers = max(1, min(args.jobs, len(tasks)))
     rendered_graphs = 0
 
+    log = RenderLog()
+
+    def done(completed: int, task, result: tuple[int, str, str | None]) -> str | None:
+        """Account for a task done, and tell why the rendering must stop, if it must."""
+        nonlocal rendered_graphs
+        rendered_graphs += result[0]
+        log.add(*describe_task(args, task), result[1])
+        progress("rendering", completed, len(tasks), f"tasks, {rendered_graphs} graphs")
+        return result[2]
+
+    abort = None
+
     if num_workers <= 1:
         # Single-process mode: execute tasks sequentially
         _pool_args = args
-        for task in tasks:
-            try:
-                rendered_graphs += _execute_pool_task(task)
-            except Exception as e:
-                print(f"Error generating graph: {e}")
+        for completed, task in enumerate(tasks, 1):
+            abort = done(completed, task, _execute_pool_task(task))
+            if abort:
+                break
     else:
         # Multi-process mode
         print(f"Rendering graphs using {num_workers} parallel workers for {len(tasks)} tasks")
@@ -415,15 +466,35 @@ def _execute_tasks(args, tasks):
             initializer=_init_pool_worker,
             initargs=(args_data,),
         ) as pool:
-            futures = {pool.submit(_execute_pool_task, task): i for i, task in enumerate(tasks)}
+            futures = {pool.submit(_execute_pool_task, task): task for task in tasks}
             for completed, future in enumerate(as_completed(futures), 1):
                 try:
-                    rendered_graphs += future.result()
+                    result = future.result()
                 except Exception as e:
-                    print(f"Error generating graph (task {futures[future]}): {e}")
-                if completed % 10 == 0 or completed == len(tasks):
-                    print(f"Progress: {completed}/{len(tasks)} tasks completed ({rendered_graphs} graphs rendered)")
+                    # A worker dying, out of memory for instance, breaks the pool: no task can be done anymore
+                    result = (0, f"Error generating graph: {e}", f"{type(e).__name__}: {e}")
+                abort = done(completed, futures[future], result)
+                if abort:
+                    # Not waiting for the tasks left, nor for the ones running: their workers are stopped
+                    pool.shutdown(wait=False, cancel_futures=True)
+                    for process in list(getattr(pool, "_processes", {}).values()):
+                        process.terminate()
+                    break
 
+    # What the graphs printed, by job, in the output directory: only its summary on the console
+    log_file = log.write(output_dir)
+    if abort:
+        listed = f", the messages of the graphs are in {log_file}" if log_file else ""
+        fatal(
+            f"rendering aborted after {rendered_graphs} graphs: {abort}{listed}; the traces converted are kept "
+            f"in {output_dir.joinpath(CACHE_DIRECTORY)} for the next rendering in {output_dir}"
+        )
+    if log.errors or log.warnings:
+        print(f"rendering: {log.summary()}, listed in {log_file}")
+    elif log_file:
+        print(f"rendering: no warning nor error, the messages of the graphs are in {log_file}")
+    else:
+        print("rendering: no warning nor error")
     return rendered_graphs
 
 
@@ -598,7 +669,7 @@ def render_trace_set(args: argparse.Namespace, output_dir: pathlib.Path):
         print("No graphs to render")
         return
 
-    rendered_graphs = _execute_tasks(args, tasks)
+    rendered_graphs = _execute_tasks(args, tasks, output_dir)
     print(f"{rendered_graphs} graphs can be found in '{output_dir}' directory")
 
 

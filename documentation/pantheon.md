@@ -280,7 +280,7 @@ benchmarks keeps the CPU columns, names the normalized one `Perf/unit` (per phys
 CPU benchmark, per GPU loaded for a GPU one) and adds `Temp`.
 
 The BMC of a GPU server exposes many sensors, and some of them miss a sample now and then.
-`hwgraph` then stops on that sensor, for example:
+The graphs of the benchmark then stop on that sensor, with an error in `rendering.log`, for example:
 
 ```
 Fatal: <trace>/<benchmark>: second axis of <sensor>: <sensor> is missing the 9th data point.         Use --ignore-missing-datapoint to ignore this case. Generated graphs will be partially incorrect.
