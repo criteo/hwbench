@@ -34,7 +34,19 @@ class Generic(PDU):
         self.id = pdu_info.get("Id")
 
         self.outlets = []
-        for outlet in self.get_power():
+        # The configuration of the outlets is checked once, at startup: during the monitoring,
+        # an outlet not answering in time only skips the reading of the iteration
+        for url in self.outlet_urls():
+            timeouts_before = self.timeouts
+            outlet = self.get_power_outlet(url)
+            if self.timeouts > timeouts_before:
+                h.fatal(f"PDU {self.pdu_section}: {self.get_url()}{url} did not answer in time")
+            if not outlet or "ErrorDescription" in outlet:
+                h.fatal(f"Cannot get outlet from url {self.get_url()}{url}, please check its name: {outlet}")
+            if outlet.get("PowerWatts", {}).get("Reading") is None:
+                h.fatal(
+                    f"Outlet for {self.get_url()} does not expose power metrics: {outlet}\noutlet={self.outlet}, outletgroup={self.outletgroup}"
+                )
             self.outlets.append(
                 {
                     "id": outlet.get("Id"),
@@ -52,34 +64,34 @@ class Generic(PDU):
             dump["group"] = self.group
         return dump
 
-    def get_power_outlet(self, url: str):
-        res = self.get_redfish_url(url)
-        if not isinstance(res, dict) or "ErrorDescription" in res:
-            h.fatal(f"Cannot get outlet from url {self.get_url()}{url}, please check its name: {res}")
-        return res
+    def get_power_outlet(self, url: str) -> dict:
+        return self.get_redfish_url(url)
 
-    def get_power(self):
-        power = []
+    def outlet_urls(self) -> list[str]:
+        """Return the urls of the outlets, or outlet groups, the server is connected to."""
         if self.outletgroup:
             option, path = self.outletgroup, "OutletGroups"
         else:
             option, path = self.outlet, "Outlets"
-        for opt in option.split(self.multi_separator):
-            power.append(self.get_power_outlet(f"{self.redfish_root}{path}/{opt}"))
-        return power
+        return [f"{self.redfish_root}{path}/{opt}" for opt in option.split(self.multi_separator)]
 
-    def get_power_total(self):
+    def get_power(self) -> list[dict]:
+        return [self.get_power_outlet(url) for url in self.outlet_urls()]
+
+    def get_power_total(self) -> float | None:
         total = 0.0
         for outlet in self.get_power():
-            if "PowerWatts" not in outlet or "Reading" not in outlet["PowerWatts"]:
-                h.fatal(
-                    f"Outlet for {self.get_url()} does not expose power metrics: {outlet}\noutlet={self.outlet}, outletgroup={self.outletgroup}"
-                )
-            total += outlet.get("PowerWatts")["Reading"]
+            reading = outlet.get("PowerWatts", {}).get("Reading")
+            # An outlet not answering in time gives no reading: the sum of the others would be a wrong power
+            if reading is None:
+                return None
+            total += reading
         return total
 
     def read_power_consumption(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
         """Return power consumption from pdu"""
         power_consumption = super().read_power_consumption(power_consumption)
-        power_consumption.PDU[self.get_name()].add(self.get_power_total())
+        power = self.get_power_total()
+        if power is not None:
+            power_consumption.PDU[self.get_name()].add(power)
         return power_consumption

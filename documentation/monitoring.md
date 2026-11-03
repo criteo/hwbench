@@ -52,8 +52,10 @@ The [BMC](#bmc) and the [PDUs](#pdu) are read through Redfish requests with a ti
 Redfish https://<device>/redfish/v1/Chassis/1/Thermal did not answer in time, skipping this reading
 ```
 
-The BMC readings of that request are skipped for the iteration, and the monitoring goes
-on: the aggregation window simply has fewer samples. As the requests are made in the
+The readings of that request are skipped for the iteration, and the monitoring goes on:
+the aggregation window simply has fewer samples. A PDU connected to several outlets gives
+no reading for the iteration when one of them does not answer: the power of the others
+alone would be a wrong power of the server. As the requests are made in the
 monitoring loop, a request waiting for its timeout delays the next iterations, reported by
 `Monitoring iteration <n> is <x>ms late`.
 
@@ -65,8 +67,8 @@ window times its `samples` gives its number of timeouts. hwgraph renders them in
 
 > ℹ️ **Info**
 >
-> A PDU not answering in time still stops hwbench, with
-> `Outlet for <url> does not expose power metrics: {}`.
+> The outlets of a PDU are checked when hwbench starts: an outlet not answering in time
+> then stops hwbench with `PDU <section>: <url> did not answer in time`.
 
 # Usage
 To enable the monitoring feature, set the `monitor` directive in the configuration file to one of these values:

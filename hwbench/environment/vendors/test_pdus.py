@@ -1,7 +1,9 @@
 import json
 import pathlib
+from unittest.mock import patch
 
 import pytest
+import redfish  # type: ignore
 
 from hwbench.bench.monitoring_structs import Power, PowerConsumptionContext
 from hwbench.environment.test_vendors import PATCH_TYPES, TestVendors
@@ -163,3 +165,59 @@ def test_redfish_url_must_be_https(caplog):
     with pytest.raises(SystemExit):
         device._connect_redfish("admin", "admin", "http://mypdu/", "session")
     assert "redfish url 'http://mypdu/' must be an https url" in caplog.text
+
+
+def pdu_answering(answers: dict) -> Generic:
+    """A PDU on outlets 1 and 2, answering <answers> by url; an absent url does not answer in time."""
+    pdu = Generic(MockVendor(None, None), "PDU_outlet")
+    pdu.outlet = "1,2"
+    root = "/redfish/v1/PowerEquipment/RackPDUs/1/"
+
+    def get(url, _args=None):
+        if url not in answers:
+            raise redfish.rest.v1.RetriesExhaustedError()
+        return type("Answer", (), {"dict": answers[url]})
+
+    pdu.redfish_obj = type("Client", (), {"get": staticmethod(get)})
+    answers.setdefault(root, {})
+    return pdu
+
+
+OUTLET = {"Id": "1", "Name": "Outlet", "PowerWatts": {"Reading": 100.0}}
+OUTLETS = "/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/"
+
+
+def test_pdu_not_answering_skips_the_reading():
+    """An outlet not answering in time during the monitoring skips the reading: a PDU stopped hwbench on it."""
+    pdu = pdu_answering({f"{OUTLETS}1": OUTLET})
+    with patch.object(Generic, "get_url", return_value="https://pdu"):
+        power = pdu.read_power_consumption(PowerConsumptionContext())
+    # The power of the other outlet alone would be a wrong power of the server
+    assert power.PDU["PDU_outlet"].get_values() == []
+    assert pdu.timeouts == 1
+
+
+@pytest.mark.parametrize(
+    ("answers", "error"),
+    [
+        (
+            {f"{OUTLETS}1": OUTLET},
+            "PDU PDU_outlet: https://pdu/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/2 did not answer in time",
+        ),
+        (
+            {f"{OUTLETS}1": OUTLET, f"{OUTLETS}2": {}},
+            "Cannot get outlet from url https://pdu/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/2, please check its name: {}",
+        ),
+        (
+            {f"{OUTLETS}1": OUTLET, f"{OUTLETS}2": {"Id": "2"}},
+            "Outlet for https://pdu does not expose power metrics: {'Id': '2'}",
+        ),
+    ],
+    ids=["timeout", "unknown outlet", "no power"],
+)
+def test_pdu_outlets_checked_at_startup(caplog, answers, error):
+    """The configuration of the outlets is checked when the PDU is detected."""
+    pdu = pdu_answering(answers)
+    with patch.object(Generic, "get_url", return_value="https://pdu"), pytest.raises(SystemExit):
+        pdu.detect()
+    assert error in caplog.text
