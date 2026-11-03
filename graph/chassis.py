@@ -4,7 +4,7 @@ from typing import cast
 
 import numpy as np
 
-from graph.common import cdu_header, context_header, datapoint, location_header
+from graph.common import bench_workers, datapoint, graph_header
 from graph.graph import WINDOW_STATISTICS_LEGEND, Graph, plot_windows, window_statistics_in_label
 from hwbench.bench.monitoring_structs import MonitoringContextKeys, PowerCategories, PowerConsumptionContextKeys
 
@@ -34,9 +34,9 @@ def graph_chassis(args, bench_name, output_dir) -> int:
     # As all benchmarks are known to be equivalent,
     # let's pick the first one as reference
     bench = args.traces[0].bench(bench_name)
-    base_outfile = f"{bench_name} {bench.workers()}x{bench.engine()}_{bench.engine_module()}_{bench.engine_module_parameter()}_chassis"
+    # The name of the benchmark only: the workers of the first server do not tell the ones of the others
+    base_outfile = f"{bench_name}_chassis"
     y_label = "Watts"
-    title = f"{args.title}\n\nChassis power consumption during {bench_name} benchmark{context_header(args)}{location_header(args)}{cdu_header(args)}\n\n{bench.title()}"
 
     def get_marker(category: PowerCategories | str) -> str:
         # Handle string input by converting to enum
@@ -60,6 +60,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
     serverinchassis_serie = {}  # type: dict[str, list]
     # What does not change with the samples is computed once: loading a benchmark parses all its monitoring
     benches = {trace.get_name(): trace.bench(bench_name) for trace in args.traces}
+    title = graph_header(args, "Chassis power consumption", bench_name, bench, bench_workers(list(benches.values())))
     components = chassis_components(bench)
     psus = bench.get_psu_power()
     for sample in range(0, bench.get_samples_count()):

@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 from matplotlib.colors import Normalize, to_rgba
 
+from graph.common import graph_header
 from graph.rack import (
     AIR_DARK_BLUE,
     AIR_DARK_RED,
@@ -28,7 +29,6 @@ from graph.rack import (
     inlet,
     load_rack,
     rack_cdus,
-    rack_header,
     rack_position,
     rack_positions,
     reduce_windows,
@@ -468,7 +468,7 @@ def test_rack_header(tmp_path):
         path.write_text(json.dumps(result))
         traces.append(Trace(str(path), name, "BMC.Server"))
     rack = load_rack(SimpleNamespace(traces=traces), "cpu_17", {"small": 1, "big": 2})
-    header = rack_header(SimpleNamespace(title=""), "Rack elevation", "cpu_17", rack.bench, rack.workers)
+    header = graph_header(SimpleNamespace(title=""), "Rack elevation", "cpu_17", rack.bench, rack.workers)
     assert "Rack elevation during $\\bf{cpu\\_17}$ benchmark" in header
     assert "Stressor: [64;640] x $\\bf{stressng\\ cpu\\ int128}$ for 120 seconds" in header
 

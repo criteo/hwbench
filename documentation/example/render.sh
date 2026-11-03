@@ -85,9 +85,9 @@ copy "$cdu/PowerConsumption/Package power consumption_vs_Thermal.png" hwgraph-ev
 copy "$cdu/Fans/Fans speed_vs_Thermal.png"                            hwgraph-events-fans-vs-thermal
 
 group=group/by_group
-copy "$group/time_watt_full_cpu_load_0 320xstressng_cpu_matrixprod_by_servers.png"         hwgraph-group-by-servers
-copy "$group/time_watt_full_cpu_load_0 320xstressng_cpu_matrixprod_by_group.png"           hwgraph-group-by-group
-copy "$group/time_watt_percent_full_cpu_load_0 320xstressng_cpu_matrixprod_by_group.png"   hwgraph-group-percent
+copy "$group/time_watt_full_cpu_load_0_by_servers.png"         hwgraph-group-by-servers
+copy "$group/time_watt_full_cpu_load_0_by_group.png"           hwgraph-group-by-group
+copy "$group/time_watt_percent_full_cpu_load_0_by_group.png"   hwgraph-group-percent
 
 copy "cooling/environment/by_host/cooling/cpu_17/CDU/0-CDU_example/CDU and host temperatures_vs_PowerConsumption.png" hwgraph-env-cdu-comparison
 

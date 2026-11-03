@@ -2,7 +2,7 @@ import math
 
 import numpy as np
 
-from graph.common import cdu_header, context_header, datapoint, location_header
+from graph.common import bench_workers, datapoint, graph_header
 from graph.graph import (
     MAX_LEGEND_ITEMS,
     WINDOW_STATISTICS_LEGEND,
@@ -47,13 +47,13 @@ def place_suffix(args) -> str:
     return f"_{args.place_name}" if getattr(args, "place_name", None) else ""
 
 
-def graph_sum_ratio(args, bench, bench_name, output_dir, time_serie, serie, base_outfile) -> int:
+def graph_sum_ratio(args, bench, bench_name, output_dir, time_serie, serie, base_outfile, workers: list[int]) -> int:
     # Render the ratio of power consumption
     order = np.argsort(time_serie)
     x_serie = np.array(time_serie)[order]
     graph = Graph(
         args,
-        f"{args.title}\n\nRatio of power consumption during {bench_name} benchmark{context_header(args)}{location_header(args)}{cdu_header(args)}\n\n{bench.title()}",
+        graph_header(args, "Ratio of power consumption", bench_name, bench, workers),
         "Time [seconds]",
         "Percent of the whole server",
         output_dir,
@@ -78,13 +78,15 @@ def graph_sum_ratio(args, bench, bench_name, output_dir, time_serie, serie, base
     return 1
 
 
-def graph_sum_of_servers(args, bench, bench_name, output_dir, time_serie, serie, base_outfile) -> int:
+def graph_sum_of_servers(
+    args, bench, bench_name, output_dir, time_serie, serie, base_outfile, workers: list[int]
+) -> int:
     # Render sum_of_Servers
     order = np.argsort(time_serie)
     x_serie = np.array(time_serie)[order]
     graph = Graph(
         args,
-        f"{args.title}\n\nSum of servers power consumption during {bench_name} benchmark{context_header(args)}{location_header(args)}{cdu_header(args)}\n\n{bench.title()}",
+        graph_header(args, "Sum of servers power consumption", bench_name, bench, workers),
         "Time [seconds]",
         "Watts",
         output_dir,
@@ -113,13 +115,13 @@ def graph_sum_of_servers(args, bench, bench_name, output_dir, time_serie, serie,
     return 1
 
 
-def graph_servers(args, bench, bench_name, output_dir, time_serie, serie, base_outfile) -> int:
+def graph_servers(args, bench, bench_name, output_dir, time_serie, serie, base_outfile, workers: list[int]) -> int:
     # Render Servers
     order = np.argsort(time_serie)
     x_serie = np.array(time_serie)[order]
     graph = Graph(
         args,
-        f"{args.title}\n\nServers power consumption during {bench_name} benchmark{context_header(args)}{location_header(args)}{cdu_header(args)}\n\n{bench.title()}",
+        graph_header(args, "Servers power consumption", bench_name, bench, workers),
         "Time [seconds]",
         "Watts",
         output_dir,
@@ -159,9 +161,8 @@ def graph_group_env(args, bench_name, output_dir) -> int:
     # As all benchmarks are known to be equivalent,
     # let's pick the first one as reference
     bench = args.traces[0].bench(bench_name)
-    base_outfile = (
-        f"{bench_name} {bench.workers()}x{bench.engine()}_{bench.engine_module()}_{bench.engine_module_parameter()}"
-    )
+    # The name of the benchmark only: the workers of the first server do not tell the ones of the others
+    base_outfile = bench_name
 
     time_serie = []
     sum_server_serie = {}  # type: dict[str, list]
@@ -217,10 +218,15 @@ def graph_group_env(args, bench_name, output_dir) -> int:
         for i in range(len(sum_server_serie[server_metric]))
     ]
 
-    rendered_graphs += graph_servers(args, bench, bench_name, output_dir, time_serie, server_serie, base_outfile)
-    rendered_graphs += graph_sum_of_servers(
-        args, bench, bench_name, output_dir, time_serie, sum_server_serie, base_outfile
+    workers = bench_workers(list(benches.values()))
+    rendered_graphs += graph_servers(
+        args, bench, bench_name, output_dir, time_serie, server_serie, base_outfile, workers
     )
-    rendered_graphs += graph_sum_ratio(args, bench, bench_name, output_dir, time_serie, sum_server_ratio, base_outfile)
+    rendered_graphs += graph_sum_of_servers(
+        args, bench, bench_name, output_dir, time_serie, sum_server_serie, base_outfile, workers
+    )
+    rendered_graphs += graph_sum_ratio(
+        args, bench, bench_name, output_dir, time_serie, sum_server_ratio, base_outfile, workers
+    )
 
     return rendered_graphs
