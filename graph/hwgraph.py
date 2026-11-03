@@ -991,9 +991,9 @@ power_metric   : the name of a power metric, from the monitoring, to be used for
                  In order to know exeactly what metric names you can use for a given trace, use the "list" toplevel subcommand.
 """,
     )
+    # Searched after the parsing, see main(): reading every archive of the directory would delay --help
     traces_group.add_argument(
         "--auto-traces",
-        type=find_auto_traces,
         help="""Use the traces of a context, found in a directory.
 Syntax: <directory>:<context>:<power_metric>
 directory    : where the results.json and the hwbench-<serial>-<timestamp>.tar.xz archives are looked for, recursively
@@ -1115,6 +1115,8 @@ Example: hwgraph list --contexts runs
     parser_list.set_defaults(func=list_metrics_in_trace)
 
     args = parser.parse_args(args=None if len(sys.argv) > 1 else ["--help"])
+    if args.func is render_traces and args.auto_traces:
+        args.auto_traces = find_auto_traces(args.auto_traces)
     # The traces found by --auto-traces are rendered next to them by default
     if args.func is render_traces and not args.outdir:
         if not args.auto_traces:
