@@ -151,6 +151,9 @@ Fatal: rendering aborted after <n> graphs: OSError: [Errno 28] No space left on 
 The traces converted are kept when the rendering stops, whatever the reason: running it again with the same
 `--outdir` reads them without converting them again, then deletes them once the rendering is complete.
 
+The workers stop with the rendering, even when hwgraph is killed, for lack of memory for instance: none
+of them is left holding its memory.
+
 > 💡 **Good practice**
 >
 > Rendering hundreds of graphs takes a while. Start with `--format png --dpi 40`, a fast
