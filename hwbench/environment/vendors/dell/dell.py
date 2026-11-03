@@ -22,7 +22,7 @@ class IDRAC(BMC):
         return self.get_redfish_url("/redfish/v1/Chassis/System.Embedded.1/Thermal")
 
     def read_thermals(self, thermals: ThermalContext) -> ThermalContext:
-        for t in self.get_thermal().get("Temperatures"):
+        for t in self.get_thermal().get("Temperatures", []):
             if t["ReadingCelsius"] is None or t["ReadingCelsius"] <= 0:
                 continue
             name = t["Name"].split("Temp")[0].strip()
@@ -71,23 +71,23 @@ class IDRAC(BMC):
 
     def read_power_consumption(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
         power_consumption = super().read_power_consumption(power_consumption)
-        oem_system = self.get_oem_system()
-        if "ServerPwr.1.SCViewSledPwr" in oem_system["Attributes"]:
+        attributes = self.get_oem_system().get("Attributes", {})
+        if "ServerPwr.1.SCViewSledPwr" in attributes:
             # ServerPwr.1.SCViewSledPwr is computed from other metrics
             # It includes the SLED power consumption + a mathematical portion of the chassis consumption
             # It's computed like : ServerPwr.1.SCViewSledPwr = PowerConsumedWatts + 'SC-BMC.1.ChassisInfraPower / nb_servers'
             name = str(PowerCat.SERVERINCHASSIS)
             if name not in power_consumption.BMC:
                 power_consumption.BMC[name] = Power(name)
-            power_consumption.BMC[name].add(oem_system["Attributes"]["ServerPwr.1.SCViewSledPwr"])
+            power_consumption.BMC[name].add(attributes["ServerPwr.1.SCViewSledPwr"])
 
-        if "SC-BMC.1.ChassisInfraPower" in oem_system["Attributes"]:
+        if "SC-BMC.1.ChassisInfraPower" in attributes:
             # SC-BMC.1.ChassisInfraPower reports the power consumption of the chassis infrastructure,
             # not counting the SLEDs
             name = str(PowerCat.INFRASTRUCTURE)
             if name not in power_consumption.BMC:
                 power_consumption.BMC[name] = Power(name)
-            power_consumption.BMC[name].add(oem_system["Attributes"]["SC-BMC.1.ChassisInfraPower"])
+            power_consumption.BMC[name].add(attributes["SC-BMC.1.ChassisInfraPower"])
 
         # Let's add the sum of the power supplies to get the inlet power consumption
         # It will be compared at some point with the PDU reporting.
@@ -96,7 +96,9 @@ class IDRAC(BMC):
             power_consumption.BMC[chassis_name] = Power(chassis_name)
         psus = PowerSuppliesContext()
         psus = super().read_power_supplies(psus)
-        power_consumption.BMC[chassis_name].add(float(sum([psu.get_values()[-1] for _, psu in psus.BMC.items()])))
+        # Without any power supply read, a sum of 0 W would be a wrong reading
+        if psus.BMC:
+            power_consumption.BMC[chassis_name].add(float(sum([psu.get_values()[-1] for _, psu in psus.BMC.items()])))
 
         return power_consumption
 
