@@ -131,6 +131,26 @@ hwgraph starts by checking that the traces can be compared, writes the
 and ends with `<n> graphs can be found in '<outdir>' directory`. It also writes the command
 line it was run with in `<outdir>/cmdline`, to regenerate the graphs later.
 
+While rendering, a progress bar counts the tasks done, and the graphs rendered, with the time left
+estimated from the speed of the tasks done so far (`ETA 4m12s`). What the graphs print,
+their warnings and their errors, goes in `<outdir>/rendering.log`, by job then by graph; the console
+gets only the number of errors and warnings, with the path of the log:
+
+```
+rendering: 2 errors, 15 warnings, listed in <outdir>/rendering.log
+```
+
+A graph failing, or stopping on an error, only stops its own task: the others are rendered. A graph
+that cannot be written, the disk being full for instance, or a worker dying, stops the rendering
+instead, the next graphs failing the same way:
+
+```
+Fatal: rendering aborted after <n> graphs: OSError: [Errno 28] No space left on device, the messages of the graphs are in <outdir>/rendering.log; the traces converted are kept in <outdir>/cache for the next rendering in <outdir>
+```
+
+The traces converted are kept when the rendering stops, whatever the reason: running it again with the same
+`--outdir` reads them without converting them again, then deletes them once the rendering is complete.
+
 > 💡 **Good practice**
 >
 > Rendering hundreds of graphs takes a while. Start with `--format png --dpi 40`, a fast
@@ -443,6 +463,7 @@ Everything is written under `--outdir`, or under `<outdir>/<context>/` with [`--
 ├── cmdline                       the command line of this rendering
 ├── auto_traces.txt               with --auto-traces: the traces used
 ├── cache/                        with --keep-cache, or after a rendering stopping: the traces converted, reused by the next renderings in this directory
+├── rendering.log                 what the graphs printed, by job then by graph, when they printed anything
 ├── environment/
 │   ├── by_host/
 │   │   └── <logical_name>/
@@ -475,7 +496,8 @@ The images of these pages are rendered from a [reference dataset](example/README
 
 # Missing data points
 The monitoring may miss a sample, for instance when a sensor did not answer in time.
-When a metric has fewer samples than the benchmark, hwgraph stops:
+When a metric has fewer samples than the benchmark, the graphs of that benchmark stop, with an
+error in `rendering.log`:
 
 ```
 Fatal: <trace>/<benchmark>: <metric> is missing the 4th data point. Use --ignore-missing-datapoint to ignore this case. Generated graphs will be partially incorrect.
@@ -483,7 +505,7 @@ Fatal: <trace>/<benchmark>: <metric> is missing the 4th data point. Use --ignore
 
 | Value | Effect |
 |---|---|
-| not set (default) | stops at the first missing data point |
+| not set (default) | stops the graphs of the benchmark at the first missing data point |
 | `zero` | replaces the missing data point by 0 |
 | `last` | replaces it by the last known value |
 
