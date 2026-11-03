@@ -2,7 +2,7 @@ import math
 
 import numpy as np
 
-from graph.common import cdu_header, context_header, location_header
+from graph.common import cdu_header, context_header, datapoint, location_header
 from graph.graph import (
     MAX_LEGEND_ITEMS,
     WINDOW_STATISTICS_LEGEND,
@@ -182,18 +182,14 @@ def graph_group_env(args, bench_name, output_dir) -> int:
             name = f"{str(context)}.{str(category)}"
             if name not in sum_server_serie:
                 sum_server_serie[name] = []
-            values[name] = 0
+            values[name] = 0.0
 
             for trace in args.traces:
                 pc = benches[trace.get_name()].get_single_metric(
                     MonitoringContextKeys.PowerConsumption, context, category
                 )
 
-                if sample >= len(pc.get_mean()):
-                    print(f"Warning: {trace.get_name()}/{bench_name}: Missing sample {sample}, considering 0 watts.")
-                    server_power = 0
-                else:
-                    server_power = pc.get_mean()[sample]
+                server_power = datapoint(args, pc.get_mean(), sample, f"{trace.get_name()}/{bench_name}")
 
                 if trace.get_name() not in server_serie:
                     server_serie[trace.get_name()] = []

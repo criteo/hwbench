@@ -76,6 +76,20 @@ def progress(step: str, done: int, total: int, unit: str) -> None:
         print(f"{step}: {done}/{total} {unit}{eta}")
 
 
+def datapoint(args, serie, sample: int, what: str) -> float:
+    """The value of <serie> at <sample>; a missing one is replaced as --ignore-missing-datapoint says: by
+    the last known value with 'last', by zero with 'zero' or without the option, which warns about it
+    naming <what>."""
+    if sample < len(serie):
+        return serie[sample]
+    option = getattr(args, "ignore_missing_datapoint", "")
+    if option == "last" and len(serie):
+        return serie[-1]
+    if not option:
+        print(f"Warning: {what}: Missing sample {sample}, considering 0 watts.")
+    return 0
+
+
 # The characters the mathtext of matplotlib needs escaped
 MATHTEXT_SPECIALS = set("_$#%&{} ")
 

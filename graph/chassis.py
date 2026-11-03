@@ -4,7 +4,7 @@ from typing import cast
 
 import numpy as np
 
-from graph.common import cdu_header, context_header, location_header
+from graph.common import cdu_header, context_header, datapoint, location_header
 from graph.graph import WINDOW_STATISTICS_LEGEND, Graph, plot_windows, window_statistics_in_label
 from hwbench.bench.monitoring_structs import MonitoringContextKeys, PowerCategories, PowerConsumptionContextKeys
 
@@ -74,7 +74,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
                 sum_serie.setdefault(MonitoringContextKeys.PowerSupplies, [])
                 sum_serie_in_chassis.setdefault(MonitoringContextKeys.PowerSupplies, [])
 
-            value = 0
+            value = 0.0
             # We want to get the sum of servers/serversinchassis vs chassis
             if component in [PowerCategories.SERVER, PowerCategories.SERVERINCHASSIS]:
                 # so let's add all server's value from each trace
@@ -82,13 +82,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
                     pc = benches[trace.get_name()].get_single_metric(
                         MonitoringContextKeys.PowerConsumption, PowerConsumptionContextKeys.BMC, component
                     )
-                    if sample >= len(pc.get_mean()):
-                        print(
-                            f"Warning: {trace.get_name()}/{bench_name}: Missing sample {sample}, considering 0 watts."
-                        )
-                        server_power = 0
-                    else:
-                        server_power = pc.get_mean()[sample]
+                    server_power = datapoint(args, pc.get_mean(), sample, f"{trace.get_name()}/{bench_name}")
 
                     if trace.get_name() not in server_serie:
                         server_serie[trace.get_name()] = []
