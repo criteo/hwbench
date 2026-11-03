@@ -144,7 +144,7 @@ class BMC(MonitoringDevice, External):
             return False
         return bool(expand.get("NoLinks") or expand.get("ExpandAll"))
 
-    def _expanded_members(self, url: str) -> list[dict] | None:
+    def _expanded_members(self, url: str, skip_on_timeout: bool) -> list[dict] | None:
         """Return the member bodies of a collection in a single request.
 
         '$expand' inlines every member of a collection, turning one request per
@@ -152,13 +152,21 @@ class BMC(MonitoringDevice, External):
         feature, and it is unevenly implemented: a service may not advertise it,
         may reject the request, or may accept it and answer unexpanded. So the
         answer is validated rather than trusted, and None is returned whenever
-        anything is off, meaning the caller must walk the members itself.
+        anything is off, meaning the caller must walk the members itself. A BMC
+        not answering in time gives no verdict on '$expand': an empty list with
+        <skip_on_timeout>, None otherwise.
         """
         if not self._supports_expand() or self.expand_works.get(url) is False:
             return None
 
         separator = "&" if "?" in url else "?"
-        collection = self.get_redfish_url(f"{url}{separator}$expand=.", False)
+        expand_url = f"{url}{separator}$expand=."
+        collection = self.get_redfish_url(expand_url, False)
+        if self.did_not_answer(expand_url):
+            # A BMC not answering in time says nothing about '$expand'. While monitoring, no member
+            # is read this iteration, rather than one more request per member to a BMC not
+            # answering; the detection, cached for the whole run, walks the members instead.
+            return [] if skip_on_timeout else None
         members = collection.get("Members") if isinstance(collection, dict) else None
         # A member is only expanded if it carries more than its own reference. An
         # empty list proves nothing -- a service dropping the members it does not
@@ -178,9 +186,10 @@ class BMC(MonitoringDevice, External):
         <wanted> restricts the walk to those members, which is what re-reading a
         few known items of a large collection needs; None yields every member.
         Both go through '$expand' when the service honours it, and fall back to
-        one request per member when it does not.
+        one request per member when it does not. A re-reading not answered in
+        time yields nothing.
         """
-        expanded = self._expanded_members(collection_url)
+        expanded = self._expanded_members(collection_url, skip_on_timeout=wanted is not None)
         if expanded is not None:
             for body in expanded:
                 url = body.get("@odata.id", "")

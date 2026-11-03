@@ -58,4 +58,11 @@ def test_get_redfish_url_timeout(caplog):
     device.get_redfish_url("/redfish/v1/Chassis/1/Thermal")
     device.get_redfish_url("/redfish/v1/Chassis/1/Power")
     assert device.timeouts == 2
+    assert device.did_not_answer("/redfish/v1/Chassis/1/Power")
+    # The next answer of the url clears it
+    device.redfish_obj.get.side_effect = None
+    device.redfish_obj.get.return_value.dict = {"Id": "Power"}
+    get_redfish_url_uncached = MonitoringDevice.get_redfish_url.__wrapped__  # type: ignore[attr-defined]
+    assert get_redfish_url_uncached(device, "/redfish/v1/Chassis/1/Power") == {"Id": "Power"}
+    assert not device.did_not_answer("/redfish/v1/Chassis/1/Power")
     assert "Redfish https://bmc/redfish/v1/Chassis/1/Power did not answer in time" in caplog.text
