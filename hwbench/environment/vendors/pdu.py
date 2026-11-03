@@ -26,8 +26,8 @@ class PDU(MonitoringDevice):
         """Connect to the PDU using Redfish."""
         return super().connect_redfish(self.config_value("username"), self.config_value("password"), self.get_url())
 
-    def get_power_total(self):
-        """Return the power metrics."""
+    def get_power_total(self) -> float | None:
+        """Return the power metrics, None when there is no reading."""
         return 0.0
 
     def read_power_consumption(self, power_consumption: PowerConsumptionContext) -> PowerConsumptionContext:
