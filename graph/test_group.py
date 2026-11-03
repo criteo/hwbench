@@ -1,5 +1,9 @@
-import numpy as np
+from types import SimpleNamespace
 
+import numpy as np
+import pytest
+
+from graph.common import datapoint
 from graph.group import named_servers, round_step, statistics_labels
 
 
@@ -93,3 +97,16 @@ def test_warm_up():
     assert window_statistics_in_label("BMC", serie) == (
         f"BMC [{np.percentile(serie, 5):.1f}; {drawn.mean():.1f}; {drawn.std():.1f}; {np.percentile(serie, 95):.1f}]"
     )
+
+
+@pytest.mark.parametrize(
+    ("option", "value", "warned"),
+    [("", 0, True), ("zero", 0, False), ("last", 42.0, False)],
+)
+def test_missing_datapoint(capsys, option, value, warned):
+    """A missing sample of a server is replaced as --ignore-missing-datapoint says: the group and chassis
+    graphs counted 0 watts whatever the option."""
+    args = SimpleNamespace(ignore_missing_datapoint=option)
+    assert datapoint(args, [40.0, 42.0], 1, "srv01/job") == 42.0
+    assert datapoint(args, [40.0, 42.0], 2, "srv01/job") == value
+    assert ("Warning: srv01/job: Missing sample 2, considering 0 watts." in capsys.readouterr().out) == warned
