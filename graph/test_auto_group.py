@@ -200,3 +200,12 @@ def test_auto_group_tree():
         "  Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A12     2 servers",
         "    SRV01, SRV01",
     ]
+
+
+def test_help_before_auto_traces(capsys):
+    """--help answers without searching the traces of --auto-traces: reading every archive delayed it."""
+    argv = ["hwgraph", "graph", "--auto-group", "--auto-traces", "runs::BMC.Server", "-h"]
+    with patch("sys.argv", argv), patch("graph.hwgraph.find_auto_traces") as find, pytest.raises(SystemExit):
+        main()
+    find.assert_not_called()
+    assert "--auto-traces" in capsys.readouterr().out
