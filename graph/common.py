@@ -1,6 +1,10 @@
+import os
 import sys
 import time
 from typing import NoReturn
+
+# The processes rendering the graphs, or reading the traces, by default
+DEFAULT_JOBS = (os.cpu_count() or 1) // 2 or 1
 
 # The width of the progress bars, in characters
 PROGRESS_WIDTH = 40

@@ -244,6 +244,9 @@ uv run hwgraph list --contexts runs
 ```
 
 ```
+auto-traces: looking for the traces in runs
+auto-traces: reading the 4 files found
+auto-traces: 4/4 files read
 Contexts found in runs:
 bios-v1: 1 trace
   SRV01  runs/hwbench-out-20261022110000/results.json
@@ -252,6 +255,10 @@ bios-v2: 2 traces
   SRV02  runs/other/hwbench-out-20261022121000/results.json
 1 trace without context
 ```
+
+The files read are counted every 10 files, as above when the output is a file or a journal; on a
+terminal, a bar drawn again in place replaces these lines, like the one of the conversion of the
+traces in the cache before a rendering.
 
 `graph --auto-traces <directory>:<context>:<power_metric>` replaces `--traces` with the traces
 of a context, which is convenient after a series of runs:

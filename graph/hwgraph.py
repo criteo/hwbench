@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import copy
 import itertools
-import os
 import pathlib
 import pickle
 import re
@@ -27,7 +26,7 @@ try:
     from graph.auto_traces import AUTO_TRACES_FILE, find_auto_traces, print_contexts
     from graph.cdu import graph_cdu
     from graph.chassis import graph_chassis
-    from graph.common import fatal, progress
+    from graph.common import DEFAULT_JOBS, fatal, progress
     from graph.graph import (
         TIMEOUTS,
         component_distribution_graph,
@@ -1082,7 +1081,7 @@ A place holding the same traces as its single subplace is only rendered in the s
         "-j",
         help="Number of parallel worker processes for graph generation (default: number of CPUs)",
         type=int,
-        default=os.cpu_count() // 2 or 1,
+        default=DEFAULT_JOBS,
     )
     parser_graph.set_defaults(func=render_traces)
 
@@ -1103,6 +1102,9 @@ A place holding the same traces as its single subplace is only rendered in the s
         metavar="DIRECTORY",
         help="""List the contexts of the traces found in a directory, with their traces.
 Example: hwgraph list --contexts runs
+  auto-traces: looking for the traces in runs
+  auto-traces: reading the 4 files found
+  auto-traces: 4/4 files read
   Contexts found in runs:
   bios-v1: 1 trace
     SRV01  runs/hwbench-out-20261022110000/results.json
@@ -1116,7 +1118,7 @@ Example: hwgraph list --contexts runs
 
     args = parser.parse_args(args=None if len(sys.argv) > 1 else ["--help"])
     if args.func is render_traces and args.auto_traces:
-        args.auto_traces = find_auto_traces(args.auto_traces)
+        args.auto_traces = find_auto_traces(args.auto_traces, args.jobs)
     # The traces found by --auto-traces are rendered next to them by default
     if args.func is render_traces and not args.outdir:
         if not args.auto_traces:
