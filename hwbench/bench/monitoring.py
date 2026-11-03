@@ -196,12 +196,20 @@ class Monitoring:
 
     def __monitor_bmc(self):
         """Monitor the bmc metrics"""
-        self.vendor.get_bmc().read_metrics(self.metrics.contexts)
+        bmc = self.vendor.get_bmc()
+        # The counter of the device adds up the whole run: only save the timeouts of this iteration
+        timeouts_before = bmc.timeouts
+        bmc.read_metrics(self.metrics.contexts)
+        self.metrics.contexts.Monitor.BMC["Timeouts"].add(bmc.timeouts - timeouts_before)
 
     def __monitor_pdus(self):
         """Monitor the PDU metrics"""
+        timeouts = 0
         for pdu in self.vendor.get_pdus():
+            timeouts_before = pdu.timeouts
             pdu.read_power_consumption(self.metrics.contexts.PowerConsumption)
+            timeouts += pdu.timeouts - timeouts_before
+        self.metrics.contexts.Monitor.PDU["Timeouts"].add(timeouts)
 
     def __compact(self):
         """Compute statistics"""
@@ -244,8 +252,15 @@ class Monitoring:
         self.metrics.metadata.iteration_time = frequency * precision_s
 
         # Initialize monitor metrics
-        self.metrics.contexts.Monitor.BMC = {"Polling": MonitorMetric("Polling", "ms")}
-        self.metrics.contexts.Monitor.PDU = {"Polling": MonitorMetric("Polling", "ms")}
+        # Timeouts: the number of Redfish requests not answered in time during an iteration
+        self.metrics.contexts.Monitor.BMC = {
+            "Polling": MonitorMetric("Polling", "ms"),
+            "Timeouts": MonitorMetric("Timeouts", "requests"),
+        }
+        self.metrics.contexts.Monitor.PDU = {
+            "Polling": MonitorMetric("Polling", "ms"),
+            "Timeouts": MonitorMetric("Timeouts", "requests"),
+        }
         self.metrics.contexts.Monitor.CPU = {"Polling": MonitorMetric("Polling", "ms")}
         if self.vendor.get_cdus():
             self.metrics.contexts.Monitor.CDU = {"Polling": MonitorMetric("Polling", "ms")}
