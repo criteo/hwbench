@@ -37,7 +37,10 @@ class MonitoringDevice:
     def __init__(self, vendor):
         self.vendor = vendor
         self.redfish_obj = None
+        self.redfish_url = ""
         self.logged = False
+        # The number of Redfish requests the device did not answer in time
+        self.timeouts = 0
         self.firmware_version = ""
         self.manufacturer = ""
         self.model = ""
@@ -131,6 +134,7 @@ class MonitoringDevice:
         try:
             if not device_url.startswith("https://"):
                 h.fatal(f"redfish url '{device_url}' must be an https url")
+            self.redfish_url = device_url
             self.redfish_obj = redfish.redfish_client(
                 base_url=device_url,
                 username=username,
@@ -177,6 +181,8 @@ class MonitoringDevice:
                 return {}
             return content
         except redfish.rest.v1.RetriesExhaustedError:
+            self.timeouts += 1
+            logging.warning(f"Redfish {self.redfish_url}{url} did not answer in time, skipping this reading")
             return {}
         except json.decoder.JSONDecodeError:
             return {}

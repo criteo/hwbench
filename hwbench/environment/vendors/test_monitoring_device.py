@@ -47,3 +47,15 @@ def test_get_redfish_url_failure(error):
     device.redfish_obj = mock.Mock()
     device.redfish_obj.get.side_effect = error
     assert device.get_redfish_url("/redfish/v1/Chassis/1/Thermal") == {}
+
+
+def test_get_redfish_url_timeout(caplog):
+    """A request not answered in time is counted and reported with its url."""
+    device = MonitoringDevice(None)
+    device.redfish_url = "https://bmc"
+    device.redfish_obj = mock.Mock()
+    device.redfish_obj.get.side_effect = redfish.rest.v1.RetriesExhaustedError()
+    device.get_redfish_url("/redfish/v1/Chassis/1/Thermal")
+    device.get_redfish_url("/redfish/v1/Chassis/1/Power")
+    assert device.timeouts == 2
+    assert "Redfish https://bmc/redfish/v1/Chassis/1/Power did not answer in time" in caplog.text
