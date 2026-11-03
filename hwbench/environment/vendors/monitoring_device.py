@@ -41,6 +41,8 @@ class MonitoringDevice:
         self.logged = False
         # The number of Redfish requests the device did not answer in time
         self.timeouts = 0
+        # The urls whose last request was not answered in time
+        self.unanswered_urls: set[str] = set()
         self.firmware_version = ""
         self.manufacturer = ""
         self.model = ""
@@ -52,6 +54,10 @@ class MonitoringDevice:
                 self.redfish_obj.logout()
             except redfish.rest.v1.RetriesExhaustedError:
                 logging.warning("Cannot logout from redfish monitoring device, ignoring.")
+
+    def did_not_answer(self, url: str) -> bool:
+        """Return True if the last request of <url>, cached or not, was not answered in time."""
+        return url in self.unanswered_urls
 
     def get_firmware_version(self):
         return self.firmware_version
@@ -170,6 +176,7 @@ class MonitoringDevice:
             if self.redfish_obj is None:
                 return {}
             content = self.redfish_obj.get(url, None).dict
+            self.unanswered_urls.discard(url)
             # Let's ignore errors and return empty objects
             # It will be up to the caller to see there is no answer and process this
             # {'error':
@@ -182,6 +189,7 @@ class MonitoringDevice:
             return content
         except redfish.rest.v1.RetriesExhaustedError:
             self.timeouts += 1
+            self.unanswered_urls.add(url)
             logging.warning(f"Redfish {self.redfish_url}{url} did not answer in time, skipping this reading")
             return {}
         except json.decoder.JSONDecodeError:

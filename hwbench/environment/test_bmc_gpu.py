@@ -176,6 +176,62 @@ class TestBMCExpand(unittest.TestCase):
         # Probed while detecting the sensors, then never again.
         assert len([url for url in requested if f"{collection}?$expand=." in url]) == 1
 
+    def test_timeout_is_not_a_broken_expand(self):
+        """A BMC not answering in time disabled '$expand' for the whole run, then got one request per member."""
+        helper = self.gpu_test()
+        tree = helper.sensors_only_tree()
+        expand_url = "/redfish/v1/Chassis/Chassis.1/Sensors?$expand=."
+        bmc = BMC(pathlib.Path(""), None)
+        requested: list[str] = []
+        ticks = [0]
+
+        def get(url, log_failure=True):
+            requested.append(url)
+            # The second reading of the sensors is not answered in time
+            if url == expand_url and ticks[0] == 2:
+                bmc.unanswered_urls.add(url)
+                return {}
+            bmc.unanswered_urls.discard(url)
+            return tree.get(url, {})
+
+        contexts = MonitoringContexts()
+        with patch.object(BMC, "get_redfish_url", side_effect=get):
+            for tick in range(1, 5):
+                ticks[0] = tick
+                bmc.read_gpus(contexts)
+
+        # The iteration not answered gives no reading, the others are read through '$expand'
+        assert contexts.PowerConsumption.GPU["BMC_GPU_GPU Subsystem Power"].get_values() == [1402.0] * 3
+        assert bmc.expand_works[expand_url.split("?")[0]] is True
+        assert not [url for url in requested if url.startswith("/redfish/v1/Chassis/Chassis.1/Sensors/")]
+
+    def test_timeout_while_detecting(self):
+        """A detection not answered in time walks the members: its result is kept for the whole run."""
+        helper = self.gpu_test()
+        tree = helper.sensors_only_tree()
+        expand_url = "/redfish/v1/Chassis/Chassis.1/Sensors?$expand=."
+        bmc = BMC(pathlib.Path(""), None)
+        requested: list[str] = []
+
+        def get(url, log_failure=True):
+            requested.append(url)
+            # The first request of the collection, made by the detection, is not answered in time
+            if url == expand_url and requested.count(url) == 1:
+                bmc.unanswered_urls.add(url)
+                return {}
+            bmc.unanswered_urls.discard(url)
+            return tree.get(url, {})
+
+        contexts = MonitoringContexts()
+        with patch.object(BMC, "get_redfish_url", side_effect=get):
+            for _ in range(3):
+                bmc.read_gpus(contexts)
+
+        # The sensors are detected and read on every iteration, the next ones through '$expand'
+        assert contexts.PowerConsumption.GPU["BMC_GPU_GPU Subsystem Power"].get_values() == [1402.0] * 3
+        assert bmc.expand_works[expand_url.split("?")[0]] is True
+        assert requested.count(expand_url) == 4
+
     def test_fallback_when_answer_is_not_expanded(self):
         """A service accepting the parameter and ignoring it must be detected."""
         tree = self.gpu_test().sensors_only_tree()
