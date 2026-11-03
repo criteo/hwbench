@@ -10,6 +10,7 @@ hwbench is using a specific monitoring engine to collect data from several sourc
 Depending on the source, power, frequency, thermal or cooling metrics are collected.
 
 - [Concept](#concept)
+  - [Requests not answered in time](#requests-not-answered-in-time)
 - [Usage](#usage)
 - [Configuration file](#configuration-file)
   - [BMC](#bmc)
@@ -42,6 +43,30 @@ CDUs run in the same monitoring loop and use the same aggregation windows as the
 host metrics. Each CDU is sampled on every host iteration. See [CDU](#cdu).
 
 At the end of the benchmark the monitoring metrics are added in the result file. hwgraph will use them to plot how these components behave during the benchmark.
+
+## Requests not answered in time
+The [BMC](#bmc) and the [PDUs](#pdu) are read through Redfish requests with a timeout of
+10 seconds. A request not answered in time prints its url:
+
+```
+Redfish https://<device>/redfish/v1/Chassis/1/Thermal did not answer in time, skipping this reading
+```
+
+The BMC readings of that request are skipped for the iteration, and the monitoring goes
+on: the aggregation window simply has fewer samples. As the requests are made in the
+monitoring loop, a request waiting for its timeout delays the next iterations, reported by
+`Monitoring iteration <n> is <x>ms late`.
+
+The number of requests not answered in time during each iteration is saved in the
+`Timeouts` metric of `contexts.Monitor.BMC` and `contexts.Monitor.PDU` (the sum of all the
+PDUs), next to their `Polling` time, and aggregated like the other metrics: the mean of a
+window times its `samples` gives its number of timeouts. hwgraph renders them in the
+[Redfish timeouts](hwgraph-environment.md#per-host) graph.
+
+> ℹ️ **Info**
+>
+> A PDU not answering in time still stops hwbench, with
+> `Outlet for <url> does not expose power metrics: {}`.
 
 # Usage
 To enable the monitoring feature, set the `monitor` directive in the configuration file to one of these values:
