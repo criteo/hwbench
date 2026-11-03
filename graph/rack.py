@@ -12,7 +12,7 @@ from matplotlib.patches import Rectangle
 from matplotlib.transforms import Bbox, ScaledTranslation
 
 from graph.cdu import CIRCUIT_TEMPERATURES
-from graph.common import bold, cdu_header, context_header, location_header
+from graph.common import bench_workers, graph_header
 from graph.graph import MARKER_SIZE, Graph, curve_style, get_max_value_string_length, statistics_in_label
 from graph.group import place_suffix
 from graph.trace import Bench, Trace
@@ -404,7 +404,7 @@ def load_rack(args, bench_name: str, positions: dict[str, int]) -> Rack:
         rack_cdus(list(benches.values())),
         power_metrics,
         cdu_ashrae,
-        sorted({workers for bench in benches.values() if (workers := bench.workers()) is not None}),
+        bench_workers(list(benches.values())),
     )
 
 
@@ -413,16 +413,6 @@ def row_label(servers: list[RackServer]) -> str:
     if len(servers) <= 2:
         return ", ".join(server.named() for server in servers)
     return f"{len(servers)} nodes: {servers[0].name} … {servers[-1].name}"
-
-
-def rack_header(args, kind: str, bench_name: str, bench: Bench, workers: list[int]) -> str:
-    """The header of a graph of racks: the benchmark in bold, and the workers of all their servers, [64;640] x
-    stressng for servers of 64 to 640 cores, the ones of the first server telling 256 x stressng."""
-    count = f"[{workers[0]};{workers[-1]}]" if len(workers) > 1 else None
-    return (
-        f"{args.title}\n\n{kind} during {bold(bench_name)} benchmark{context_header(args)}{location_header(args)}"
-        f"{cdu_header(args)}\n\n{bench.title(count, emphasis=True)}"
-    )
 
 
 # The space between the header of a graph of a rack and what it draws, in inches
@@ -620,7 +610,7 @@ def profile_graph(args, bench_name: str, rack: Rack, output_dir, kind: str, file
     top = rack.top
     graph = Graph(
         args,
-        rack_header(args, kind, bench_name, rack.bench, rack.workers),
+        graph_header(args, kind, bench_name, rack.bench, rack.workers),
         "",
         "Position",
         output_dir,
@@ -925,7 +915,7 @@ def graph_rack_elevation(args, bench_name: str, output_dir, rack: Rack) -> int:
         return 0
     graph = Graph(
         args,
-        rack_header(args, "Rack elevation", bench_name, rack.bench, rack.workers),
+        graph_header(args, "Rack elevation", bench_name, rack.bench, rack.workers),
         "",
         "Position",
         output_dir,
@@ -1168,7 +1158,7 @@ def graph_racks_elevation(args, bench_name: str, output_dir, racks: list[tuple[s
     workers = sorted({workers for _, rack in racks for workers in rack.workers})
     graph = Graph(
         args,
-        rack_header(args, "Racks elevation", bench_name, racks[0][1].bench, workers),
+        graph_header(args, "Racks elevation", bench_name, racks[0][1].bench, workers),
         "",
         "Position",
         output_dir,

@@ -98,3 +98,19 @@ def bold(text: str) -> str:
     """A text drawn in bold in a title, through the mathtext of matplotlib: a title has a single weight."""
     escaped = "".join(f"\\{char}" if char in MATHTEXT_SPECIALS else char for char in text)
     return f"$\\bf{{{escaped}}}$"
+
+
+def graph_header(args, kind: str, bench_name: str, bench, workers: list[int]) -> str:
+    """The header of a graph of several servers: the benchmark and what it runs in bold, and the workers of
+    all the servers, [64;640] x stressng for servers of 64 to 640 cores, the ones of the first server
+    telling 256 x stressng."""
+    count = f"[{workers[0]};{workers[-1]}]" if len(workers) > 1 else None
+    return (
+        f"{args.title}\n\n{kind} during {bold(bench_name)} benchmark{context_header(args)}{location_header(args)}"
+        f"{cdu_header(args)}\n\n{bench.title(count, emphasis=True)}"
+    )
+
+
+def bench_workers(benches) -> list[int]:
+    """The numbers of workers of the benchmarks of several servers, which differ with their number of cores."""
+    return sorted({workers for bench in benches if (workers := bench.workers()) is not None})

@@ -239,7 +239,7 @@ For each benchmark, `environment/by_chassis/chassis/` contains:
 
 | Graph | What it plots |
 |---|---|
-| `time_watt_<benchmark> <workers>x<engine>_<module>_<parameter>_chassis_by_Server` | the power of the chassis, of its power supplies, of the sum of the servers and of each server, from the `Server` metric |
+| `time_watt_<benchmark>_chassis_by_Server` | the power of the chassis, of its power supplies, of the sum of the servers and of each server, from the `Server` metric |
 | `time_watt_…_chassis_by_ServerInChassis` | the same, from the `ServerInChassis` metric; only when the BMC reports it |
 
 # Per group
@@ -255,13 +255,17 @@ sample <n>, considering 0 watts.` in `rendering.log`, unless [`--ignore-missing-
 replaces its sample, by its last known value with `last`, by 0 with `zero`, without warning; the
 chassis graphs do the same.
 
+The header of the group and chassis graphs gives the benchmark and what it runs in bold, and the
+workers of all the servers: `[64;640] x stressng` when their numbers of cores differ, the file names
+only the name of the benchmark.
+
 For each benchmark, `by_group/` contains:
 
 | Graph | What it plots |
 |---|---|
-| `time_watt_<benchmark> …_by_servers` | the power of each server, `BMC.Server` |
-| `time_watt_<benchmark> …_by_group` | the sum of the servers: of `BMC.Server`, of `CPU.package`, and the difference between both, what the processors do not account for |
-| `time_watt_percent_<benchmark> …_by_group` | the share of the CPU packages, and of the rest of the servers, in percent of the sum of `BMC.Server` |
+| `time_watt_<benchmark>_by_servers` | the power of each server, `BMC.Server` |
+| `time_watt_<benchmark>_by_group` | the sum of the servers: of `BMC.Server`, of `CPU.package`, and the difference between both, what the processors do not account for |
+| `time_watt_percent_<benchmark>_by_group` | the share of the CPU packages, and of the rest of the servers, in percent of the sum of `BMC.Server` |
 
 The legend gives the `[p5; mean; stddev; p95]` of each curve, see [Curves over time](#curves-over-time). Beyond 36 servers, the most a legend
 holds within the height of the graph, as for the other graphs, the legend of `…_by_servers` is
@@ -316,7 +320,7 @@ by_group/Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A13/   the two server
 
 | Rule | Effect |
 |---|---|
-| a place | holds the traces whose path goes through it; the graphs give its location, its narrowest place in bold, and its number of servers in their header, `Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 (4 servers)`, and its name in their file names, `time_watt_<benchmark> …_Room_1_by_group` |
+| a place | holds the traces whose path goes through it; the graphs give its location, its narrowest place in bold, and its number of servers in their header, `Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 (4 servers)`, and its name in their file names, `time_watt_<benchmark>_Room_1_by_group` |
 | a place holding a single trace | not rendered: the group would be the server itself |
 | a place holding the same traces as its single subplace | not rendered: its graphs would be the ones of the subplace; `Country_FR/`, `Datacenter_PA99/` and `Datahall_2/` above |
 | servers at the same place, like the nodes of a chassis | a group of their whole location: `by_group/Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A12/Position_23/` |
