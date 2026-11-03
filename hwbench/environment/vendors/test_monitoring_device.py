@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import configparser
+import json
+from unittest import mock
 
 import pytest
+import redfish  # type: ignore
 
-from hwbench.environment.vendors.monitoring_device import section_value
+from hwbench.environment.vendors.monitoring_device import MonitoringDevice, section_value
 
 
 @pytest.fixture
@@ -35,3 +38,12 @@ def test_section_value_errors(config, caplog, device, section, key, convert, err
     with pytest.raises(SystemExit):
         section_value(config, device, section, key, convert=convert)
     assert error in caplog.text
+
+
+@pytest.mark.parametrize("error", [redfish.rest.v1.RetriesExhaustedError(), json.decoder.JSONDecodeError("", "", 0)])
+def test_get_redfish_url_failure(error):
+    """A BMC that stops answering gives no content: the read timeout of an iLO raised an UnboundLocalError."""
+    device = MonitoringDevice(None)
+    device.redfish_obj = mock.Mock()
+    device.redfish_obj.get.side_effect = error
+    assert device.get_redfish_url("/redfish/v1/Chassis/1/Thermal") is None
