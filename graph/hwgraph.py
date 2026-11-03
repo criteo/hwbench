@@ -4,12 +4,16 @@ from __future__ import annotations
 import argparse
 import contextlib
 import copy
+import ctypes
 import io
 import itertools
+import multiprocessing
+import os
 import pathlib
 import pickle
 import re
 import shlex
+import signal
 import sys
 import tarfile
 import traceback
@@ -87,9 +91,30 @@ except ImportError as exc:
 _pool_args = None
 
 
-def _init_pool_worker(args_data):
+# prctl() option of Linux sending a signal to a process when its parent dies
+PR_SET_PDEATHSIG = 1
+# The workers are the children of the main process, as die_with_parent() expects. Not forkserver, the
+# default since Python 3.14: its workers are the children of the fork server, which waits for them to exit.
+WORKERS_START_METHOD = "spawn"
+
+
+def die_with_parent(parent: int) -> None:
+    """Ask the kernel to kill this worker when the main process dies, killed for lack of memory or stopping
+    on an error: an orphan worker keeps waiting for a task forever, holding its memory."""
+    try:
+        ctypes.CDLL(None, use_errno=True).prctl(PR_SET_PDEATHSIG, signal.SIGKILL)
+    except (OSError, AttributeError):
+        # Not Linux: the workers end with the pool only
+        return
+    # The main process died before the request was made
+    if os.getppid() != parent:
+        os._exit(1)
+
+
+def _init_pool_worker(args_data, parent: int):
     """Initialize a worker process with shared data and matplotlib backend."""
     global _pool_args
+    die_with_parent(parent)
     _pool_args = pickle.loads(args_data)
     init_matplotlib(_pool_args)
 
@@ -463,8 +488,9 @@ def _execute_tasks(args, tasks, output_dir: pathlib.Path):
             trace.forget_content()
         with ProcessPoolExecutor(
             max_workers=num_workers,
+            mp_context=multiprocessing.get_context(WORKERS_START_METHOD),
             initializer=_init_pool_worker,
-            initargs=(args_data,),
+            initargs=(args_data, os.getpid()),
         ) as pool:
             futures = {pool.submit(_execute_pool_task, task): task for task in tasks}
             for completed, future in enumerate(as_completed(futures), 1):
@@ -476,8 +502,10 @@ def _execute_tasks(args, tasks, output_dir: pathlib.Path):
                 abort = done(completed, futures[future], result)
                 if abort:
                     # Not waiting for the tasks left, nor for the ones running: their workers are stopped
+                    # Listed before the shutdown, which forgets them
+                    workers = list((getattr(pool, "_processes", None) or {}).values())
                     pool.shutdown(wait=False, cancel_futures=True)
-                    for process in list(getattr(pool, "_processes", {}).values()):
+                    for process in workers:
                         process.terminate()
                     break
 

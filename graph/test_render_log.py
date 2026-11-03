@@ -1,4 +1,8 @@
+import os
+import pathlib
+import subprocess
 import sys
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -81,3 +85,73 @@ def test_rendering_aborted(tmp_path, monkeypatch, capsys):
         "Fatal: rendering aborted after 1 graphs: OSError: [Errno 28] No space left on device"
         in capsys.readouterr().err
     )
+
+
+def busy(pid_file: str) -> int:
+    """A task still rendering when the rendering stops: its worker must be stopped too."""
+    pathlib.Path(pid_file).write_text(str(os.getpid()))
+    time.sleep(60)
+    return 1
+
+
+def full_once_busy(pid_file: str) -> int:
+    """A write error, once the other worker is busy."""
+    while not pathlib.Path(pid_file).exists():
+        time.sleep(0.01)
+    raise OSError(28, "No space left on device")
+
+
+def test_rendering_aborted_with_workers(tmp_path, capsys):
+    """After a write error, the workers still rendering are stopped. shutdown() forgets them: stopping
+    them crashed with AttributeError: 'NoneType' object has no attribute 'values'."""
+    pid_file = tmp_path / "busy.pid"
+    args = SimpleNamespace(jobs=2, traces=[], engine="Agg")
+    tasks = [(busy, str(pid_file)), (full_once_busy, str(pid_file))]
+    with pytest.raises(SystemExit):
+        hwgraph._execute_tasks(args, tasks, tmp_path)
+    assert "No space left on device" in (tmp_path / RENDERING_LOG).read_text()
+    assert "Fatal: rendering aborted after 0 graphs: OSError: [Errno 28]" in capsys.readouterr().err
+    pid = int(pid_file.read_text())
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline and pathlib.Path(f"/proc/{pid}").exists():
+        time.sleep(0.05)
+    assert not pathlib.Path(f"/proc/{pid}").exists()
+
+
+PARENT = """
+import multiprocessing, os, sys, time
+from graph.hwgraph import die_with_parent
+
+def worker(parent, pid_file):
+    die_with_parent(parent)
+    open(pid_file, "w").write(str(os.getpid()))
+    time.sleep(60)
+
+if __name__ == "__main__":
+    process = multiprocessing.get_context(sys.argv[2]).Process(target=worker, args=(os.getpid(), sys.argv[1]))
+    process.start()
+    while not os.path.exists(sys.argv[1]):
+        time.sleep(0.01)
+    # The main process dies without stopping its worker, as when killed for lack of memory
+    os._exit(0)
+"""
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="PR_SET_PDEATHSIG is a Linux feature")
+def test_worker_dies_with_parent(tmp_path):
+    """A worker whose main process died is killed: orphan workers held 28 GB after renderings stopped.
+    Started as the workers of the rendering: with forkserver, the default since Python 3.14, the
+    worker took the fork server, its parent, for a dead main process and exited at once."""
+    pid_file = tmp_path / "worker.pid"
+    # A file, not -c: a spawned worker imports the main module to find its function
+    script = tmp_path / "parent.py"
+    script.write_text(PARENT)
+    env = {**os.environ, "PYTHONPATH": str(pathlib.Path(__file__).parent.parent)}
+    subprocess.run(
+        [sys.executable, str(script), str(pid_file), hwgraph.WORKERS_START_METHOD], check=True, timeout=30, env=env
+    )
+    pid = int(pid_file.read_text())
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline and pathlib.Path(f"/proc/{pid}").exists():
+        time.sleep(0.05)
+    assert not pathlib.Path(f"/proc/{pid}").exists()
