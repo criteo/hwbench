@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, NamedTuple
@@ -414,14 +415,13 @@ def row_label(servers: list[RackServer]) -> str:
     return f"{len(servers)} nodes: {servers[0].name} … {servers[-1].name}"
 
 
-def rack_header(args, kind: str, bench_name: str, rack: Rack) -> str:
-    """The header of a graph of a rack: the benchmark in bold, and the workers of all its servers, [64;640] x
+def rack_header(args, kind: str, bench_name: str, bench: Bench, workers: list[int]) -> str:
+    """The header of a graph of racks: the benchmark in bold, and the workers of all their servers, [64;640] x
     stressng for servers of 64 to 640 cores, the ones of the first server telling 256 x stressng."""
-    workers = rack.workers
     count = f"[{workers[0]};{workers[-1]}]" if len(workers) > 1 else None
     return (
         f"{args.title}\n\n{kind} during {bold(bench_name)} benchmark{context_header(args)}{location_header(args)}"
-        f"{cdu_header(args)}\n\n{rack.bench.title(count, emphasis=True)}"
+        f"{cdu_header(args)}\n\n{bench.title(count, emphasis=True)}"
     )
 
 
@@ -620,7 +620,7 @@ def profile_graph(args, bench_name: str, rack: Rack, output_dir, kind: str, file
     top = rack.top
     graph = Graph(
         args,
-        rack_header(args, kind, bench_name, rack),
+        rack_header(args, kind, bench_name, rack.bench, rack.workers),
         "",
         "Position",
         output_dir,
@@ -925,7 +925,7 @@ def graph_rack_elevation(args, bench_name: str, output_dir, rack: Rack) -> int:
         return 0
     graph = Graph(
         args,
-        rack_header(args, "Rack elevation", bench_name, rack),
+        rack_header(args, "Rack elevation", bench_name, rack.bench, rack.workers),
         "",
         "Position",
         output_dir,
@@ -1113,3 +1113,187 @@ def graph_rack(args, bench_name: str, output_dir, positions: dict[str, int]) -> 
         + graph_rack_component_profiles(args, bench_name, output_dir, rack)
         + graph_rack_elevation(args, bench_name, output_dir, rack)
     )
+
+
+# The width of a metric of a rack in the elevation of several racks, and the gap between two racks, in inches
+RACKS_METRIC_WIDTH = 0.42
+RACKS_GAP = 0.6
+# The height of the row of a CDU below a rack, in positions, its circuits 2 positions high
+RACKS_CDU_ROW = 2.8
+
+
+def load_racks(args, bench_name: str, racks: list[tuple[str, list[Trace], dict[str, int]]]) -> list[tuple[str, Rack]]:
+    """The racks of a place, each named and loaded from its traces, forgotten once read: a place can hold the
+    servers of a whole room."""
+    loaded = []
+    for name, traces, positions in racks:
+        rack_args = copy.copy(args)
+        rack_args.traces = traces
+        loaded.append((name, load_rack(rack_args, bench_name, positions)))
+        for trace in traces:
+            trace.forget_content()
+    return loaded
+
+
+def graph_racks_elevation(args, bench_name: str, output_dir, racks: list[tuple[str, Rack]]) -> int:
+    """The racks of a place side by side, each seen from the front without names nor trends: a row per position,
+    a thin column per metric, each cell the mean of the window means of a server colored as in the rack
+    elevations, the relative scales shared by all the racks to compare them."""
+    metrics = [metric for metric in RACK_METRICS if any(metric.name in rack.metrics for _, rack in racks)]
+    if len(racks) < 2 or not metrics:
+        return 0
+    # The units of a metric over all the racks: the fans of some can be in percent, the ones of others in RPM
+    units = {
+        metric.name: ", ".join(
+            sorted({unit for _, rack in racks for unit in rack.units.get(metric.name, "").split(", ") if unit})
+        )
+        for metric in metrics
+    }
+    # The relative scale of each metric, by unit, over all the racks
+    relatives: dict[tuple[str, str], Normalize | None] = {}
+    for metric in metrics:
+        by_unit: dict[str, list[float]] = {}
+        for _, rack in racks:
+            for server in rack.servers:
+                if (mean := server.mean(metric.name)) is not None:
+                    by_unit.setdefault(server.unit(metric.name, rack.units), []).append(mean)
+        for unit, means in by_unit.items():
+            relatives[(metric.name, unit)] = Normalize(min(means), max(means)) if max(means) > min(means) else None
+    # The title of each column with its unit, like 'Fans (%, RPM)'
+    titles = {
+        metric.name: f"{metric.name} ({units[metric.name]})" if units[metric.name] else metric.name
+        for metric in metrics
+    }
+    top = max(rack.top for _, rack in racks)
+    workers = sorted({workers for _, rack in racks for workers in rack.workers})
+    graph = Graph(
+        args,
+        rack_header(args, "Racks elevation", bench_name, racks[0][1].bench, workers),
+        "",
+        "Position",
+        output_dir,
+        f"racks_elevation_{bench_name}{place_suffix(args)}",
+    )
+    width = len(metrics) * RACKS_METRIC_WIDTH
+    graph.fig.set_size_inches(
+        max(args.width / graph.dpi, len(racks) * (width + RACKS_GAP) + 2),
+        POSITION_HEIGHT * (top + 4 + RACKS_CDU_ROW * max(len(rack.cdus) for _, rack in racks)) + 3,
+    )
+    graph.rotate_xticks = False
+    graph.min_dpi = RACK_DPI
+    ax = graph.get_ax()
+    # A rack is len(metrics) columns of 1, then a gap: the metrics of a rack read from its front to its rear
+    gap = RACKS_GAP / RACKS_METRIC_WIDTH
+    ticks = []
+    for index, (name, rack) in enumerate(racks):
+        left = index * (len(metrics) + gap)
+        ax.text(left + len(metrics) / 2, top + 1.6, name, ha="center", va="bottom", fontsize=8, fontweight="bold")
+        ticks += [(left + column + 0.5, titles[metric.name]) for column, metric in enumerate(metrics)]
+        # The empty positions, and the places of a chassis without node, gray under the servers
+        for position in range(1, top + 1):
+            if position not in rack.covered:
+                ax.add_patch(
+                    Rectangle((left, position - 0.5), len(metrics), 1, facecolor=EMPTY_COLOR, edgecolor="white")
+                )
+        for position, height in rack.chassis.items():
+            ax.add_patch(
+                Rectangle((left, position - 0.5), len(metrics), height, facecolor=EMPTY_COLOR, edgecolor="white")
+            )
+        for server in rack.servers:
+            slot = server.slot
+            for column, metric in enumerate(metrics):
+                x = left + column + slot.left
+                mean = server.mean(metric.name)
+                unit = server.unit(metric.name, rack.units)
+                cmap, norm = cell_scale(metric.name, server, unit, relatives.get((metric.name, unit)))
+                color: Any = (
+                    cmap(norm(mean)) if mean is not None and norm else "whitesmoke" if mean is not None else EMPTY_COLOR
+                )
+                cell = ax.add_patch(
+                    Rectangle(
+                        (x, slot.bottom), slot.width, slot.height, facecolor=color, edgecolor="white", linewidth=0.5
+                    )
+                )
+                if mean is not None:
+                    ax.text(
+                        x + slot.width / 2,
+                        slot.middle,
+                        value_text(mean),
+                        ha="center",
+                        va="center",
+                        fontsize=4.5 if slot.width < 1 else 5.5,
+                        color=text_color(color),
+                        clip_path=cell,
+                        clip_on=True,
+                    )
+    # The CDUs monitored with the servers of each rack below it, a row each: their circuits side by side,
+    # colored as below a rack elevation, with the mean of their window means
+    cdu_rows = max(len(rack.cdus) for _, rack in racks)
+    for index, (_, rack) in enumerate(racks):
+        left = index * (len(metrics) + gap)
+        for row, (name, circuits) in enumerate(rack.cdus):
+            bottom = -RACKS_CDU_ROW * (row + 1) + 0.2
+            width = len(metrics) / len(circuits)
+            for column, circuit in enumerate(circuits):
+                title, color = circuit_style(circuit, rack.cdu_ashrae.get(name, {}), "\n")
+                # A word a line: the cells of a circuit are as narrow as a metric
+                title = title.replace(" ", "\n")
+                cell = ax.add_patch(
+                    Rectangle(
+                        (left + column * width, bottom), width, 2, facecolor=color, edgecolor="white", linewidth=0.5
+                    )
+                )
+                # The temperatures of the circuits on the same line, below the middle of the cells, their names
+                # of two or three lines above them
+                center = left + (column + 0.5) * width
+                for text, y, va in (
+                    (title, bottom + 1.05, "bottom"),
+                    (f"{np.mean(circuit.values):.1f} °C", bottom + 0.75, "center"),
+                ):
+                    ax.text(
+                        center,
+                        y,
+                        text,
+                        ha="center",
+                        va=va,
+                        multialignment="center",
+                        fontsize=4,
+                        clip_path=cell,
+                        clip_on=True,
+                    )
+            ax.text(left + len(metrics) / 2, bottom - 0.15, f"CDU {name}", ha="center", va="top", fontsize=5)
+    ax.set_xlim(-0.2, len(racks) * (len(metrics) + gap) - gap + 0.2)
+    ax.set_ylim(0.4 - RACKS_CDU_ROW * cdu_rows - (0.6 if cdu_rows else 0), top + 2.6)
+    ax.set_xticks([x for x, _ in ticks], [label for _, label in ticks], fontsize=6, rotation=90)
+    ax.xaxis.tick_top()
+    ax.set_yticks(range(1, top + 1), [f"U{position}" for position in range(1, top + 1)], fontsize=6)
+    ax.tick_params(length=0)
+    # The positions on both sides, with their title: the racks of a place are too wide to read the ones of the
+    # last from the left
+    right = ax.secondary_yaxis("right")
+    right.set_yticks(range(1, top + 1), [f"U{position}" for position in range(1, top + 1)], fontsize=6)
+    right.set_ylabel("Position")
+    right.tick_params(length=0)
+    right.spines["right"].set_visible(False)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    graph.needs_legend = False
+    note = ax.text(
+        0,
+        -0.5 / (top + 3),
+        f"Columns of each rack, from the front of the servers to their rear: {', '.join(titles.values())}.\n"
+        "Each cell: the mean of the window means of the server, colored as in the rack elevations,\n"
+        f"    the scales from a server to another shared by the {len(racks)} racks of the place, and by unit for the fans.\n"
+        "Gray: empty positions, and the metrics a server does not give.\n"
+        "CDUs below each rack: the mean of the window means of their circuits, colored as below a rack elevation.",
+        transform=ax.transAxes,
+        fontsize=7,
+        va="top",
+    )
+    graph.render(extra_legend=[note, center_header(graph, [note])])
+    return 1
+
+
+def graph_racks(args, bench_name: str, output_dir, racks: list[tuple[str, list[Trace], dict[str, int]]]) -> int:
+    """The elevation of the racks of a place holding several of them."""
+    return graph_racks_elevation(args, bench_name, output_dir, load_racks(args, bench_name, racks))

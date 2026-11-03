@@ -38,8 +38,9 @@ uv run hwgraph graph --format png --no-scaling --no-versus \
     --traces "$traces/cdu_comparison.json:cooling:BMC.Server" \
     --outdir "$out/cooling"
 
-# A rack of ten servers built from cdu_comparison.json by rack.py, with a 2U chassis of 4 nodes, a 2U
-# server and servers with GPUs: the rack view of --auto-group.
+# Two racks built from cdu_comparison.json by rack.py, A12 of ten servers with a 2U chassis of 4 nodes, a 2U
+# server and servers with GPUs, and A13 of the same room: the rack view of --auto-group, and the view of the
+# racks of the room.
 uv run python documentation/example/rack.py "$out/rack-traces"
 rack_traces=()
 for trace in "$out"/rack-traces/*.json; do
@@ -94,3 +95,4 @@ rack=rack/by_group/Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A12
 copy "$rack/rack_elevation_cpu_17_Rack_A12.png"        hwgraph-rack-elevation
 copy "$rack/rack_profile_cpu_17_Rack_A12.png"          hwgraph-rack-profile
 copy "$rack/rack_profile_GPU_cpu_17_Rack_A12.png"      hwgraph-rack-profile-gpu
+copy "rack/by_group/Country_FR/Datacenter_PA99/Datahall_2/Room_1/racks_elevation_cpu_17_Room_1.png" hwgraph-racks-elevation
