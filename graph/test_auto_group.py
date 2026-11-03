@@ -227,6 +227,23 @@ def test_help_before_auto_traces(capsys):
     assert "--auto-traces" in capsys.readouterr().out
 
 
+def test_auto_group_racks_view(tmp_path, cdu_reboot, capsys):
+    """A place holding several racks renders their elevation side by side, a rack its own rack view."""
+    traces = []
+    for index, rack in enumerate(("A12", "A12", "A13", "A13")):
+        result = json.loads(json.dumps(cdu_reboot[index % 2])) | {
+            "location": LOCATION | {"path": [*PATH[:4], rack, str(index + 1)]}
+        }
+        path = tmp_path.joinpath(f"server-{index}.json")
+        path.write_text(json.dumps(result))
+        traces.append(Trace(str(path), f"server-{index}", "BMC.Server"))
+    tasks = _collect_auto_group_tasks(SimpleNamespace(traces=traces, verbose=False), tmp_path)
+    racks = [task_args for task, *task_args in tasks if task is hwgraph._task_racks]
+    assert {pathlib.Path(task_args[1]).name for task_args in racks} == {"Room_1"}
+    assert [name for name, _, _ in racks[0][4]] == ["Rack A12", "Rack A13"]
+    assert "racks view of 2 racks" in capsys.readouterr().out
+
+
 def test_group_without_the_skipped_jobs(tmp_path, cdu_reboot, capsys):
     """A job a server skipped, like an AVX-512 one on a CPU without it, leaves the graphs of its groups, which add
     up the samples of their servers, to the jobs they all ran: it no longer prevents them all."""

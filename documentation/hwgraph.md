@@ -476,7 +476,8 @@ Everything is written under `--outdir`, or under `<outdir>/<context>/` with [`--
 │   └── by_chassis/chassis/       with --same-chassis, or all the traces of a same chassis
 ├── by_group/                     with --same-group
 │   └── <place>/…/<place>/        with --auto-group: one subdirectory per place of the location,
-│                                 with the rack_* graphs of a rack
+│                                 with the rack_* graphs of a rack, and the racks_elevation_*
+│                                 graph of a place holding several racks
 ├── scaling/                      performance of a job along its scaling steps
 │   ├── perf/ perf_watt/ watts/ cpu_clock/ cpu_ipc/ cpu_core_power/
 │   └── summary/
@@ -553,7 +554,8 @@ Fatal: <trace>/<benchmark>: <metric> is missing the 4th data point. Use --ignore
   a rack, `load_rack()` reads the metrics of `RACK_METRICS` and the CDUs of `rack_cdus()` once per
   benchmark, `place_nodes()` lays the servers out in the height of their chassis, and
   `graph_rack()` renders the profiles of `graph_rack_panels()` and the elevations of
-  `graph_rack_elevation()`; the heights come from `heights()` of `hwbench/environment/dmi.py`.
+  `graph_rack_elevation()`, and `graph_racks()` the elevation of the racks of a place,
+  `graph_racks_elevation()`, each rack loaded by `load_racks()`; the heights come from `heights()` of `hwbench/environment/dmi.py`.
   `cell_scale()` gives the colors of a cell, `inlet_colormap()` and `exhaust_colormap()` for the
   air of a server of an ASHRAE class, and `circuit_style()` the ones of a circuit of a CDU, from
   the `LIMITS` of `hwbench/environment/ashrae.py`.

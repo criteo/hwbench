@@ -49,7 +49,7 @@ try:
         yerr_graph,
     )
     from graph.group import graph_group_env
-    from graph.rack import graph_rack, rack_positions
+    from graph.rack import graph_rack, graph_racks, rack_positions
     from graph.render_log import RenderLog
     from graph.scaling import performance_scaling_graph
     from graph.trace import (
@@ -157,8 +157,8 @@ def describe_task(args, task) -> tuple[str, str]:
         return func_args[1], f"environment of {args.traces[func_args[0]].get_name()}"
     if func is _task_numa_distance:
         return "", f"NUMA distances of {args.traces[func_args[0]].get_name()}"
-    if func in (_task_group, _task_rack):
-        kind = "group" if func is _task_group else "rack"
+    if func in (_task_group, _task_rack, _task_racks):
+        kind = {_task_group: "group", _task_rack: "rack", _task_racks: "racks"}[func]
         location = func_args[3] if len(func_args) > 3 else None
         return func_args[0], f"{kind} {location_header_line(location)}" if location else kind
     names = {_task_chassis: "chassis", _task_scaling: "performance scaling", _task_versus: "max versus"}
@@ -219,6 +219,14 @@ def _task_group(bench_name, output_dir_str, trace_indexes=None, location=None):
 def _task_rack(bench_name, output_dir_str, trace_indexes, location, positions):
     """Generate the rack graphs of a single bench, for a rack found by --auto-group."""
     return graph_rack(group_args(trace_indexes, location), bench_name, pathlib.Path(output_dir_str), positions)
+
+
+def _task_racks(bench_name, output_dir_str, trace_indexes, location, racks):
+    """Generate the elevation of the racks of a place holding several of them, found by --auto-group: <racks>
+    gives the name, the trace indexes and the positions of each."""
+    args = group_args(trace_indexes, location)
+    loaded = [(name, [_pool_args.traces[index] for index in indexes], positions) for name, indexes, positions in racks]
+    return graph_racks(args, bench_name, pathlib.Path(output_dir_str), loaded)
 
 
 def _task_scaling(job, output_dir_str, traces_name):
@@ -286,15 +294,40 @@ def _collect_auto_group_tasks(args, output_dir):
         return []
     tasks = []
     rendered = {}
+    # The racks, the places right above the positions of their servers, with their positions
+    racks = {}
+    for group in groups:
+        positions, rack_problem = rack_positions(group.location.path, group.traces)
+        racks[group.name()] = (positions, rack_problem)
     for group in groups:
         group_dir = output_dir.joinpath(GROUP_DIRECTORY, *group.directories())
         trace_indexes = [args.traces.index(trace) for trace in group.traces]
-        # A rack, the place right above the positions of its servers, also renders its rack view
-        positions, rack_problem = rack_positions(group.location.path, group.traces)
+        # A rack also renders its rack view
+        positions, rack_problem = racks[group.name()]
         notes = [rack_problem] if rack_problem else ["rack view"] if positions else []
         if positions:
             for bench_name in group_benches(group):
                 tasks.append((_task_rack, bench_name, str(group_dir), trace_indexes, group.location, positions))
+        # A place holding several racks renders their elevation side by side
+        inner = [
+            other
+            for other in groups
+            if racks[other.name()][0]
+            and len(other.location.path) > len(group.location.path)
+            and other.location.path[: len(group.location.path)] == group.location.path
+        ]
+        if not positions and len(inner) > 1:
+            notes.append(f"racks view of {len(inner)} racks")
+            described = [
+                (
+                    other.location.places()[-1],
+                    [args.traces.index(trace) for trace in other.traces],
+                    racks[other.name()][0],
+                )
+                for other in inner
+            ]
+            for bench_name in group_benches(group):
+                tasks.append((_task_racks, bench_name, str(group_dir), trace_indexes, group.location, described))
         problem = group_problem(group)
         if problem:
             notes.insert(0, f"not rendered, {problem}")

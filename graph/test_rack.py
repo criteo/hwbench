@@ -24,6 +24,7 @@ from graph.rack import (
     colors_note,
     exhaust,
     graph_rack,
+    graph_racks,
     inlet,
     load_rack,
     rack_cdus,
@@ -467,6 +468,27 @@ def test_rack_header(tmp_path):
         path.write_text(json.dumps(result))
         traces.append(Trace(str(path), name, "BMC.Server"))
     rack = load_rack(SimpleNamespace(traces=traces), "cpu_17", {"small": 1, "big": 2})
-    header = rack_header(SimpleNamespace(title=""), "Rack elevation", "cpu_17", rack)
+    header = rack_header(SimpleNamespace(title=""), "Rack elevation", "cpu_17", rack.bench, rack.workers)
     assert "Rack elevation during $\\bf{cpu\\_17}$ benchmark" in header
     assert "Stressor: [64;640] x $\\bf{stressng\\ cpu\\ int128}$ for 120 seconds" in header
+
+
+def test_graph_racks(tmp_path):
+    """A place holding several racks renders their elevation side by side; a single rack has its own."""
+    result = json.loads(TRACES.joinpath("cdu_comparison.json").read_text())
+    racks = []
+    for rack in ("A12", "A13"):
+        traces, positions = [], {}
+        for position in (1, 3):
+            name = f"{rack}-{position}"
+            path = tmp_path / f"{name}.json"
+            path.write_text(json.dumps(result))
+            traces.append(Trace(str(path), name, "BMC.Server"))
+            positions[name] = position
+        racks.append((f"Rack {rack}", traces, positions))
+    args = SimpleNamespace(
+        width=1920, height=1080, title="", format="png", engine="cairo", dpi=72, verbose=False, events=[], traces=[]
+    )
+    assert graph_racks(args, "cpu_17", tmp_path, racks) == 1
+    assert [path.name for path in tmp_path.glob("racks_*.png")] == ["racks_elevation_cpu_17.png"]
+    assert graph_racks(args, "cpu_17", tmp_path, racks[:1]) == 0

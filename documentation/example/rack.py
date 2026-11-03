@@ -3,10 +3,12 @@ traces/cdu_comparison.json:
 
     uv run python documentation/example/rack.py <directory>
 
-It writes a trace per server in <directory>, located in the rack A12, positions 1 to 12:
+It writes a trace per server in <directory>, located in the racks A12, positions 1 to 12, and A13 of
+the same room, positions 1 to 10:
 
 - 1U servers, two of them with 4 GPUs, the air warmer at the top of the rack;
-- a 2U chassis of 4 nodes of 1U at the position 4, and a 2U server at the position 7;
+- in A12 a 2U chassis of 4 nodes of 1U at the position 4, and a 2U server at the position 7;
+- in A13, warmer, a 2U chassis of 3 nodes of 1U at the position 5, its fourth place empty;
 - empty positions between them;
 - the ASHRAE class A1 for the air of the rack, as a topology gives it, W27 and S30 for the circuits of its
   CDU, as its section of the environment file gives them, and a label for three servers.
@@ -25,27 +27,35 @@ import sys
 
 SOURCE = pathlib.Path(__file__).parent / "traces" / "cdu_comparison.json"
 LEVELS = ["Country", "Datacenter", "Datahall", "Room", "Rack", "Position"]
-RACK = ["FR", "PA99", "2", "1", "A12"]
+ROOM = ["FR", "PA99", "2", "1"]
 # The contexts read by the rack graphs and the group graphs of --auto-group
 CONTEXTS = ("Fans", "PowerConsumption", "Thermal")
 
-# Serial, position, height of the server, height of its chassis, serial of its chassis, GPUs
+# Rack, serial, position, height of the server, height of its chassis, serial of its chassis, GPUs
 SERVERS = [
-    ("EXAMPLE0101", 1, 1, 1, None, 0),
-    ("EXAMPLE0102", 2, 1, 1, None, 0),
-    *((f"EXAMPLE0104{node}", 4, 1, 2, "EXAMPLE0104", 0) for node in "ABCD"),
-    ("EXAMPLE0107", 7, 2, 2, None, 0),
-    ("EXAMPLE0109", 9, 1, 1, None, 4),
-    ("EXAMPLE0110", 10, 1, 1, None, 4),
-    ("EXAMPLE0112", 12, 1, 1, None, 0),
+    ("A12", "EXAMPLE0101", 1, 1, 1, None, 0),
+    ("A12", "EXAMPLE0102", 2, 1, 1, None, 0),
+    *(("A12", f"EXAMPLE0104{node}", 4, 1, 2, "EXAMPLE0104", 0) for node in "ABCD"),
+    ("A12", "EXAMPLE0107", 7, 2, 2, None, 0),
+    ("A12", "EXAMPLE0109", 9, 1, 1, None, 4),
+    ("A12", "EXAMPLE0110", 10, 1, 1, None, 4),
+    ("A12", "EXAMPLE0112", 12, 1, 1, None, 0),
+    ("A13", "EXAMPLE0201", 1, 1, 1, None, 0),
+    ("A13", "EXAMPLE0202", 2, 1, 1, None, 0),
+    ("A13", "EXAMPLE0203", 3, 1, 1, None, 0),
+    *(("A13", f"EXAMPLE0205{node}", 5, 1, 2, "EXAMPLE0205", 0) for node in "ABC"),
+    ("A13", "EXAMPLE0208", 8, 1, 1, None, 0),
+    ("A13", "EXAMPLE0210", 10, 1, 1, None, 0),
 ]
+# The air of each rack warmer than the one of A12, in degrees
+WARMER = {"A12": 0.0, "A13": 1.5}
 # The labels of some servers, as a topology gives them
 LABELS = {"EXAMPLE0101": "db-01", "EXAMPLE0102": "db-02", "EXAMPLE0104A": "web-01"}
 # The ASHRAE classes of the rack and of the circuits of its CDU
 ASHRAE = {"air": "A1"}
 CDU_ASHRAE = {"primary": "W27", "secondary": "S30"}
 # The load of each server, in degrees added to its components: fixed, unlike a random one
-LOADS = [0.5, 2.0, 1.0, 3.0, -0.5, 1.5, 2.5, 0.0, 1.0, -1.0]
+LOADS = [0.5, 2.0, 1.0, 3.0, -0.5, 1.5, 2.5, 0.0, 1.0, -1.0, 1.5, 0.0, 2.0, 1.0, 3.0, -0.5, 0.5, 2.5]
 
 
 def shift(metric: dict, delta: float) -> None:
@@ -60,9 +70,9 @@ def scale(metric: dict, factor: float) -> None:
             metric[key] = [None if value is None else round(value * factor, 1) for value in metric[key]]
 
 
-def server(source: dict, serial: str, position: int, height: int, chassis_height: int, chassis, gpus: int, load):
+def server(source: dict, rack: str, serial: str, position: int, height: int, chassis_height: int, chassis, gpus, load):
     trace = copy.deepcopy(source)
-    trace["location"] = {"path": [*RACK, str(position)], "separator": "/", "levels": LEVELS, "ashrae": ASHRAE}
+    trace["location"] = {"path": [*ROOM, rack, str(position)], "separator": "/", "levels": LEVELS, "ashrae": ASHRAE}
     if serial in LABELS:
         trace["location"]["label"] = LABELS[serial]
     for cdu in trace["hardware"].get("cdu", {}).values():
@@ -72,7 +82,7 @@ def server(source: dict, serial: str, position: int, height: int, chassis_height
     dmi["chassis"] = {"product": "", "serial": chassis or serial, "height": chassis_height}
     trace["environment"]["kernel"]["nodename"] = serial.lower()
     # Warmer air at the top of the rack
-    inlet = 0.3 * position
+    inlet = 0.3 * position + WARMER[rack]
     for bench in trace["bench"].values():
         contexts = bench["monitoring"]["contexts"]
         bench["monitoring"]["contexts"] = {name: contexts[name] for name in CONTEXTS}
@@ -107,8 +117,8 @@ def main() -> None:
     directory = pathlib.Path(sys.argv[1])
     directory.mkdir(parents=True, exist_ok=True)
     source = json.loads(SOURCE.read_text())
-    for (serial, position, height, chassis_height, chassis, gpus), load in zip(SERVERS, LOADS):
-        trace = server(source, serial, position, height, chassis_height, chassis, gpus, load)
+    for (rack, serial, position, height, chassis_height, chassis, gpus), load in zip(SERVERS, LOADS, strict=True):
+        trace = server(source, rack, serial, position, height, chassis_height, chassis, gpus, load)
         directory.joinpath(f"{serial}.json").write_text(json.dumps(trace))
 
 

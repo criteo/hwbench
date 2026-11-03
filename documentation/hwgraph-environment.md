@@ -354,16 +354,19 @@ from the bottom of the rack to its top, for every benchmark all its servers ran.
 groups tells it:
 
 ```
-auto-group: 2 places shared by several traces, in by_group/:
-  Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A12    10 servers, rack view
-    Position_4                                              4 servers
+auto-group: 5 places shared by several traces, in by_group/:
+  Country_FR/Datacenter_PA99/Datahall_2/Room_1    18 servers, racks view of 2 racks
+    Rack_A12                                      10 servers, rack view
+      Position_4                                   4 servers
+    Rack_A13                                       8 servers, rack view
+      Position_5                                   3 servers
 ```
 
 | Rule | Effect |
 |---|---|
 | the position, the last place of a location | a number, after `U` for a 19" rack or `OU` for an OCP one, in upper or lower case: `23`, `U23`, `OU23` |
 | a position that is not a number | no rack view: `Rack_A12    3 servers, rack view not rendered, positions not numbers: 'A', 'B'` |
-| a place holding servers several levels lower, like a room | no rack view, only the one of each of its racks |
+| a place holding servers several levels lower, like a room | no rack view, only the one of each of its racks; holding at least two of them, the [elevation of its racks](#graphs) side by side: `racks view of 2 racks` |
 | a group not rendered, like servers without the same benchmarks | its rack view is rendered all the same, on the benchmarks all its servers have |
 | the positions | from the first one of the rack to the highest server, the empty ones in gray |
 
@@ -445,15 +448,17 @@ For each benchmark, the directory of the rack contains:
 | `rack_elevation_<benchmark>_<place>` | the rack seen from the front, a row per position and a column per metric, from the front of the servers to their rear: each cell the mean of the window means of a server, its color on the scale of its metric, see [Colors](#colors), with its window means drawn on the same scale in a column and its 95th percentile window above its 5th right of them; the place of a chassis without node is gray, like an empty position, and so is a metric a server does not give, like the memory of a BMC without sensor for it; the CDUs below the rack, with their own window means, each on the scale of its cell; the header gives the benchmark in bold, and the workers of the servers, `[64;640] x stressng` when their numbers of cores differ |
 | `rack_profile_<benchmark>_<place>` | the profile of the rack, a panel per metric: Inlet, Fans, CPU, Memory, GPU, Exhaust and Power, each server at its row with the mean of its window means and the [violin](#reading-a-violin) of its windows from its 5th percentile to its 95th; left of the panels, below the legend, the CDUs in a frame, their circuits by rows of three, the supply, the return and the delta, each the mean of its window means and its coolest and hottest windows |
 | `rack_profile_<component>_<benchmark>_<place>` | the profile of a component, `CPU`, `Memory` or `GPU`, with what cools it: Inlet, Fans, the component on a panel twice as wide, Exhaust and Power, and the CDUs; only when a server has it |
+| `racks_elevation_<benchmark>_<place>` | in the directory of a place holding at least two racks: its racks side by side, each seen from the front without names nor trends, a row per position and a column per metric titled with its unit, each cell the mean of the window means of a server, colored as in the elevations, the relative scales from a server to another shared by all the racks of the place, and by unit for the fans; the empty places, and the metrics a server does not give, gray; the CDUs below each rack, the positions on both sides |
 
 The ranges leave out the 5% of the lowest and of the highest windows, like the warm up of a long
 benchmark. The graphs of a rack are rendered at 200 dpi at least, whatever `--dpi`, their figures
 being small, and explain in a note under them the sensors of each metric.
 
-For example, a rack of ten servers built from `cdu_comparison.json` of the
-[reference dataset](example/README.md): servers of 1U, two of them with GPUs, a chassis of 2U of 4
-nodes at the position 4 and a server of 2U at the position 7, in the ASHRAE air class `A1`, three
-of them with a label, their CDU in the classes `W27` and `S30`:
+For example, two racks built from `cdu_comparison.json` of the [reference dataset](example/README.md):
+the rack `A12` of ten servers, servers of 1U, two of them with GPUs, a chassis of 2U of 4 nodes at
+the position 4 and a server of 2U at the position 7, and the rack `A13` of the same room, warmer,
+with a chassis of 2U of 3 nodes at the position 5, all in the ASHRAE air class `A1`, three of them
+with a label, their CDU in the classes `W27` and `S30`:
 
 ```bash
 uv run python documentation/example/rack.py rack-traces
@@ -465,6 +470,10 @@ uv run hwgraph graph --format png --auto-group --no-env --no-scaling --no-versus
 ![Elevation of the rack](img/hwgraph-rack-elevation.png)
 
 *`by_group/…/Rack_A12/rack_elevation_cpu_17_Rack_A12.png`: the air entering the servers is warmer at the top of the rack, from 25.8 °C at the position 1 to 29.1 °C at the position 12: green in the recommended range of `A1`, up to 27 °C, yellowing above it. The 4 nodes of the chassis of the position 4 fill its two positions, and the server of 2U the positions 7 and 8; each cell draws the window means of its server during the benchmark, the nodes, narrower, their mean and their trend only. Below the rack, the CDU gives its circuits and their deltas, its secondary supply orange, its hottest window, 28.2 °C, within 2 °C of the 30 °C of `S30`.*
+
+![Elevation of the racks of the room](img/hwgraph-racks-elevation.png)
+
+*`by_group/…/Room_1/racks_elevation_cpu_17_Room_1.png`: the two racks of the room side by side, on the same scales: the servers of `A13`, warmer, give a hotter inlet and exhaust than the ones of `A12` at the same positions, 27.3 °C against 25.8 °C at the position 1; the fourth place of the chassis of the position 5 is gray, without node.*
 
 ![Profile of the rack](img/hwgraph-rack-profile.png)
 
