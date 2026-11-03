@@ -8,7 +8,7 @@ import numpy as np
 from matplotlib.collections import LineCollection
 from matplotlib.lines import Line2D
 from matplotlib.pylab import Axes
-from matplotlib.ticker import AutoMinorLocator, FuncFormatter, MultipleLocator
+from matplotlib.ticker import AutoMinorLocator, FuncFormatter, MaxNLocator, MultipleLocator
 
 from graph.common import context_header, fatal
 from graph.trace import Bench, gpu_description
@@ -1198,6 +1198,77 @@ def generic_graph(
         interval=bench.get_time_interval(),
     )
 
+    graph.render()
+    return 1
+
+
+# The Monitor metric counting the Redfish requests not answered in time, per monitoring iteration
+TIMEOUTS = "Timeouts"
+# The monitored sources doing Redfish requests
+REDFISH_SOURCES = ("BMC", "PDU")
+
+
+def window_totals(metric: MonitorMetric) -> list[int]:
+    """Return the number of events of each aggregation window of a per-iteration count."""
+    return [round(mean * samples) for mean, samples in zip(metric.get_mean(), metric.get_samples())]
+
+
+def redfish_timeouts(bench: Bench) -> dict[str, list[int]]:
+    """Return the Redfish requests not answered in time of each source, per aggregation window."""
+    totals: dict[str, list[int]] = {}
+    for source in REDFISH_SOURCES:
+        try:
+            metric = bench.get_component(MonitoringContextKeys.Monitor, source).get(TIMEOUTS)
+        except KeyError:
+            continue
+        # A trace made before the timeouts were saved, or without any PDU, has no such metric
+        if metric and metric.get_samples():
+            totals[source] = window_totals(metric)
+    return totals
+
+
+def timeouts_graph(args, output_dir, bench: Bench) -> int:
+    """Render the Redfish requests not answered in time, per aggregation window and per source."""
+    totals = redfish_timeouts(bench)
+    if not any(sum(serie) for serie in totals.values()):
+        if args.verbose:
+            print(f"{bench.get_bench_name()}: no Redfish timeout, skipping the Redfish timeouts graph.")
+        return 0
+
+    title = f'Redfish timeouts during "{bench.get_bench_name()}" benchmark job{context_header(args)}\n\n Stressor: '
+    title += f"{bench.workers()} x {bench.get_title_engine_name()} for {bench.duration()} seconds"
+    title += f"\n{bench.get_system_title()}"
+    graph = Graph(
+        args,
+        title,
+        "Time [seconds]",
+        "Requests not answered in time",
+        output_dir.joinpath(
+            f"{bench.get_trace().get_name()}/{bench.get_bench_name()}/{MonitoringContextKeys.Monitor!s}"
+        ),
+        "Redfish timeouts",
+        show_source_file=bench.get_trace(),
+        legend_title="source [total]\n",
+    )
+    interval = bench.get_time_interval()
+    bottom = np.zeros(bench.get_samples_count())
+    for source, serie in totals.items():
+        # Each bar covers its aggregation window, starting at the time of the window
+        values = np.array(serie[: len(bottom)], dtype=float)
+        x_serie = np.arange(len(values)) * interval
+        graph.get_ax().bar(
+            x_serie,
+            values,
+            width=interval * 0.8,
+            align="edge",
+            bottom=bottom[: len(values)],
+            label=f"{source} [{int(values.sum())}]",
+        )
+        bottom[: len(values)] += values
+    graph.prepare_axes(30, 15, points_to_plot=len(bottom), interval=interval)
+    # Requests are counted: whole numbers, without the decimals of the other graphs
+    graph.get_ax().yaxis.set_major_locator(MaxNLocator(integer=True))
+    graph.get_ax().yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:g}"))
     graph.render()
     return 1
 

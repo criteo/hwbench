@@ -27,6 +27,7 @@ try:
     from graph.chassis import graph_chassis
     from graph.common import fatal
     from graph.graph import (
+        TIMEOUTS,
         component_distribution_graph,
         generic_graph,
         init_matplotlib,
@@ -34,6 +35,7 @@ try:
         numa_distance_heatmap,
         numa_distribution_graph,
         numa_performance_heatmap,
+        timeouts_graph,
         write_benchmarks_summary,
         yerr_graph,
     )
@@ -639,6 +641,9 @@ def graph_monitoring_metrics(args, trace: Trace, bench_name: str, output_dir) ->
             print(f"{bench_name}: {metric_name} metric is not present in trace file, skipping.")
         if metrics:
             for metric in metrics:
+                # The timeouts are counts, rendered together by timeouts_graph()
+                if metric == TIMEOUTS:
+                    continue
                 # If a metric has no measure, let's ignore it
                 if len(metrics[metric].get_samples()) == 0:
                     if args.verbose:
@@ -656,6 +661,7 @@ def graph_monitoring_metrics(args, trace: Trace, bench_name: str, output_dir) ->
                     except InvalidValue as e:
                         print(f"An error occurred while generating the graph for {bench_name} ({metric_name}): {e}")
 
+    rendered_graphs += timeouts_graph(args, output_dir, bench)
     return rendered_graphs
 
 

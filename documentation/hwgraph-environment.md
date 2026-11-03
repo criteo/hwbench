@@ -33,6 +33,7 @@ in the results, like `cpu_3`, and `<metric>` the kind of metric:
 | `Freq/all_cores` | `Core frequency` | the frequency of every core |
 | `IPC/all_cores` | `Core IPC` | the instructions per cycle of every core |
 | `Monitor` | `Polling` | the time spent by the monitoring to poll its sources |
+| `Monitor` | `Redfish timeouts` | the [Redfish requests not answered in time](monitoring.md#requests-not-answered-in-time) of each aggregation window, the BMC and the PDUs stacked, with their total in the legend; only rendered when there is at least one timeout |
 | `CDU/<index>-<section>` | `Rotational speeds_vs_Thermal`, `Flow rates_vs_Thermal` | the speeds of the pumps, and the flow rates, of the CDU, with its temperatures on the second axis, when it has both |
 | `CDU/<index>-<section>` | `CDU and host temperatures_vs_PowerConsumption` | CDU circuit, CPU and GPU temperatures in °C, with CPU package power, the selected trace power metric and the GPU power in watts on the second axis |
 
