@@ -162,17 +162,17 @@ class MonitoringDevice:
         try:
             if self.redfish_obj is None:
                 return None
-            redfish = self.redfish_obj.get(url, None).dict
+            content = self.redfish_obj.get(url, None).dict
             # Let's ignore errors and return empty objects
             # It will be up to the caller to see there is no answer and process this
             # {'error':
             # {'code': 'iLO.0.10.ExtendedInfo', 'message': 'See @Message.ExtendedInfo for more information.', '@Message.ExtendedInfo':
             # [{'MessageArgs': ['/redfish/v1/Chassis/enclosurechassis/'], 'MessageId': 'Base.1.4.ResourceMissingAtURI'}]}}
-            if redfish and "error" in redfish:
+            if content and "error" in content:
                 if log_failure:
-                    logging.error(f"Parsing redfish url {url} failed : {redfish}")
+                    logging.error(f"Parsing redfish url {url} failed : {content}")
                 return {}
-            return redfish
+            return content
         except redfish.rest.v1.RetriesExhaustedError:
             return None
         except json.decoder.JSONDecodeError:
