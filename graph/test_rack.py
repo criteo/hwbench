@@ -346,6 +346,34 @@ def test_graph_rack(tmp_path):
     ]
 
 
+def test_liquid_cooled(tmp_path):
+    """The components the topology says cooled by a liquid get a drop, told in the note of the elevation."""
+    result = json.loads(TRACES.joinpath("cdu_comparison.json").read_text())
+    result["location"] = {"path": ["A12", "1"], "cooling": {"cpu": "liquid", "memory": "air", "gpu": "air"}}
+    path = tmp_path / "server.json"
+    path.write_text(json.dumps(result))
+    args = SimpleNamespace(
+        width=1920,
+        height=1080,
+        title="",
+        format="png",
+        engine="cairo",
+        dpi=72,
+        verbose=False,
+        events=[],
+        traces=[Trace(str(path), "server", "BMC.Server")],
+    )
+    rack = load_rack(args, "cpu_17", {"server": 1})
+    [server] = rack.servers
+    assert server.liquid_cooled("CPU")
+    assert not server.liquid_cooled("Memory")
+    # Not a component: the power of the server is not cooled
+    assert not server.liquid_cooled("Power")
+    assert "A drop, bottom left: a component the topology says cooled by a liquid." in colors_note(rack)
+    assert not RackServer("air", 2, {}).liquid_cooled("CPU")
+    assert graph_rack(args, "cpu_17", tmp_path, {"server": 1}) == 4
+
+
 def test_rack_power_of_the_traces(tmp_path):
     """The power of a server is the power metric given with its trace, not always the one of the BMC."""
     path = tmp_path / "server.json"

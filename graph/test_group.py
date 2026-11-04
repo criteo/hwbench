@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from graph.auto_group import liquid_cooled
 from graph.common import datapoint
 from graph.group import named_servers, round_step, statistics_labels
 
@@ -110,3 +111,33 @@ def test_missing_datapoint(capsys, option, value, warned):
     assert datapoint(args, [40.0, 42.0], 1, "srv01/job") == 42.0
     assert datapoint(args, [40.0, 42.0], 2, "srv01/job") == value
     assert ("Warning: srv01/job: Missing sample 2, considering 0 watts." in capsys.readouterr().out) == warned
+
+
+def power_bench(power: dict) -> SimpleNamespace:
+    """A benchmark whose PowerConsumption metrics are <power>, by component then metric."""
+    return SimpleNamespace(get_monitoring_metric=lambda metric_type: power)
+
+
+def test_liquid_cooled():
+    """The power of the components cooled by a liquid: the CPU package, the memory from turbostat or else
+    the BMC, all the GPUs; the components on air, or a trace without cooling, have none."""
+    power = {"CPU": {"package": "package", "Core_0": "core"}, "BMC": {"Server": "server", "Memory": "memory"}}
+    power["GPU"] = {"GPU_0": "gpu0", "GPU_1": "gpu1"}
+    everything = {"cpu": "liquid", "memory": "liquid", "gpu": "liquid"}
+    assert liquid_cooled(power_bench(power), everything) == (
+        {"CPU.package": ["package"], "BMC.Memory": ["memory"], "GPU": ["gpu0", "gpu1"]},
+        [],
+    )
+    power["CPU"]["Ram"] = "ram"
+    assert liquid_cooled(power_bench(power), {"memory": "liquid"})[0] == {"CPU.Ram": ["ram"]}
+    assert liquid_cooled(power_bench(power), {"cpu": "air", "memory": "air", "gpu": "air"}) == ({}, [])
+    assert liquid_cooled(power_bench(power), {}) == ({}, [])
+
+
+def test_liquid_cooled_missing():
+    """A component cooled by a liquid whose power the benchmark does not measure."""
+    bench = power_bench({"BMC": {"Server": "server"}})
+    assert liquid_cooled(bench, {"cpu": "liquid", "memory": "liquid", "gpu": "liquid"}) == (
+        {},
+        ["CPU/package", "CPU/Ram or BMC/Memory", "GPU"],
+    )

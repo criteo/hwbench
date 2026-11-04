@@ -1059,6 +1059,13 @@ class Trace:
         classes = location.get("ashrae") if isinstance(location, dict) else None
         return dict(classes) if isinstance(classes, dict) else {}
 
+    def get_cooling(self) -> dict[str, str]:
+        """How each component of the server is cooled, air or liquid, given by its label in the topology:
+        empty for a trace without, its components being cooled by air."""
+        location = self.__header().get("location")
+        components = location.get("cooling") if isinstance(location, dict) else None
+        return dict(components) if isinstance(components, dict) else {}
+
     def get_cdu_ashrae(self) -> dict[str, dict[str, str]]:
         """The ASHRAE classes of the circuits of each CDU by family, given by its section of the environment file."""
         return {name: dict(cdu.get("ashrae") or {}) for name, cdu in (self.get_hardware().get("cdu") or {}).items()}

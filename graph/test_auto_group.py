@@ -103,7 +103,9 @@ def group_of(tmp_path, results: list[dict]):
     """The group of the rack A12 of two traces of the reference dataset."""
     traces = []
     for index, result in enumerate(results):
-        result = json.loads(json.dumps(result)) | {"location": LOCATION | {"path": [*PATH[:-1], str(index)]}}
+        # The location of a result, like its cooling, completes the one of the rack
+        location = LOCATION | result.get("location", {}) | {"path": [*PATH[:-1], str(index)]}
+        result = json.loads(json.dumps(result)) | {"location": location}
         path = tmp_path.joinpath(f"server-{index}.json")
         path.write_text(json.dumps(result))
         traces.append(Trace(str(path), f"server-{index}", "BMC.Server"))
@@ -147,10 +149,20 @@ def test_group_problem_other_job_file(tmp_path, cdu_reboot):
 
 
 def test_group_problem_missing_metric(tmp_path, cdu_reboot):
+    """The power of a component cooled by a liquid is needed, as the one of the server: a CPU cooled by air
+    does not need its package."""
     other = json.loads(json.dumps(cdu_reboot[1]))
     del other["bench"]["full_cpu_load_0"]["monitoring"]["PowerConsumption"]["CPU"]["package"]
+    other["location"] = {"cooling": {"cpu": "air", "memory": "air", "gpu": "air"}}
+    assert group_problem(group_of(tmp_path, [cdu_reboot[0], other])) is None
+    # The CPUs of the reference dataset are cooled by a liquid
+    other["location"] = cdu_reboot[1]["location"]
     assert group_problem(group_of(tmp_path, [cdu_reboot[0], other])) == (
-        "server-1 has no 'CPU/package' metric in full_cpu_load_0"
+        "server-1 has no 'CPU/package' metric in full_cpu_load_0, the power of a component cooled by a liquid"
+    )
+    del other["bench"]["full_cpu_load_0"]["monitoring"]["PowerConsumption"]["BMC"]["Server"]
+    assert group_problem(group_of(tmp_path, [cdu_reboot[0], other])) == (
+        "server-1 has no 'BMC/Server' metric in full_cpu_load_0"
     )
 
 

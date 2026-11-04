@@ -30,7 +30,14 @@ from hwbench.bench.monitoring_structs import (
 from hwbench.environment import ashrae
 
 try:
-    from graph.auto_group import GROUP_DIRECTORY, LocationGroup, group_benches, group_problem, location_groups
+    from graph.auto_group import (
+        GROUP_DIRECTORY,
+        LocationGroup,
+        group_benches,
+        group_problem,
+        liquid_cooled,
+        location_groups,
+    )
     from graph.auto_traces import AUTO_TRACES_FILE, find_auto_traces, print_contexts
     from graph.cdu import graph_cdu
     from graph.chassis import graph_chassis
@@ -268,18 +275,20 @@ def _collect_group_tasks(args, output_dir):
     output_dir = output_dir.joinpath(GROUP_DIRECTORY)
     for trace in args.traces:
         try:
-            metric = f"BMC/{PowerCategories.SERVER}"
             trace.first_bench().get_single_metric(
                 MonitoringContextKeys.PowerConsumption,
                 PowerConsumptionContextKeys.BMC,
                 PowerCategories.SERVER,
             )
-            metric = "CPU/package"
-            trace.first_bench().get_single_metric(
-                MonitoringContextKeys.PowerConsumption, PowerConsumptionContextKeys.CPU, "package"
-            )
         except KeyError:
-            fatal(f"group: missing '{metric}' monitoric metric in {trace.get_filename()}")
+            fatal(f"group: missing 'BMC/{PowerCategories.SERVER}' monitoric metric in {trace.get_filename()}")
+        # The power of the components the topology says cooled by a liquid, taken from the one of the server
+        _, missing = liquid_cooled(trace.first_bench(), trace.get_cooling())
+        if missing:
+            fatal(
+                f"group: missing '{missing[0]}' monitoric metric in {trace.get_filename()}, "
+                "the power of a component cooled by a liquid"
+            )
     print(f"group: rendering {len(args.traces[0].bench_list())} jobs")
     for bench_name in sorted(args.traces[0].bench_list()):
         tasks.append((_task_group, bench_name, str(output_dir)))

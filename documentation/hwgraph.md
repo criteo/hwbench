@@ -352,7 +352,7 @@ Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12 / Positi
 The graph of four servers of the rack `A12`, and the executive summary describing one of them:
 
 ```
-Sum of servers power consumption during full_cpu_load_0 benchmark
+Distribution of the power consumption during full_cpu_load_0 benchmark
 Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12
 ```
 
