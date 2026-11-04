@@ -77,7 +77,7 @@ each file being a python literal:
 
 | File | Content |
 |---|---|
-| `redfish_tree` | each url read, with its answer: by the detection of the BMC, by one monitoring iteration (thermal, fans, power consumption, power supplies and [accelerators](monitoring.md#accelerators)), by the getters below, and the urls given with `-u` |
+| `redfish_tree` | each url read, with its answer: by the detection of the BMC, by one monitoring iteration (thermal, fans, power consumption, power supplies and [accelerators](monitoring.md#accelerators)), by the save of the BIOS and BMC configurations, by the getters below, and the urls given with `-u` |
 | `thermal`, `power` | the answer of the `get_thermal()` and `get_power()` methods of the BMC driver |
 | `oem_*` | the answer of each `get_oem_*()` method of the BMC driver, like `oem_system` for the [Dell driver](monitoring.md#dell-driver) and `oem_chassis` for the [HPE driver](monitoring.md#hpe-driver) |
 

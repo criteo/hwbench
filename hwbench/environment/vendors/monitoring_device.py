@@ -4,8 +4,11 @@ import dataclasses
 import json
 import logging
 import math
+import random
 import re
-from collections.abc import Coroutine
+import time
+from collections.abc import Callable, Coroutine
+from threading import Event
 from typing import Any
 
 import cachetools.func
@@ -123,6 +126,39 @@ def retry_delays(config, device: str, section: str | None) -> list[int]:
     return delays
 
 
+def retry_until_ready(label: str, attempt: Callable[[], Any], delays: list[int], deadline: float, stop: Event) -> None:
+    """Call <attempt> until it raises no DeviceNotReady, the attempts reported as <label>.
+
+    A device not ready is tried again after one of the <delays> ending before the <deadline> of
+    time.monotonic(), drawn at random, as long as the <stop> is not set; the last DeviceNotReady is raised
+    then, when no delay ends before the deadline, and at once without <delays>. A DeviceError is raised
+    at once."""
+    started = time.monotonic()
+    attempts = 0
+    while True:
+        attempts += 1
+        try:
+            attempt()
+            if attempts > 1:
+                print(f"{label}: ready after {attempts} attempts in {time.monotonic() - started:.0f}s")
+            return
+        except DeviceNotReady as error:
+            if not delays:
+                raise
+            # Drawn among the delays ending before the deadline: the servers sharing a device keep
+            # spreading their attempts until the end
+            remaining = deadline - time.monotonic()
+            fitting = [delay for delay in delays if delay <= remaining]
+            if not fitting:
+                raise DeviceNotReady(
+                    f"{error}, still after {attempts} attempts in {time.monotonic() - started:.0f}s"
+                ) from None
+            delay = random.choice(fitting)
+            logging.warning(f"{label}: attempt {attempts} failed, trying again in {delay}s: {error}")
+            if stop.wait(delay):
+                raise DeviceNotReady(f"{error}, attempts stopped as another device failed") from None
+
+
 class MonitoringDevice:
     """A source of the monitoring: turbostat, all-smi, the BMC, a PDU or a CDU."""
 
@@ -230,11 +266,17 @@ class RedfishDevice(MonitoringDevice):
         self.missing_urls: set[str] = set()
 
     def __del__(self):
+        self.disconnect_redfish()
+
+    def disconnect_redfish(self):
+        """Close the Redfish session, if any."""
         if self.logged:
             try:
                 self.redfish_obj.logout()
             except redfish.rest.v1.RetriesExhaustedError:
                 logging.warning("Cannot logout from redfish monitoring device, ignoring.")
+            self.redfish_obj = None
+            self.logged = False
 
     def did_not_answer(self, url: str) -> bool:
         """Return True if the last request of <url>, cached or not, was not answered in time."""
