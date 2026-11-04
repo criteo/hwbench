@@ -1096,6 +1096,7 @@ def graph_rack_elevation(args, bench_name: str, output_dir, rack: Rack) -> int:
             cell = ax.add_patch(
                 Rectangle((x, slot.bottom), width, slot.height, facecolor=color, edgecolor="white", linewidth=1)
             )
+            graph.tooltip(cell, server.named())
             if mean is None:
                 continue
             # A server as wide as its column gives its mean left of its trend and its range right of it,
@@ -1171,6 +1172,7 @@ def graph_rack_elevation(args, bench_name: str, output_dir, rack: Rack) -> int:
                 edgecolor="white",
             )
         )
+        graph.tooltip(cell, server.named())
         # A node sharing its row with others, even half of it, gets its label under its name, smaller, and
         # its text is cut at its cell: it overlapped its neighbour and the positions of the rack
         shared = slot.width < 1
@@ -1333,6 +1335,7 @@ def graph_racks_elevation(args, bench_name: str, output_dir, racks: list[tuple[s
                         (x, slot.bottom), slot.width, slot.height, facecolor=color, edgecolor="white", linewidth=0.5
                     )
                 )
+                graph.tooltip(cell, server.named())
                 if mean is not None:
                     ax.text(
                         x + slot.width / 2,

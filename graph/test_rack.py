@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import pathlib
 from types import SimpleNamespace
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 from matplotlib.colors import Normalize, to_rgba
@@ -372,6 +374,40 @@ def test_liquid_cooled(tmp_path):
     assert "A drop, bottom left: a component the topology says cooled by a liquid." in colors_note(rack)
     assert not RackServer("air", 2, {}).liquid_cooled("CPU")
     assert graph_rack(args, "cpu_17", tmp_path, {"server": 1}) == 4
+
+
+@pytest.mark.render
+def test_svg_tooltips(tmp_path):
+    """In SVG, the mouse over a cell of the elevation tells its server and its label."""
+    result = json.loads(TRACES.joinpath("cdu_comparison.json").read_text())
+    result["location"] = {"path": ["A12", "1"], "label": "db-01"}
+    path = tmp_path / "server.json"
+    path.write_text(json.dumps(result))
+    args = SimpleNamespace(
+        width=1920,
+        height=1080,
+        title="",
+        format="svg",
+        engine="cairo",
+        dpi=72,
+        verbose=False,
+        events=[],
+        traces=[Trace(str(path), "server", "BMC.Server")],
+    )
+    # The cell of its name, and one per metric
+    cells = 1 + len(load_rack(args, "cpu_17", {"server": 1}).metrics)
+    # The default backend of the tests, then cairo, the default engine of hwgraph, whose SVG has no id of the
+    # artists, when it is installed: it comes with the graph extra
+    backends = [plt.get_backend()] + (["cairo"] if importlib.util.find_spec("cairo") else [])
+    backend = plt.get_backend()
+    try:
+        for engine in backends:
+            plt.switch_backend(engine)
+            graph_rack(args, "cpu_17", tmp_path, {"server": 1})
+            svg = tmp_path.joinpath("rack_elevation_cpu_17.svg").read_text()
+            assert svg.count("<title>server (db-01)</title>") == cells, engine
+    finally:
+        plt.switch_backend(backend)
 
 
 def test_rack_power_of_the_traces(tmp_path):
