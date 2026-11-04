@@ -22,7 +22,7 @@ from hwbench.bench.monitoring_structs import MonitoringContexts
 from hwbench.environment.dmi import DmiSys
 from hwbench.environment.vendors.bmc import BMC
 from hwbench.environment.vendors.detect import first_matching_vendor
-from hwbench.environment.vendors.monitoring_device import MonitoringDevice
+from hwbench.environment.vendors.monitoring_device import DeviceError, MonitoringDevice
 from hwbench.hwbench import add_environment_option, is_root
 from hwbench.utils import helpers as h
 
@@ -243,8 +243,11 @@ def main():
         tmp_dir = pathlib.Path(tmp)
         vendor = first_matching_vendor(tmp_dir, DmiSys(tmp_dir), args.environment)
         bmc = vendor.get_bmc()
-        bmc.connect_redfish()
-        fixtures, anonymizer = anonymize(dump_fixtures(bmc, args.url))
+        try:
+            bmc.connect_redfish()
+            fixtures, anonymizer = anonymize(dump_fixtures(bmc, args.url))
+        except DeviceError as error:
+            h.fatal(str(error))
 
     out_dir.mkdir(parents=True)
     for name, fixture in fixtures.items():

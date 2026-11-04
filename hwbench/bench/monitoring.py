@@ -8,7 +8,8 @@ from typing import Any
 from hwbench.environment.all_smi import AllSMIMonitoring, get_version, list_gpus
 from hwbench.environment.hardware import BaseHardware
 from hwbench.environment.turbostat import CPUSTATS, Turbostat
-from hwbench.environment.vendors.cdu import CDUProtocol
+from hwbench.environment.vendors.cdu import CDU, CDUProtocol
+from hwbench.environment.vendors.monitoring_device import DeviceError, DeviceNotReady
 from hwbench.utils import helpers as h
 
 from .cdu_monitoring import CDUMonitoring
@@ -17,6 +18,21 @@ from .monitoring_structs import (
     MonitoringData,
     MonitorMetric,
 )
+
+
+def check_metrics(source: str, metric_name: MonitoringContextKeys, data: Any) -> None:
+    """Print the metrics of a source, DeviceNotReady when it gives none."""
+    if not isinstance(data, dict):
+        # Probably a dataclass
+        data = dataclasses.asdict(data)
+
+    if not len(data):
+        raise DeviceNotReady(f"Cannot detect {str(metric_name)} metrics")
+
+    print(
+        f"Monitoring/{source}: {str(metric_name)} metrics: "
+        + ", ".join([f"{len(data[pc])}x{pc}" for pc in data if len(data[pc]) > 0])
+    )
 
 
 class ThreadWithReturnValue(Thread):
@@ -61,29 +77,19 @@ class Monitoring:
         bmc = self.vendor.get_bmc()
         pdus = self.vendor.get_pdus()
 
-        def check_monitoring(source: str, metric_name: MonitoringContextKeys, data: Any):
-            if not isinstance(data, dict):
-                # Probably a dataclass
-                data = dataclasses.asdict(data)
-
-            if not len(data):
-                h.fatal(f"Cannot detect {str(metric_name)} metrics")
-
-            print(
-                f"Monitoring/{source}: {str(metric_name)} metrics: "
-                + ", ".join([f"{len(data[pc])}x{pc}" for pc in data if len(data[pc]) > 0])
-            )
-
         # - checking if the CPU monitoring works
         if self.hardware.cpu.get_arch() == "x86_64":
             print("Monitoring/turbostat: initialize")
             self.turbostat = Turbostat(self.hardware, self.metrics.contexts)
-            check_monitoring("turbostat", MonitoringContextKeys.Freq, self.metrics.contexts.Freq)
-            if self.turbostat.has(CPUSTATS.IPC):
-                check_monitoring("turbostat", MonitoringContextKeys.IPC, self.metrics.contexts.IPC)
+            try:
+                check_metrics("turbostat", MonitoringContextKeys.Freq, self.metrics.contexts.Freq)
+                if self.turbostat.has(CPUSTATS.IPC):
+                    check_metrics("turbostat", MonitoringContextKeys.IPC, self.metrics.contexts.IPC)
+            except DeviceNotReady as error:
+                h.fatal(str(error))
 
         # - checking if the GPU monitoring works
-        # Not going through check_monitoring(): it is fatal on an empty context
+        # Not going through check_metrics(): it fails on an empty context
         # and a server without any GPU is perfectly legitimate. A job loading the
         # GPUs already required all-smi, see Benchmarks.check_requirements().
         gpus = list_gpus()
@@ -99,58 +105,73 @@ class Monitoring:
         for cdu in self.vendor.get_cdus():
             print(f"Monitoring/CDU: initialize {cdu.get_name()} with {cdu.get_driver_name()} {cdu.get_detect_string()}")
 
-        # - checking if the bmc monitoring works
+        try:
+            self.check_bmc()
+            self.check_pdus()
+        except DeviceError as error:
+            h.fatal(str(error))
+        self.check_cdus()
+
+    def check_bmc(self):
+        """Read the BMC once before the benchmarks, DeviceNotReady when it gives no metric."""
+        bmc = self.vendor.get_bmc()
         # These calls will also initialize the datastructures out of the monitoring loop
-        self.vendor.get_bmc().read_thermals(self.metrics.contexts.Thermal)
-        check_monitoring("BMC", MonitoringContextKeys.Thermal, self.metrics.contexts.Thermal)
+        bmc.read_thermals(self.metrics.contexts.Thermal)
+        check_metrics("BMC", MonitoringContextKeys.Thermal, self.metrics.contexts.Thermal)
 
-        self.vendor.get_bmc().read_fans(self.metrics.contexts.Fans)
-        check_monitoring("BMC", MonitoringContextKeys.Fans, self.metrics.contexts.Fans)
+        bmc.read_fans(self.metrics.contexts.Fans)
+        check_metrics("BMC", MonitoringContextKeys.Fans, self.metrics.contexts.Fans)
 
-        self.vendor.get_bmc().read_power_consumption(self.metrics.contexts.PowerConsumption)
-        check_monitoring("BMC", MonitoringContextKeys.PowerConsumption, self.metrics.contexts.PowerConsumption)
+        bmc.read_power_consumption(self.metrics.contexts.PowerConsumption)
+        check_metrics("BMC", MonitoringContextKeys.PowerConsumption, self.metrics.contexts.PowerConsumption)
 
-        self.vendor.get_bmc().read_power_supplies(self.metrics.contexts.PowerSupplies)
-        check_monitoring("BMC", MonitoringContextKeys.PowerSupplies, self.metrics.contexts.PowerSupplies)
+        bmc.read_power_supplies(self.metrics.contexts.PowerSupplies)
+        check_metrics("BMC", MonitoringContextKeys.PowerSupplies, self.metrics.contexts.PowerSupplies)
 
         # - checking if the bmc exposes accelerator metrics
-        # Not going through check_monitoring() either: most BMCs expose none,
+        # Not going through check_metrics() either: most BMCs expose none,
         # and the all-smi monitoring covers the same quantities host side.
-        self.vendor.get_bmc().read_gpus(self.metrics.contexts)
+        bmc.read_gpus(self.metrics.contexts)
         if bmc.has_gpus():
             print(f"Monitoring/BMC: GPU metrics: {bmc.get_gpus_count()}xGPU")
 
-        # - checking if pdu monitoring works
+    def check_pdus(self):
+        """Read the PDUs once before the benchmarks, DeviceNotReady when they give no metric."""
+        pdus = self.vendor.get_pdus()
         if pdus:
             for pdu in pdus:
                 pdu.read_power_consumption(self.metrics.contexts.PowerConsumption)
-            check_monitoring("PDU", MonitoringContextKeys.PowerConsumption, self.metrics.contexts.PowerConsumption)
-
-        # - checking if cdu monitoring works
-        self.check_cdus()
+            check_metrics("PDU", MonitoringContextKeys.PowerConsumption, self.metrics.contexts.PowerConsumption)
 
     def check_cdus(self):
         """Read each CDU once before the benchmarks, as the BMC and the PDUs: a CDU giving no reading,
         unreachable or with a wrong community, stops hwbench instead of monitoring nothing."""
         for cdu in self.vendor.get_cdus():
             try:
-                sample = cdu.sample()
-            except Exception:
-                # Never expose credentials contained in driver exception messages.
-                h.fatal(f"Monitoring/CDU: {cdu.get_name()}: collection failed")
-            read = [key for key, value in sample.values.items() if value is not None]
-            if not read:
-                reasons = set(sample.errors.values())
-                errors = ", ".join(sorted(reasons)) or "no reading"
-                hint = ""
-                if reasons == {"timeout"} and getattr(cdu, "protocol", None) == CDUProtocol.SNMP_V2C:
-                    # An SNMPv2c agent does not answer a community it does not know: it times out too
-                    hint = (
-                        f": no answer from {cdu.host} within {cdu.timeout:g}s, the community is probably wrong,"
-                        " or the host unreachable"
-                    )
-                h.fatal(f"Monitoring/CDU: {cdu.get_name()}: cannot read any metric: {errors}{hint}")
-            print(f"Monitoring/CDU: {cdu.get_name()}: {len(read)}/{len(cdu.get_metrics())} metrics read")
+                self.check_cdu(cdu)
+            except DeviceError as error:
+                h.fatal(str(error))
+
+    def check_cdu(self, cdu: CDU):
+        """Read a CDU once, DeviceNotReady when it gives no reading."""
+        try:
+            sample = cdu.sample()
+        except Exception:
+            # Never expose credentials contained in driver exception messages.
+            raise DeviceNotReady(f"Monitoring/CDU: {cdu.get_name()}: collection failed") from None
+        read = [key for key, value in sample.values.items() if value is not None]
+        if not read:
+            reasons = set(sample.errors.values())
+            errors = ", ".join(sorted(reasons)) or "no reading"
+            hint = ""
+            if reasons == {"timeout"} and getattr(cdu, "protocol", None) == CDUProtocol.SNMP_V2C:
+                # An SNMPv2c agent does not answer a community it does not know: it times out too
+                hint = (
+                    f": no answer from {cdu.host} within {cdu.timeout:g}s, the community is probably wrong,"
+                    " or the host unreachable"
+                )
+            raise DeviceNotReady(f"Monitoring/CDU: {cdu.get_name()}: cannot read any metric: {errors}{hint}")
+        print(f"Monitoring/CDU: {cdu.get_name()}: {len(read)}/{len(cdu.get_metrics())} metrics read")
 
     def preup(self, precision_s: int):
         """Start turbostat monitoring before a benchmark run.

@@ -7,6 +7,7 @@ from datetime import timedelta
 from hwbench.bench.engine import EngineModuleBase, Resource
 from hwbench.environment import all_smi
 from hwbench.environment.hardware import BaseHardware
+from hwbench.environment.vendors.monitoring_device import DeviceError
 from hwbench.utils import helpers as h
 
 from . import scaling
@@ -154,11 +155,14 @@ class Benchmarks:
 
         # If job needs monitoring, let's create it
         if monitoring_config != "none" and not self.monitoring and not self.dry_run:
-            self.get_hardware().vendor.get_bmc().connect_redfish()
-            self.get_hardware().vendor.get_bmc().detect()
-            for pdu in self.get_hardware().vendor.get_pdus():
-                pdu.connect_redfish()
-                pdu.detect()
+            try:
+                self.get_hardware().vendor.get_bmc().connect_redfish()
+                self.get_hardware().vendor.get_bmc().detect()
+                for pdu in self.get_hardware().vendor.get_pdus():
+                    pdu.connect_redfish()
+                    pdu.detect()
+            except DeviceError as error:
+                h.fatal(str(error))
             self.monitoring = Monitoring(self.out_dir, self.jobs_config, self.get_hardware(), verbose=self.verbose)
 
         # For each stressor count, add a benchmark object to the list
