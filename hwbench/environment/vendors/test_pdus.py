@@ -3,7 +3,6 @@ import pathlib
 from unittest.mock import patch
 
 import pytest
-import redfish  # type: ignore
 
 from hwbench.bench.monitoring_structs import Power, PowerConsumptionContext
 from hwbench.environment.test_vendors import PATCH_TYPES, TestVendors
@@ -174,9 +173,10 @@ def pdu_answering(answers: dict) -> Generic:
     pdu.outlet = "1,2"
     root = "/redfish/v1/PowerEquipment/RackPDUs/1/"
 
-    def get(url, _args=None):
+    def get(url, _args=None, max_retry=None):
         if url not in answers:
-            raise redfish.rest.v1.RetriesExhaustedError()
+            # What python-redfish-library gives a single attempt not answered
+            return None
         return type("Answer", (), {"dict": answers[url]})
 
     pdu.redfish_obj = type("Client", (), {"get": staticmethod(get)})

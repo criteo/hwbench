@@ -46,7 +46,7 @@ At the end of the benchmark the monitoring metrics are added in the result file.
 
 ## Requests not answered in time
 The [BMC](#bmc) and the [PDUs](#pdu) are read through Redfish requests with a timeout of
-10 seconds. A request not answered in time prints its url:
+10 seconds, made once: a request not answered in time is not sent again, and prints its url:
 
 ```
 Redfish https://<device>/redfish/v1/Chassis/1/Thermal did not answer in time, skipping this reading
