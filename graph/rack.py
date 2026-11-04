@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, NamedTuple
@@ -9,7 +10,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import Colormap, LinearSegmentedColormap, Normalize, to_rgba
 from matplotlib.patches import Rectangle
-from matplotlib.transforms import Bbox, ScaledTranslation
+from matplotlib.path import Path
+from matplotlib.transforms import Bbox, ScaledTranslation, offset_copy
 
 from graph.cdu import CIRCUIT_TEMPERATURES
 from graph.common import bench_workers, graph_header
@@ -260,6 +262,8 @@ class RackServer:
     ashrae: dict[str, str] = field(default_factory=dict)
     # The unit of its fans, as its BMC gives it: percent or RPM
     fans_unit: str = ""
+    # How the topology says each of its components is cooled, air or liquid: air when it does not
+    cooling: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.means = {name: float(np.mean(serie)) for name, serie in self.series.items() if serie}
@@ -267,6 +271,10 @@ class RackServer:
 
     def mean(self, metric: str) -> float | None:
         return self.means.get(metric)
+
+    def liquid_cooled(self, metric: str) -> bool:
+        """Whether the component of a metric, like CPU, is cooled by a liquid."""
+        return metric in COMPONENTS and self.cooling.get(metric.lower()) == "liquid"
 
     def named(self, separator: str = " ") -> str:
         """Its name, followed by its label when it has one."""
@@ -367,6 +375,7 @@ def load_rack(args, bench_name: str, positions: dict[str, int]) -> Rack:
     forced = getattr(args, "ashrae", None) or {}
     classes = {trace.get_name(): trace.get_ashrae() | forced for trace in args.traces}
     labels = {trace.get_name(): trace.get_label() for trace in args.traces}
+    cooling = {trace.get_name(): trace.get_cooling() for trace in args.traces}
     servers = sorted(
         (
             RackServer(
@@ -378,6 +387,7 @@ def load_rack(args, bench_name: str, positions: dict[str, int]) -> Rack:
                 labels[name],
                 classes[name],
                 fans_unit([bench]),
+                cooling[name],
             )
             for name, bench in benches.items()
         ),
@@ -446,6 +456,116 @@ def center_header(graph, artists: list):
 def value_text(value: float) -> str:
     """A value in a cell: without decimal from 100, as the watts."""
     return f"{value:.0f}" if value >= 100 else f"{value:.1f}"
+
+
+def svg_path(d: str) -> Path:
+    """The path of the absolute M, L, H, V, C, S and Z commands of an SVG path, centered on 0 with y up, as a
+    marker of matplotlib."""
+    tokens = re.findall(r"[MLHVCSZ]|-?[\d.]+", d)
+    vertices: list[tuple[float, float]] = []
+    codes: list = []
+    point = start = (0.0, 0.0)
+    control: tuple[float, float] | None = None
+    index, command = 0, ""
+    while index < len(tokens):
+        if tokens[index].isalpha():
+            command = tokens[index]
+            index += 1
+            if command == "Z":
+                vertices.append(start)
+                codes.append(Path.CLOSEPOLY)
+                point, control = start, None
+                continue
+        count = {"M": 2, "L": 2, "H": 1, "V": 1, "C": 6, "S": 4}[command]
+        numbers = [float(value) for value in tokens[index : index + count]]
+        index += count
+        if command == "M":
+            point = start = (numbers[0], numbers[1])
+            vertices.append(point)
+            codes.append(Path.MOVETO)
+            # The pairs after the first one of a move are lines
+            command, control = "L", None
+        elif command in "LHV":
+            point = {
+                "L": (numbers[0], numbers[-1]),
+                "H": (numbers[0], point[1]),
+                "V": (point[0], numbers[0]),
+            }[command]
+            vertices.append(point)
+            codes.append(Path.LINETO)
+            control = None
+        else:
+            # S mirrors the second control point of the previous curve
+            first = (
+                (numbers[0], numbers[1])
+                if command == "C"
+                else (2 * point[0] - control[0], 2 * point[1] - control[1])
+                if control
+                else point
+            )
+            second, end = (numbers[-4], numbers[-3]), (numbers[-2], numbers[-1])
+            vertices += [first, second, end]
+            codes += [Path.CURVE4] * 3
+            point, control = end, second
+    xs, ys = [x for x, _ in vertices], [y for _, y in vertices]
+    middle = ((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2)
+    return Path([(x - middle[0], middle[1] - y) for x, y in vertices], codes)
+
+
+# The drop marking a component cooled by a liquid, mdi:water-sync of the Material Design Icons by
+# Pictogrammers, Apache License 2.0
+WATER_DROP = svg_path(
+    "M12 3.2C12 3.2 6 10 6 14C6 17.3 8.7 20 12 20S18 17.3 18 14C18 10 12 3.2 12 3.2M12 8.5V10C14.2 10 16 11.8 16 14"
+    "C16 14.8 15.8 15.6 15.3 16.2L14.2 15.1C14.4 14.8 14.5 14.4 14.5 14C14.5 12.6 13.4 11.5 12 11.5V13L9.8 10.8L12 8.5"
+    "M8.7 11.8L9.8 12.9C9.6 13.2 9.5 13.6 9.5 14C9.5 15.4 10.6 16.5 12 16.5V15L14.2 17.2L12 19.5V18C9.8 18 8 16.2 8 14"
+    "C8 13.2 8.2 12.4 8.7 11.8Z"
+)
+
+
+class Drop(NamedTuple):
+    """The drop of a component cooled by a liquid, in the bottom left corner of a cell <height> positions
+    high whose mean is written in <fontsize> points, at most <largest> points high."""
+
+    x: float
+    y: float
+    height: float
+    fontsize: float
+    largest: float
+    color: Any
+    cell: Rectangle
+
+
+# The smallest drop drawn, in points: a smaller one is a dot; and its margin to the borders of its cell, wider
+# than the white border of the cell
+SMALLEST_DROP = 2.5
+DROP_MARGIN = 1.5
+
+
+def draw_drops(ax, drops: list[Drop]) -> None:
+    """The <drops>, once the limits of the axes are set: as high as the room the mean of a cell leaves under
+    it, at most their largest size, in points whatever the scale of the axes, in the color of the text of
+    their cell and clipped by it."""
+    bottom, top = ax.get_ylim()
+    figure_height = ax.figure.get_size_inches()[1] * ax.get_position().height * 72
+    points = figure_height / (top - bottom)
+    for drop in drops:
+        size = min(drop.largest, (drop.height * points - drop.fontsize) / 2 - DROP_MARGIN)
+        if size < SMALLEST_DROP:
+            continue
+        ax.plot(
+            drop.x,
+            drop.y,
+            marker=WATER_DROP,
+            markersize=size,
+            # Without the edge of a marker, which would draw it larger than its size, over the border of the cell
+            markeredgewidth=0,
+            color=drop.color,
+            linestyle="none",
+            transform=offset_copy(
+                ax.transData, fig=ax.figure, x=size / 2 + DROP_MARGIN, y=size / 2 + DROP_MARGIN, units="points"
+            ),
+            clip_path=drop.cell,
+        )
 
 
 def text_color(background) -> str:
@@ -883,6 +1003,8 @@ def colors_note(rack: Rack) -> str:
         lines.append(f"    {', '.join(components)}: green up to {lowest:g} °C, then up to red at {highest:g} °C.")
     if "Power" in rack.metrics:
         lines.append("    Power: from green, its lowest server, to red, its highest.")
+    if any(server.liquid_cooled(name) for server in rack.servers for name in rack.metrics):
+        lines.append("    A drop, bottom left: a component the topology says cooled by a liquid.")
     return "\n".join([*lines, "    Gray: empty positions, and the metrics a server does not give."]) + "\n"
 
 
@@ -934,6 +1056,7 @@ def graph_rack_elevation(args, bench_name: str, output_dir, rack: Rack) -> int:
     side = 0.4
     columns = [name_width + gap + index for index in range(len(metrics) + 1)]
     headers = []
+    drops: list[Drop] = []
     # A chassis is gray where no node is, like an empty position: its nodes are drawn over it
     for position, height in rack.chassis.items():
         for left, width in ((0, name_width), (columns[0], columns[-1] - columns[0])):
@@ -970,7 +1093,7 @@ def graph_rack_elevation(args, bench_name: str, output_dir, rack: Rack) -> int:
             color: Any = (
                 cmap(norm(mean)) if mean is not None and norm else "whitesmoke" if mean is not None else EMPTY_COLOR
             )
-            ax.add_patch(
+            cell = ax.add_patch(
                 Rectangle((x, slot.bottom), width, slot.height, facecolor=color, edgecolor="white", linewidth=1)
             )
             if mean is None:
@@ -993,6 +1116,10 @@ def graph_rack_elevation(args, bench_name: str, output_dir, rack: Rack) -> int:
                 fontsize=8 if alone else 6 if half else 7,
                 color=text_color(color),
             )
+            if server.liquid_cooled(metric.name):
+                # Below its mean, left of its trend
+                fontsize = 8 if alone else 6 if half else 7
+                drops.append(Drop(x, slot.bottom, slot.height, fontsize, 9 if alone else 6.5, text_color(color), cell))
             serie = server.series[metric.name] or []
             if len(serie) > 1 and text_width < width:
                 left, right = x + text_width + 0.03 * width, x + width - range_width - 0.03 * width
@@ -1067,6 +1194,7 @@ def graph_rack_elevation(args, bench_name: str, output_dir, rack: Rack) -> int:
 
     ax.set_xlim(0, columns[-1] + side)
     ax.set_ylim(-1 - 2 * len(cdus) if cdus else 0.5, top + 0.5)
+    draw_drops(ax, drops)
     ax.set_xticks([x for x, _ in headers], [text for _, text in headers], fontsize=9)
     ax.xaxis.tick_top()
     ax.set_yticks(range(1, top + 1), [f"U{position}" for position in range(1, top + 1)], fontsize=8)
@@ -1175,6 +1303,7 @@ def graph_racks_elevation(args, bench_name: str, output_dir, racks: list[tuple[s
     # A rack is len(metrics) columns of 1, then a gap: the metrics of a rack read from its front to its rear
     gap = RACKS_GAP / RACKS_METRIC_WIDTH
     ticks = []
+    drops: list[Drop] = []
     for index, (name, rack) in enumerate(racks):
         left = index * (len(metrics) + gap)
         ax.text(left + len(metrics) / 2, top + 1.6, name, ha="center", va="bottom", fontsize=8, fontweight="bold")
@@ -1216,6 +1345,10 @@ def graph_racks_elevation(args, bench_name: str, output_dir, racks: list[tuple[s
                         clip_path=cell,
                         clip_on=True,
                     )
+                if mean is not None and server.liquid_cooled(metric.name):
+                    fontsize = 4.5 if slot.width < 1 else 5.5
+                    largest = 3.5 if slot.width < 1 else 4.5
+                    drops.append(Drop(x, slot.bottom, slot.height, fontsize, largest, text_color(color), cell))
     # The CDUs monitored with the servers of each rack below it, a row each: their circuits side by side,
     # colored as below a rack elevation, with the mean of their window means
     cdu_rows = max(len(rack.cdus) for _, rack in racks)
@@ -1254,6 +1387,7 @@ def graph_racks_elevation(args, bench_name: str, output_dir, racks: list[tuple[s
             ax.text(left + len(metrics) / 2, bottom - 0.15, f"CDU {name}", ha="center", va="top", fontsize=5)
     ax.set_xlim(-0.2, len(racks) * (len(metrics) + gap) - gap + 0.2)
     ax.set_ylim(0.4 - RACKS_CDU_ROW * cdu_rows - (0.6 if cdu_rows else 0), top + 2.6)
+    draw_drops(ax, drops)
     ax.set_xticks([x for x, _ in ticks], [label for _, label in ticks], fontsize=6, rotation=90)
     ax.xaxis.tick_top()
     ax.set_yticks(range(1, top + 1), [f"U{position}" for position in range(1, top + 1)], fontsize=6)
@@ -1275,7 +1409,14 @@ def graph_racks_elevation(args, bench_name: str, output_dir, racks: list[tuple[s
         "Each cell: the mean of the window means of the server, colored as in the rack elevations,\n"
         f"    the scales from a server to another shared by the {len(racks)} racks of the place, and by unit for the fans.\n"
         "Gray: empty positions, and the metrics a server does not give.\n"
-        "CDUs below each rack: the mean of the window means of their circuits, colored as below a rack elevation.",
+        + (
+            "A drop, bottom left: a component the topology says cooled by a liquid.\n"
+            if any(
+                server.liquid_cooled(metric.name) for _, rack in racks for server in rack.servers for metric in metrics
+            )
+            else ""
+        )
+        + "CDUs below each rack: the mean of the window means of their circuits, colored as below a rack elevation.",
         transform=ax.transAxes,
         fontsize=7,
         va="top",

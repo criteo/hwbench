@@ -5,16 +5,63 @@ from dataclasses import dataclass
 from graph.auto_traces import ascii_directory_name
 from graph.common import fatal
 from graph.trace import Trace
-from hwbench.bench.monitoring_structs import MonitoringContextKeys, PowerCategories, PowerConsumptionContextKeys
+from hwbench.bench.monitoring_structs import (
+    CPU_RAM,
+    MonitoringContextKeys,
+    MonitorMetric,
+    PowerCategories,
+    PowerConsumptionContextKeys,
+)
+from hwbench.environment import cooling
 from hwbench.environment.environment_file import Location
 
 # The directory of --outdir rendering the groups, as with --same-group
 GROUP_DIRECTORY = "by_group"
-# The power metrics the graphs of a group add up
+# The power metric the graphs of a group add up, split by the cooling of the components, see liquid_cooled()
 GROUP_METRICS = [
     (PowerConsumptionContextKeys.BMC, PowerCategories.SERVER),
-    (PowerConsumptionContextKeys.CPU, "package"),
 ]
+
+# The power metrics of each component of the cooling of the topology, see hwbench/environment/cooling.py:
+# the first one a benchmark has, the GPUs being all the ones of the GPU context
+LIQUID_COOLED_METRICS: dict[str, list[tuple[str, str]]] = {
+    "cpu": [(str(PowerConsumptionContextKeys.CPU), "package")],
+    "memory": [
+        (str(PowerConsumptionContextKeys.CPU), CPU_RAM),
+        (str(PowerConsumptionContextKeys.BMC), str(PowerCategories.MEMORY)),
+    ],
+}
+
+
+def liquid_cooled(bench, components: dict[str, str]) -> tuple[dict[str, list[MonitorMetric]], list[str]]:
+    """The power metrics of the <components> of a server cooled by a liquid, by the name of the metric, like
+    'CPU.package' or 'GPU', and the metrics missing in <bench> for the others, like 'CPU/package'."""
+    metrics: dict[str, list[MonitorMetric]] = {}
+    missing = []
+    power = bench.get_monitoring_metric(MonitoringContextKeys.PowerConsumption)
+    for component in cooling.COMPONENTS:
+        if components.get(component) != "liquid":
+            continue
+        if component == "gpu":
+            gpus = list(power.get(str(PowerConsumptionContextKeys.GPU), {}).values())
+            if gpus:
+                metrics[str(PowerConsumptionContextKeys.GPU)] = gpus
+            else:
+                missing.append(str(PowerConsumptionContextKeys.GPU))
+            continue
+        found = [
+            (context, category)
+            for context, category in LIQUID_COOLED_METRICS[component]
+            if category in power.get(context, {})
+        ]
+        if found:
+            context, category = found[0]
+            metrics[f"{context}.{category}"] = [power[context][category]]
+        else:
+            missing.append(
+                " or ".join(f"{context}/{category}" for context, category in LIQUID_COOLED_METRICS[component])
+            )
+    return metrics, missing
 
 
 @dataclass
@@ -124,4 +171,10 @@ def group_problem(group: LocationGroup) -> str | None:
                     trace.bench(bench_name).get_single_metric(MonitoringContextKeys.PowerConsumption, context, category)
                 except KeyError:
                     return f"{trace.get_name()} has no '{context}/{category}' metric in {bench_name}"
+            _, missing = liquid_cooled(trace.bench(bench_name), trace.get_cooling())
+            if missing:
+                return (
+                    f"{trace.get_name()} has no '{missing[0]}' metric in {bench_name}, "
+                    "the power of a component cooled by a liquid"
+                )
     return None

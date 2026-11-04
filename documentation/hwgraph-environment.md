@@ -244,8 +244,18 @@ For each benchmark, `environment/by_chassis/chassis/` contains:
 
 # Per group
 `--same-group` plots a group of servers, like the machines of a same rack, together. Every
-trace must have the `BMC.Server` and the `CPU.package` power metrics, otherwise hwgraph stops with
+trace must have the `BMC.Server` power metric, otherwise hwgraph stops with
 `group: missing '<metric>' monitoric metric in <trace_filename>`.
+
+The power of a server goes to the air of the room, or to a liquid for its components the
+[topology](topology.md#cooling-of-the-components) says cooled by a liquid. The power to the
+liquid is the sum of the power of these components; the power to the air is the whole power of
+the server, `BMC.Server`, minus the one to the liquid, not a sum of components: it includes every
+component not cooled by a liquid, measured or not, like the disks, the controllers and the fans. A component cooled by
+a liquid needs its power metric: `CPU.package` for the `cpu`, `CPU.Ram`, or else `BMC.Memory`, for
+the `memory`, the `GPU` ones for the `gpu`, otherwise hwgraph stops with
+`group: missing '<metric>' monitoric metric in <trace_filename>, the power of a component cooled by a liquid`.
+A trace without cooling, run without topology of the version 2, has all its power going to the air.
 
 The graphs add up the samples of the traces by their position: the first sample of every server with
 the first sample of the others, and so on. The servers must therefore run the benchmark at the same
@@ -264,8 +274,8 @@ For each benchmark, `by_group/` contains:
 | Graph | What it plots |
 |---|---|
 | `time_watt_<benchmark>_by_servers` | the power of each server, `BMC.Server` |
-| `time_watt_<benchmark>_by_group` | the sum of the servers: of `BMC.Server`, of `CPU.package`, and the difference between both, what the processors do not account for |
-| `time_watt_percent_<benchmark>_by_group` | the share of the CPU packages, and of the rest of the servers, in percent of the sum of `BMC.Server` |
+| `time_watt_<benchmark>_by_group` | the distribution of the power consumption of the servers: `Total power consumption`, the sum of their `BMC.Server`, green, `Total power to the liquid`, blue, and `Total power to the air`, orange, the total power consumption minus the one to the liquid; a note below the graph tells what each curve adds up |
+| `time_watt_percent_<benchmark>_by_group` | the same distribution in percent of the total power consumption: the air, orange, and the liquid, blue, with the same note |
 
 The legend gives the `[p5; mean; stddev; p95]` of each curve, see [Curves over time](#curves-over-time). Beyond 36 servers, the most a legend
 holds within the height of the graph, as for the other graphs, the legend of `…_by_servers` is
@@ -293,11 +303,11 @@ uv run hwgraph graph --same-group --no-env --no-scaling --no-versus --events cdu
 
 ![Sum of the servers](img/hwgraph-group-by-group.png)
 
-*`by_group/time_watt_… _by_group.png`: the sum of the four servers. The processors slow down during the event, and the power of the group falls from about 4.6 kW to 3.1 kW, while the rest of the servers, the green line, increases during the event.*
+*`by_group/time_watt_… _by_group.png`: the sum of the four servers, whose CPUs are cooled by a liquid. The processors slow down during the event, and the power of the group falls from about 4.6 kW to 3.1 kW: the power going to the liquid, the one of the CPU packages, falls from about 3.1 kW to 1.2 kW, while the one going to the air increases from about 1.5 kW to 2.9 kW, the fans speeding up.*
 
 ![Share of the whole server](img/hwgraph-group-percent.png)
 
-*`by_group/time_watt_percent_… _by_group.png`: what the CPU packages, and the rest of the servers, represent in percent of the power of the group: about 68% and 32% of the power, and about 35% and 65% during the event. The first sample is above 100%: at the beginning of the benchmark, the power reported by the BMC is lower than the one of the CPU packages.*
+*`by_group/time_watt_percent_… _by_group.png`: what the liquid and the air take away, in percent of the power of the group: about 68% and 32%, and about 35% and 65% during the event. The first sample of the liquid is above 100%: at the beginning of the benchmark, the power reported by the BMC is lower than the one of the CPU packages.*
 
 ## Groups of the location
 `--auto-group` finds the groups in the [location](hwgraph.md#location-of-the-servers) of the
@@ -449,10 +459,10 @@ For each benchmark, the directory of the rack contains:
 
 | Graph | What it plots |
 |---|---|
-| `rack_elevation_<benchmark>_<place>` | the rack seen from the front, a row per position and a column per metric, from the front of the servers to their rear: each cell the mean of the window means of a server, its color on the scale of its metric, see [Colors](#colors), with its window means drawn on the same scale in a column and its 95th percentile window above its 5th right of them; the place of a chassis without node is gray, like an empty position, and so is a metric a server does not give, like the memory of a BMC without sensor for it; the CDUs below the rack, with their own window means, each on the scale of its cell; the header gives the benchmark in bold, and the workers of the servers, `[64;640] x stressng` when their numbers of cores differ |
+| `rack_elevation_<benchmark>_<place>` | the rack seen from the front, a row per position and a column per metric, from the front of the servers to their rear: each cell the mean of the window means of a server, its color on the scale of its metric, see [Colors](#colors), with its window means drawn on the same scale in a column and its 95th percentile window above its 5th right of them; a drop, `mdi:water-sync`, in the bottom left corner of the CPU, Memory and GPU of a server the topology says cooled by a liquid, as high as the room its mean leaves under it; the place of a chassis without node is gray, like an empty position, and so is a metric a server does not give, like the memory of a BMC without sensor for it; the CDUs below the rack, with their own window means, each on the scale of its cell; the header gives the benchmark in bold, and the workers of the servers, `[64;640] x stressng` when their numbers of cores differ |
 | `rack_profile_<benchmark>_<place>` | the profile of the rack, a panel per metric: Inlet, Fans, CPU, Memory, GPU, Exhaust and Power, each server at its row with the mean of its window means and the [violin](#reading-a-violin) of its windows from its 5th percentile to its 95th; left of the panels, below the legend, the CDUs in a frame, their circuits by rows of three, the supply, the return and the delta, each the mean of its window means and its coolest and hottest windows |
 | `rack_profile_<component>_<benchmark>_<place>` | the profile of a component, `CPU`, `Memory` or `GPU`, with what cools it: Inlet, Fans, the component on a panel twice as wide, Exhaust and Power, and the CDUs; only when a server has it |
-| `racks_elevation_<benchmark>_<place>` | in the directory of a place holding at least two racks: its racks side by side, each seen from the front without names nor trends, a row per position and a column per metric titled with its unit, each cell the mean of the window means of a server, colored as in the elevations, the relative scales from a server to another shared by all the racks of the place, and by unit for the fans; the empty places, and the metrics a server does not give, gray; the CDUs below each rack, the positions on both sides |
+| `racks_elevation_<benchmark>_<place>` | in the directory of a place holding at least two racks: its racks side by side, each seen from the front without names nor trends, a row per position and a column per metric titled with its unit, each cell the mean of the window means of a server, colored as in the elevations, with their drops, the relative scales from a server to another shared by all the racks of the place, and by unit for the fans; the empty places, and the metrics a server does not give, gray; the CDUs below each rack, the positions on both sides |
 
 The ranges leave out the 5% of the lowest and of the highest windows, like the warm up of a long
 benchmark. The graphs of a rack are rendered at 200 dpi at least, whatever `--dpi`, their figures
@@ -473,7 +483,7 @@ uv run hwgraph graph --format png --auto-group --no-env --no-scaling --no-versus
 
 ![Elevation of the rack](img/hwgraph-rack-elevation.png)
 
-*`by_group/…/Rack_A12/rack_elevation_cpu_17_Rack_A12.png`: the air entering the servers is warmer at the top of the rack, from 25.8 °C at the position 1 to 29.1 °C at the position 12: green in the recommended range of `A1`, up to 27 °C, yellowing above it. The 4 nodes of the chassis of the position 4 fill its two positions, and the server of 2U the positions 7 and 8; each cell draws the window means of its server during the benchmark, the nodes, narrower, their mean and their trend only. Below the rack, the CDU gives its circuits and their deltas, its secondary supply orange, its hottest window, 28.2 °C, within 2 °C of the 30 °C of `S30`.*
+*`by_group/…/Rack_A12/rack_elevation_cpu_17_Rack_A12.png`: the air entering the servers is warmer at the top of the rack, from 25.8 °C at the position 1 to 29.1 °C at the position 12: green in the recommended range of `A1`, up to 27 °C, yellowing above it. The 4 nodes of the chassis of the position 4 fill its two positions, and the server of 2U the positions 7 and 8; each cell draws the window means of its server during the benchmark, the nodes, narrower, their mean and their trend only. The CPUs of the nodes and of the 2U server, cooled by a liquid, have a drop in their bottom left corner. Below the rack, the CDU gives its circuits and their deltas, its secondary supply orange, its hottest window, 28.2 °C, within 2 °C of the 30 °C of `S30`.*
 
 ![Elevation of the racks of the room](img/hwgraph-racks-elevation.png)
 

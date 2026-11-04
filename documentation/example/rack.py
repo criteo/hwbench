@@ -11,7 +11,9 @@ the same room, positions 1 to 10:
 - in A13, warmer, a 2U chassis of 3 nodes of 1U at the position 5, its fourth place empty;
 - empty positions between them;
 - the ASHRAE class A1 for the air of the rack, as a topology gives it, W27 and S30 for the circuits of its
-  CDU, as its section of the environment file gives them, and a label for three servers.
+  CDU, as its section of the environment file gives them, and a label for three servers;
+- the CPUs of the nodes of the chassis and of the 2U servers cooled by a liquid, the other components on
+  air, as the labels of a topology give them.
 
 The servers are the recorded host monitoring of cdu_comparison.json, with synthetic differences: each
 server is shifted by fixed amounts depending on its position, so that every rendering gives the same
@@ -51,6 +53,8 @@ SERVERS = [
 WARMER = {"A12": 0.0, "A13": 1.5}
 # The labels of some servers, as a topology gives them
 LABELS = {"EXAMPLE0101": "db-01", "EXAMPLE0102": "db-02", "EXAMPLE0104A": "web-01"}
+# The servers whose CPUs are cooled by a liquid, as the labels of a topology give them: the others on air
+LIQUID_COOLED = {"EXAMPLE0104", "EXAMPLE0107", "EXAMPLE0205"}
 # The ASHRAE classes of the rack and of the circuits of its CDU
 ASHRAE = {"air": "A1"}
 CDU_ASHRAE = {"primary": "W27", "secondary": "S30"}
@@ -75,6 +79,8 @@ def server(source: dict, rack: str, serial: str, position: int, height: int, cha
     trace["location"] = {"path": [*ROOM, rack, str(position)], "separator": "/", "levels": LEVELS, "ashrae": ASHRAE}
     if serial in LABELS:
         trace["location"]["label"] = LABELS[serial]
+    cpu = "liquid" if (chassis or serial) in LIQUID_COOLED else "air"
+    trace["location"]["cooling"] = {"cpu": cpu, "memory": "air", "gpu": "air"}
     for cdu in trace["hardware"].get("cdu", {}).values():
         cdu["ashrae"] = CDU_ASHRAE
     dmi = trace["hardware"]["dmi"]
