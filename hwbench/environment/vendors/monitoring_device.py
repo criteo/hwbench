@@ -156,6 +156,11 @@ class MonitoringDevice:
                 password=password,
                 default_prefix="/redfish/v1",
                 timeout=10,
+                # Retried 10 times by default, a request not answered took 2 minutes to give up, delaying
+                # the monitoring loop as much: get_redfish_url() makes a single attempt per request. Not 0
+                # here: python-redfish-library 3.3.4 compares the attempts made with the max_retry of the
+                # client, raising RetriesExhaustedError on every request answered, the login included
+                max_retry=1,
             )
             self.redfish_obj.login(auth=auth_method)
             self.logged = True
@@ -187,7 +192,11 @@ class MonitoringDevice:
         try:
             if self.redfish_obj is None:
                 return {}
-            content = self.redfish_obj.get(url, None).dict
+            # A single attempt, see _connect_redfish(): a request not answered gives no response
+            response = self.redfish_obj.get(url, None, max_retry=0)
+            if response is None:
+                raise redfish.rest.v1.RetriesExhaustedError()
+            content = response.dict
             self.unanswered_urls.discard(url)
             # Let's ignore errors and return empty objects
             # It will be up to the caller to see there is no answer and process this
