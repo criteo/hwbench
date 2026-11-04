@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 from typing import Any
@@ -7,7 +8,7 @@ from typing import Any
 import cachetools.func
 import redfish  # type: ignore
 
-from hwbench.bench.monitoring_structs import MonitorMetric
+from hwbench.bench.monitoring_structs import MonitoringContextKeys, MonitoringContexts, MonitorMetric
 from hwbench.utils import helpers as h
 
 
@@ -42,31 +43,38 @@ def section_value(config, device: str, section: str | None, key: str, fallback: 
         h.fatal(f"{device} {section}: {key} must be {VALUE_KINDS.get(convert, convert.__name__)}, got {value!r}")
 
 
+def check_metrics(source: str, metric_name: MonitoringContextKeys, data: Any) -> None:
+    """Print the metrics of a source, DeviceNotReady when it gives none."""
+    if not isinstance(data, dict):
+        # Probably a dataclass
+        data = dataclasses.asdict(data)
+
+    if not len(data):
+        raise DeviceNotReady(f"Cannot detect {str(metric_name)} metrics")
+
+    print(
+        f"Monitoring/{source}: {str(metric_name)} metrics: "
+        + ", ".join([f"{len(data[pc])}x{pc}" for pc in data if len(data[pc]) > 0])
+    )
+
+
 class MonitoringDevice:
-    def __init__(self, vendor):
-        self.vendor = vendor
-        self.redfish_obj = None
-        self.redfish_url = ""
-        self.logged = False
-        # The number of Redfish requests the device did not answer in time
-        self.timeouts = 0
-        # The urls whose last request was not answered in time
-        self.unanswered_urls: set[str] = set()
+    """A source of the monitoring: turbostat, all-smi, the BMC, a PDU or a CDU."""
+
+    def __init__(self):
         self.firmware_version = ""
         self.manufacturer = ""
         self.model = ""
         self.serialnumber = ""
 
-    def __del__(self):
-        if self.logged:
-            try:
-                self.redfish_obj.logout()
-            except redfish.rest.v1.RetriesExhaustedError:
-                logging.warning("Cannot logout from redfish monitoring device, ignoring.")
+    def get_label(self) -> str:
+        """The name of the device in the messages of the monitoring, like 'BMC' or 'PDU <section>'."""
+        return self.get_driver_name()
 
-    def did_not_answer(self, url: str) -> bool:
-        """Return True if the last request of <url>, cached or not, was not answered in time."""
-        return url in self.unanswered_urls
+    def initialize(self, contexts: MonitoringContexts) -> None:
+        """Start the device when the monitoring starts, and read it once in <contexts>: DeviceNotReady
+        when it gives no metric, DeviceError when it cannot be used as configured."""
+        raise NotImplementedError
 
     def get_firmware_version(self):
         return self.firmware_version
@@ -78,7 +86,7 @@ class MonitoringDevice:
         return self.serialnumber
 
     def get_url(self):
-        return self.vendor.monitoring_config_file.get(self.pdu_section, "url", fallback="")
+        return ""
 
     def detect(self):
         """Detect monitoring device"""
@@ -132,6 +140,32 @@ class MonitoringDevice:
         if self.manufacturer:
             dump["manufacturer"] = self.manufacturer
         return dump
+
+
+class RedfishDevice(MonitoringDevice):
+    """A monitoring device read with Redfish: the BMC or a PDU."""
+
+    def __init__(self, vendor):
+        super().__init__()
+        self.vendor = vendor
+        self.redfish_obj = None
+        self.redfish_url = ""
+        self.logged = False
+        # The number of Redfish requests the device did not answer in time
+        self.timeouts = 0
+        # The urls whose last request was not answered in time
+        self.unanswered_urls: set[str] = set()
+
+    def __del__(self):
+        if self.logged:
+            try:
+                self.redfish_obj.logout()
+            except redfish.rest.v1.RetriesExhaustedError:
+                logging.warning("Cannot logout from redfish monitoring device, ignoring.")
+
+    def did_not_answer(self, url: str) -> bool:
+        """Return True if the last request of <url>, cached or not, was not answered in time."""
+        return url in self.unanswered_urls
 
     def connect_redfish(self, username: str, password: str, device_url: str):
         try:

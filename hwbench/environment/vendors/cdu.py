@@ -4,10 +4,10 @@ import math
 from abc import ABC, abstractmethod
 from enum import StrEnum
 
-from hwbench.bench.monitoring_structs import MONITORING_PRECISION_S, CDUMetric, CDUSample
+from hwbench.bench.monitoring_structs import MONITORING_PRECISION_S, CDUMetric, CDUSample, MonitoringContexts
 from hwbench.utils import helpers as h
 
-from .monitoring_device import MonitoringDevice, section_value
+from .monitoring_device import DeviceNotReady, MonitoringDevice, section_value
 
 
 class CDUProtocol(StrEnum):
@@ -29,7 +29,8 @@ class CDU(MonitoringDevice, ABC):
     SUPPORTED_PROTOCOLS: frozenset[CDUProtocol] = frozenset()
 
     def __init__(self, vendor, section: str):
-        super().__init__(vendor)
+        super().__init__()
+        self.vendor = vendor
         self.section = section
         protocol = self.config_value("protocol", "")
         try:
@@ -56,6 +57,32 @@ class CDU(MonitoringDevice, ABC):
 
     def get_name(self) -> str:
         return self.section
+
+    def get_label(self) -> str:
+        return f"CDU {self.get_name()}"
+
+    def initialize(self, contexts: MonitoringContexts) -> None:
+        """Read the CDU once, DeviceNotReady when it gives no reading: unreachable, or with a wrong
+        community. Its readings are aggregated by the CDU monitoring, not in <contexts>."""
+        print(f"Monitoring/CDU: initialize {self.get_name()} with {self.get_driver_name()} {self.get_detect_string()}")
+        try:
+            sample = self.sample()
+        except Exception:
+            # Never expose credentials contained in driver exception messages.
+            raise DeviceNotReady("collection failed") from None
+        read = [key for key, value in sample.values.items() if value is not None]
+        if not read:
+            reasons = set(sample.errors.values())
+            errors = ", ".join(sorted(reasons)) or "no reading"
+            hint = ""
+            if reasons == {"timeout"} and self.protocol == CDUProtocol.SNMP_V2C:
+                # An SNMPv2c agent does not answer a community it does not know: it times out too
+                hint = (
+                    f": no answer from {self.host} within {self.timeout:g}s, the community is probably wrong,"
+                    " or the host unreachable"
+                )
+            raise DeviceNotReady(f"cannot read any metric: {errors}{hint}")
+        print(f"Monitoring/CDU: {self.get_name()}: {len(read)}/{len(self.get_metrics())} metrics read")
 
     @abstractmethod
     def get_url(self) -> str:

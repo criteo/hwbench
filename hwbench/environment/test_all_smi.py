@@ -54,11 +54,19 @@ class TestAllSMI(unittest.TestCase):
         assert parse_version(b"all-smi 0.26.3\n") == "0.26.3"
 
 
+def started(contexts: MonitoringContexts, inventory: dict) -> AllSMIMonitoring:
+    """An all-smi monitoring of the GPUs of <inventory>, started in <contexts>."""
+    monitoring = AllSMIMonitoring(inventory)
+    with patch("hwbench.environment.all_smi.get_version", return_value="0.0.0"):
+        monitoring.initialize(contexts)
+    return monitoring
+
+
 class TestAllSMIMonitoring(unittest.TestCase):
     def monitoring(self) -> tuple[MonitoringContexts, AllSMIMonitoring]:
         contexts = MonitoringContexts()
         inventory = gpu_inventory(parse_frame(json.loads(H100.read_bytes())))
-        return contexts, AllSMIMonitoring(contexts, inventory)
+        return contexts, started(contexts, inventory)
 
     def sample(self, monitoring: AllSMIMonitoring, frame: dict) -> None:
         """Sample one frame, as if the exporter had served it."""
@@ -97,7 +105,7 @@ class TestAllSMIMonitoring(unittest.TestCase):
         """all-smi reports an unsupported sensor as 0, which is not a reading."""
         contexts = MonitoringContexts()
         inventory = gpu_inventory(parse_frame(json.loads(ARC.read_bytes())))
-        monitoring = AllSMIMonitoring(contexts, inventory)
+        monitoring = started(contexts, inventory)
         self.sample(monitoring, json.loads(ARC.read_bytes()))
 
         assert contexts.PowerConsumption.GPU["GPU_0"].get_values() == []

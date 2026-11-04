@@ -12,9 +12,10 @@ from enum import Enum
 
 from packaging.version import Version
 
-from hwbench.bench.monitoring_structs import CPU_RAM, MonitoringContexts, MonitorMetric
+from hwbench.bench.monitoring_structs import CPU_RAM, MonitoringContextKeys, MonitoringContexts, MonitorMetric
 from hwbench.environment.hardware import BaseHardware
-from hwbench.utils.helpers import fatal, is_binary_available
+from hwbench.environment.vendors.monitoring_device import DeviceError, MonitoringDevice, check_metrics
+from hwbench.utils.helpers import is_binary_available
 
 CORE = "core"
 PACKAGE = "package"
@@ -58,8 +59,9 @@ def ram_metered(power_events: pathlib.Path = POWER_EVENTS, powercap: pathlib.Pat
 OPTIONAL_STATS = [CPUSTATS.RAM_WATTS]
 
 
-class Turbostat:
-    def __init__(self, hardware: BaseHardware, monitoring_contexts: MonitoringContexts):
+class Turbostat(MonitoringDevice):
+    def __init__(self, hardware: BaseHardware):
+        super().__init__()
         self.__output: list[str] | None = None
         self.cores_count = 0
         self.core_cpus: list[str] = []
@@ -79,7 +81,7 @@ class Turbostat:
         self.optional_columns = ram_watts
         self.min_release = Version("2022.04.16")
         self.header = ""
-        self.monitoring_contexts = monitoring_contexts
+        self.monitoring_contexts = MonitoringContexts()
         self.hardware = hardware
         self.process: subprocess.Popen[bytes] = None  # type: ignore[assignment]
 
@@ -92,16 +94,26 @@ class Turbostat:
         self._buffer_lock = threading.Lock()
         self._background_started = False
 
-        # Let's make a first quick run to detect system
+    def get_label(self) -> str:
+        return "turbostat"
+
+    def initialize(self, contexts: MonitoringContexts) -> None:
+        """Check turbostat, make a first quick run to detect the system, and check it reads the
+        frequencies, and the IPC when the CPU reports it."""
+        print("Monitoring/turbostat: initialize")
+        self.monitoring_contexts = contexts
         self.check_version()
         self.pre_run()
+        check_metrics("turbostat", MonitoringContextKeys.Freq, contexts.Freq)
+        if self.has(CPUSTATS.IPC):
+            check_metrics("turbostat", MonitoringContextKeys.IPC, contexts.IPC)
 
     def check_version(self):
         english_env = os.environ.copy()
         english_env["LC_ALL"] = "C"
 
         if not is_binary_available("turbostat"):
-            fatal("Missing turbostat binary, please install it.")
+            raise DeviceError("Missing turbostat binary, please install it.")
 
         self.process = subprocess.Popen(
             ["turbostat", "--version"],
@@ -117,12 +129,12 @@ class Turbostat:
         )
 
         if not match:
-            fatal("Monitoring/turbostat: Cannot detect turbostat version")
+            raise DeviceError("Cannot detect turbostat version")
         current_version = Version(match.group("version"))
 
         print(f"Monitoring/turbostat: Detected release {current_version}")
         if current_version < self.min_release:
-            fatal(f"Monitoring/turbostat: minimal expected release is {self.min_release}")
+            raise DeviceError(f"minimal expected release is {self.min_release}, got {current_version}")
 
     def show(self) -> str:
         """The columns requested to turbostat."""
@@ -221,7 +233,7 @@ class Turbostat:
             self.optional_columns = []
             output = self.run(wait=True, interval=0.01)
         if not output:
-            fatal("Failed to get turbostat output during initialization")
+            raise DeviceError("Failed to get turbostat output during initialization")
 
         # Find the header line (skip any topology debug lines at the start)
         header_idx = self.__find_header_index(output)

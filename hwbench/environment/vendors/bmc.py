@@ -10,6 +10,7 @@ from hwbench.bench.monitoring_structs import (
     GPU_DESTINATIONS,
     FansContext,
     Frequency,
+    MonitoringContextKeys,
     MonitoringContexts,
     MonitorMetric,
     Power,
@@ -24,7 +25,7 @@ from hwbench.bench.monitoring_structs import (
 from hwbench.utils import helpers as h
 from hwbench.utils.external import External
 
-from .monitoring_device import DeviceError, DeviceNotReady, MonitoringDevice, section_value
+from .monitoring_device import DeviceError, DeviceNotReady, RedfishDevice, check_metrics, section_value
 
 # Redfish PhysicalContext values denoting an accelerator, see
 # https://redfish.dmtf.org/schemas/v1/PhysicalContext.json#/definitions/PhysicalContext
@@ -52,9 +53,9 @@ SENSOR_READING_TYPES: dict[str, type[UnitMetric]] = {
 }
 
 
-class BMC(MonitoringDevice, External):
+class BMC(RedfishDevice, External):
     def __init__(self, out_dir: pathlib.Path, vendor):
-        MonitoringDevice.__init__(self, vendor)
+        RedfishDevice.__init__(self, vendor)
         External.__init__(self, out_dir)
         self.bmc = {}  # type: dict[str, str]
         self.bmc_section = None
@@ -116,6 +117,36 @@ class BMC(MonitoringDevice, External):
         bmc_username = section_value(self.vendor.monitoring_config_file, "BMC", sections[0], "username")
         bmc_password = section_value(self.vendor.monitoring_config_file, "BMC", sections[0], "password")
         return super().connect_redfish(bmc_username, bmc_password, self.get_url())
+
+    def get_label(self) -> str:
+        return "BMC"
+
+    def initialize(self, contexts: MonitoringContexts) -> None:
+        """Connect the BMC, when it is not yet, detect it and read it once."""
+        if not self.logged:
+            self.connect_redfish()
+        self.detect()
+        print(
+            f"Monitoring/BMC: initialize {self.vendor.name()} vendor with {self.get_driver_name()} {self.get_detect_string()}"
+        )
+        self.read_thermals(contexts.Thermal)
+        check_metrics("BMC", MonitoringContextKeys.Thermal, contexts.Thermal)
+
+        self.read_fans(contexts.Fans)
+        check_metrics("BMC", MonitoringContextKeys.Fans, contexts.Fans)
+
+        self.read_power_consumption(contexts.PowerConsumption)
+        check_metrics("BMC", MonitoringContextKeys.PowerConsumption, contexts.PowerConsumption)
+
+        self.read_power_supplies(contexts.PowerSupplies)
+        check_metrics("BMC", MonitoringContextKeys.PowerSupplies, contexts.PowerSupplies)
+
+        # - checking if the bmc exposes accelerator metrics
+        # Not going through check_metrics(): most BMCs expose none,
+        # and the all-smi monitoring covers the same quantities host side.
+        self.read_gpus(contexts)
+        if self.has_gpus():
+            print(f"Monitoring/BMC: GPU metrics: {self.get_gpus_count()}xGPU")
 
     def _get_members(self, url: str, log_failure=True) -> list[str]:
         """Return the item urls of a Redfish collection."""
@@ -447,7 +478,7 @@ class BMC(MonitoringDevice, External):
         bmc_info = self.get_redfish_url("/redfish/v1/Managers/")
         members = bmc_info.get("Members")
         if not members:
-            raise DeviceNotReady("BMC: No member detected in 'Managers' endpoint")
+            raise DeviceNotReady("No member detected in 'Managers' endpoint")
         bmc_info = self.get_redfish_url(members[0]["@odata.id"])
         self.firmware_version = bmc_info.get("FirmwareVersion")
         self.model = bmc_info.get("Model")

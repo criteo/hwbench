@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from hwbench.bench.monitoring_structs import MonitoringContexts
 from hwbench.environment.turbostat import Turbostat, ram_metered
 
 
@@ -24,7 +23,10 @@ def make_turbostat(outputs: list[list[str]], ram: bool = True) -> tuple[Turbosta
         patch("hwbench.environment.turbostat.Turbostat.check_version"),
         patch("hwbench.environment.turbostat.Turbostat.run", run),
     ):
-        return Turbostat(MagicMock(), MonitoringContexts()), shows
+        turbostat = Turbostat(MagicMock())
+        # The first quick run of Turbostat.initialize(), without checking the metrics of the output
+        turbostat.pre_run()
+        return turbostat, shows
 
 
 FIXTURES = pathlib.Path("hwbench/tests/parsing/turbostat")

@@ -68,7 +68,7 @@ window times its `samples` gives its number of timeouts. hwgraph renders them in
 > ℹ️ **Info**
 >
 > The outlets of a PDU are checked when hwbench starts: an outlet not answering in time
-> then stops hwbench with `PDU <section>: <url> did not answer in time`.
+> then stops hwbench with `Monitoring/PDU <section>: <url> did not answer in time`.
 
 # Usage
 To enable the monitoring feature, set the `monitor` directive in the configuration file to one of these values:
@@ -118,7 +118,7 @@ for the server:
 | `default` | the credentials of any server without a section for its vendor |
 
 With any other name, the credentials are not read, and hwbench stops with
-`Cannot find any valid BMC entry of the environment file`.
+`Monitoring/BMC: Cannot find any valid BMC entry of the environment file`.
 
 | Key | Value | Effect |
 |---|---|---|
@@ -496,11 +496,11 @@ model supplies its own definitions and can expose different metrics or OIDs.
 Before the benchmarks, each CDU is read once, as the BMC and the PDUs, and hwbench
 prints `Monitoring/CDU: <section>: <n>/<m> metrics read`. A CDU giving no reading,
 unreachable or with a wrong community, stops hwbench with
-`Monitoring/CDU: <section>: cannot read any metric: <errors>`. An SNMPv2c agent does not
+`Monitoring/CDU <section>: cannot read any metric: <errors>`. An SNMPv2c agent does not
 answer a community it does not know, so a wrong community times out like an unreachable host:
 the message then adds `no answer from <host> within <timeout>s, the community is probably wrong,
 or the host unreachable`. hwbench stops with
-`Monitoring/CDU: <section>: collection failed` when its driver fails, the error not being shown
+`Monitoring/CDU <section>: collection failed` when its driver fails, the error not being shown
 as it may hold the credentials.
 
 CDUs are polled synchronously on every iteration of the host monitoring loop,
@@ -604,7 +604,7 @@ which hwgraph shows under the serial of the server, see
 With `location = Secret Lab 1`, the location is `Secret Lab 1`, kept without levels.
 
 # Turbostat
-On x86_64 systems, turbostat is used automatically when the monitoring is enabled, and no configuration is required. It is mandatory there: hwbench stops with `Missing turbostat binary, please install it.` when it is not installed, or with `Monitoring/turbostat: minimal expected release is 2022.04.16` when it is older.
+On x86_64 systems, turbostat is used automatically when the monitoring is enabled, and no configuration is required. It is mandatory there: hwbench stops with `Monitoring/turbostat: Missing turbostat binary, please install it.` when it is not installed, or with `Monitoring/turbostat: minimal expected release is 2022.04.16, got <release>` when it is older.
 
 The following metrics are collected on the target machine:
 
