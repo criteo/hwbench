@@ -4,7 +4,7 @@ import pathlib
 from redfish_dump import Anonymizer, anonymize, dump_fixtures, format_fixture
 
 from hwbench.bench.monitoring_structs import MonitoringContexts
-from hwbench.environment import test_bmc_gpu
+from hwbench.environment import test_bmc_gpu, test_vendors
 from hwbench.environment.vendors.bmc import BMC
 
 MANAGERS = {
@@ -57,6 +57,13 @@ def test_dump_extra_urls():
         fixtures = dump_fixtures(bmc, list(extra))
     tree = fixtures["redfish_tree"]
     assert all(tree[url] == answer for url, answer in extra.items())
+
+
+def test_dump_bios_and_bmc_config():
+    """The BIOS and BMC configurations hwbench saves are recorded too."""
+    avenue_city = test_vendors.vendors_tree("Intel/AvenueCity")
+    _, _, fixtures = served_bmc(avenue_city)
+    assert set(avenue_city) <= set(fixtures["redfish_tree"])
 
 
 def test_dump_stops_recording():
@@ -218,3 +225,58 @@ def test_short_values_are_only_replaced_in_place():
     out.collect({"HostName": "n1", "Name": "n1 sensor"})
     out.compile()
     assert out.replace({"HostName": "n1", "Name": "n1 sensor"}) == {"HostName": "host1", "Name": "n1 sensor"}
+
+
+def test_bmc_network_configuration():
+    """The numbered and abbreviated addresses, the NTP, syslog and LDAP servers and the DNS name of a BMC identify it."""
+    attributes = {
+        "IPv6.1.Address1": "2001:db8:1::10",
+        "IPv6.1.Address2": "::",
+        "IPv4.1.DNS1": "10.1.2.53",
+        "SNMPTrapIPv4.1.DestIPv4Addr": "10.1.2.162",
+        "NTPConfigGroup.1.NTP1": "ntp-paris1.corp.example",
+        "NTPConfigGroup.1.NTP2": "10.1.2.123",
+        "SysLog.1.Server1": "10.1.2.14",
+        "LDAP.1.Server": "",
+        "NIC.1.DNSRacName": "idrac-rack42",
+        "ActiveDirectory.1.RacDomain": "ad.corp.example",
+        "Info.1.ServerGen": "16G",
+    }
+    protocol = {"NTP": {"NTPServers": ["2001:db8:1::123", "ntp-lyon2.corp.example", ""]}}
+    tree = {
+        "/redfish/v1/Managers/1/Attributes": {"Attributes": attributes},
+        "/redfish/v1/Managers/1/NetworkProtocol": protocol,
+    }
+    anonymized, anonymizer = anonymize({"redfish_tree": tree})
+    out = anonymized["redfish_tree"]
+
+    assert out["/redfish/v1/Managers/1/Attributes"]["Attributes"] == {
+        "IPv6.1.Address1": "2001:db8::1",
+        "IPv6.1.Address2": "::",
+        "IPv4.1.DNS1": "192.0.2.1",
+        "SNMPTrapIPv4.1.DestIPv4Addr": "192.0.2.2",
+        "NTPConfigGroup.1.NTP1": "host2.domain2.example.com",
+        "NTPConfigGroup.1.NTP2": "192.0.2.3",
+        "SysLog.1.Server1": "192.0.2.4",
+        "LDAP.1.Server": "",
+        "NIC.1.DNSRacName": "host1",
+        "ActiveDirectory.1.RacDomain": "domain1.example.com",
+        "Info.1.ServerGen": "16G",
+    }
+    assert out["/redfish/v1/Managers/1/NetworkProtocol"]["NTP"]["NTPServers"] == [
+        "2001:db8::2",
+        "host3.domain2.example.com",
+        "",
+    ]
+    assert not [value for value in anonymizer.placeholders if value in repr(out)]
+
+
+def test_ipv6_addresses_under_any_key():
+    """An IPv6 address is replaced whatever its key; an IPv4 one is not, as a firmware version is written the same way."""
+    tree = {"/redfish/v1/Managers/1": {"Oem": {"Peer": "2001:db8:1::5", "Version": "1.2.3.4", "Time": "12:30:00"}}}
+    anonymized, _ = anonymize({"redfish_tree": tree})
+    assert anonymized["redfish_tree"]["/redfish/v1/Managers/1"]["Oem"] == {
+        "Peer": "2001:db8::1",
+        "Version": "1.2.3.4",
+        "Time": "12:30:00",
+    }
