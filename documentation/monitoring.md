@@ -13,6 +13,7 @@ Depending on the source, power, frequency, thermal or cooling metrics are collec
   - [Requests not answered in time](#requests-not-answered-in-time)
 - [Usage](#usage)
 - [Configuration file](#configuration-file)
+  - [monitoring](#monitoring-1): [init_timeout](#init_timeout), [retry_delay](#retry_delay)
   - [BMC](#bmc)
     - [Generic driver](#generic-driver)
     - [Dell driver](#dell-driver)
@@ -68,7 +69,8 @@ window times its `samples` gives its number of timeouts. hwgraph renders them in
 > ℹ️ **Info**
 >
 > The outlets of a PDU are checked when hwbench starts: an outlet not answering in time
-> then stops hwbench with `Monitoring/PDU <section>: <url> did not answer in time`.
+> then fails the attempt of the PDU with `<url> did not answer in time`, tried
+> again until the [init_timeout](#init_timeout).
 
 # Usage
 To enable the monitoring feature, set the `monitor` directive in the configuration file to one of these values:
@@ -106,6 +108,79 @@ absent or empty, stops hwbench with `<type> <section>: <key> is required`, like
 `BMC default: password is required`, and a value that is not the number the key expects
 with `<type> <section>: <key> must be a number, got '<value>'` (or `an integer`), like
 `CDU CDU_cooling: timeout must be a number, got '0.5s'`.
+
+## monitoring
+When the monitoring starts, before the benchmarks, each of its sources is started and read
+once, all at the same time, each one in its thread: [turbostat](#turbostat) on x86_64, all-smi
+on a server with GPUs, then the BMC, each PDU and each CDU, connected and detected first. A
+device not ready, unreachable, not answering in time, or giving no metric yet, like a BMC
+still booting, is tried again: the servers of a room started together no longer stop on a
+device answering a few seconds late. turbostat and all-smi run on the server itself, where a
+second attempt would fail the same way: they have a single attempt.
+
+The optional `[monitoring]` section, without `type`, gives the settings of all the devices; the
+section of a device can override its [retry_delay](#retry_delay):
+
+```ini
+[monitoring]
+init_timeout=300
+retry_delay=5-30
+
+[CDU_cooling]
+type=CDU
+# shared by all the servers of the room: they come back further apart
+retry_delay=20-60
+...
+```
+
+| Key | Value | Effect |
+|---|---|---|
+| `init_timeout` | seconds, 0 or more | the longest wait for the sources to answer, before hwbench stops; `120` by default, `0` gives each device a single attempt |
+| `retry_delay` | seconds, or a range of them like `5-30` | the delay before the next attempt of a device, drawn at random each time; `5-30` by default |
+
+### init_timeout
+The delay before the next attempt is drawn among the delays ending before `init_timeout`
+seconds have passed since the monitoring started: the servers sharing a device spread their
+attempts until the end. When none ends before, the device is not tried again; an attempt
+already started finishes, so the monitoring can be ready a little later than `init_timeout`.
+A Redfish request not answered gives up after 11 seconds, its timeout of 10 seconds and a
+second, see [Requests not answered in time](#requests-not-answered-in-time).
+
+Each failed attempt is reported, `<source>` being `turbostat`, `all-smi`, `BMC`, `PDU <section>` or `CDU <section>`:
+
+```
+Monitoring/PDU PDU_rack: attempt 1 failed, trying again in 17s: RetriesExhaustedError on https://pdu.example.net
+Monitoring/PDU PDU_rack: ready after 2 attempts in 28s
+```
+
+A source still not ready stops hwbench with its last error, before any benchmark:
+
+```
+Monitoring/PDU PDU_rack: RetriesExhaustedError on https://pdu.example.net, still after 6 attempts in 125s
+Monitoring: PDU PDU_rack not ready, stopping before the benchmarks
+```
+
+A device no attempt can fix is not tried again either: a url that is not `https`, wrong
+credentials, which trying again could lock, or an outlet the PDU does not have. hwbench
+stops at once, the attempts of the other sources ending with
+`<error>, attempts stopped as another device failed`.
+
+> ℹ️ **Info**
+>
+> With [sync_start=time](configuration.md#sync_start), each benchmark waits for the next
+> minute boundary: a server whose sources took longer to be ready can start a minute
+> later than the others.
+
+### retry_delay
+The delay is drawn among the values of the range syntax of the job files: `5-30` is any
+whole number of seconds from 5 to 30, `10` always 10 seconds, `10,20` 10 or 20 seconds. Each
+device draws its own delays, so the servers sharing a PDU or a CDU spread their attempts
+instead of coming back at the same second. A device without `retry_delay` in its section
+takes the one of `[monitoring]`; the BMC reads it in the section of its credentials, see
+[BMC](#bmc). A value that is not a whole number of seconds, or a range of them, stops hwbench
+with `<type> <section>: retry_delay must be a number of seconds, or a range of them like 5-30, got '<value>'`,
+or `monitoring: retry_delay ...` in `[monitoring]`; an invalid `init_timeout` with
+`monitoring: init_timeout must be a number of seconds, 0 or more, got '<value>'`.
 
 ## BMC
 When defining a BMC, the `type` must be set to `BMC`. The BMC type, and the driver used to
@@ -216,9 +291,8 @@ Monitoring/BMC: PowerConsumption metrics: 4xBMC
 Monitoring/BMC: PowerSupplies metrics: 2xBMC
 ```
 
-On x86_64, the `PowerConsumption` line also counts the CPU power measures of
-[turbostat](#turbostat), like `65xCPU, 4xBMC` for a package and 64 cores. Here the BMC
-exposes a CPU and an intake temperature sensor, 10 fans, 4 power consumption measures — the server from `PowerControl`, the chassis from the power
+Here the BMC exposes a CPU and an intake temperature sensor, 10 fans, 4 power consumption
+measures — the server from `PowerControl`, the chassis from the power
 supplies, and the server in its chassis and the infrastructure from the iDRAC attributes
 — and 2 power supplies.
 
@@ -495,13 +569,13 @@ model supplies its own definitions and can expose different metrics or OIDs.
 
 Before the benchmarks, each CDU is read once, as the BMC and the PDUs, and hwbench
 prints `Monitoring/CDU: <section>: <n>/<m> metrics read`. A CDU giving no reading,
-unreachable or with a wrong community, stops hwbench with
-`Monitoring/CDU <section>: cannot read any metric: <errors>`. An SNMPv2c agent does not
-answer a community it does not know, so a wrong community times out like an unreachable host:
-the message then adds `no answer from <host> within <timeout>s, the community is probably wrong,
-or the host unreachable`. hwbench stops with
-`Monitoring/CDU <section>: collection failed` when its driver fails, the error not being shown
-as it may hold the credentials.
+unreachable or with a wrong community, fails its attempt with
+`cannot read any metric: <errors>`, tried again until the [init_timeout](#init_timeout). An
+SNMPv2c agent does not answer a community it does not know, so a wrong community times out like
+an unreachable host: the message then adds `no answer from <host> within <timeout>s, the
+community is probably wrong, or the host unreachable`. An attempt fails with
+`collection failed` when the driver fails, the error not being shown as it may hold the
+credentials.
 
 CDUs are polled synchronously on every iteration of the host monitoring loop,
 starting on its first iteration. There is no separate CDU polling interval.
@@ -604,7 +678,7 @@ which hwgraph shows under the serial of the server, see
 With `location = Secret Lab 1`, the location is `Secret Lab 1`, kept without levels.
 
 # Turbostat
-On x86_64 systems, turbostat is used automatically when the monitoring is enabled, and no configuration is required. It is mandatory there: hwbench stops with `Monitoring/turbostat: Missing turbostat binary, please install it.` when it is not installed, or with `Monitoring/turbostat: minimal expected release is 2022.04.16, got <release>` when it is older.
+On x86_64 systems, turbostat is used automatically when the monitoring is enabled, and no configuration is required. It is mandatory there: started with the other sources of the [monitoring](#monitoring-1), with a single attempt, hwbench stops with `Monitoring/turbostat: Missing turbostat binary, please install it.` when it is not installed, or with `Monitoring/turbostat: minimal expected release is 2022.04.16, got <release>` when it is older, then `Monitoring: turbostat not ready, stopping before the benchmarks`.
 
 The following metrics are collected on the target machine:
 
