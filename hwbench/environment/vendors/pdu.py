@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from hwbench.bench.monitoring_structs import MonitoringContextKeys, MonitoringContexts, Power, PowerConsumptionContext
 
-from .monitoring_device import RedfishDevice, check_metrics, section_value
+from .monitoring_device import RedfishDevice, check_metrics, retry_delays, section_value
 
 
 class PDU(RedfishDevice):
@@ -24,6 +24,9 @@ class PDU(RedfishDevice):
 
     def get_label(self) -> str:
         return f"PDU {self.get_name()}"
+
+    def get_retry_delays(self) -> list[int]:
+        return retry_delays(self.vendor.monitoring_config_file, "PDU", self.pdu_section)
 
     def initialize(self, contexts: MonitoringContexts) -> None:
         """Connect the PDU, when it is not yet, detect it and read it once."""

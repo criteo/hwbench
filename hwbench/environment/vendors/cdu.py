@@ -7,7 +7,7 @@ from enum import StrEnum
 from hwbench.bench.monitoring_structs import MONITORING_PRECISION_S, CDUMetric, CDUSample, MonitoringContexts
 from hwbench.utils import helpers as h
 
-from .monitoring_device import DeviceNotReady, MonitoringDevice, section_value
+from .monitoring_device import DeviceNotReady, MonitoringDevice, retry_delays, section_value
 
 
 class CDUProtocol(StrEnum):
@@ -60,6 +60,9 @@ class CDU(MonitoringDevice, ABC):
 
     def get_label(self) -> str:
         return f"CDU {self.get_name()}"
+
+    def get_retry_delays(self) -> list[int]:
+        return retry_delays(self.vendor.monitoring_config_file, "CDU", self.section)
 
     def initialize(self, contexts: MonitoringContexts) -> None:
         """Read the CDU once, DeviceNotReady when it gives no reading: unreachable, or with a wrong

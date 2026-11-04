@@ -9,7 +9,14 @@ from unittest import mock
 import pytest
 import redfish  # type: ignore
 
-from hwbench.environment.vendors.monitoring_device import DeviceError, DeviceNotReady, RedfishDevice, section_value
+from hwbench.environment.vendors.monitoring_device import (
+    DeviceError,
+    DeviceNotReady,
+    RedfishDevice,
+    init_timeout,
+    retry_delays,
+    section_value,
+)
 
 
 @pytest.fixture
@@ -159,3 +166,59 @@ def test_get_redfish_url_single_attempt():
     assert device.get_redfish_url("/redfish/v1/Chassis/1/Power") == {}
     assert device.redfish_obj.get.call_args.kwargs["max_retry"] == 0
     assert device.timeouts == 1
+
+
+def environment(text: str) -> configparser.ConfigParser:
+    config = configparser.ConfigParser(allow_no_value=True, interpolation=None)
+    config.read_string(text)
+    return config
+
+
+def test_retry_settings_default():
+    """Without [monitoring], the devices have 2 minutes to be ready, tried again every 5 to 30 seconds."""
+    config = environment("[pdu]\ntype=PDU\n")
+    assert init_timeout(config) == 120
+    assert retry_delays(config, "PDU", "pdu") == list(range(5, 31))
+
+
+def test_retry_delays_inherited():
+    """The retry_delay of [monitoring] applies to every device, unless its section gives another one."""
+    config = environment("[monitoring]\ninit_timeout=300\nretry_delay=10\n[pdu]\ntype=PDU\n[cdu]\nretry_delay=20-25\n")
+    assert init_timeout(config) == 300
+    assert retry_delays(config, "PDU", "pdu") == [10]
+    assert retry_delays(config, "CDU", "cdu") == [20, 21, 22, 23, 24, 25]
+    # A BMC without section, its credentials being missing, takes the ones of [monitoring]
+    assert retry_delays(config, "BMC", None) == [10]
+
+
+@pytest.mark.parametrize(
+    ("text", "error"),
+    [
+        (
+            "[monitoring]\ninit_timeout=2m\n",
+            "monitoring: init_timeout must be a number of seconds, 0 or more, got '2m'",
+        ),
+        (
+            "[monitoring]\ninit_timeout=-1\n",
+            "monitoring: init_timeout must be a number of seconds, 0 or more, got '-1'",
+        ),
+        (
+            "[monitoring]\nretry_delay=1.5\n",
+            "monitoring: retry_delay must be a number of seconds, or a range of them like 5-30, got '1.5'",
+        ),
+        (
+            "[pdu]\nretry_delay=5-10 20\n",
+            "PDU pdu: retry_delay must be a number of seconds, or a range of them like 5-30, got '5-10 20'",
+        ),
+    ],
+)
+def test_retry_settings_errors(caplog, text, error):
+    config = environment(text)
+
+    def read_settings():
+        init_timeout(config)
+        retry_delays(config, "PDU", "pdu")
+
+    with pytest.raises(SystemExit):
+        read_settings()
+    assert error in caplog.text
