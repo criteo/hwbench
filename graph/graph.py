@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import html
+import pathlib
 from itertools import cycle
 
 import matplotlib
@@ -129,6 +131,14 @@ class Graph:
         self.rotate_xticks = True  # Vertical xticks, for the large number of cores
         self.min_dpi = 0  # The lowest dpi keeping the graph readable, whatever --dpi
         self.legend_title = legend_title
+        # The text shown when the mouse is over an artist of a graph in SVG, by the id given to the artist
+        self.tooltips: dict[str, str] = {}
+
+    def tooltip(self, artist, text: str) -> None:
+        """Show <text> when the mouse is over <artist>, in a graph rendered in SVG opened by a browser."""
+        gid = f"tooltip-{len(self.tooltips)}"
+        artist.set_gid(gid)
+        self.tooltips[gid] = text
 
     def set_filename(self, filename: str):
         self.filename = filename
@@ -387,16 +397,32 @@ class Graph:
                 if handles2:
                     legends.append(self.ax2.legend(loc="upper left", bbox_to_anchor=(1.05, 1), title=self.legend_title))
 
+        path = pathlib.Path(f"{self.output_dir}/{self.filename}.{file_format}")
+        tooltips = file_format == "svg" and self.tooltips
         self.fig.savefig(
-            f"{self.output_dir}/{self.filename}.{file_format}",
+            path,
             format=file_format,
             dpi=max(self.args.dpi, self.min_dpi),
             bbox_inches="tight",
             pad_inches=1,
             bbox_extra_artists=legends,
+            # The SVG of cairo, the default engine, writes no id of the artists to give a title to
+            **({"backend": "svg"} if tooltips else {}),
         )
+        if tooltips:
+            add_svg_tooltips(path, self.tooltips)
         self.fig.clear()
         plt.close(self.fig)
+
+
+def add_svg_tooltips(path: pathlib.Path, tooltips: dict[str, str]) -> None:
+    """Add the <tooltips> to the groups of an SVG file the artists of their id are written in: a browser
+    shows the title of a group when the mouse is over it. matplotlib writes the gid of an artist as the id
+    of its group, but no title."""
+    content = path.read_text()
+    for gid, text in tooltips.items():
+        content = content.replace(f'<g id="{gid}">', f'<g id="{gid}">\n   <title>{html.escape(text)}</title>', 1)
+    path.write_text(content)
 
 
 def fp(value: float, max_value_length=0) -> str:
