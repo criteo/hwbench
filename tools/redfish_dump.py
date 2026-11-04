@@ -239,12 +239,15 @@ def dump_fixtures(bmc: BMC, extra_urls: list[str] | None = None) -> dict[str, ob
     """Return the fixtures of the BMC, by file name.
 
     redfish_tree holds the urls read by the BMC detection, by one monitoring iteration,
-    by the getters, and the <extra_urls>, which hwbench does not read yet.
+    by the save of the BIOS and BMC configurations, by the getters, and the <extra_urls>,
+    which hwbench does not read yet.
     """
     fixtures: dict[str, object] = {}
     with recording(bmc) as tree:
         bmc.detect()
         bmc.read_metrics(MonitoringContexts())
+        bmc.get_bios_config()
+        bmc.get_bmc_config()
         for getter in sorted(dir(bmc)):
             if match := GETTERS.fullmatch(getter):
                 fixtures[match.group(1)] = getattr(bmc, getter)()

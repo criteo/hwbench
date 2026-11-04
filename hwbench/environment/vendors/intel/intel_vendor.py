@@ -50,16 +50,12 @@ class Intel(Vendor):
         super().prepare()
 
     def save_bios_config(self):
-        """Save BIOS configuration"""
-        print("Saving Intel BIOS configuration via Redfish")
-        # TODO: Implement Intel-specific BIOS config dump via Redfish
-        self.out_dir.joinpath("intel-bios-config").write_text("")
+        """Save the BIOS configuration, read through Redfish."""
+        self.save_redfish_bios_config()
 
     def save_bmc_config(self):
-        """Save BMC configuration"""
-        print("Saving Intel BMC configuration via Redfish")
-        # TODO: Implement Intel-specific BMC config dump via Redfish
-        self.out_dir.joinpath("intel-bmc-config").write_text("")
+        """Save the BMC configuration, read through Redfish."""
+        self.save_redfish_bmc_config()
 
     def name(self) -> str:
         """Return vendor name"""

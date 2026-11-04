@@ -228,11 +228,17 @@ class RedfishDevice(MonitoringDevice):
         self.unanswered_urls: set[str] = set()
 
     def __del__(self):
+        self.disconnect_redfish()
+
+    def disconnect_redfish(self):
+        """Close the Redfish session, if any."""
         if self.logged:
             try:
                 self.redfish_obj.logout()
             except redfish.rest.v1.RetriesExhaustedError:
                 logging.warning("Cannot logout from redfish monitoring device, ignoring.")
+            self.redfish_obj = None
+            self.logged = False
 
     def did_not_answer(self, url: str) -> bool:
         """Return True if the last request of <url>, cached or not, was not answered in time."""
