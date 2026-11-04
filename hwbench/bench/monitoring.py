@@ -1,19 +1,76 @@
 from __future__ import annotations
 
+import asyncio
+import inspect
+import logging
+import random
 import time
-from threading import Thread
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event, Thread
 
 from hwbench.environment.all_smi import AllSMIMonitoring, list_gpus
 from hwbench.environment.hardware import BaseHardware
 from hwbench.environment.turbostat import Turbostat
-from hwbench.environment.vendors.monitoring_device import DeviceError, MonitoringDevice
+from hwbench.environment.vendors.monitoring_device import DeviceError, DeviceNotReady, MonitoringDevice, init_timeout
 from hwbench.utils import helpers as h
 
 from .cdu_monitoring import CDUMonitoring
 from .monitoring_structs import (
+    MonitoringContexts,
     MonitoringData,
     MonitorMetric,
 )
+
+
+def until_ready(device: MonitoringDevice, delays: list[int], deadline: float, stop: Event) -> None:
+    """Initialize <device> until it is ready, in contexts of its own: the metrics of the monitoring are
+    reset before each benchmark anyway, see Monitoring.preup().
+
+    A device not ready is tried again after one of the <delays> ending before the <deadline> of
+    time.monotonic(), drawn at random, as long as the <stop> is not set; the last DeviceNotReady is raised
+    then, when no delay ends before the deadline, and at once without <delays>. A DeviceError is raised
+    at once.
+
+    The initialize() of an async device runs in an event loop of this thread, the same for all its
+    attempts: the Runner creates it on the first coroutine only, never for a synchronous device."""
+    with asyncio.Runner() as runner:
+        attempt_until_ready(runner, device, delays, deadline, stop)
+
+
+def attempt_until_ready(
+    runner: asyncio.Runner, device: MonitoringDevice, delays: list[int], deadline: float, stop: Event
+) -> None:
+    """The attempts of until_ready(), the coroutines of an async device run by <runner>."""
+    started = time.monotonic()
+    attempts = 0
+    while True:
+        attempts += 1
+        try:
+            initialized = device.initialize(MonitoringContexts())
+            if inspect.iscoroutine(initialized):
+                runner.run(initialized)
+            if attempts > 1:
+                print(
+                    f"Monitoring/{device.get_label()}: ready after {attempts} attempts in {time.monotonic() - started:.0f}s"
+                )
+            return
+        except DeviceNotReady as error:
+            if not delays:
+                raise
+            # Drawn among the delays ending before the deadline: the servers sharing a device keep
+            # spreading their attempts until the end
+            remaining = deadline - time.monotonic()
+            fitting = [delay for delay in delays if delay <= remaining]
+            if not fitting:
+                raise DeviceNotReady(
+                    f"{error}, still after {attempts} attempts in {time.monotonic() - started:.0f}s"
+                ) from None
+            delay = random.choice(fitting)
+            logging.warning(
+                f"Monitoring/{device.get_label()}: attempt {attempts} failed, trying again in {delay}s: {error}"
+            )
+            if stop.wait(delay):
+                raise DeviceNotReady(f"{error}, attempts stopped as another device failed") from None
 
 
 class ThreadWithReturnValue(Thread):
@@ -53,12 +110,37 @@ class Monitoring:
         return self.metrics
 
     def prepare(self):
-        """Start each source of the monitoring, and read it once, before the benchmarks."""
-        for device in self.devices():
+        """Initialize each source of the monitoring, each one in its thread, before the benchmarks.
+
+        A device not ready is tried again until the init_timeout of the environment file, after a delay
+        drawn at random from its retry_delay: the servers of a room started together do not come back at
+        the same time to a device they share, like a CDU. A device misconfigured, or a source of the
+        server failing, stops the attempts of all of them, and hwbench, as a device still not ready."""
+        devices = self.devices()
+        deadline = time.monotonic() + init_timeout(self.vendor.monitoring_config_file)
+        delays = [device.get_retry_delays() for device in devices]
+        stop = Event()
+
+        def start(device: MonitoringDevice, delays: list[int]) -> None:
             try:
-                device.initialize(self.metrics.contexts)
+                until_ready(device, delays, deadline, stop)
+            except BaseException:
+                # hwbench stops, also on the fatal() of a key missing in the environment file: the other
+                # devices have no reason to keep trying
+                stop.set()
+                raise
+
+        with ThreadPoolExecutor(max_workers=len(devices)) as executor:
+            futures = [(device, executor.submit(start, device, delay)) for device, delay in zip(devices, delays)]
+        failed = []
+        for device, future in futures:
+            try:
+                future.result()
             except DeviceError as error:
-                h.fatal(f"Monitoring/{device.get_label()}: {error}")
+                logging.error(f"Monitoring/{device.get_label()}: {error}")
+                failed.append(device.get_label())
+        if failed:
+            h.fatal(f"Monitoring: {', '.join(failed)} not ready, stopping before the benchmarks")
 
     def devices(self) -> list[MonitoringDevice]:
         """The sources of the monitoring of this server: turbostat on x86_64, all-smi with GPUs, the BMC,

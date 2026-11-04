@@ -3,6 +3,8 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
+import math
+from collections.abc import Coroutine
 from typing import Any
 
 import cachetools.func
@@ -58,6 +60,42 @@ def check_metrics(source: str, metric_name: MonitoringContextKeys, data: Any) ->
     )
 
 
+# The section of the environment file giving the settings of all the devices, each one overriding them in its section
+MONITORING_SECTION = "monitoring"
+# The longest wait for the devices to answer when the monitoring starts, and the delays between two attempts, in seconds
+DEFAULT_INIT_TIMEOUT = 120.0
+DEFAULT_RETRY_DELAY = "5-30"
+
+
+def init_timeout(config) -> float:
+    """The longest wait for the devices to answer when the monitoring starts, before hwbench stops, in
+    seconds: the init_timeout of [monitoring], 0 giving them a single attempt."""
+    value = config.get(MONITORING_SECTION, "init_timeout", fallback="")
+    if not value:
+        return DEFAULT_INIT_TIMEOUT
+    try:
+        timeout = float(value)
+    except ValueError:
+        timeout = math.nan
+    if not math.isfinite(timeout) or timeout < 0:
+        h.fatal(f"{MONITORING_SECTION}: init_timeout must be a number of seconds, 0 or more, got {value!r}")
+    return timeout
+
+
+def retry_delays(config, device: str, section: str | None) -> list[int]:
+    """The delays between two attempts to reach a device, in seconds, one drawn at random each time: the
+    retry_delay of its section, or of [monitoring], with the range syntax of the job files, like 5-30."""
+    value = config.get(section, "retry_delay", fallback="") if section else ""
+    where = f"{device} {section}"
+    if not value:
+        value = config.get(MONITORING_SECTION, "retry_delay", fallback="") or DEFAULT_RETRY_DELAY
+        where = MONITORING_SECTION
+    delays = h.parse_range(value)
+    if not delays or not all(isinstance(delay, int) for delay in delays):
+        h.fatal(f"{where}: retry_delay must be a number of seconds, or a range of them like 5-30, got {value!r}")
+    return delays
+
+
 class MonitoringDevice:
     """A source of the monitoring: turbostat, all-smi, the BMC, a PDU or a CDU."""
 
@@ -71,9 +109,15 @@ class MonitoringDevice:
         """The name of the device in the messages of the monitoring, like 'BMC' or 'PDU <section>'."""
         return self.get_driver_name()
 
-    def initialize(self, contexts: MonitoringContexts) -> None:
+    def get_retry_delays(self) -> list[int]:
+        """The delays before trying again to initialize a device not ready, in seconds, one drawn at
+        random each time: none for a source on the server itself, which would fail the same way."""
+        return []
+
+    def initialize(self, contexts: MonitoringContexts) -> Coroutine[Any, Any, None] | None:
         """Start the device when the monitoring starts, and read it once in <contexts>: DeviceNotReady
-        when it gives no metric, DeviceError when it cannot be used as configured."""
+        when it gives no metric, DeviceError when it cannot be used as configured. A device built on an
+        async library defines it as an async def: it runs in an event loop of the thread of the device."""
         raise NotImplementedError
 
     def get_firmware_version(self):

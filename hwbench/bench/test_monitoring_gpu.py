@@ -27,14 +27,13 @@ class TestMonitoringGPU(tbc.TestCommon):
     def test_gpu_metrics_are_registered(self):
         monitoring = self.parse_with_gpus(FAKE_GPUS)
         assert monitoring.all_smi
-        contexts = monitoring.metrics.contexts
+        # all-smi is initialized in its own contexts, see monitoring.until_ready()
+        contexts = monitoring.all_smi.monitoring_contexts
 
-        # 64 cores + 2 GPUs
-        assert self.monitoring_members(monitoring, MonitoringContextKeys.Freq) == 66
-        # cores + package + BMC + 2 GPUs
-        assert self.monitoring_members(monitoring, MonitoringContextKeys.PowerConsumption) == 68
-        assert self.monitoring_members(monitoring, MonitoringContextKeys.Utilization) == 2
-        assert self.monitoring_members(monitoring, MonitoringContextKeys.Memory) == 2
+        assert self.monitoring_members(contexts, MonitoringContextKeys.Freq) == 2
+        assert self.monitoring_members(contexts, MonitoringContextKeys.PowerConsumption) == 2
+        assert self.monitoring_members(contexts, MonitoringContextKeys.Utilization) == 2
+        assert self.monitoring_members(contexts, MonitoringContextKeys.Memory) == 2
 
         for index in range(2):
             name = f"GPU_{index}"
@@ -62,5 +61,6 @@ class TestMonitoringGPU(tbc.TestCommon):
         """A server without GPU registers no GPU metric and no sampler."""
         monitoring = self.parse_with_gpus({})
         assert monitoring.all_smi is None
-        assert self.monitoring_members(monitoring, MonitoringContextKeys.Utilization) == 0
-        assert self.monitoring_members(monitoring, MonitoringContextKeys.Freq) == 64
+        contexts = monitoring.turbostat.monitoring_contexts
+        assert self.monitoring_members(contexts, MonitoringContextKeys.Utilization) == 0
+        assert self.monitoring_members(contexts, MonitoringContextKeys.Freq) == 64

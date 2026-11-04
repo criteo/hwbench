@@ -82,11 +82,9 @@ class TestCommon(unittest.TestCase):
                 ts.return_value = ast.literal_eval(f.read())
                 return self.benches.parse_jobs_config(validate_parameters)
 
-    def monitoring_members(self, monitoring, metric: MonitoringContextKeys) -> int:
+    def monitoring_members(self, contexts, metric: MonitoringContextKeys) -> int:
         """Return the number of components a monitoring context holds."""
-        if monitoring is None:
-            return 0
-        data = dataclasses.asdict(monitoring.metrics.contexts)[str(metric)]
+        data = dataclasses.asdict(contexts)[str(metric)]
         return reduce(lambda acc, family: acc + len(family), data.values(), 0)
 
     def get_jobs_config(self) -> config.Config:

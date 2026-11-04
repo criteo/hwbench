@@ -25,7 +25,7 @@ from hwbench.bench.monitoring_structs import (
 from hwbench.utils import helpers as h
 from hwbench.utils.external import External
 
-from .monitoring_device import DeviceError, DeviceNotReady, RedfishDevice, check_metrics, section_value
+from .monitoring_device import DeviceError, DeviceNotReady, RedfishDevice, check_metrics, retry_delays, section_value
 
 # Redfish PhysicalContext values denoting an accelerator, see
 # https://redfish.dmtf.org/schemas/v1/PhysicalContext.json#/definitions/PhysicalContext
@@ -108,18 +108,27 @@ class BMC(RedfishDevice, External):
         except KeyError:
             h.fatal("Cannot detect BMC url")
 
+    def get_section(self) -> str | None:
+        """The section of the environment file giving the credentials of the BMC: the one of its vendor,
+        or the default one, None when there is neither."""
+        sections = self.vendor.find_monitoring_sections("BMC", [self.vendor.name(), "default"], max_sections=1)
+        return sections[0] if sections else None
+
     def connect_redfish(self):
         """Connect to the BMC using Redfish."""
-        sections = self.vendor.find_monitoring_sections("BMC", [self.vendor.name(), "default"], max_sections=1)
-        if not sections:
+        section = self.get_section()
+        if not section:
             raise DeviceError("Cannot find any valid BMC entry of the environment file")
 
-        bmc_username = section_value(self.vendor.monitoring_config_file, "BMC", sections[0], "username")
-        bmc_password = section_value(self.vendor.monitoring_config_file, "BMC", sections[0], "password")
+        bmc_username = section_value(self.vendor.monitoring_config_file, "BMC", section, "username")
+        bmc_password = section_value(self.vendor.monitoring_config_file, "BMC", section, "password")
         return super().connect_redfish(bmc_username, bmc_password, self.get_url())
 
     def get_label(self) -> str:
         return "BMC"
+
+    def get_retry_delays(self) -> list[int]:
+        return retry_delays(self.vendor.monitoring_config_file, "BMC", self.get_section())
 
     def initialize(self, contexts: MonitoringContexts) -> None:
         """Connect the BMC, when it is not yet, detect it and read it once."""

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import configparser
 import dataclasses
 import math
 import time
@@ -118,10 +119,16 @@ def test_cdu_and_host_compact_in_same_loop(monkeypatch):
     assert cdu.calls == 16
 
 
+# A single attempt: the CDU is not tried again
+SINGLE_ATTEMPT = configparser.ConfigParser()
+SINGLE_ATTEMPT.read_string("[monitoring]\ninit_timeout=0\n")
+
+
 def checked(*cdus):
     """A Monitoring reading only these CDUs."""
     monitor = Monitoring.__new__(Monitoring)
     monitor.metrics = MonitoringData()
+    monitor.vendor = SimpleNamespace(monitoring_config_file=SINGLE_ATTEMPT)
     monitor.devices = lambda: list(cdus)
     return monitor
 
@@ -131,6 +138,7 @@ class SampledCDU(CDU):
 
     def __init__(self, sample):
         MonitoringDevice.__init__(self)
+        self.vendor = SimpleNamespace(monitoring_config_file=SINGLE_ATTEMPT)
         self.section = "cooling"
         self.protocol = CDUProtocol.SNMP_V3
         self.host = "cdu.example.net"
