@@ -38,5 +38,10 @@ jobs:
           for commit in $COMMITS; do
             git checkout $commit || exit 1
             git show --no-patch --format='Testing commit %h %s'
-            make check_ci bundle || exit 1
+            make check_ci || exit 1
           done
+
+      - name: Build the package of the last commit of the PR for Python ${{ matrix.python-version }}
+        run: |
+          git checkout ${{ github.event.pull_request.head.sha }}
+          make bundle
