@@ -35,8 +35,12 @@ class Benchmark:
 
     def format_results(self) -> dict[str, Any]:
         """Format the default result content to be padded with performance results."""
+        engine = self.get_enginemodule().get_engine()
         return {
-            "engine": self.get_enginemodule().get_engine().get_name(),
+            "engine": engine.get_name(),
+            # Read before the run, so that spike and a skipped benchmark, which do not run
+            # the version command, report it too
+            "engine_version": engine.read_version(),
             "engine_module": self.get_enginemodule().get_name(),
             "engine_module_parameter": self.parameters.get_engine_module_parameter(),
             "engine_module_parameter_base": self.parameters.get_engine_module_parameter_base(),
