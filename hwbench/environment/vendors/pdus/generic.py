@@ -41,7 +41,7 @@ class Generic(PDU):
             timeouts_before = self.timeouts
             outlet = self.get_power_outlet(url)
             if self.timeouts > timeouts_before:
-                raise DeviceNotReady(f"PDU {self.pdu_section}: {self.get_url()}{url} did not answer in time")
+                raise DeviceNotReady(f"{self.get_url()}{url} did not answer in time")
             if not outlet or "ErrorDescription" in outlet:
                 raise DeviceError(f"Cannot get outlet from url {self.get_url()}{url}, please check its name: {outlet}")
             if outlet.get("PowerWatts", {}).get("Reading") is None:

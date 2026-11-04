@@ -10,7 +10,8 @@ import pytest
 from hwbench.bench.cdu_monitoring import CDUMonitoring
 from hwbench.bench.monitoring import Monitoring
 from hwbench.bench.monitoring_structs import CDU_FAMILY, CDUMetric, CDUSample, MonitoringData, MonitorMetric
-from hwbench.environment.vendors.cdu import CDUProtocol
+from hwbench.environment.vendors.cdu import CDU, CDUProtocol
+from hwbench.environment.vendors.monitoring_device import MonitoringDevice
 
 
 class FakeCDU:
@@ -120,14 +121,25 @@ def test_cdu_and_host_compact_in_same_loop(monkeypatch):
 def checked(*cdus):
     """A Monitoring reading only these CDUs."""
     monitor = Monitoring.__new__(Monitoring)
-    monitor.vendor = SimpleNamespace(get_cdus=lambda: list(cdus))
+    monitor.metrics = MonitoringData()
+    monitor.devices = lambda: list(cdus)
     return monitor
 
 
-class SampledCDU(FakeCDU):
+class SampledCDU(CDU):
+    """A CDU whose readings are <sample>, or which raises it."""
+
     def __init__(self, sample):
-        super().__init__()
+        MonitoringDevice.__init__(self)
+        self.section = "cooling"
+        self.protocol = CDUProtocol.SNMP_V3
+        self.host = "cdu.example.net"
+        self.timeout = 2.0
         self.response = sample
+        self.calls = 0
+
+    def get_url(self):
+        return f"snmp://{self.host}"
 
     def get_metrics(self):
         return {key: CDUMetric(key, "1.2.3", "Celsius") for key in ("supply", "return")}
@@ -142,7 +154,7 @@ class SampledCDU(FakeCDU):
 def test_prepare_reads_each_cdu(capsys):
     """Monitoring.prepare() reads each CDU once, as the BMC and the PDUs."""
     cdu = SampledCDU(CDUSample({"supply": 20.5, "return": None}, {"return": "timeout"}))
-    checked(cdu).check_cdus()
+    checked(cdu).prepare()
     assert cdu.calls == 1
     assert "Monitoring/CDU: cooling: 1/2 metrics read" in capsys.readouterr().out
 
@@ -151,18 +163,18 @@ def test_prepare_stops_on_a_cdu_without_reading(caplog):
     """A CDU giving no reading, unreachable or with a wrong community, stops hwbench before the benchmarks."""
     cdu = SampledCDU(CDUSample({"supply": None, "return": None}, {"supply": "timeout", "return": "timeout"}))
     with pytest.raises(SystemExit):
-        checked(cdu).check_cdus()
-    assert "Monitoring/CDU: cooling: cannot read any metric: timeout" in caplog.text
+        checked(cdu).prepare()
+    assert "Monitoring/CDU cooling: cannot read any metric: timeout" in caplog.text
 
 
 def test_prepare_hints_at_the_community_of_an_snmp_v2c_cdu_timing_out(caplog):
     """An SNMPv2c agent does not answer a wrong community: it times out as an unreachable host."""
     cdu = SampledCDU(CDUSample({"supply": None, "return": None}, {"supply": "timeout", "return": "timeout"}))
-    cdu.protocol, cdu.host = CDUProtocol.SNMP_V2C, "cdu.example.net"
+    cdu.protocol = CDUProtocol.SNMP_V2C
     with pytest.raises(SystemExit):
-        checked(cdu).check_cdus()
+        checked(cdu).prepare()
     assert (
-        "Monitoring/CDU: cooling: cannot read any metric: timeout: no answer from cdu.example.net within 2s, "
+        "Monitoring/CDU cooling: cannot read any metric: timeout: no answer from cdu.example.net within 2s, "
         "the community is probably wrong, or the host unreachable"
     ) in caplog.text
 
@@ -170,8 +182,8 @@ def test_prepare_hints_at_the_community_of_an_snmp_v2c_cdu_timing_out(caplog):
 def test_prepare_stops_on_a_failing_cdu_without_its_credentials(caplog):
     cdu = SampledCDU(RuntimeError("community=secret-community refused"))
     with pytest.raises(SystemExit):
-        checked(cdu).check_cdus()
-    assert "Monitoring/CDU: cooling: collection failed" in caplog.text
+        checked(cdu).prepare()
+    assert "Monitoring/CDU cooling: collection failed" in caplog.text
     assert "secret-community" not in caplog.text
 
 

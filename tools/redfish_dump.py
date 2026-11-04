@@ -22,7 +22,7 @@ from hwbench.bench.monitoring_structs import MonitoringContexts
 from hwbench.environment.dmi import DmiSys
 from hwbench.environment.vendors.bmc import BMC
 from hwbench.environment.vendors.detect import first_matching_vendor
-from hwbench.environment.vendors.monitoring_device import DeviceError, MonitoringDevice
+from hwbench.environment.vendors.monitoring_device import DeviceError, RedfishDevice
 from hwbench.hwbench import add_environment_option, is_root
 from hwbench.utils import helpers as h
 
@@ -175,7 +175,7 @@ class Anonymizer:
 
 
 @contextlib.contextmanager
-def recording(device: MonitoringDevice) -> Iterator[dict]:
+def recording(device: RedfishDevice) -> Iterator[dict]:
     """Record every url <device> reads, with its answer, while the context is active.
 
     An url read again gets the recorded answer, so the fixtures agree with each other.

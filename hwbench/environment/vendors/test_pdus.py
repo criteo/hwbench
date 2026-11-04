@@ -7,7 +7,7 @@ import pytest
 from hwbench.bench.monitoring_structs import Power, PowerConsumptionContext
 from hwbench.environment.test_vendors import PATCH_TYPES, TestVendors
 from hwbench.environment.vendors.mock import MockVendor
-from hwbench.environment.vendors.monitoring_device import DeviceError, DeviceNotReady, MonitoringDevice
+from hwbench.environment.vendors.monitoring_device import DeviceError, DeviceNotReady, RedfishDevice
 from hwbench.environment.vendors.pdus.generic import Generic
 
 path = pathlib.Path("")
@@ -160,7 +160,7 @@ class TestRaritanGroup(TestRaritan):
 
 def test_redfish_url_must_be_https():
     """A non https url is rejected, with the url in the message: no attempt would connect it."""
-    device = MonitoringDevice(None)
+    device = RedfishDevice(None)
     with pytest.raises(DeviceError) as error:
         device._connect_redfish("admin", "admin", "http://mypdu/", "session")
     assert str(error.value) == "redfish url 'http://mypdu/' must be an https url"
@@ -204,7 +204,7 @@ def test_pdu_not_answering_skips_the_reading():
         (
             {f"{OUTLETS}1": OUTLET},
             DeviceNotReady,
-            "PDU PDU_outlet: https://pdu/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/2 did not answer in time",
+            "https://pdu/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/2 did not answer in time",
         ),
         (
             {f"{OUTLETS}1": OUTLET, f"{OUTLETS}2": {}},

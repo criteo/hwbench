@@ -9,7 +9,7 @@ from unittest import mock
 import pytest
 import redfish  # type: ignore
 
-from hwbench.environment.vendors.monitoring_device import DeviceError, DeviceNotReady, MonitoringDevice, section_value
+from hwbench.environment.vendors.monitoring_device import DeviceError, DeviceNotReady, RedfishDevice, section_value
 
 
 @pytest.fixture
@@ -45,7 +45,7 @@ def test_section_value_errors(config, caplog, device, section, key, convert, err
 @pytest.mark.parametrize("error", [redfish.rest.v1.RetriesExhaustedError(), json.decoder.JSONDecodeError("", "", 0)])
 def test_get_redfish_url_failure(error):
     """A BMC that stops answering gives no content: the read timeout of an iLO raised an UnboundLocalError."""
-    device = MonitoringDevice(None)
+    device = RedfishDevice(None)
     device.redfish_obj = mock.Mock()
     device.redfish_obj.get.side_effect = error
     assert device.get_redfish_url("/redfish/v1/Chassis/1/Thermal") == {}
@@ -53,7 +53,7 @@ def test_get_redfish_url_failure(error):
 
 def test_get_redfish_url_timeout(caplog):
     """A request not answered in time is counted and reported with its url."""
-    device = MonitoringDevice(None)
+    device = RedfishDevice(None)
     device.redfish_url = "https://bmc"
     device.redfish_obj = mock.Mock()
     device.redfish_obj.get.side_effect = redfish.rest.v1.RetriesExhaustedError()
@@ -64,7 +64,7 @@ def test_get_redfish_url_timeout(caplog):
     # The next answer of the url clears it
     device.redfish_obj.get.side_effect = None
     device.redfish_obj.get.return_value.dict = {"Id": "Power"}
-    get_redfish_url_uncached = MonitoringDevice.get_redfish_url.__wrapped__  # type: ignore[attr-defined]
+    get_redfish_url_uncached = RedfishDevice.get_redfish_url.__wrapped__  # type: ignore[attr-defined]
     assert get_redfish_url_uncached(device, "/redfish/v1/Chassis/1/Power") == {"Id": "Power"}
     assert not device.did_not_answer("/redfish/v1/Chassis/1/Power")
     assert "Redfish https://bmc/redfish/v1/Chassis/1/Power did not answer in time" in caplog.text
@@ -87,7 +87,7 @@ def test_get_redfish_url_timeout(caplog):
 def test_connect_redfish_failure(error, kind, message):
     """A device not answering may answer a later attempt; wrong credentials never will, and retrying them
     could lock the account."""
-    device = MonitoringDevice(None)
+    device = RedfishDevice(None)
     with mock.patch("redfish.redfish_client") as client:
         client.return_value.login.side_effect = error
         with pytest.raises(DeviceError) as raised:
@@ -140,7 +140,7 @@ def redfish_service():
 def test_connect_redfish_answered(redfish_service):
     """The requests answered give their content: with a max_retry of 0, python-redfish-library raised
     RetriesExhaustedError on all of them, the login included."""
-    device = MonitoringDevice(None)
+    device = RedfishDevice(None)
     device._connect_redfish("admin", "admin", "https://bmc", redfish.AuthMethod.SESSION)
     assert device.logged
     assert device.get_redfish_url("/redfish/v1/Chassis")["@odata.id"] == "/redfish/v1/Chassis"
@@ -153,7 +153,7 @@ def test_connect_redfish_answered(redfish_service):
 def test_get_redfish_url_single_attempt():
     """A request not answered gives up after its timeout, not after 10 more attempts: made once, it gives
     no response."""
-    device = MonitoringDevice(None)
+    device = RedfishDevice(None)
     device.redfish_obj = mock.Mock()
     device.redfish_obj.get.return_value = None
     assert device.get_redfish_url("/redfish/v1/Chassis/1/Power") == {}

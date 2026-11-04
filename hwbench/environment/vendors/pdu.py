@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from hwbench.bench.monitoring_structs import Power, PowerConsumptionContext
+from hwbench.bench.monitoring_structs import MonitoringContextKeys, MonitoringContexts, Power, PowerConsumptionContext
 
-from .monitoring_device import MonitoringDevice, section_value
+from .monitoring_device import RedfishDevice, check_metrics, section_value
 
 
-class PDU(MonitoringDevice):
+class PDU(RedfishDevice):
     def __init__(self, vendor, pdu_section: str):
         super().__init__(vendor)
         self.pdu_section = pdu_section
@@ -21,6 +21,18 @@ class PDU(MonitoringDevice):
     def get_name(self) -> str:
         """Return the pdu name."""
         return self.pdu_section
+
+    def get_label(self) -> str:
+        return f"PDU {self.get_name()}"
+
+    def initialize(self, contexts: MonitoringContexts) -> None:
+        """Connect the PDU, when it is not yet, detect it and read it once."""
+        if not self.logged:
+            self.connect_redfish()
+        self.detect()
+        print(f"Monitoring/PDU: initialize {self.get_name()} with {self.get_driver_name()} {self.get_detect_string()}")
+        self.read_power_consumption(contexts.PowerConsumption)
+        check_metrics("PDU", MonitoringContextKeys.PowerConsumption, contexts.PowerConsumption)
 
     def connect_redfish(self):
         """Connect to the PDU using Redfish."""

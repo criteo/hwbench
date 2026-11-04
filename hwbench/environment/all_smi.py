@@ -24,6 +24,7 @@ from hwbench.bench.monitoring_structs import (
     gpu_component_name,
 )
 from hwbench.environment.gpu_location import locate
+from hwbench.environment.vendors.monitoring_device import MonitoringDevice
 from hwbench.utils.external import External
 from hwbench.utils.helpers import (
     IncompatibleVersion,
@@ -252,7 +253,7 @@ def check_requirements() -> list[Exception]:
     return []
 
 
-class AllSMIMonitoring:
+class AllSMIMonitoring(MonitoringDevice):
     """Sample the per accelerator metrics all-smi exposes.
 
     The stressor already reports the performance and the temperature of the
@@ -269,8 +270,9 @@ class AllSMIMonitoring:
     and 0.4% of a core.
     """
 
-    def __init__(self, monitoring_contexts: MonitoringContexts, gpus: dict[str, dict[str, Any]]):
-        self.monitoring_contexts = monitoring_contexts
+    def __init__(self, gpus: dict[str, dict[str, Any]]):
+        super().__init__()
+        self.monitoring_contexts = MonitoringContexts()
         self.gpus = gpus
         # An accelerator is identified by its uuid, the index is ours.
         self.indexes = {gpu["uuid"]: index for index, gpu in gpus.items() if gpu.get("uuid")}
@@ -279,7 +281,16 @@ class AllSMIMonitoring:
         self.sock: pathlib.Path | None = None
         self.stderr_file: pathlib.Path | None = None
         self.warned = False
+
+    def get_label(self) -> str:
+        return "all-smi"
+
+    def initialize(self, contexts: MonitoringContexts) -> None:
+        """Register the metrics of the GPUs in <contexts>: the exporter is only started by the benchmarks."""
+        self.monitoring_contexts = contexts
         self.reinitialize_metrics()
+        print(f"Monitoring/all-smi: Detected release {get_version()}")
+        print(f"Monitoring/all-smi: initialize {self.get_gpus_count()} GPUs")
 
     def get_gpus_count(self) -> int:
         return len(self.gpus)
