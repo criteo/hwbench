@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import ipaddress
 import pathlib
 import pprint
 import re
@@ -42,11 +43,18 @@ IDENTIFYING_KEYS = {
         re.IGNORECASE,
     ),
     "uuid": re.compile(r"uuid$", re.IGNORECASE),
-    "host": re.compile(r"(hostname|servername|certcommonname|fqdn)$", re.IGNORECASE),
-    "domain": re.compile(r"domainname$", re.IGNORECASE),
+    # The DNS name of a Dell iDRAC is its DNSRacName, its Active Directory domain its RacDomain
+    "host": re.compile(r"(hostname|servername|certcommonname|fqdn|dnsracname)$", re.IGNORECASE),
+    "domain": re.compile(r"(domainname|racdomain|rootdomain)$", re.IGNORECASE),
     "asset": re.compile(r"assettag$", re.IGNORECASE),
     "user": re.compile(r"username$", re.IGNORECASE),
-    "address": re.compile(r"(address|addresses|gateway|nameservers|dns\d*)$", re.IGNORECASE),
+    # A key can be numbered, like the 15 IPv6 addresses IPv6.1.Address1 to IPv6.1.Address15 of a Dell iDRAC,
+    # or abbreviated, like the destinations of its SNMP traps SNMPTrapIPv4.1.DestIPv4Addr.
+    # The NTP, syslog, LDAP and domain controller servers are given by their address or their host name
+    "address": re.compile(
+        r"(address|addresses|addr|gateway|nameservers|dns|ntp|ntpservers|server|domaincontroller)\d*$",
+        re.IGNORECASE,
+    ),
 }
 # The values of an identifying key that identify nothing: a flag, like the one of the
 # Dell attribute Autodiscovery.1.EnableIPChangeAnnounceFrommDNS, or a default account
@@ -83,6 +91,20 @@ UUID = re.compile(
 )
 # A shorter value is only replaced where it is found, as it could be part of unrelated strings
 MIN_SUBSTRING_LENGTH = 6
+
+
+def is_ipv6_address(value: str) -> bool:
+    """Tell whether <value> is an IPv6 address: one is found whatever its key, as it cannot be anything else.
+
+    An IPv4 address is only found under an identifying key: a firmware version, like 1.2.3.4, is written the same way.
+    """
+    if ":" not in value:
+        return False
+    try:
+        ipaddress.IPv6Address(value)
+    except ValueError:
+        return False
+    return True
 
 
 class Anonymizer:
@@ -178,6 +200,8 @@ class Anonymizer:
                 self.found[category].append(obj)
             hexids = [match.group(0) for match in HEX_ID.finditer(obj)]
             hexids += [match.group(1) for match in UEFI_MAC_ADDRESS.finditer(obj)]
+            if is_ipv6_address(obj) and not NEUTRAL_ADDRESSES.fullmatch(obj):
+                self.found["address"].append(obj)
             for match in URL_IP_ADDRESS.finditer(obj):
                 address = match.group(1) or match.group(2)
                 if not NEUTRAL_ADDRESSES.fullmatch(address):
@@ -239,12 +263,15 @@ def dump_fixtures(bmc: BMC, extra_urls: list[str] | None = None) -> dict[str, ob
     """Return the fixtures of the BMC, by file name.
 
     redfish_tree holds the urls read by the BMC detection, by one monitoring iteration,
-    by the getters, and the <extra_urls>, which hwbench does not read yet.
+    by the save of the BIOS and BMC configurations, by the getters, and the <extra_urls>,
+    which hwbench does not read yet.
     """
     fixtures: dict[str, object] = {}
     with recording(bmc) as tree:
         bmc.detect()
         bmc.read_metrics(MonitoringContexts())
+        bmc.get_bios_config()
+        bmc.get_bmc_config()
         for getter in sorted(dir(bmc)):
             if match := GETTERS.fullmatch(getter):
                 fixtures[match.group(1)] = getattr(bmc, getter)()

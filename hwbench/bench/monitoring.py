@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
-import random
 import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event, Thread
@@ -11,7 +10,7 @@ from threading import Event, Thread
 from hwbench.environment.all_smi import AllSMIMonitoring, list_gpus
 from hwbench.environment.hardware import BaseHardware
 from hwbench.environment.turbostat import Turbostat
-from hwbench.environment.vendors.monitoring_device import DeviceError, DeviceNotReady, MonitoringDevice, init_timeout
+from hwbench.environment.vendors.monitoring_device import DeviceError, MonitoringDevice, init_timeout, retry_until_ready
 from hwbench.utils import helpers as h
 
 from .cdu_monitoring import CDUMonitoring
@@ -41,36 +40,13 @@ def attempt_until_ready(
     runner: asyncio.Runner, device: MonitoringDevice, delays: list[int], deadline: float, stop: Event
 ) -> None:
     """The attempts of until_ready(), the coroutines of an async device run by <runner>."""
-    started = time.monotonic()
-    attempts = 0
-    while True:
-        attempts += 1
-        try:
-            initialized = device.initialize(MonitoringContexts())
-            if inspect.iscoroutine(initialized):
-                runner.run(initialized)
-            if attempts > 1:
-                print(
-                    f"Monitoring/{device.get_label()}: ready after {attempts} attempts in {time.monotonic() - started:.0f}s"
-                )
-            return
-        except DeviceNotReady as error:
-            if not delays:
-                raise
-            # Drawn among the delays ending before the deadline: the servers sharing a device keep
-            # spreading their attempts until the end
-            remaining = deadline - time.monotonic()
-            fitting = [delay for delay in delays if delay <= remaining]
-            if not fitting:
-                raise DeviceNotReady(
-                    f"{error}, still after {attempts} attempts in {time.monotonic() - started:.0f}s"
-                ) from None
-            delay = random.choice(fitting)
-            logging.warning(
-                f"Monitoring/{device.get_label()}: attempt {attempts} failed, trying again in {delay}s: {error}"
-            )
-            if stop.wait(delay):
-                raise DeviceNotReady(f"{error}, attempts stopped as another device failed") from None
+
+    def attempt() -> None:
+        initialized = device.initialize(MonitoringContexts())
+        if inspect.iscoroutine(initialized):
+            runner.run(initialized)
+
+    retry_until_ready(f"Monitoring/{device.get_label()}", attempt, delays, deadline, stop)
 
 
 class ThreadWithReturnValue(Thread):

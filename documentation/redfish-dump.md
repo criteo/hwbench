@@ -77,7 +77,7 @@ each file being a python literal:
 
 | File | Content |
 |---|---|
-| `redfish_tree` | each url read, with its answer: by the detection of the BMC, by one monitoring iteration (thermal, fans, power consumption, power supplies and [accelerators](monitoring.md#accelerators)), by the getters below, and the urls given with `-u` |
+| `redfish_tree` | each url read, with its answer: by the detection of the BMC, by one monitoring iteration (thermal, fans, power consumption, power supplies and [accelerators](monitoring.md#accelerators)), by the save of the BIOS and BMC configurations, by the getters below, and the urls given with `-u` |
 | `thermal`, `power` | the answer of the `get_thermal()` and `get_power()` methods of the BMC driver |
 | `oem_*` | the answer of each `get_oem_*()` method of the BMC driver, like `oem_system` for the [Dell driver](monitoring.md#dell-driver) and `oem_chassis` for the [HPE driver](monitoring.md#hpe-driver) |
 
@@ -107,14 +107,17 @@ are kept.
 |---|---|
 | serial number, service tag and Dell express service code, processor PPIN, SNMP engine ID, common name of a certificate | `SERIAL<n>` |
 | UUID | `00000000-0000-0000-0000-<n>` |
-| hostname, and the host and the domain of a FQDN | `host<n>`, `domain<n>.example.com` |
+| hostname, DNS name and Active Directory domain of a Dell iDRAC, and the host and the domain of a FQDN | `host<n>`, `domain<n>.example.com` |
 | asset tag, user name | `ASSET<n>`, `user<n>` |
 | MAC address, EUI-64 | `02` followed by `<n>`, with the length, the separators and the case of the original |
-| IPv4, IPv6, email address | `192.0.2.<n>`, `2001:db8::<n>`, `user<n>@example.com` |
+| IPv4, IPv6, email address, including the ones of the DNS, NTP, syslog, LDAP servers and domain controllers | `192.0.2.<n>`, `2001:db8::<n>`, `user<n>@example.com` |
 
 A value is found from the name of its key, like `SerialNumber`, `HostName`, `UUID` or
 `MACAddress`, matched on its last dotted component for the Dell attributes, like
-`ServerOS.1.HostName`. It is then replaced in every string it appears in, like a hostname
+`ServerOS.1.HostName`, and ignoring the number ending the key of an address or a server, like
+`IPv6.1.Address1` or `NTPConfigGroup.1.NTP1`; an address can also be abbreviated `Addr`, like
+the destination of a SNMP trap `SNMPTrapIPv4.1.DestIPv4Addr`. A server given by its host name gets the host and
+the domain placeholders of a FQDN. It is then replaced in every string it appears in, like a hostname
 in the description of the operating system. A value of 6 characters or more is replaced
 everywhere; a shorter one only when it is the whole value of an identifying key, as it
 could be part of unrelated strings.
@@ -126,6 +129,9 @@ A MAC address or an EUI-64 is found wherever it is written with separators, like
 `6C:FE:54:94:37:50` or the identifier of a NVMe namespace in an UEFI device path, and
 without separators in the `MAC()` node of an UEFI device path. The same address, written
 with or without separators, gets the same number.
+
+An IPv6 address is found whatever its key, as no other value is written the same way. An IPv4
+address is only found under an identifying key: a firmware version, like `1.2.3.4`, looks like one.
 
 An IP address is also found in the urls, like the address of the BMC in the `URLString`
 of the Dell iDRAC card. The host names of the urls are kept: they are public ones, like
