@@ -70,7 +70,7 @@ Key subsystems under `hwbench/`:
 - Ruff: line-length 120, `E501`/`ISC001` ignored, `target-version = py39` (so the codebase uses `from __future__ import annotations`). mypy ignores missing imports for the untyped `pyudev` and `snmp` libraries.
 - Keywords resolved against the topology (`numa<x>`, `quadrant<x>`, `core<x>`, CPU lists) are machine specific; only `all`, `each-*`, `curve` and `auto` keep their meaning across machines.
 - Reuse hwbench's own sources of truth (`HELPERS`, `SCALINGS`, `get_valid_keywords()`, the CPU topology methods…) instead of duplicating a list, a format or some logic.
-- CI (`.github/workflows/python-check.yml`) runs `make check_ci bundle` on **every commit**, without stress-ng installed: mock `list_module_parameters` in tests. When the history is rewritten, replay the checks per commit; fix an earlier commit with `git commit --fixup` + autosquash.
+- CI (`.github/workflows/python-check.yml`) runs `make check_ci` on **every commit**, and `make bundle` on the last one, without stress-ng installed: mock `list_module_parameters` in tests. When the history is rewritten, replay the checks per commit; fix an earlier commit with `git commit --fixup` + autosquash.
 
 ## Commits
 
