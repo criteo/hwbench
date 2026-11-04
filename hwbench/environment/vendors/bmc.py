@@ -24,7 +24,7 @@ from hwbench.bench.monitoring_structs import (
 from hwbench.utils import helpers as h
 from hwbench.utils.external import External
 
-from .monitoring_device import MonitoringDevice, section_value
+from .monitoring_device import DeviceError, DeviceNotReady, MonitoringDevice, section_value
 
 # Redfish PhysicalContext values denoting an accelerator, see
 # https://redfish.dmtf.org/schemas/v1/PhysicalContext.json#/definitions/PhysicalContext
@@ -111,7 +111,7 @@ class BMC(MonitoringDevice, External):
         """Connect to the BMC using Redfish."""
         sections = self.vendor.find_monitoring_sections("BMC", [self.vendor.name(), "default"], max_sections=1)
         if not sections:
-            h.fatal("Cannot find any valid BMC entry of the environment file")
+            raise DeviceError("Cannot find any valid BMC entry of the environment file")
 
         bmc_username = section_value(self.vendor.monitoring_config_file, "BMC", sections[0], "username")
         bmc_password = section_value(self.vendor.monitoring_config_file, "BMC", sections[0], "password")
@@ -447,7 +447,7 @@ class BMC(MonitoringDevice, External):
         bmc_info = self.get_redfish_url("/redfish/v1/Managers/")
         members = bmc_info.get("Members")
         if not members:
-            h.fatal("BMC: No member detected in 'Managers' endpoint")
+            raise DeviceNotReady("BMC: No member detected in 'Managers' endpoint")
         bmc_info = self.get_redfish_url(members[0]["@odata.id"])
         self.firmware_version = bmc_info.get("FirmwareVersion")
         self.model = bmc_info.get("Model")

@@ -7,7 +7,7 @@ from unittest import mock
 import pytest
 import redfish  # type: ignore
 
-from hwbench.environment.vendors.monitoring_device import MonitoringDevice, section_value
+from hwbench.environment.vendors.monitoring_device import DeviceError, DeviceNotReady, MonitoringDevice, section_value
 
 
 @pytest.fixture
@@ -66,3 +66,29 @@ def test_get_redfish_url_timeout(caplog):
     assert get_redfish_url_uncached(device, "/redfish/v1/Chassis/1/Power") == {"Id": "Power"}
     assert not device.did_not_answer("/redfish/v1/Chassis/1/Power")
     assert "Redfish https://bmc/redfish/v1/Chassis/1/Power did not answer in time" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("error", "kind", "message"),
+    [
+        (redfish.rest.v1.RetriesExhaustedError(), DeviceNotReady, "RetriesExhaustedError on https://bmc"),
+        (
+            redfish.rest.v1.ServerDownOrUnreachableError("down"),
+            DeviceNotReady,
+            "connecting redfish to https://bmc: down",
+        ),
+        (redfish.rest.v1.InvalidCredentialsError(), DeviceError, "Invalid credentials for https://bmc"),
+        (redfish.rest.v1.BadRequestError(), DeviceError, "BadRequestError on https://bmc"),
+    ],
+    ids=["timeout", "unreachable", "credentials", "bad request"],
+)
+def test_connect_redfish_failure(error, kind, message):
+    """A device not answering may answer a later attempt; wrong credentials never will, and retrying them
+    could lock the account."""
+    device = MonitoringDevice(None)
+    with mock.patch("redfish.redfish_client") as client:
+        client.return_value.login.side_effect = error
+        with pytest.raises(DeviceError) as raised:
+            device._connect_redfish("admin", "admin", "https://bmc", "session")
+    assert message in str(raised.value)
+    assert type(raised.value) is kind

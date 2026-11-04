@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from hwbench.bench.monitoring_structs import PowerConsumptionContext
+from hwbench.environment.vendors.monitoring_device import DeviceError, DeviceNotReady
 from hwbench.environment.vendors.pdu import PDU
 from hwbench.utils import helpers as h
 
@@ -40,11 +41,11 @@ class Generic(PDU):
             timeouts_before = self.timeouts
             outlet = self.get_power_outlet(url)
             if self.timeouts > timeouts_before:
-                h.fatal(f"PDU {self.pdu_section}: {self.get_url()}{url} did not answer in time")
+                raise DeviceNotReady(f"PDU {self.pdu_section}: {self.get_url()}{url} did not answer in time")
             if not outlet or "ErrorDescription" in outlet:
-                h.fatal(f"Cannot get outlet from url {self.get_url()}{url}, please check its name: {outlet}")
+                raise DeviceError(f"Cannot get outlet from url {self.get_url()}{url}, please check its name: {outlet}")
             if outlet.get("PowerWatts", {}).get("Reading") is None:
-                h.fatal(
+                raise DeviceError(
                     f"Outlet for {self.get_url()} does not expose power metrics: {outlet}\noutlet={self.outlet}, outletgroup={self.outletgroup}"
                 )
             self.outlets.append(

@@ -8,7 +8,7 @@ import redfish  # type: ignore
 from hwbench.bench.monitoring_structs import Power, PowerConsumptionContext
 from hwbench.environment.test_vendors import PATCH_TYPES, TestVendors
 from hwbench.environment.vendors.mock import MockVendor
-from hwbench.environment.vendors.monitoring_device import MonitoringDevice
+from hwbench.environment.vendors.monitoring_device import DeviceError, DeviceNotReady, MonitoringDevice
 from hwbench.environment.vendors.pdus.generic import Generic
 
 path = pathlib.Path("")
@@ -159,12 +159,13 @@ class TestRaritanGroup(TestRaritan):
         }
 
 
-def test_redfish_url_must_be_https(caplog):
-    """A non https url is rejected, with the url in the message."""
+def test_redfish_url_must_be_https():
+    """A non https url is rejected, with the url in the message: no attempt would connect it."""
     device = MonitoringDevice(None)
-    with pytest.raises(SystemExit):
+    with pytest.raises(DeviceError) as error:
         device._connect_redfish("admin", "admin", "http://mypdu/", "session")
-    assert "redfish url 'http://mypdu/' must be an https url" in caplog.text
+    assert str(error.value) == "redfish url 'http://mypdu/' must be an https url"
+    assert not isinstance(error.value, DeviceNotReady)
 
 
 def pdu_answering(answers: dict) -> Generic:
@@ -198,26 +199,31 @@ def test_pdu_not_answering_skips_the_reading():
 
 
 @pytest.mark.parametrize(
-    ("answers", "error"),
+    ("answers", "kind", "error"),
     [
         (
             {f"{OUTLETS}1": OUTLET},
+            DeviceNotReady,
             "PDU PDU_outlet: https://pdu/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/2 did not answer in time",
         ),
         (
             {f"{OUTLETS}1": OUTLET, f"{OUTLETS}2": {}},
+            DeviceError,
             "Cannot get outlet from url https://pdu/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/2, please check its name: {}",
         ),
         (
             {f"{OUTLETS}1": OUTLET, f"{OUTLETS}2": {"Id": "2"}},
+            DeviceError,
             "Outlet for https://pdu does not expose power metrics: {'Id': '2'}",
         ),
     ],
     ids=["timeout", "unknown outlet", "no power"],
 )
-def test_pdu_outlets_checked_at_startup(caplog, answers, error):
-    """The configuration of the outlets is checked when the PDU is detected."""
+def test_pdu_outlets_checked_at_startup(answers, kind, error):
+    """The configuration of the outlets is checked when the PDU is detected: an outlet not answering in time
+    may answer a later attempt, a wrong outlet never will."""
     pdu = pdu_answering(answers)
-    with patch.object(Generic, "get_url", return_value="https://pdu"), pytest.raises(SystemExit):
+    with patch.object(Generic, "get_url", return_value="https://pdu"), pytest.raises(DeviceError) as raised:
         pdu.detect()
-    assert error in caplog.text
+    assert error in str(raised.value)
+    assert type(raised.value) is kind

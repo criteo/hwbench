@@ -10,6 +10,15 @@ import redfish  # type: ignore
 from hwbench.bench.monitoring_structs import MonitorMetric
 from hwbench.utils import helpers as h
 
+
+class DeviceError(Exception):
+    """A monitoring device that cannot be used as configured: a wrong url, wrong credentials..."""
+
+
+class DeviceNotReady(DeviceError):
+    """A monitoring device not answering, or not giving its metrics: a later attempt may succeed."""
+
+
 # The kinds of the values of the environment file, as the errors name them
 VALUE_KINDS: dict[Any, str] = {int: "an integer", float: "a number"}
 
@@ -133,13 +142,13 @@ class MonitoringDevice:
             try:
                 self._connect_redfish(username, password, device_url, redfish.AuthMethod.BASIC)
             except redfish.rest.v1.SessionCreationError as e:
-                h.fatal(f"Unable to authenticate with neither session nor basic mode for {device_url}: {e}")
+                raise DeviceError(f"Unable to authenticate with neither session nor basic mode for {device_url}: {e}")
 
     def _connect_redfish(self, username: str, password: str, device_url: str, auth_method: str):
         """Connect to the device using Redfish."""
+        if not device_url.startswith("https://"):
+            raise DeviceError(f"redfish url '{device_url}' must be an https url")
         try:
-            if not device_url.startswith("https://"):
-                h.fatal(f"redfish url '{device_url}' must be an https url")
             self.redfish_url = device_url
             self.redfish_obj = redfish.redfish_client(
                 base_url=device_url,
@@ -151,17 +160,20 @@ class MonitoringDevice:
             self.redfish_obj.login(auth=auth_method)
             self.logged = True
         except json.decoder.JSONDecodeError:
-            h.fatal(f"JSONDecodeError on {device_url}")
+            raise DeviceNotReady(f"JSONDecodeError on {device_url}")
         except redfish.rest.v1.RetriesExhaustedError:
-            h.fatal(f"RetriesExhaustedError on {device_url}")
+            raise DeviceNotReady(f"RetriesExhaustedError on {device_url}")
         except redfish.rest.v1.BadRequestError:
-            h.fatal(f"BadRequestError on {device_url}")
+            raise DeviceError(f"BadRequestError on {device_url}")
         except redfish.rest.v1.InvalidCredentialsError:
-            h.fatal(f"Invalid credentials for {device_url}")
+            raise DeviceError(f"Invalid credentials for {device_url}")
         except redfish.rest.v1.SessionCreationError as e:
             raise e
         except Exception as exception:
-            h.fatal(f"unknown exception '{type(exception)}' connecting redfish to {device_url}: {exception}")
+            # A device unreachable, or rebooting, most of the time: ServerDownOrUnreachableError...
+            raise DeviceNotReady(
+                f"unknown exception '{type(exception)}' connecting redfish to {device_url}: {exception}"
+            )
 
     @cachetools.func.ttl_cache(maxsize=128, ttl=1.5)
     def get_redfish_url(self, url, log_failure=True) -> dict:
