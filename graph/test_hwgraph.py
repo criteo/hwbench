@@ -101,3 +101,16 @@ def test_missing_samples_of_a_host_without_the_option(tmp_path, capsys):
     with pytest.raises(SystemExit):
         graph_fans(missing_args(""), missing_trace(tmp_path / "server.json"), "cpu_17", tmp_path)
     assert "server/cpu_17: PowerSupplies is missing the 11th data point" in capsys.readouterr().err
+
+
+def test_no_environment_of_a_skipped_job(tmp_path):
+    """A host renders the environment of the jobs it ran, not of a job it skipped, like an AVX-512 one on a CPU
+    without it: it has no monitoring."""
+    from graph.hwgraph import _collect_environment_tasks, _task_env_bench
+    from graph.test_trace import avx_trace
+
+    traces = [avx_trace(tmp_path / f"{name}.json", skipped=name == "skipped") for name in ("ran", "skipped")]
+    args = SimpleNamespace(no_env=True, same_chassis=False, verbose=False, traces=traces)
+    tasks = _collect_environment_tasks(args, tmp_path)
+    env = [(traces[task[1]].get_name(), task[2]) for task in tasks if task[0] is _task_env_bench]
+    assert sorted(env) == [("ran", "avx_0"), ("ran", "cpu_17"), ("skipped", "cpu_17")]
