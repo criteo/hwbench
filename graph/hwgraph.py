@@ -434,15 +434,18 @@ def _collect_environment_tasks(args, output_dir):
 
     # Graphs below are per host
     host_output_dir = output_dir.joinpath("by_host")
+    # A job skipped by a host, like an AVX-512 one on a CPU without it, has no environment to render
+    host_benches = [
+        sorted(name for name, bench in trace.bench_list().items() if not bench.get("skipped")) for trace in args.traces
+    ]
     if not args.verbose:
-        jobs = sum(len(trace.bench_list()) for trace in args.traces)
+        jobs = sum(len(benches) for benches in host_benches)
         print(f"environment: rendering {jobs} jobs of {len(args.traces)} traces in {host_output_dir}")
-    for trace_idx, trace in enumerate(args.traces):
+    for trace_idx, (trace, benches) in enumerate(zip(args.traces, host_benches)):
         host_output_dir.joinpath(f"{trace.get_name()}").mkdir(parents=True, exist_ok=True)
-        benches = trace.bench_list()
         if args.verbose:
             print(f"environment: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})")
-        for bench_name in sorted(benches):
+        for bench_name in benches:
             tasks.append((_task_env_bench, trace_idx, bench_name, str(host_output_dir)))
         # One NUMA distance heatmap per host, not tied to any benchmark.
         tasks.append((_task_numa_distance, trace_idx, str(host_output_dir)))
