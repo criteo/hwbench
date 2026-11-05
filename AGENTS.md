@@ -64,7 +64,7 @@ Key subsystems under `hwbench/`:
 
 ## Conventions
 
-- Tests are `test_*.py` colocated with the code they test; many parse fixture command output (`test_parse_*.py`). `environment/mock.py` and `vendors/mock.py` provide mock hardware/vendors for tests.
+- Tests are `test_*.py` colocated with the code they test; many parse fixture command output (`test_parse_*.py`). `environment/mock.py` and `vendors/mock.py` provide mock hardware/vendors for tests. The tests render no image: `graph/conftest.py` makes `Figure.savefig` write an empty file at its path; only a test reading the content of an image is marked `@pytest.mark.render`.
 - New engines and vendors are wired by **name-based dynamic import** / list registration (above) — there is no decorator registry; match the existing module shape exactly.
 - Sample job configs live in `configs/*.conf`; renaming one means updating README.md, AGENTS.md and the docs. `documentation/` has `concepts.md`, `configuration.md` (the unique reference of the job file keywords), `cpu-selection.md`, `engines.md`, one page per engine (`stressng.md`, `fio.md`, `pantheon.md`, `spike.md`, `sleep.md`), `monitoring.md`, `topology.md`, `redfish-dump.md`, `hwgraph.md` and its three graph pages (`hwgraph-environment.md`, `hwgraph-scaling.md`, `hwgraph-versus.md`), with the reference dataset of their images in `documentation/example/` (`render.sh` regenerates `documentation/img/`).
 - Ruff: line-length 120, `E501`/`ISC001` ignored, `target-version = py39` (so the codebase uses `from __future__ import annotations`). mypy ignores missing imports for the untyped `pyudev` and `snmp` libraries.
