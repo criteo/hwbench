@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
+import pathlib
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from graph.hwgraph import graph_monitoring_metrics, main
+from graph.hwgraph import graph_fans, graph_monitoring_metrics, main
+from graph.trace import Trace
 from hwbench.bench.monitoring_structs import MonitorContextKeys
 
 
@@ -57,3 +60,44 @@ def test_ashrae_option(capsys):
     ):
         main()
     assert "--ashrae: 'A1', 'A2' are classes of the same family, one per family" in capsys.readouterr().err
+
+
+def missing_trace(path, fans: int = 12) -> Trace:
+    """A trace of the reference dataset, of 12 samples, whose PSUs miss the last 2 and its fans all but <fans>."""
+    result = json.loads(pathlib.Path("documentation/example/traces/cdu_comparison.json").read_text())
+    contexts = result["bench"]["cpu_17"]["monitoring"]["contexts"]
+    for sensors, count in ((contexts["PowerSupplies"]["BMC"], 10), (contexts["Fans"]["Fan"], fans)):
+        for sensor in sensors.values():
+            for field in ("mean", "min", "max", "stdev", "samples"):
+                sensor[field] = sensor[field][:count]
+    path.write_text(json.dumps(result))
+    return Trace(str(path), "server", "BMC.Server")
+
+
+def missing_args(option: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        width=1920,
+        height=1080,
+        title="",
+        format="png",
+        engine="cairo",
+        dpi=72,
+        verbose=False,
+        events=[],
+        ignore_missing_datapoint=option,
+    )
+
+
+@pytest.mark.parametrize("option", ["last", "zero"])
+def test_missing_samples_of_a_host(tmp_path, option):
+    """The graphs of a host replace the missing samples of its fans, and of its PSUs drawn with its power, as
+    --ignore-missing-datapoint says."""
+    assert graph_fans(missing_args(option), missing_trace(tmp_path / "server.json", fans=11), "cpu_17", tmp_path) > 0
+
+
+def test_missing_samples_of_a_host_without_the_option(tmp_path, capsys):
+    """Without --ignore-missing-datapoint, a missing sample of the PSUs stops the graphs of a host, as one of the
+    other sensors does."""
+    with pytest.raises(SystemExit):
+        graph_fans(missing_args(""), missing_trace(tmp_path / "server.json"), "cpu_17", tmp_path)
+    assert "server/cpu_17: PowerSupplies is missing the 11th data point" in capsys.readouterr().err

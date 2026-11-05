@@ -12,7 +12,7 @@ from matplotlib.lines import Line2D
 from matplotlib.pylab import Axes
 from matplotlib.ticker import AutoMinorLocator, FuncFormatter, MaxNLocator, MultipleLocator
 
-from graph.common import context_header, fatal
+from graph.common import context_header, datapoint, fatal
 from graph.trace import Bench, gpu_description
 from graph.windows import RANGE_PERCENTILES, high_window, in_range, low_window, warm_up, without_warm_up
 from hwbench.bench.engine import Resource
@@ -1097,6 +1097,17 @@ def component_distribution_graph(
     return 1
 
 
+def host_datapoint(args, serie, sample: int, what: str) -> float:
+    """The value of <serie> at <sample>, a missing one replaced as --ignore-missing-datapoint says; without
+    the option, the graphs of a host stop at a missing sample instead of counting zero."""
+    if sample >= len(serie) and not args.ignore_missing_datapoint:
+        fatal(
+            f"{what} is missing the {sample + 1}th data point. Use --ignore-missing-datapoint to ignore this case. "
+            "Generated graphs will be partially incorrect."
+        )
+    return datapoint(args, serie, sample, what)
+
+
 def generic_graph(
     args,
     output_dir,
@@ -1163,6 +1174,7 @@ def generic_graph(
     time_serie = []
     data_serie = {}  # type: dict[str, list]
     data2_serie = {}  # type: dict[str, list]
+    name = f"{trace.get_name()}/{bench.get_bench_name()}"
     for sample in range(0, samples_count):
         time = sample * bench.get_time_interval()
         time_serie.append(time)
@@ -1170,26 +1182,9 @@ def generic_graph(
         for component in components:
             if component.get_full_name() not in data_serie:
                 data_serie[component.get_full_name()] = []
-            # If we are missing some datapoints ....
-            if len(component.get_mean()) <= sample:
-                # If the user didn't explicitly agreed to be replaced by 0, let's be fatal
-                if not args.ignore_missing_datapoint:
-                    fatal(
-                        f"{trace.get_name()}/{bench.get_bench_name()}: {component.get_full_name()} is missing the {sample + 1}th data point.\
- Use --ignore-missing-datapoint to ignore this case. Generated graphs will be partially incorrect."
-                    )
-                else:
-                    # User is fine with a missing data to be replaced.
-                    # Let's do that so we can render things properly.
-
-                    # Let's pick the last known value
-                    if args.ignore_missing_datapoint == "last":
-                        data_serie[component.get_full_name()].append(component.get_mean()[-1])
-                    else:
-                        # Replace it by a zero
-                        data_serie[component.get_full_name()].append(0)
-            else:
-                data_serie[component.get_full_name()].append(component.get_mean()[sample])
+            data_serie[component.get_full_name()].append(
+                host_datapoint(args, component.get_mean(), sample, f"{name}: {component.get_full_name()}")
+            )
 
         if second_axis:
             for entry in bench.get_monitoring_metric(second_axis).values():
@@ -1206,31 +1201,24 @@ def generic_graph(
                         continue
                     if sensor not in data2_serie:
                         data2_serie[sensor] = []
-                    if len(measure.get_mean()) <= sample:
-                        # If the user didn't explicitly agreed to be replaced by 0, let's be fatal
-                        if not args.ignore_missing_datapoint:
-                            fatal(
-                                f"{trace.get_name()}/{bench.get_bench_name()}: second axis of {sensor}: {measure.get_full_name()} is missing the {sample + 1}th data point.\
-         Use --ignore-missing-datapoint to ignore this case. Generated graphs will be partially incorrect."
-                            )
-                        else:
-                            # User is fine with a missing data to be replaced.
-                            # Let's do that so we can render things properly.
-                            if args.ignore_missing_datapoint == "last":
-                                # Let's pick the last known value
-                                data2_serie[sensor].append(measure.get_mean()[-1])
-                            else:
-                                # Replace it by a zero
-                                data2_serie[sensor].append(0)
-                    else:  # the actual data
-                        data2_serie[sensor].append(measure.get_mean()[sample])
+                    data2_serie[sensor].append(
+                        host_datapoint(
+                            args,
+                            measure.get_mean(),
+                            sample,
+                            f"{name}: second axis of {sensor}: {measure.get_full_name()}",
+                        )
+                    )
             # If we are plotting the power consumption, having the PSUs would be useful to compare with.
             if second_axis == MonitoringContextKeys.PowerConsumption:
                 psus = bench.get_psu_power()
                 if psus:
                     if MonitoringContextKeys.PowerSupplies not in data2_serie:
                         data2_serie[MonitoringContextKeys.PowerSupplies] = []
-                    data2_serie[MonitoringContextKeys.PowerSupplies].append(psus[sample])
+                    # The PSUs can miss samples too, like the other sensors
+                    data2_serie[MonitoringContextKeys.PowerSupplies].append(
+                        host_datapoint(args, psus, sample, f"{name}: {MonitoringContextKeys.PowerSupplies}")
+                    )
 
     order = np.argsort(time_serie)
     x_serie = np.array(time_serie)[order]
@@ -1390,14 +1378,15 @@ def yerr_graph(
     data_serie: dict[str, list] = {}
     data_serie[MEAN] = []
     data_serie[ERROR] = []
+    name = f"{trace.get_name()}/{bench.get_bench_name()}: {component.get_full_name()}"
     for sample in range(0, samples_count):
         time = sample * bench.get_time_interval()
         time_serie.append(time)
-        mean_value = component.get_mean()[sample]
+        mean_value = host_datapoint(args, component.get_mean(), sample, name)
         data_serie[ERROR].append(
             (
-                mean_value - component.get_min()[sample],
-                component.get_max()[sample] - mean_value,
+                mean_value - host_datapoint(args, component.get_min(), sample, name),
+                host_datapoint(args, component.get_max(), sample, name) - mean_value,
             )
         )
         data_serie[MEAN].append(mean_value)
