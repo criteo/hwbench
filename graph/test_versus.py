@@ -3,8 +3,8 @@ from types import SimpleNamespace
 import pytest
 
 from graph.graph import MAX_LEGEND_ITEMS
-from graph.test_trace import LOCATION, PATH, at, located_trace
-from graph.versus import _fleet_bars, _fleet_rows, _render_traces_comparison, _traces_caption
+from graph.test_trace import LOCATION, PATH, at, avx_trace, located_trace
+from graph.versus import _fleet_bars, _fleet_rows, _render_traces_comparison, _traces_caption, max_versus_graph
 
 GPUS = {
     str(index): {"name": "NVIDIA B200", "detail": {"Driver Version": "610.57.04", "CUDA Version": "13.3"}}
@@ -175,3 +175,12 @@ def test_fleet_bars():
     bar_labels, bars = _fleet_bars(names, values, labels, workers)
     assert bar_labels == ["SRV0\n64 workers", "max of 5\nSRV4", "Q3 of 5", "median of 5", "Q1 of 5", "min of 5\nSRV1"]
     assert bars == [3.0, 5.0, 4.0, 3.0, 2.0, 1.0]
+
+
+def test_max_versus_without_the_skipped_jobs(tmp_path):
+    """A job skipped by some servers, like an AVX-512 one on CPUs without it, compares the servers that ran it."""
+    traces = [avx_trace(tmp_path / f"{name}.json", skipped=name == "skipped") for name in ("ran", "skipped")]
+    args = SimpleNamespace(
+        width=1920, height=1080, title="", format="png", engine="cairo", dpi=72, verbose=False, events=[], traces=traces
+    )
+    assert max_versus_graph(args, tmp_path, "avx", [trace.get_name() for trace in traces]) > 0

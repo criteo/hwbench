@@ -292,7 +292,8 @@ class Bench:
         The choice here is to replicate the old structure so that nothing breaks,
         especially since there is no typing/deserialization on this part yet.
         """
-        legacy_monitoring = self.get("monitoring")
+        # A skipped job, like an AVX-512 one on a CPU without it, has no monitoring
+        legacy_monitoring = self.get("monitoring") or {}
         new_monitoring = legacy_monitoring.get("contexts", None)
         if new_monitoring:
             return legacy_monitoring["metadata"] | new_monitoring
@@ -1174,10 +1175,10 @@ class Trace:
         return self.get_trace()["bench"]
 
     def first_bench(self) -> Bench:
-        """Return the first bench"""
-        b = self.bench(next(iter(sorted(self.bench_list()))))
-        b.load_monitoring()
-        return b
+        """Return the first bench not skipped, the first one if all are"""
+        benches = self.bench_list()
+        names = sorted(benches)
+        return self.bench(next((name for name in names if not benches[name].get("skipped")), names[0]))
 
     def bench(self, bench_name: str) -> Bench:
         """Return one bench"""
