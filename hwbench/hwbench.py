@@ -16,10 +16,11 @@ from packaging.version import Version
 
 from .bench import benchmarks, cpumap
 from .config import config
+from .environment import ashrae, cooling
 from .environment import hardware as env_hw
 from .environment import software as env_soft
 from .environment.environment_file import Location, read_location, save_environment_file
-from .environment.topology import load_topology, save_topology, topology_location
+from .environment.topology import TopologyServer, load_topology, location_output, save_topology, topology_server
 from .tuning import setup as tuning_setup
 from .utils import helpers as h
 from .utils.archive import RESULTS_FILE, create_output_archive
@@ -55,6 +56,8 @@ def main():
         save_environment_file(args.environment, out_dir)
         location = read_location(args.environment)
     topology: dict | None = None
+    # The target machine in the topology: its location, its label, its ASHRAE classes and its cooling
+    server: TopologyServer | None = None
     if args.topology:
         # Checked before tuning the host, the target machine is found in it once its DMI is dumped
         topology = load_topology(args.topology)
@@ -75,9 +78,16 @@ def main():
     hw = env_hw.Hardware(out_dir, args.environment)
     if topology is not None:
         # The topology replaces the [Location] section, the serial being the one kept in results.json
-        location = topology_location(topology, args.topology, hw.dmi.info("product_serial"))
+        server = topology_server(topology, args.topology, hw.dmi.info("product_serial"))
+        location = server.location
     if location:
         print(f"Startup: Location: {location.line()}")
+    if server and server.label:
+        print(f"Startup: Label: {server.label}")
+    if server and server.ashrae:
+        print(f"Startup: ASHRAE: {ashrae.line(server.ashrae)}")
+    if server and server.cooling:
+        print(f"Startup: Cooling: {cooling.line(server.cooling)}")
 
     hwbench_config.set_hardware(hw)
     benches.set_hardware(hw)
@@ -86,7 +96,7 @@ def main():
     results = benches.run()
     benches.dump()
 
-    out = format_output(env.dump(), hw.dump(), results, benches.jobs_config, args.context, location)
+    out = format_output(env.dump(), hw.dump(), results, benches.jobs_config, args.context, location, server)
 
     write_output(out_dir, out)
 
@@ -221,7 +231,13 @@ def parse_options():
 
 
 def format_output(
-    env, hw, results, config, context: str | None = None, location: Location | None = None
+    env,
+    hw,
+    results,
+    config,
+    context: str | None = None,
+    location: Location | None = None,
+    server: TopologyServer | None = None,
 ) -> dict[str, object]:
     out = {
         "environment": env,
@@ -234,7 +250,7 @@ def format_output(
         out["context"] = context.strip()
     # The location of the server is optional too: only kept when the environment file or the topology gives it
     if location:
-        out["location"] = location.to_dict()
+        out["location"] = location_output(location, server)
     return out
 
 

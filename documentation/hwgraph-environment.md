@@ -4,6 +4,7 @@ The environment graphs plot what the monitoring collected **during** each benchm
 power, the frequencies, the IPC, the fans and the temperatures of the target machine. They
 are rendered for every benchmark of every trace, unless `--no-env` is given.
 
+- [Curves over time](#curves-over-time)
 - [Per host](#per-host)
   - [CDU and host comparison](#cdu-and-host-comparison)
   - [Per-core views](#per-core-views)
@@ -13,11 +14,29 @@ are rendered for every benchmark of every trace, unless `--no-env` is given.
 - [Per chassis](#per-chassis)
 - [Per group](#per-group)
   - [Groups of the location](#groups-of-the-location)
+  - [Rack view](#rack-view)
 
 Related pages: [hwgraph.md](hwgraph.md) (the command line, the traces and the output tree),
 [monitoring.md](monitoring.md) (where the metrics come from), [cpu-selection.md](cpu-selection.md)
 (the pinned cores), [hwgraph-scaling.md](hwgraph-scaling.md) and
 [hwgraph-versus.md](hwgraph-versus.md) (the performance graphs).
+
+# Curves over time
+The graphs over time, per host, per chassis, per group and of the CDUs, draw a point per window
+of the monitoring. The **warm up** of a curve, its first windows below its 5th percentile, like the
+ramp up of the load at the start of a benchmark, is **faded**: the whole curve is drawn at 25 %
+opacity, the bars from the lowest to the highest reading of each window of the graphs of a single
+metric included, and its windows after the warm up are drawn normally above it. The first gaps of a curve
+are skipped, a later gap ends its warm up. A dip or a peak later in the benchmark, like the reboot
+of a CDU, is not part of it and stays drawn normally. Nothing is faded when fewer than two windows
+are between the percentiles, as for a curve of three windows.
+
+The legend gives the `[p5; mean; stddev; p95]` of each curve: its 5th and 95th percentile
+windows, and the mean and the standard deviation of its windows after the warm up, the ones drawn
+normally. When its windows are too few to tell, its lowest and highest windows replace the
+percentiles. A window without reading, a gap, is not counted. The scaling graphs and the legends of
+the profiles of the [rack view](#rack-view), which do not draw windows over time, keep
+`[min; mean; stddev; max]`.
 
 # Per host
 For each trace, and for each benchmark of the trace, hwgraph writes
@@ -90,7 +109,7 @@ same color still look different. Every curve uses the same aggregation grid, wit
 
 CDU graph legends summarize the **window means shown on the curves**, excluding
 empty windows. Each valid window has equal weight regardless of its number of
-readings. These min/mean/stddev/max values are not statistics of all raw readings;
+readings. These p5/mean/stddev/p95 values are not statistics of all raw readings;
 for example, a one-reading window weighs as much as a complete window.
 
 The comparison requires at least one CDU circuit temperature, a CPU temperature
@@ -220,29 +239,45 @@ For each benchmark, `environment/by_chassis/chassis/` contains:
 
 | Graph | What it plots |
 |---|---|
-| `time_watt_<benchmark> <workers>x<engine>_<module>_<parameter>_chassis_by_Server` | the power of the chassis, of its power supplies, of the sum of the servers and of each server, from the `Server` metric |
+| `time_watt_<benchmark>_chassis_by_Server` | the power of the chassis, of its power supplies, of the sum of the servers and of each server, from the `Server` metric |
 | `time_watt_…_chassis_by_ServerInChassis` | the same, from the `ServerInChassis` metric; only when the BMC reports it |
 
 # Per group
 `--same-group` plots a group of servers, like the machines of a same rack, together. Every
-trace must have the `BMC.Server` and the `CPU.package` power metrics, otherwise hwgraph stops with
+trace must have the `BMC.Server` power metric, otherwise hwgraph stops with
 `group: missing '<metric>' monitoric metric in <trace_filename>`.
+
+The power of a server goes to the air of the room, or to a liquid for its components the
+[topology](topology.md#cooling-of-the-components) says cooled by a liquid. The power to the
+liquid is the sum of the power of these components; the power to the air is the whole power of
+the server, `BMC.Server`, minus the one to the liquid, not a sum of components: it includes every
+component not cooled by a liquid, measured or not, like the disks, the controllers and the fans. A component cooled by
+a liquid needs its power metric: `CPU.package` for the `cpu`, `CPU.Ram`, or else `BMC.Memory`, for
+the `memory`, the `GPU` ones for the `gpu`, otherwise hwgraph stops with
+`group: missing '<metric>' monitoric metric in <trace_filename>, the power of a component cooled by a liquid`.
+A trace without cooling, run without topology of the version 2, has all its power going to the air.
 
 The graphs add up the samples of the traces by their position: the first sample of every server with
 the first sample of the others, and so on. The servers must therefore run the benchmark at the same
 time, which is what [`sync_start`](configuration.md#sync_start)`=time` is made for, and with the same
-number of samples: a server that misses one prints `Warning: <trace>/<benchmark>: Missing sample <n>,
-considering 0 watts.`
+number of samples: a server that misses one counts 0 W, with `Warning: <trace>/<benchmark>: Missing
+sample <n>, considering 0 watts.` in `rendering.log`, unless [`--ignore-missing-datapoint`](hwgraph.md#missing-data-points)
+replaces its sample, by its last known value with `last`, by 0 with `zero`, without warning; the
+chassis graphs do the same.
+
+The header of the group and chassis graphs gives the benchmark and what it runs in bold, and the
+workers of all the servers: `[64;640] x stressng` when their numbers of cores differ, the file names
+only the name of the benchmark.
 
 For each benchmark, `by_group/` contains:
 
 | Graph | What it plots |
 |---|---|
-| `time_watt_<benchmark> …_by_servers` | the power of each server, `BMC.Server` |
-| `time_watt_<benchmark> …_by_group` | the sum of the servers: of `BMC.Server`, of `CPU.package`, and the difference between both, what the processors do not account for |
-| `time_watt_percent_<benchmark> …_by_group` | the share of the CPU packages, and of the rest of the servers, in percent of the sum of `BMC.Server` |
+| `time_watt_<benchmark>_by_servers` | the power of each server, `BMC.Server` |
+| `time_watt_<benchmark>_by_group` | the distribution of the power consumption of the servers: `Total power consumption`, the sum of their `BMC.Server`, green, `Total power to the liquid`, blue, and `Total power to the air`, orange, the total power consumption minus the one to the liquid; a note below the graph tells what each curve adds up |
+| `time_watt_percent_<benchmark>_by_group` | the same distribution in percent of the total power consumption: the air, orange, and the liquid, blue, with the same note |
 
-The legend gives the `[min; mean; stddev; max]` of each curve. Beyond 36 servers, the most a legend
+The legend gives the `[p5; mean; stddev; p95]` of each curve, see [Curves over time](#curves-over-time). Beyond 36 servers, the most a legend
 holds within the height of the graph, as for the other graphs, the legend of `…_by_servers` is
 filled with the servers of the highest means, then a line `… <n> other servers between`, then the
 servers of the lowest means, by decreasing mean; the servers between them are drawn without name.
@@ -268,11 +303,11 @@ uv run hwgraph graph --same-group --no-env --no-scaling --no-versus --events cdu
 
 ![Sum of the servers](img/hwgraph-group-by-group.png)
 
-*`by_group/time_watt_… _by_group.png`: the sum of the four servers. The processors slow down during the event, and the power of the group falls from about 4.6 kW to 3.1 kW, while the rest of the servers, the green line, increases during the event.*
+*`by_group/time_watt_… _by_group.png`: the sum of the four servers, whose CPUs are cooled by a liquid. The processors slow down during the event, and the power of the group falls from about 4.6 kW to 3.1 kW: the power going to the liquid, the one of the CPU packages, falls from about 3.1 kW to 1.2 kW, while the one going to the air increases from about 1.5 kW to 2.9 kW, the fans speeding up.*
 
 ![Share of the whole server](img/hwgraph-group-percent.png)
 
-*`by_group/time_watt_percent_… _by_group.png`: what the CPU packages, and the rest of the servers, represent in percent of the power of the group: about 68% and 32% of the power, and about 35% and 65% during the event. The first sample is above 100%: at the beginning of the benchmark, the power reported by the BMC is lower than the one of the CPU packages.*
+*`by_group/time_watt_percent_… _by_group.png`: what the liquid and the air take away, in percent of the power of the group: about 68% and 32%, and about 35% and 65% during the event. The first sample of the liquid is above 100%: at the beginning of the benchmark, the power reported by the BMC is lower than the one of the CPU packages.*
 
 ## Groups of the location
 `--auto-group` finds the groups in the [location](hwgraph.md#location-of-the-servers) of the
@@ -295,7 +330,7 @@ by_group/Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A13/   the two server
 
 | Rule | Effect |
 |---|---|
-| a place | holds the traces whose path goes through it; the graphs give its location and its number of servers in their header, `Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 (4 servers)`, and its name in their file names, `time_watt_<benchmark> …_Room_1_by_group` |
+| a place | holds the traces whose path goes through it; the graphs give its location, its narrowest place in bold, and its number of servers in their header, `Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 (4 servers)`, and its name in their file names, `time_watt_<benchmark>_Room_1_by_group` |
 | a place holding a single trace | not rendered: the group would be the server itself |
 | a place holding the same traces as its single subplace | not rendered: its graphs would be the ones of the subplace; `Country_FR/`, `Datacenter_PA99/` and `Datahall_2/` above |
 | servers at the same place, like the nodes of a chassis | a group of their whole location: `by_group/Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A12/Position_23/` |
@@ -308,17 +343,156 @@ by_group/Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A13/   the two server
 
 hwgraph prints the groups as a tree, each under the narrowest group holding it, with its number
 of servers, the servers themselves being listed under it with `--verbose`. The graphs of a
-group add up the same benchmarks of its servers, so every trace must have the benchmarks of
-the first one of the group, with the same settings, and the `BMC.Server` and `CPU.package`
-metrics. A group that does not is not rendered, the other groups are:
+group add up the benchmarks every server of the group ran, so every trace must come from the
+job file of the first one of the group, as for the [scaling](hwgraph-scaling.md), and have the
+`BMC.Server` and `CPU.package` metrics. The job file may expand differently from a machine to
+another, like the workers of `stressor_range=auto` on servers of different processors: only
+the benchmarks they all ran are rendered. A group that does not meet these conditions is not
+rendered, the other groups are:
 
 ```
 auto-group: 3 places shared by several traces, in by_group/:
   Country_FR/Datacenter_PA99/Datahall_2/Room_1     4 servers
-    Rack_A12                                       2 servers, not rendered, server-2 does not have the benchmarks of server-1
+    Rack_A12                                       2 servers, not rendered, server-2 does not have the job file of server-1
     Rack_A13                                       2 servers
 ```
 
-The other reasons are `<trace> has no '<metric>' metric in <benchmark>`, and the first line of
-`Setting <benchmark>/<setting> does not match between <trace_filename> and <trace_filename>`.
-As with `--same-group`, nothing tells whether the servers ran the benchmarks at the same time.
+The other reasons are `no benchmark ran by every server` and `<trace> has no '<metric>' metric
+in <benchmark>`. As with `--same-group`, nothing tells whether the servers ran the benchmarks
+at the same time.
+
+## Rack view
+A place of `--auto-group` holding its servers right at their last place, the place right above their
+positions, is a rack: hwgraph also renders its rack view, the metrics of its servers by position,
+from the bottom of the rack to its top, for every benchmark all its servers ran. The tree of the
+groups tells it:
+
+```
+auto-group: 5 places shared by several traces, in by_group/:
+  Country_FR/Datacenter_PA99/Datahall_2/Room_1    18 servers, racks view of 2 racks
+    Rack_A12                                      10 servers, rack view
+      Position_4                                   4 servers
+    Rack_A13                                       8 servers, rack view
+      Position_5                                   3 servers
+```
+
+| Rule | Effect |
+|---|---|
+| the position, the last place of a location | a number, after `U` for a 19" rack or `OU` for an OCP one, in upper or lower case: `23`, `U23`, `OU23` |
+| a position that is not a number | no rack view: `Rack_A12    3 servers, rack view not rendered, positions not numbers: 'A', 'B'` |
+| a place holding servers several levels lower, like a room | no rack view, only the one of each of its racks; holding at least two of them, the [elevation of its racks](#graphs) side by side: `racks view of 2 racks` |
+| a group not rendered, like servers without the same benchmarks | its rack view is rendered all the same, on the benchmarks all its servers have |
+| the positions | from the first one of the rack to the highest server, the empty ones in gray |
+
+### Height of the servers
+hwbench saves the height of the server, `hardware.dmi.height`, and the one of its chassis,
+`hardware.dmi.chassis.height`, in rack units, read in the SMBIOS: the server has the height of
+the chassis of its serial, 1U otherwise; its chassis is the one of another serial holding it,
+the server itself otherwise.
+
+| Target machine | What its SMBIOS gives | Server | Chassis |
+|---|---|---|---|
+| a server of 1U, like an HPE ProLiant DL365 Gen11 | a chassis of its serial, of 1U | 1U | 1U |
+| a server of 2U, like an HPE ProLiant DL385 Gen11 | a chassis of its serial, of 2U | 2U | 2U |
+| a node of a Dell C6600 | only the chassis of 2U of its 4 nodes, of another serial | 1U | 2U |
+| a node of an HPE Apollo 2000 | a chassis of its serial, of 1U, then the one of 2U of its 4 nodes | 1U | 2U |
+
+The servers of a position fill the height of their chassis, by rows of the height of a server, from
+the bottom left, in the order of their names: the 4 nodes of 1U of a chassis of 2U on 2 rows of 2,
+a server of 2U alone on both positions. A trace recorded before hwbench saved the heights is of 1U,
+in a chassis of 1U: the servers of its position share a single one, side by side.
+
+### Metrics
+Each server gives a value per window of the monitoring, from its sensors, in the cells, their trends and
+the profiles alike:
+
+| Metric | Sensors | Value of a window |
+|---|---|---|
+| Inlet | the `Intake` family of the BMC, the air entering the server; without one, the sensors named inlet out of the `PowerSupply`, `GPU` and `CDU` families, like the `Inlet Temp` a Dell R6625 gives in `SystemBoard` | the hottest sensor |
+| Fans | all the fans, in percent or in RPM as the BMC gives them; a rack mixing both colors each unit on its own scale, the header giving the range of each unit | the mean of the fans |
+| CPU | the `CPU` family of the BMC, like a sensor per socket | the mean of the sensors |
+| Memory | the `Memory` family of the BMC, like a sensor per group of DIMMs | the mean of the sensors |
+| GPU | the `GPU` family, the accelerators | the mean of the GPUs |
+| Exhaust | the `Exhaust` family, and the sensors named `exhaust` in another one, like the `Sys Exhaust` of the `SystemBoard` of HPE; never the ones of a CDU | the mean of the sensors |
+| Power | the [`power_metric`](hwgraph.md#power_metric) given with each trace, like `BMC.Server` or `CPU.package` | its value |
+
+A metric no server has, like the GPUs of a rack without, is left out. Its title gives the number of
+sensors per server when there are several, as a range when the servers differ, a component of
+several sensors in plural: `CPUs x2 (°C)`, `GPUs x4–8 (°C)`, `Memory x4 (°C)`, `Inlet (°C)`. The cooling distribution
+units (CDUs) monitored with the servers give the temperatures of their circuits, the primary and
+the secondary, at their supply and their return, and the delta of each circuit, `ΔT`, its return
+minus its supply on the windows having both: the heat it carries. A CDU shared by several servers
+is shown once.
+
+### Colors
+The cells of the elevations are colored on a scale per metric, the header of the inlet and of the
+exhaust giving the ASHRAE air classes of their servers, and the note under the graph the scales:
+
+| Metric | Colors |
+|---|---|
+| Inlet | for a server of an ASHRAE air class: green on its recommended range, from blue to green below it and from yellow to red above it, up to its allowable range, dark blue and dark red out of it; the header gives the class with both ranges, `A1: 18–27 [15–32]` |
+| Exhaust | for a server of an ASHRAE air class, which limits the inlet only: green on its allowable range, then up to red at 60 °C; the header gives `A1: 15–32, 60 red` |
+| Inlet and Exhaust of a server without class | from the coolest server of the column to the hottest |
+| Fans | in percent, from green at 0 % to red at 100 %; in RPM, from green, the slowest server in RPM of the column, to red, the fastest |
+| CPU, Memory, GPU | green up to 30 °C, then up to red at 100 °C |
+| Power | from green, the lowest server of the column, to red, the highest |
+
+The supply of a circuit of a CDU limited by an ASHRAE class, `W17` to `W45` for the primary, `S30`
+to `S50` for the secondary, is named after it, like `Secondary supply S30`, and colored by its
+hottest window: green below the maximum of the class by more than 2 °C, orange up to it, red
+above it. `W+`, without maximum, and the returns and the deltas keep their colors.
+
+The classes come, by family, from the first of:
+
+| Source | Classes |
+|---|---|
+| `--ashrae`, like `--ashrae A1,W32,S30` | of every server and every CDU of the rendering |
+| the `ashrae` key of the section of a CDU in the environment file, see [monitoring.md](monitoring.md#configuration) | of the circuits of this CDU |
+| the [topology](topology.md#ashrae-classes), kept in the `location` of `results.json` | of the server, and of the CDUs monitored with it, from the first server |
+
+A server the topology gives a [label](topology.md#labels) shows it after its name, like
+`EXAMPLE0101 (db-01)`, in the elevations and the profiles; a node sharing its row with others
+shows it under its name.
+
+### Graphs
+For each benchmark, the directory of the rack contains:
+
+| Graph | What it plots |
+|---|---|
+| `rack_elevation_<benchmark>_<place>` | the rack seen from the front, a row per position and a column per metric, from the front of the servers to their rear: each cell the mean of the window means of a server, its color on the scale of its metric, see [Colors](#colors), with its window means drawn on the same scale in a column and its 95th percentile window above its 5th right of them; a drop, `mdi:water-sync`, in the bottom left corner of the CPU, Memory and GPU of a server the topology says cooled by a liquid, as high as the room its mean leaves under it; the place of a chassis without node is gray, like an empty position, and so is a metric a server does not give, like the memory of a BMC without sensor for it; the CDUs below the rack, with their own window means, each on the scale of its cell; the header gives the benchmark in bold, and the workers of the servers, `[64;640] x stressng` when their numbers of cores differ; in SVG, opened by a browser, the mouse over a cell gives its server and its label |
+| `rack_profile_<benchmark>_<place>` | the profile of the rack, a panel per metric: Inlet, Fans, CPU, Memory, GPU, Exhaust and Power, each server at its row with the mean of its window means and the [violin](#reading-a-violin) of its windows from its 5th percentile to its 95th; left of the panels, below the legend, the CDUs in a frame, their circuits by rows of three, the supply, the return and the delta, each the mean of its window means and its coolest and hottest windows |
+| `rack_profile_<component>_<benchmark>_<place>` | the profile of a component, `CPU`, `Memory` or `GPU`, with what cools it: Inlet, Fans, the component on a panel twice as wide, Exhaust and Power, and the CDUs; only when a server has it |
+| `racks_elevation_<benchmark>_<place>` | in the directory of a place holding at least two racks: its racks side by side, each seen from the front without names nor trends, a row per position and a column per metric titled with its unit, each cell the mean of the window means of a server, colored as in the elevations, with their drops, the relative scales from a server to another shared by all the racks of the place, and by unit for the fans; the empty places, and the metrics a server does not give, gray; the CDUs below each rack, the positions on both sides; in SVG, the mouse over a cell gives its server and its label |
+
+The ranges leave out the 5% of the lowest and of the highest windows, like the warm up of a long
+benchmark. The graphs of a rack are rendered at 200 dpi at least, whatever `--dpi`, their figures
+being small, and explain in a note under them the sensors of each metric.
+
+For example, two racks built from `cdu_comparison.json` of the [reference dataset](example/README.md):
+the rack `A12` of ten servers, servers of 1U, two of them with GPUs, a chassis of 2U of 4 nodes at
+the position 4 and a server of 2U at the position 7, and the rack `A13` of the same room, warmer,
+with a chassis of 2U of 3 nodes at the position 5, all in the ASHRAE air class `A1`, three of them
+with a label, their CDU in the classes `W27` and `S30`:
+
+```bash
+uv run python documentation/example/rack.py rack-traces
+uv run hwgraph graph --format png --auto-group --no-env --no-scaling --no-versus \
+    --traces $(for trace in rack-traces/*.json; do printf '%s::BMC.Server ' "$trace"; done) \
+    --outdir graphs
+```
+
+![Elevation of the rack](img/hwgraph-rack-elevation.png)
+
+*`by_group/…/Rack_A12/rack_elevation_cpu_17_Rack_A12.png`: the air entering the servers is warmer at the top of the rack, from 25.8 °C at the position 1 to 29.1 °C at the position 12: green in the recommended range of `A1`, up to 27 °C, yellowing above it. The 4 nodes of the chassis of the position 4 fill its two positions, and the server of 2U the positions 7 and 8; each cell draws the window means of its server during the benchmark, the nodes, narrower, their mean and their trend only. The CPUs of the nodes and of the 2U server, cooled by a liquid, have a drop in their bottom left corner. Below the rack, the CDU gives its circuits and their deltas, its secondary supply orange, its hottest window, 28.2 °C, within 2 °C of the 30 °C of `S30`.*
+
+![Elevation of the racks of the room](img/hwgraph-racks-elevation.png)
+
+*`by_group/…/Room_1/racks_elevation_cpu_17_Room_1.png`: the two racks of the room side by side, on the same scales: the servers of `A13`, warmer, give a hotter inlet and exhaust than the ones of `A12` at the same positions, 27.3 °C against 25.8 °C at the position 1; the fourth place of the chassis of the position 5 is gray, without node.*
+
+![Profile of the rack](img/hwgraph-rack-profile.png)
+
+*`by_group/…/Rack_A12/rack_profile_cpu_17_Rack_A12.png`: the profile of every metric, a violin per server, the nodes of a row joined by their mean; the legend gives the statistics of the means of the servers, and the CDU below it its circuits.*
+
+![Profile of the GPUs](img/hwgraph-rack-profile-gpu.png)
+
+*`by_group/…/Rack_A12/rack_profile_GPU_cpu_17_Rack_A12.png`: the GPUs and what cools them, only the two servers with GPUs having a point in their panel.*

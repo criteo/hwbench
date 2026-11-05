@@ -38,6 +38,18 @@ uv run hwgraph graph --format png --no-scaling --no-versus \
     --traces "$traces/cdu_comparison.json:cooling:BMC.Server" \
     --outdir "$out/cooling"
 
+# Two racks built from cdu_comparison.json by rack.py, A12 of ten servers with a 2U chassis of 4 nodes, a 2U
+# server and servers with GPUs, and A13 of the same room: the rack view of --auto-group, and the view of the
+# racks of the room.
+uv run python documentation/example/rack.py "$out/rack-traces"
+rack_traces=()
+for trace in "$out"/rack-traces/*.json; do
+    rack_traces+=("$trace::BMC.Server")
+done
+uv run hwgraph graph --format png --auto-group --no-env --no-scaling --no-versus \
+    --traces "${rack_traces[@]}" \
+    --outdir "$out/rack"
+
 # <directory>/<graph in the output tree> -> <image of the documentation>
 copy() {
     cp "$out/$1" "$img/$2.png"
@@ -73,8 +85,14 @@ copy "$cdu/PowerConsumption/Package power consumption_vs_Thermal.png" hwgraph-ev
 copy "$cdu/Fans/Fans speed_vs_Thermal.png"                            hwgraph-events-fans-vs-thermal
 
 group=group/by_group
-copy "$group/time_watt_full_cpu_load_0 320xstressng_cpu_matrixprod_by_servers.png"         hwgraph-group-by-servers
-copy "$group/time_watt_full_cpu_load_0 320xstressng_cpu_matrixprod_by_group.png"           hwgraph-group-by-group
-copy "$group/time_watt_percent_full_cpu_load_0 320xstressng_cpu_matrixprod_by_group.png"   hwgraph-group-percent
+copy "$group/time_watt_full_cpu_load_0_by_servers.png"         hwgraph-group-by-servers
+copy "$group/time_watt_full_cpu_load_0_by_group.png"           hwgraph-group-by-group
+copy "$group/time_watt_percent_full_cpu_load_0_by_group.png"   hwgraph-group-percent
 
 copy "cooling/environment/by_host/cooling/cpu_17/CDU/0-CDU_example/CDU and host temperatures_vs_PowerConsumption.png" hwgraph-env-cdu-comparison
+
+rack=rack/by_group/Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A12
+copy "$rack/rack_elevation_cpu_17_Rack_A12.png"        hwgraph-rack-elevation
+copy "$rack/rack_profile_cpu_17_Rack_A12.png"          hwgraph-rack-profile
+copy "$rack/rack_profile_GPU_cpu_17_Rack_A12.png"      hwgraph-rack-profile-gpu
+copy "rack/by_group/Country_FR/Datacenter_PA99/Datahall_2/Room_1/racks_elevation_cpu_17_Room_1.png" hwgraph-racks-elevation

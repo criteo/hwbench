@@ -14,7 +14,7 @@ review the images before committing them.
 | Trace | Machine | Content |
 |---|---|---|
 | `traces/baseline.json`, `traces/hpc.json` | the same server, HPE ProLiant DL365 Gen11, 2x AMD EPYC 9845 160-Core (320 physical cores, 640 threads), run twice with a different configuration | the `cpu` job (`float128`) and the `memrate` job, 6 scaling steps each from 32 to 640 workers, monitored with `BMC.Server` |
-| `traces/cdu_reboot.json` | a third server, HPE ProLiant DL365 Gen11, 2x AMD EPYC 9845 160-Core | a single `full_cpu_load` benchmark of 600 seconds (`stressng cpu matrixprod`, 320 workers) during which the cooling distribution unit (CDU) was rebooted for 100 seconds, to illustrate [`--events`](../hwgraph.md#events) |
+| `traces/cdu_reboot.json` | a third server, HPE ProLiant DL365 Gen11, 2x AMD EPYC 9845 160-Core, its CPUs cooled by a liquid, as the `cooling` of its location tells | a single `full_cpu_load` benchmark of 600 seconds (`stressng cpu matrixprod`, 320 workers) during which the cooling distribution unit (CDU) was rebooted for 100 seconds, to illustrate [`--events`](../hwgraph.md#events) |
 | `traces/cdu_reboot_2.json`, `traces/cdu_reboot_3.json`, `traces/cdu_reboot_4.json` | three other servers of the same kind, which ran the same benchmark at the same time as `cdu_reboot.json` | with `cdu_reboot.json`, a group of four servers, to illustrate [`--same-group`](../hwgraph-environment.md#per-group) |
 | `traces/numa.json` | another server, HPE ProLiant DL385 Gen11, 2x AMD EPYC 9124 16-Core (32 physical cores, 64 threads, 8 NUMA domains) | the `cpu` job (`int128`), 8 scaling steps from 2 to 62 workers, with the NUMA topology |
 
@@ -35,3 +35,18 @@ no trace has a PDU.
 `traces/cdu_comparison.json` combines the recorded `cpu_17` host monitoring of
 `numa.json` with **synthetic** CDU circuit temperatures. These illustrate the
 shared aggregation grid and a failed window; they are not measured CDU data.
+
+`rack.py` builds the rack of the [rack view](../hwgraph-environment.md#rack-view) from
+`traces/cdu_comparison.json`, when the images are rendered, instead of storing its traces: ten
+servers in the rack `A12`, positions 1 to 12, with a chassis of 2U of 4 nodes at the position 4,
+a server of 2U at the position 7, two servers with **synthetic** GPU temperatures and empty
+positions, and eight servers in the rack `A13` of the same room, **synthetically** warmer, with a
+chassis of 2U of 3 nodes at the position 5. Their location gives the ASHRAE class `A1` and a label to three of them, as a
+[topology](../topology.md#ashrae-classes) does, the CPUs of the nodes and of the 2U server cooled by a liquid, as its
+[labels](../topology.md#cooling-of-the-components) do, and their CDU the classes `W27` and `S30`. The servers differ by **synthetic**, fixed amounts depending on their position and
+their load, the same at every rendering; they keep only the metrics the rack and group graphs read,
+about 26 KB per trace:
+
+```bash
+uv run python documentation/example/rack.py <directory>
+```

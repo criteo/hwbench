@@ -379,3 +379,24 @@ def test_configuration_errors_name_the_section_and_the_key(vendor, caplog, key, 
     with pytest.raises(SystemExit):
         init_cdu(vendor, "cooling")
     assert error in caplog.text
+
+
+def test_ashrae_classes(vendor):
+    """The ASHRAE classes of the circuits of a CDU are kept in its dump, by family; none without the key."""
+    assert "ashrae" not in init_cdu(vendor, "cooling").dump()
+    vendor.monitoring_config_file.set("cooling", "ashrae", " S30, W32 ")
+    assert init_cdu(vendor, "cooling").dump()["ashrae"] == {"primary": "W32", "secondary": "S30"}
+
+
+@pytest.mark.parametrize(
+    ("value", "error"),
+    [
+        ("W33", "CDU cooling: ashrae: unknown class 'W33', expecting one of A1, A2"),
+        ("W32,W40", "CDU cooling: ashrae: 'W32', 'W40' are classes of the same family, one per family"),
+    ],
+)
+def test_invalid_ashrae_classes(vendor, caplog, value, error):
+    vendor.monitoring_config_file.set("cooling", "ashrae", value)
+    with pytest.raises(SystemExit):
+        init_cdu(vendor, "cooling")
+    assert error in caplog.text

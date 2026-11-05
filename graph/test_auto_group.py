@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from graph import hwgraph
-from graph.auto_group import group_problem, location_groups
+from graph.auto_group import group_benches, group_problem, location_groups
 from graph.group import place_suffix
 from graph.hwgraph import _collect_auto_group_tasks, auto_group_tree, main
 from graph.test_trace import LOCATION, PATH, at, located_trace
@@ -103,7 +103,9 @@ def group_of(tmp_path, results: list[dict]):
     """The group of the rack A12 of two traces of the reference dataset."""
     traces = []
     for index, result in enumerate(results):
-        result = json.loads(json.dumps(result)) | {"location": LOCATION | {"path": [*PATH[:-1], str(index)]}}
+        # The location of a result, like its cooling, completes the one of the rack
+        location = LOCATION | result.get("location", {}) | {"path": [*PATH[:-1], str(index)]}
+        result = json.loads(json.dumps(result)) | {"location": location}
         path = tmp_path.joinpath(f"server-{index}.json")
         path.write_text(json.dumps(result))
         traces.append(Trace(str(path), f"server-{index}", "BMC.Server"))
@@ -117,33 +119,56 @@ def test_group_problem(tmp_path, cdu_reboot):
 
 
 def test_group_problem_other_benchmarks(tmp_path, cdu_reboot):
+    """The job file expands differently from a machine to another: the benchmarks every server ran are rendered."""
     other = json.loads(json.dumps(cdu_reboot[1]))
     other["bench"]["full_cpu_load_1"] = other["bench"]["full_cpu_load_0"]
-    assert group_problem(group_of(tmp_path, [cdu_reboot[0], other])) == (
-        "server-1 does not have the benchmarks of server-0"
-    )
+    group = group_of(tmp_path, [cdu_reboot[0], other])
+    assert group_problem(group) is None
+    assert group_benches(group) == ["full_cpu_load_0"]
+
+
+def test_group_problem_no_shared_benchmark(tmp_path, cdu_reboot):
+    other = json.loads(json.dumps(cdu_reboot[1]))
+    other["bench"] = {"full_cpu_load_1": other["bench"]["full_cpu_load_0"]}
+    assert group_problem(group_of(tmp_path, [cdu_reboot[0], other])) == "no benchmark ran by every server"
 
 
 def test_group_problem_other_settings(tmp_path, cdu_reboot):
+    """A benchmark set differently by the same job file, like the workers of stressor_range=auto, is added up."""
     other = json.loads(json.dumps(cdu_reboot[1]))
     other["bench"]["full_cpu_load_0"]["workers"] = 1
+    assert group_problem(group_of(tmp_path, [cdu_reboot[0], other])) is None
+
+
+def test_group_problem_other_job_file(tmp_path, cdu_reboot):
+    other = json.loads(json.dumps(cdu_reboot[1]))
+    other["config"]["full_cpu_load"]["runtime"] = "300"
     assert group_problem(group_of(tmp_path, [cdu_reboot[0], other])) == (
-        "Setting full_cpu_load_0/workers does not match between "
-        f"{tmp_path.joinpath('server-0.json')} and {tmp_path.joinpath('server-1.json')}"
+        "server-1 does not have the job file of server-0"
     )
 
 
 def test_group_problem_missing_metric(tmp_path, cdu_reboot):
+    """The power of a component cooled by a liquid is needed, as the one of the server: a CPU cooled by air
+    does not need its package."""
     other = json.loads(json.dumps(cdu_reboot[1]))
     del other["bench"]["full_cpu_load_0"]["monitoring"]["PowerConsumption"]["CPU"]["package"]
+    other["location"] = {"cooling": {"cpu": "air", "memory": "air", "gpu": "air"}}
+    assert group_problem(group_of(tmp_path, [cdu_reboot[0], other])) is None
+    # The CPUs of the reference dataset are cooled by a liquid
+    other["location"] = cdu_reboot[1]["location"]
     assert group_problem(group_of(tmp_path, [cdu_reboot[0], other])) == (
-        "server-1 has no 'CPU/package' metric in full_cpu_load_0"
+        "server-1 has no 'CPU/package' metric in full_cpu_load_0, the power of a component cooled by a liquid"
+    )
+    del other["bench"]["full_cpu_load_0"]["monitoring"]["PowerConsumption"]["BMC"]["Server"]
+    assert group_problem(group_of(tmp_path, [cdu_reboot[0], other])) == (
+        "server-1 has no 'BMC/Server' metric in full_cpu_load_0"
     )
 
 
 def test_auto_group_location_header(tmp_path, cdu_reboot):
-    """The graphs of a group give the location of its place in their header, even over several racks,
-    with the number of its servers, and the name of the place in their file names."""
+    """The graphs of a group give the location of its place in their header, even over several racks, its
+    narrowest place in bold, with the number of its servers, and the name of the place in their file names."""
     traces = []
     for index, rack in enumerate(("A12", "A12", "A13", "A13")):
         result = json.loads(json.dumps(cdu_reboot[index % 2])) | {
@@ -156,6 +181,9 @@ def test_auto_group_location_header(tmp_path, cdu_reboot):
     headers = {}
     with patch.object(hwgraph, "_pool_args", args), patch.object(hwgraph, "graph_group_env") as graph_group_env:
         for task, *task_args in _collect_auto_group_tasks(args, tmp_path):
+            # The racks also render their rack view, not a graph of the group
+            if task is not hwgraph._task_group:
+                continue
             task(*task_args)
             group_args = graph_group_env.call_args.args[0]
             headers[pathlib.Path(task_args[1]).relative_to(tmp_path.joinpath("by_group")).as_posix()] = (
@@ -164,15 +192,15 @@ def test_auto_group_location_header(tmp_path, cdu_reboot):
             )
     assert headers == {
         "Country_FR/Datacenter_PA99/Datahall_2/Room_1": (
-            "Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 (4 servers)",
+            "Location: Country FR / Datacenter PA99 / Datahall 2 / $\\bf{Room\\ 1}$ (4 servers)",
             "_Room_1",
         ),
         "Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A12": (
-            "Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12 (2 servers)",
+            "Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / $\\bf{Rack\\ A12}$ (2 servers)",
             "_Rack_A12",
         ),
         "Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A13": (
-            "Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A13 (2 servers)",
+            "Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / $\\bf{Rack\\ A13}$ (2 servers)",
             "_Rack_A13",
         ),
     }
@@ -200,3 +228,46 @@ def test_auto_group_tree():
         "  Country_FR/Datacenter_PA99/Datahall_2/Room_1/Rack_A12     2 servers",
         "    SRV01, SRV01",
     ]
+
+
+def test_help_before_auto_traces(capsys):
+    """--help answers without searching the traces of --auto-traces: reading every archive delayed it."""
+    argv = ["hwgraph", "graph", "--auto-group", "--auto-traces", "runs::BMC.Server", "-h"]
+    with patch("sys.argv", argv), patch("graph.hwgraph.find_auto_traces") as find, pytest.raises(SystemExit):
+        main()
+    find.assert_not_called()
+    assert "--auto-traces" in capsys.readouterr().out
+
+
+def test_auto_group_racks_view(tmp_path, cdu_reboot, capsys):
+    """A place holding several racks renders their elevation side by side, a rack its own rack view."""
+    traces = []
+    for index, rack in enumerate(("A12", "A12", "A13", "A13")):
+        result = json.loads(json.dumps(cdu_reboot[index % 2])) | {
+            "location": LOCATION | {"path": [*PATH[:4], rack, str(index + 1)]}
+        }
+        path = tmp_path.joinpath(f"server-{index}.json")
+        path.write_text(json.dumps(result))
+        traces.append(Trace(str(path), f"server-{index}", "BMC.Server"))
+    tasks = _collect_auto_group_tasks(SimpleNamespace(traces=traces, verbose=False), tmp_path)
+    racks = [task_args for task, *task_args in tasks if task is hwgraph._task_racks]
+    assert {pathlib.Path(task_args[1]).name for task_args in racks} == {"Room_1"}
+    assert [name for name, _, _ in racks[0][4]] == ["Rack A12", "Rack A13"]
+    assert "racks view of 2 racks" in capsys.readouterr().out
+
+
+def test_group_without_the_skipped_jobs(tmp_path, cdu_reboot, capsys):
+    """A job a server skipped, like an AVX-512 one on a CPU without it, leaves the graphs of its groups, which add
+    up the samples of their servers, to the jobs they all ran: it no longer prevents them all."""
+    ran, skipped = (json.loads(json.dumps(result)) for result in cdu_reboot)
+    ran["bench"]["avx_0"] = ran["bench"]["full_cpu_load_0"] | {"job_name": "avx"}
+    skipped["bench"]["avx_0"] = {
+        key: value for key, value in skipped["bench"]["full_cpu_load_0"].items() if key != "monitoring"
+    } | {"job_name": "avx", "bogo ops/s": 0, "effective_runtime": 0, "skipped": True}
+    group = group_of(tmp_path, [ran, skipped])
+    assert group_problem(group) is None
+    assert group_benches(group) == ["avx_0", "full_cpu_load_0"]
+    assert group_benches(group, skipped=False) == ["full_cpu_load_0"]
+    tasks = _collect_auto_group_tasks(SimpleNamespace(traces=group.traces, verbose=False), tmp_path)
+    assert [task_args[0] for task, *task_args in tasks if task is hwgraph._task_group] == ["full_cpu_load_0"]
+    assert "not rendered" not in capsys.readouterr().out

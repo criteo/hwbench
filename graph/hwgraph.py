@@ -2,13 +2,21 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import copy
+import ctypes
+import io
+import itertools
+import multiprocessing
 import os
 import pathlib
 import pickle
 import re
 import shlex
+import signal
 import sys
+import tarfile
+import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from graph.graph import InvalidValue
@@ -19,13 +27,21 @@ from hwbench.bench.monitoring_structs import (
     MonitoringContextKeys,
     PowerConsumptionContextKeys,
 )
+from hwbench.environment import ashrae
 
 try:
-    from graph.auto_group import GROUP_DIRECTORY, LocationGroup, group_problem, location_groups
+    from graph.auto_group import (
+        GROUP_DIRECTORY,
+        LocationGroup,
+        group_benches,
+        group_problem,
+        liquid_cooled,
+        location_groups,
+    )
     from graph.auto_traces import AUTO_TRACES_FILE, find_auto_traces, print_contexts
     from graph.cdu import graph_cdu
     from graph.chassis import graph_chassis
-    from graph.common import fatal
+    from graph.common import DEFAULT_JOBS, fatal, progress
     from graph.graph import (
         TIMEOUTS,
         component_distribution_graph,
@@ -40,6 +56,8 @@ try:
         yerr_graph,
     )
     from graph.group import graph_group_env
+    from graph.rack import graph_rack, graph_racks, rack_positions
+    from graph.render_log import RenderLog
     from graph.scaling import performance_scaling_graph
     from graph.trace import (
         CPU_SCALING_UNIT,
@@ -47,11 +65,14 @@ try:
         Event,
         ScalingUnit,
         Trace,
+        config_differences,
         context_line,
+        convert_trace,
         location_header_line,
         shared_cdu_lines,
         shared_location_line,
     )
+    from graph.trace_cache import CACHE_DIRECTORY, remove_cache
     from graph.versus import (
         max_versus_graph,
         render_versus_scorecard,
@@ -77,23 +98,80 @@ except ImportError as exc:
 _pool_args = None
 
 
-def _init_pool_worker(args_data):
+# prctl() option of Linux sending a signal to a process when its parent dies
+PR_SET_PDEATHSIG = 1
+# The workers are the children of the main process, as die_with_parent() expects. Not forkserver, the
+# default since Python 3.14: its workers are the children of the fork server, which waits for them to exit.
+WORKERS_START_METHOD = "spawn"
+
+
+def die_with_parent(parent: int) -> None:
+    """Ask the kernel to kill this worker when the main process dies, killed for lack of memory or stopping
+    on an error: an orphan worker keeps waiting for a task forever, holding its memory."""
+    try:
+        ctypes.CDLL(None, use_errno=True).prctl(PR_SET_PDEATHSIG, signal.SIGKILL)
+    except (OSError, AttributeError):
+        # Not Linux: the workers end with the pool only
+        return
+    # The main process died before the request was made
+    if os.getppid() != parent:
+        os._exit(1)
+
+
+def _init_pool_worker(args_data, parent: int):
     """Initialize a worker process with shared data and matplotlib backend."""
     global _pool_args
+    die_with_parent(parent)
     _pool_args = pickle.loads(args_data)
     init_matplotlib(_pool_args)
 
 
-def _execute_pool_task(task):
-    """Execute a single graph generation task in a worker process."""
+def _execute_pool_task(task) -> tuple[int, str, str | None]:
+    """Execute a single graph generation task in a worker process: the number of graphs it rendered, what
+    it printed, kept in the log of the rendering instead of mixed with the progress bar, and why the
+    rendering must stop, None when it goes on."""
     func, *func_args = task
+    output = io.StringIO()
+    rendered = 0
+    abort = None
     try:
-        return func(*func_args)
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+            rendered = func(*func_args)
+    except KeyboardInterrupt:
+        raise
+    except SystemExit:
+        # A fatal() of a graph, its reason already printed: it stops its task, not the rendering
+        pass
+    except OSError as e:
+        # A graph that cannot be written, the disk being full for instance: the next ones would not be
+        # either. Sent as text, as an exception of cairo cannot be sent back to the main process.
+        abort = f"{type(e).__name__}: {e}"
+        output.write(f"Error generating graph: {abort}\n{traceback.format_exc()}")
+    except Exception as e:
+        output.write(f"Error generating graph: {e}\n{traceback.format_exc()}")
     finally:
         # The traces of a task are read again by the next one using them: a worker keeping the ones of
         # all its tasks would end up holding all of them
-        for trace in _pool_args.traces:
+        for trace in _pool_args.traces if _pool_args else []:
             trace.forget_content()
+    return rendered, output.getvalue(), abort
+
+
+def describe_task(args, task) -> tuple[str, str]:
+    """The job of a task, empty for the tasks of all the jobs, and the graphs it renders, for its log."""
+    func, *func_args = task
+    if func is _task_env_bench:
+        return func_args[1], f"environment of {args.traces[func_args[0]].get_name()}"
+    if func is _task_numa_distance:
+        return "", f"NUMA distances of {args.traces[func_args[0]].get_name()}"
+    if func in (_task_group, _task_rack, _task_racks):
+        kind = {_task_group: "group", _task_rack: "rack", _task_racks: "racks"}[func]
+        location = func_args[3] if len(func_args) > 3 else None
+        return func_args[0], f"{kind} {location_header_line(location)}" if location else kind
+    names = {_task_chassis: "chassis", _task_scaling: "performance scaling", _task_versus: "max versus"}
+    if func in names:
+        return func_args[0], names[func]
+    return "", "comparison reports"
 
 
 def _task_env_bench(trace_idx, bench_name, output_dir_str):
@@ -126,21 +204,36 @@ def _task_chassis(bench_name, output_dir_str):
     return graph_chassis(_pool_args, bench_name, pathlib.Path(output_dir_str))
 
 
+def group_args(trace_indexes, location):
+    """The arguments of the graphs of a group of --auto-group: they give the location of its place in their
+    header, even when its servers are in several racks, with the number of servers it holds, and the name
+    of the place in their file names."""
+    args = copy.copy(_pool_args)
+    args.traces = [_pool_args.traces[index] for index in trace_indexes]
+    group = LocationGroup(location, args.traces)
+    args.location = f"{location_header_line(location, emphasis=True)} ({len(args.traces)} servers)"
+    args.cdus = shared_cdu_lines(args.traces)
+    args.place_name = group.place_name()
+    return args
+
+
 def _task_group(bench_name, output_dir_str, trace_indexes=None, location=None):
     """Generate group graphs for a single bench, of all the traces or of a group found by --auto-group."""
-    global _pool_args
-    args = _pool_args
-    if trace_indexes is not None:
-        # The graphs of a group of --auto-group give the location of its place in their header,
-        # even when its servers are in several racks, with the number of servers it holds,
-        # and the name of the place in their file names
-        args = copy.copy(_pool_args)
-        args.traces = [_pool_args.traces[index] for index in trace_indexes]
-        group = LocationGroup(location, args.traces)
-        args.location = f"{location_header_line(location)} ({len(args.traces)} servers)"
-        args.cdus = shared_cdu_lines(args.traces)
-        args.place_name = group.place_name()
+    args = _pool_args if trace_indexes is None else group_args(trace_indexes, location)
     return graph_group_env(args, bench_name, pathlib.Path(output_dir_str))
+
+
+def _task_rack(bench_name, output_dir_str, trace_indexes, location, positions):
+    """Generate the rack graphs of a single bench, for a rack found by --auto-group."""
+    return graph_rack(group_args(trace_indexes, location), bench_name, pathlib.Path(output_dir_str), positions)
+
+
+def _task_racks(bench_name, output_dir_str, trace_indexes, location, racks):
+    """Generate the elevation of the racks of a place holding several of them, found by --auto-group: <racks>
+    gives the name, the trace indexes and the positions of each."""
+    args = group_args(trace_indexes, location)
+    loaded = [(name, [_pool_args.traces[index] for index in indexes], positions) for name, indexes, positions in racks]
+    return graph_racks(args, bench_name, pathlib.Path(output_dir_str), loaded)
 
 
 def _task_scaling(job, output_dir_str, traces_name):
@@ -182,18 +275,20 @@ def _collect_group_tasks(args, output_dir):
     output_dir = output_dir.joinpath(GROUP_DIRECTORY)
     for trace in args.traces:
         try:
-            metric = f"BMC/{PowerCategories.SERVER}"
             trace.first_bench().get_single_metric(
                 MonitoringContextKeys.PowerConsumption,
                 PowerConsumptionContextKeys.BMC,
                 PowerCategories.SERVER,
             )
-            metric = "CPU/package"
-            trace.first_bench().get_single_metric(
-                MonitoringContextKeys.PowerConsumption, PowerConsumptionContextKeys.CPU, "package"
-            )
         except KeyError:
-            fatal(f"group: missing '{metric}' monitoric metric in {trace.get_filename()}")
+            fatal(f"group: missing 'BMC/{PowerCategories.SERVER}' monitoric metric in {trace.get_filename()}")
+        # The power of the components the topology says cooled by a liquid, taken from the one of the server
+        _, missing = liquid_cooled(trace.first_bench(), trace.get_cooling())
+        if missing:
+            fatal(
+                f"group: missing '{missing[0]}' monitoric metric in {trace.get_filename()}, "
+                "the power of a component cooled by a liquid"
+            )
     print(f"group: rendering {len(args.traces[0].bench_list())} jobs")
     for bench_name in sorted(args.traces[0].bench_list()):
         tasks.append((_task_group, bench_name, str(output_dir)))
@@ -208,14 +303,48 @@ def _collect_auto_group_tasks(args, output_dir):
         return []
     tasks = []
     rendered = {}
+    # The racks, the places right above the positions of their servers, with their positions
+    racks = {}
     for group in groups:
-        problem = group_problem(group)
-        rendered[group.name()] = f"not rendered, {problem}" if problem else ""
-        if problem:
-            continue
+        positions, rack_problem = rack_positions(group.location.path, group.traces)
+        racks[group.name()] = (positions, rack_problem)
+    for group in groups:
         group_dir = output_dir.joinpath(GROUP_DIRECTORY, *group.directories())
         trace_indexes = [args.traces.index(trace) for trace in group.traces]
-        for bench_name in sorted(group.traces[0].bench_list()):
+        # A rack also renders its rack view
+        positions, rack_problem = racks[group.name()]
+        notes = [rack_problem] if rack_problem else ["rack view"] if positions else []
+        if positions:
+            for bench_name in group_benches(group):
+                tasks.append((_task_rack, bench_name, str(group_dir), trace_indexes, group.location, positions))
+        # A place holding several racks renders their elevation side by side
+        inner = [
+            other
+            for other in groups
+            if racks[other.name()][0]
+            and len(other.location.path) > len(group.location.path)
+            and other.location.path[: len(group.location.path)] == group.location.path
+        ]
+        if not positions and len(inner) > 1:
+            notes.append(f"racks view of {len(inner)} racks")
+            described = [
+                (
+                    other.location.places()[-1],
+                    [args.traces.index(trace) for trace in other.traces],
+                    racks[other.name()][0],
+                )
+                for other in inner
+            ]
+            for bench_name in group_benches(group):
+                tasks.append((_task_racks, bench_name, str(group_dir), trace_indexes, group.location, described))
+        problem = group_problem(group)
+        if problem:
+            notes.insert(0, f"not rendered, {problem}")
+        rendered[group.name()] = ", ".join(notes)
+        if problem:
+            continue
+        # The graphs of a group add up the samples of its servers: only the jobs they all ran
+        for bench_name in group_benches(group, skipped=False):
             tasks.append((_task_group, bench_name, str(group_dir), trace_indexes, group.location))
     print(f"auto-group: {len(groups)} places shared by several traces, in {GROUP_DIRECTORY}/:")
     print("\n".join(auto_group_tree(groups, rendered, args.verbose)))
@@ -305,15 +434,18 @@ def _collect_environment_tasks(args, output_dir):
 
     # Graphs below are per host
     host_output_dir = output_dir.joinpath("by_host")
+    # A job skipped by a host, like an AVX-512 one on a CPU without it, has no environment to render
+    host_benches = [
+        sorted(name for name, bench in trace.bench_list().items() if not bench.get("skipped")) for trace in args.traces
+    ]
     if not args.verbose:
-        jobs = sum(len(trace.bench_list()) for trace in args.traces)
+        jobs = sum(len(benches) for benches in host_benches)
         print(f"environment: rendering {jobs} jobs of {len(args.traces)} traces in {host_output_dir}")
-    for trace_idx, trace in enumerate(args.traces):
+    for trace_idx, (trace, benches) in enumerate(zip(args.traces, host_benches)):
         host_output_dir.joinpath(f"{trace.get_name()}").mkdir(parents=True, exist_ok=True)
-        benches = trace.bench_list()
         if args.verbose:
             print(f"environment: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})")
-        for bench_name in sorted(benches):
+        for bench_name in benches:
             tasks.append((_task_env_bench, trace_idx, bench_name, str(host_output_dir)))
         # One NUMA distance heatmap per host, not tied to any benchmark.
         tasks.append((_task_numa_distance, trace_idx, str(host_output_dir)))
@@ -366,42 +498,76 @@ def _collect_plot_tasks(args, output_dir):
 # ---------------------------------------------------------------------------
 
 
-def _execute_tasks(args, tasks):
+def _execute_tasks(args, tasks, output_dir: pathlib.Path):
     """Execute graph generation tasks, using multiprocessing when jobs > 1."""
     global _pool_args
     num_workers = max(1, min(args.jobs, len(tasks)))
     rendered_graphs = 0
 
+    log = RenderLog()
+
+    def done(completed: int, task, result: tuple[int, str, str | None]) -> str | None:
+        """Account for a task done, and tell why the rendering must stop, if it must."""
+        nonlocal rendered_graphs
+        rendered_graphs += result[0]
+        log.add(*describe_task(args, task), result[1])
+        progress("rendering", completed, len(tasks), f"tasks, {rendered_graphs} graphs")
+        return result[2]
+
+    abort = None
+
     if num_workers <= 1:
         # Single-process mode: execute tasks sequentially
         _pool_args = args
-        for task in tasks:
-            try:
-                rendered_graphs += _execute_pool_task(task)
-            except Exception as e:
-                print(f"Error generating graph: {e}")
+        for completed, task in enumerate(tasks, 1):
+            abort = done(completed, task, _execute_pool_task(task))
+            if abort:
+                break
     else:
         # Multi-process mode
         print(f"Rendering graphs using {num_workers} parallel workers for {len(tasks)} tasks")
         # The traces are sent without their content, see Trace.__getstate__(), and the main process
-        # drops it too while the workers render: the tasks read the traces they use again
+        # drops it too while the workers render: the tasks read the traces they use again, from the cache
         args_data = pickle.dumps(args, protocol=pickle.HIGHEST_PROTOCOL)
         for trace in args.traces:
             trace.forget_content()
         with ProcessPoolExecutor(
             max_workers=num_workers,
+            mp_context=multiprocessing.get_context(WORKERS_START_METHOD),
             initializer=_init_pool_worker,
-            initargs=(args_data,),
+            initargs=(args_data, os.getpid()),
         ) as pool:
-            futures = {pool.submit(_execute_pool_task, task): i for i, task in enumerate(tasks)}
+            futures = {pool.submit(_execute_pool_task, task): task for task in tasks}
             for completed, future in enumerate(as_completed(futures), 1):
                 try:
-                    rendered_graphs += future.result()
+                    result = future.result()
                 except Exception as e:
-                    print(f"Error generating graph (task {futures[future]}): {e}")
-                if completed % 10 == 0 or completed == len(tasks):
-                    print(f"Progress: {completed}/{len(tasks)} tasks completed ({rendered_graphs} graphs rendered)")
+                    # A worker dying, out of memory for instance, breaks the pool: no task can be done anymore
+                    result = (0, f"Error generating graph: {e}", f"{type(e).__name__}: {e}")
+                abort = done(completed, futures[future], result)
+                if abort:
+                    # Not waiting for the tasks left, nor for the ones running: their workers are stopped
+                    # Listed before the shutdown, which forgets them
+                    workers = list((getattr(pool, "_processes", None) or {}).values())
+                    pool.shutdown(wait=False, cancel_futures=True)
+                    for process in workers:
+                        process.terminate()
+                    break
 
+    # What the graphs printed, by job, in the output directory: only its summary on the console
+    log_file = log.write(output_dir)
+    if abort:
+        listed = f", the messages of the graphs are in {log_file}" if log_file else ""
+        fatal(
+            f"rendering aborted after {rendered_graphs} graphs: {abort}{listed}; the traces converted are kept "
+            f"in {output_dir.joinpath(CACHE_DIRECTORY)} for the next rendering in {output_dir}"
+        )
+    if log.errors or log.warnings:
+        print(f"rendering: {log.summary()}, listed in {log_file}")
+    elif log_file:
+        print(f"rendering: no warning nor error, the messages of the graphs are in {log_file}")
+    else:
+        print("rendering: no warning nor error")
     return rendered_graphs
 
 
@@ -419,18 +585,11 @@ def valid_trace_file(trace_arg: str) -> Trace:
             f"{trace_arg} does not match 'trace_filename:logical_name:power_metric' syntax"
         )
 
-    try:
-        trace = Trace(
-            match.group("filename"),
-            match.group("logical_name"),
-            match.group("power_metric"),
-        )
-        trace.validate()
-        return trace
-    except BaseException as e:
-        # Print validation failure and pass it on
-        print(f"Trace validation failure: {e}")
-        raise e
+    # The trace is read and validated when rendered, one trace at a time, from the cache of the
+    # output directory: see render_trace_set()
+    if not pathlib.Path(match.group("filename")).is_file():
+        raise argparse.ArgumentTypeError(f"{match.group('filename')} is not a valid file")
+    return Trace(match.group("filename"), match.group("logical_name"), match.group("power_metric"), load=False)
 
 
 def valid_events(event_arg: str) -> Event:
@@ -480,7 +639,7 @@ def render_traces(args: argparse.Namespace):
     """Render the trace files passed in arguments, or each context found by --auto-traces"""
     init_matplotlib(args)
     if not args.auto_traces:
-        render_trace_set(args, pathlib.Path(args.outdir))
+        render_and_remove_cache(args, pathlib.Path(args.outdir))
         return
 
     # The traces of each context are rendered in a subdirectory named after it, so the
@@ -489,7 +648,7 @@ def render_traces(args: argparse.Namespace):
         context_args = copy.copy(args)
         output_dir = pathlib.Path(args.outdir, auto_traces.output_directory_name())
         # A banner on the console separates the rendering of each context
-        banner = f"Context {index}/{len(args.auto_traces)}: {auto_traces.context}"
+        banner = f"Context {index}/{len(args.auto_traces)}: {auto_traces.context or 'none'}"
         print(f"\n{'=' * 80}\n{banner}\n{'=' * 80}")
         output_dir.mkdir(parents=True, exist_ok=True)
         # The traces found are listed in the output directory, and on the console only when verbose
@@ -500,17 +659,45 @@ def render_traces(args: argparse.Namespace):
             print("\n".join(description))
         else:
             print(
-                f"{len(auto_traces.traces)} traces of the context '{auto_traces.context}' "
+                f"{len(auto_traces.traces)} traces {auto_traces.label()} "
                 f"found in {auto_traces.directory}, listed in {traces_file}"
             )
         context_args.traces = auto_traces.traces
-        render_trace_set(context_args, output_dir)
+        render_and_remove_cache(context_args, output_dir)
+
+
+def render_and_remove_cache(args: argparse.Namespace, output_dir: pathlib.Path):
+    """Render the traces of args.traces in output_dir, then delete the cache of their conversion unless
+    --keep-cache: it takes about the size of the traces. A rendering stopping keeps it: running it again
+    in the same output directory reads the traces without converting them again."""
+    render_trace_set(args, output_dir)
+    if not args.keep_cache:
+        remove_cache(args.traces, output_dir.joinpath(CACHE_DIRECTORY))
 
 
 def render_trace_set(args: argparse.Namespace, output_dir: pathlib.Path):
     """Render the traces of args.traces in output_dir"""
     output_dir.mkdir(parents=True, exist_ok=True)
     write_cmdline(output_dir)
+    # The traces are read from now on from their conversion in the cache of the output directory, then
+    # validated, one at a time: the main process holds the content of a single trace
+    cache_directory = output_dir.joinpath(CACHE_DIRECTORY)
+    # Converting the traces of a fleet takes a while: the workers convert them, then the main process
+    # validates them in their order, which numbers the serials left unset
+    print(f"cache: preparing {len(args.traces)} traces in {cache_directory}")
+    filenames = [trace.get_filename() for trace in args.traces]
+    with ProcessPoolExecutor(max_workers=max(1, min(args.jobs, len(filenames)))) as pool:
+        conversions = pool.map(convert_trace, filenames, itertools.repeat(cache_directory))
+        for index, trace in enumerate(args.traces, 1):
+            try:
+                trace.use_cache(cache_directory, next(conversions))
+            except (ValueError, OSError, tarfile.TarError, EOFError) as e:
+                # Not waiting for the conversion of the other traces before stopping
+                pool.shutdown(cancel_futures=True)
+                fatal(f"Trace validation failure: {e}")
+            trace.validate()
+            trace.forget_content()
+            progress("cache", index, len(args.traces), "traces ready")
 
     # The context of the runs, given to hwbench with --context, gets its own line in the
     # header of every graph, under the line naming the benchmark: see context_header()
@@ -519,9 +706,10 @@ def render_trace_set(args: argparse.Namespace, output_dir: pathlib.Path):
         print(args.context)
     # The location the servers share goes in the headers of the graphs of several servers,
     # under the context: see location_header(); a single server gives its own under its serial
-    args.location = shared_location_line(args.traces) if len(args.traces) > 1 else None
+    # The graphs give its narrowest place in bold, the console as is
+    args.location = shared_location_line(args.traces, emphasis=True) if len(args.traces) > 1 else None
     if args.location:
-        print(args.location)
+        print(shared_location_line(args.traces))
     # So do the CDUs monitored with all the servers, under the location: see cdu_header()
     args.cdus = shared_cdu_lines(args.traces) if len(args.traces) > 1 else []
     for cdu in args.cdus:
@@ -554,7 +742,7 @@ def render_trace_set(args: argparse.Namespace, output_dir: pathlib.Path):
         print("No graphs to render")
         return
 
-    rendered_graphs = _execute_tasks(args, tasks)
+    rendered_graphs = _execute_tasks(args, tasks, output_dir)
     print(f"{rendered_graphs} graphs can be found in '{output_dir}' directory")
 
 
@@ -571,44 +759,53 @@ def generate_stats(args) -> None:
         print(
             f"stats: rendering {sum(len(trace.bench_list()) for trace in args.traces)} jobs of {len(args.traces)} traces"
         )
-    for trace in args.traces:
+    # The max of each power metric of all the traces: where it is reached, its benchmark and its value.
+    # The cores give a single line, a server holding hundreds of them.
+    max_power: dict[str, tuple[str, str, float]] = {}
+    for index, trace in enumerate(args.traces, 1):
         benches = trace.bench_list()
         if args.verbose:
             print(f"stats: rendering {len(benches)} jobs from {trace.get_filename()} ({trace.get_name()})")
-        max_power = {key: ("", 0.0) for key in PowerConsumptionContextKeys}
         for bench_name in sorted(benches):
             bench = trace.bench(bench_name)
-            for metric_name in PowerConsumptionContextKeys:
+            for context in PowerConsumptionContextKeys:
                 try:
-                    for m in [MonitoringContextKeys.PowerConsumption]:
-                        metrics = bench.get_component(m, metric_name)
-                        if metrics:
-                            for metric in metrics:
-                                # If a metric has no measure, let's ignore it
-                                if len(metrics[metric].get_samples()) == 0:
-                                    if args.verbose:
-                                        print(
-                                            f"{bench_name}: No samples found in {metric_name}.{metric}, ignoring metric."
-                                        )
-                                    continue
-                                else:
-                                    max_values = metrics[metric].get_max()
-                                    if max_values:
-                                        current_max = max(max_values)
-                                        if current_max > max_power[metric_name][1]:
-                                            max_power[metric_name] = (bench_name, float(current_max))
-                                            bench.get_metric_unit(m)
+                    metrics = bench.get_component(MonitoringContextKeys.PowerConsumption, context)
                 except KeyError:
                     continue
+                for metric, values in metrics.items():
+                    # If a metric has no measure, let's ignore it
+                    if len(values.get_samples()) == 0:
+                        if args.verbose:
+                            print(f"{bench_name}: No samples found in {context}.{metric}, ignoring metric.")
+                        continue
+                    max_values = values.get_max()
+                    if not len(max_values):
+                        continue
+                    core = metric.startswith("Core_")
+                    name = f"{context}.Core_*" if core else f"{context}.{metric}"
+                    where = f"{trace.get_name()} {metric}" if core else trace.get_name()
+                    current_max = float(max(max_values))
+                    if name not in max_power or current_max > max_power[name][2]:
+                        max_power[name] = (where, bench_name, current_max)
+        # Read one at a time, as by the rest of the main process: kept, the traces of a fleet fill the memory
+        trace.forget_content()
+        if not args.verbose:
+            progress("stats", index, len(args.traces), "traces read")
 
-    for metric in [MonitoringContextKeys.PowerConsumption]:
-        print(f"{str(metric):}")
-        for metric_name in PowerConsumptionContextKeys:
-            # Only report a max when data was actually found (a bench was recorded).
-            if max_power[metric_name][0]:
-                print(
-                    f"    {metric_name} max : {max_power[metric_name][1]:.2f} {bench.get_metric_unit(metric)} in {max_power[metric_name][0]}"
-                )
+    print(f"{MonitoringContextKeys.PowerConsumption}")
+    # Only report a max when data was actually found (a bench was recorded).
+    if not max_power:
+        return
+    # Aligned in columns: the metric, its value, its benchmark
+    name_width = max(len(name) for name in max_power)
+    value_width = max(len(f"{value:.2f}") for _, _, value in max_power.values())
+    bench_width = max(len(bench_name) for _, bench_name, _ in max_power.values())
+    unit = bench.get_metric_unit(MonitoringContextKeys.PowerConsumption)
+    for name, (where, bench_name, value) in max_power.items():
+        print(
+            f"    {name:<{name_width}} max : {value:>{value_width}.2f} {unit} in {bench_name:<{bench_width}} of {where}"
+        )
 
 
 def compare_traces(args) -> None:
@@ -624,7 +821,11 @@ def compare_traces(args) -> None:
         if args.traces[0].get_original_config() != trace.get_original_config():
             # If a trace is not having the same configuration file,
             # It's impossible to compare & graph the results.
-            fatal(f"{trace.filename} is not having the same configuration file as previous traces")
+            differences = config_differences(args.traces[0].get_original_config(), trace.get_original_config())
+            fatal(
+                f"{trace.filename} is not having the same configuration file as previous traces\n"
+                f"--- {args.traces[0].filename}\n+++ {trace.filename}\n" + "\n".join(differences)
+            )
         if trace.get_name() in names:
             fatal(f"{trace.filename} is using '{trace.get_name()}' as logical_name while it's already in use")
         else:
@@ -639,6 +840,7 @@ def graph_monitoring_metrics(args, trace: Trace, bench_name: str, output_dir) ->
             metrics = bench.get_component(MonitoringContextKeys.Monitor, metric_name)
         except KeyError:
             print(f"{bench_name}: {metric_name} metric is not present in trace file, skipping.")
+            continue
         if metrics:
             for metric in metrics:
                 # The timeouts are counts, rendered together by timeouts_graph()
@@ -951,13 +1153,14 @@ power_metric   : the name of a power metric, from the monitoring, to be used for
                  In order to know exeactly what metric names you can use for a given trace, use the "list" toplevel subcommand.
 """,
     )
+    # Searched after the parsing, see main(): reading every archive of the directory would delay --help
     traces_group.add_argument(
         "--auto-traces",
-        type=find_auto_traces,
         help="""Use the traces of a context, found in a directory.
 Syntax: <directory>:<context>:<power_metric>
 directory    : where the results.json and the hwbench-<serial>-<timestamp>.tar.xz archives are looked for, recursively
-context      : the context given to hwbench with --context, or empty (<directory>::<power_metric>) to render every context;
+context      : the context given to hwbench with --context, or empty (<directory>::<power_metric>) to render every context,
+               then the traces without context, together in the no_context subdirectory;
                the traces are named after their server, which must appear once in a context
 power_metric : the power metric of every trace, as for --traces
 The graphs of each context are rendered in a subdirectory of --outdir named after it, in ASCII, '_' replacing the spaces and the other characters.
@@ -1020,6 +1223,15 @@ A place holding the same traces as its single subplace is only rendered in the s
         action="store_true",
     )
     parser_graph.add_argument(
+        "--ashrae",
+        default="",
+        metavar="CLASSES",
+        help="""The ASHRAE classes the rack graphs color the temperatures against, separated by commas, at most one
+per family, like --ashrae A1,W40,S40: the air entering the servers (A1 to A4, H1), the facility water of the primary circuit
+of the CDUs (W17 to W+), the liquid of their secondary circuit (S30 to S50). They replace the classes the
+traces give, from the topology or from the sections of the CDUs.""",
+    )
+    parser_graph.add_argument(
         "--verbose",
         action="store_true",
         help="Enable verbose mode",
@@ -1032,11 +1244,16 @@ A place holding the same traces as its single subplace is only rendered in the s
         help="Replace a missing datapoint instead of stopping the rendering. Could be by a zero or the last known value.",
     )
     parser_graph.add_argument(
+        "--keep-cache",
+        action="store_true",
+        help=f"Keep the traces converted in <outdir>/{CACHE_DIRECTORY}, for the next renderings in the same directory",
+    )
+    parser_graph.add_argument(
         "--jobs",
         "-j",
         help="Number of parallel worker processes for graph generation (default: number of CPUs)",
         type=int,
-        default=os.cpu_count() // 2 or 1,
+        default=DEFAULT_JOBS,
     )
     parser_graph.set_defaults(func=render_traces)
 
@@ -1057,6 +1274,9 @@ A place holding the same traces as its single subplace is only rendered in the s
         metavar="DIRECTORY",
         help="""List the contexts of the traces found in a directory, with their traces.
 Example: hwgraph list --contexts runs
+  auto-traces: looking for the traces in runs
+  auto-traces: reading the 4 files found
+  auto-traces: 4/4 files read
   Contexts found in runs:
   bios-v1: 1 trace
     SRV01  runs/hwbench-out-20261022110000/results.json
@@ -1069,11 +1289,20 @@ Example: hwgraph list --contexts runs
     parser_list.set_defaults(func=list_metrics_in_trace)
 
     args = parser.parse_args(args=None if len(sys.argv) > 1 else ["--help"])
+    if args.func is render_traces and args.auto_traces:
+        args.auto_traces = find_auto_traces(args.auto_traces, args.jobs)
     # The traces found by --auto-traces are rendered next to them by default
     if args.func is render_traces and not args.outdir:
         if not args.auto_traces:
             parser_graph.error("the following arguments are required with --traces: --outdir")
         args.outdir = str(args.auto_traces[0].directory)
+
+    if args.func is render_traces:
+        # The classes of each family, replacing the ones of the traces, separated by commas as in the
+        # section of a CDU
+        args.ashrae, problems = ashrae.parse([name.strip() for name in args.ashrae.split(",") if name.strip()])
+        if problems:
+            parser_graph.error(f"--ashrae: {'; '.join(problems)}")
 
     # Call the appropriate sub command
     args.func(args)

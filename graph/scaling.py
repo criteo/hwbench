@@ -16,6 +16,7 @@ from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 from graph.common import cdu_header, context_header, location_header
 from graph.graph import (
     GRAPH_TYPES,
+    RANGE_BARS_NOTE,
     Graph,
     get_max_value_string_length,
     numa_aggregated_components,
@@ -1159,6 +1160,9 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                 pinned_err_source = None
                 # The raw performance graph gets an ideal linear-scaling overlay.
                 is_perf_graph = False
+                # The error bars of the per-core metrics go from the 5th percentile of their windows to the 95th,
+                # told under the graph
+                bars_note = None
                 if "perf_watt" in graph_type:
                     graph_type_title = f"Performance scaling {graph_type}: '{bench.get_title_engine_name()} / {args.traces[0].get_metric_name()}'"
                     y_label = f"{unit} per Watt"
@@ -1178,6 +1182,7 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                     err_source = aggregated_cpu_clock_err
                     pinned_y_source = aggregated_cpu_clock_pinned
                     pinned_err_source = aggregated_cpu_clock_pinned_err
+                    bars_note = RANGE_BARS_NOTE
                 elif "ipc" in graph_type:
                     graph_type_title = f"Performance scaling {graph_type}: {bench.get_title_engine_name()}"
                     outfile = f"scaling_cpu_ipc_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
@@ -1186,6 +1191,7 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                     err_source = aggregated_ipc_err
                     pinned_y_source = aggregated_ipc_pinned
                     pinned_err_source = aggregated_ipc_pinned_err
+                    bars_note = RANGE_BARS_NOTE
                 else:
                     graph_type_title = f"Performance scaling: {bench.get_title_engine_name()}"
                     outfile = f"scaling_{clean_perf}_{bench.get_title_engine_name().replace(' ', '_')}"
@@ -1230,6 +1236,9 @@ def performance_scaling_graph(args, output_dir, job: str, traces_name: list) -> 
                         ratio_note = scaling_unit.per_worker(logical_core_per_worker[0])
                         if ratio_note:
                             xlabel += f"\n{ratio_note}"
+                    if bars_note:
+                        # A blank line between the label of the axis and the note
+                        xlabel += f"\n\n{bars_note}"
 
                     graph = Graph(
                         args,

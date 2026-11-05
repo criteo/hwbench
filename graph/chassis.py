@@ -4,8 +4,8 @@ from typing import cast
 
 import numpy as np
 
-from graph.common import cdu_header, context_header, location_header
-from graph.graph import Graph, statistics_in_label
+from graph.common import bench_workers, datapoint, graph_header
+from graph.graph import WINDOW_STATISTICS_LEGEND, Graph, plot_windows, window_statistics_in_label
 from hwbench.bench.monitoring_structs import MonitoringContextKeys, PowerCategories, PowerConsumptionContextKeys
 
 # The components of a server: they are neither a server nor shared on the chassis.
@@ -34,9 +34,9 @@ def graph_chassis(args, bench_name, output_dir) -> int:
     # As all benchmarks are known to be equivalent,
     # let's pick the first one as reference
     bench = args.traces[0].bench(bench_name)
-    base_outfile = f"{bench_name} {bench.workers()}x{bench.engine()}_{bench.engine_module()}_{bench.engine_module_parameter()}_chassis"
+    # The name of the benchmark only: the workers of the first server do not tell the ones of the others
+    base_outfile = f"{bench_name}_chassis"
     y_label = "Watts"
-    title = f"{args.title}\n\nChassis power consumption during {bench_name} benchmark{context_header(args)}{location_header(args)}{cdu_header(args)}\n\n{bench.title()}"
 
     def get_marker(category: PowerCategories | str) -> str:
         # Handle string input by converting to enum
@@ -60,6 +60,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
     serverinchassis_serie = {}  # type: dict[str, list]
     # What does not change with the samples is computed once: loading a benchmark parses all its monitoring
     benches = {trace.get_name(): trace.bench(bench_name) for trace in args.traces}
+    title = graph_header(args, "Chassis power consumption", bench_name, bench, bench_workers(list(benches.values())))
     components = chassis_components(bench)
     psus = bench.get_psu_power()
     for sample in range(0, bench.get_samples_count()):
@@ -74,7 +75,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
                 sum_serie.setdefault(MonitoringContextKeys.PowerSupplies, [])
                 sum_serie_in_chassis.setdefault(MonitoringContextKeys.PowerSupplies, [])
 
-            value = 0
+            value = 0.0
             # We want to get the sum of servers/serversinchassis vs chassis
             if component in [PowerCategories.SERVER, PowerCategories.SERVERINCHASSIS]:
                 # so let's add all server's value from each trace
@@ -82,13 +83,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
                     pc = benches[trace.get_name()].get_single_metric(
                         MonitoringContextKeys.PowerConsumption, PowerConsumptionContextKeys.BMC, component
                     )
-                    if sample >= len(pc.get_mean()):
-                        print(
-                            f"Warning: {trace.get_name()}/{bench_name}: Missing sample {sample}, considering 0 watts."
-                        )
-                        server_power = 0
-                    else:
-                        server_power = pc.get_mean()[sample]
+                    server_power = datapoint(args, pc.get_mean(), sample, f"{trace.get_name()}/{bench_name}")
 
                     if trace.get_name() not in server_serie:
                         server_serie[trace.get_name()] = []
@@ -139,6 +134,7 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             y_label,
             outdir,
             f"time_watt_{base_outfile}_by_{graph_type!s}",
+            legend_title=WINDOW_STATISTICS_LEGEND,
         )
 
         if graph_type == PowerCategories.SERVERINCHASSIS:
@@ -158,15 +154,21 @@ def graph_chassis(args, bench_name, output_dir) -> int:
             curve_label = str(component)
             if component in [PowerCategories.SERVER, PowerCategories.SERVERINCHASSIS]:
                 curve_label = f"sum of {component!s}"
-            curve_label = statistics_in_label(curve_label, y_serie)
-            graph.get_ax().plot(
-                x_serie, y_serie, "", label=curve_label, marker=get_marker(cast(PowerCategories, component))
+            curve_label = window_statistics_in_label(curve_label, y_serie)
+            plot_windows(
+                graph.get_ax(),
+                x_serie,
+                y_serie,
+                "",
+                label=curve_label,
+                marker=get_marker(cast(PowerCategories, component)),
             )
 
         for trace in args.traces:
             y_serie = np.array(serie[trace.get_name()])[order]
-            y_label = statistics_in_label(trace.get_name() + label_caption, y_serie)
-            graph.get_ax().plot(
+            y_label = window_statistics_in_label(trace.get_name() + label_caption, y_serie)
+            plot_windows(
+                graph.get_ax(),
                 x_serie,
                 y_serie,
                 "",

@@ -131,6 +131,29 @@ hwgraph starts by checking that the traces can be compared, writes the
 and ends with `<n> graphs can be found in '<outdir>' directory`. It also writes the command
 line it was run with in `<outdir>/cmdline`, to regenerate the graphs later.
 
+While rendering, a progress bar counts the tasks done, and the graphs rendered, with the time left
+estimated from the speed of the tasks done so far (`ETA 4m12s`). What the graphs print,
+their warnings and their errors, goes in `<outdir>/rendering.log`, by job then by graph; the console
+gets only the number of errors and warnings, with the path of the log:
+
+```
+rendering: 2 errors, 15 warnings, listed in <outdir>/rendering.log
+```
+
+A graph failing, or stopping on an error, only stops its own task: the others are rendered. A graph
+that cannot be written, the disk being full for instance, or a worker dying, stops the rendering
+instead, the next graphs failing the same way:
+
+```
+Fatal: rendering aborted after <n> graphs: OSError: [Errno 28] No space left on device, the messages of the graphs are in <outdir>/rendering.log; the traces converted are kept in <outdir>/cache for the next rendering in <outdir>
+```
+
+The traces converted are kept when the rendering stops, whatever the reason: running it again with the same
+`--outdir` reads them without converting them again, then deletes them once the rendering is complete.
+
+The workers stop with the rendering, even when hwgraph is killed, for lack of memory for instance: none
+of them is left holding its memory.
+
 > 💡 **Good practice**
 >
 > Rendering hundreds of graphs takes a while. Start with `--format png --dpi 40`, a fast
@@ -157,11 +180,17 @@ without a `results.json` with `<trace_filename> does not contain a results.json`
 | Value | Effect |
 |---|---|
 | `<name>` | the name of the trace, like `baseline` |
-| empty, like `results.json::BMC.Server` | the serial number of the server, as hwbench read it in the DMI (`hardware.dmi.serial` of `results.json`); its hostname (`environment.kernel.nodename`) when the DMI gives none |
+| empty, like `results.json::BMC.Server` | the serial number of the server, as hwbench read it in the DMI (`hardware.dmi.serial` of `results.json`); its hostname (`environment.kernel.nodename`) when the DMI has no serial |
 | `CPU` | the model of the processor, with the number of sockets when there are several, like `1 x AMD EPYC 8534P 64-Core`; it must be unique over all the traces |
 
 A trace without serial number nor hostname must be given a name: hwgraph stops with
 `<trace_filename>: no serial number nor hostname to name the trace, please give a logical_name`.
+
+A serial the DMI left unset, of the server or of its chassis, is replaced when the trace is loaded by
+`invalid_serial_<N>`, `N` counting the servers having one by order of loading: an empty serial, one made of
+dots only, like the `............` of the Intel Avenue City servers, or `To Be Filled By O.E.M.`, whatever its case.
+hwgraph prints `<trace_filename>: invalid serial '<serial>', replaced by invalid_serial_<N>`, or
+`invalid chassis serial`. The replacement names the trace and its directories, and appears in the titles.
 
 The name becomes a directory of the [output tree](#output-tree), so keep it short and
 without spaces. Two traces with the same name stop hwgraph with
@@ -197,7 +226,17 @@ follow the question of the study.
 The first trace is the **reference**: the comparisons are expressed relative to it. To be
 compared, the traces must come from the **same job file**: hwgraph compares the `config`
 section of each `results.json` to the first one, and stops with
-`<trace_filename> is not having the same configuration file as previous traces` when they differ.
+`<trace_filename> is not having the same configuration file as previous traces` when they differ,
+followed by their differences, job by job, `-` from the reference and `+` from the trace:
+
+```
+Fatal: runs/hwbench-SRV02-20261029163702.tar.xz is not having the same configuration file as previous traces
+--- runs/hwbench-SRV01-20261029154210.tar.xz
++++ runs/hwbench-SRV02-20261029163702.tar.xz
+  [cpu]
+- engine_module_parameter=int128,float,matrixprod
++ engine_module_parameter=int128,fft,matrixprod
+```
 
 The number of benchmarks may differ: as explained in [concepts.md](concepts.md), hwgraph
 groups the benchmarks by their `job_name`, so a machine with fewer cores, which expanded the
@@ -228,6 +267,9 @@ uv run hwgraph list --contexts runs
 ```
 
 ```
+auto-traces: looking for the traces in runs
+auto-traces: reading the 4 files found
+auto-traces: 4/4 files read
 Contexts found in runs:
 bios-v1: 1 trace
   SRV01  runs/hwbench-out-20261022110000/results.json
@@ -236,6 +278,10 @@ bios-v2: 2 traces
   SRV02  runs/other/hwbench-out-20261022121000/results.json
 1 trace without context
 ```
+
+The files read are counted every 10 files, as above when the output is a file or a journal; on a
+terminal, a bar drawn again in place replaces these lines, like the one of the conversion of the
+traces in the cache before a rendering.
 
 `graph --auto-traces <directory>:<context>:<power_metric>` replaces `--traces` with the traces
 of a context, which is convenient after a series of runs:
@@ -246,15 +292,15 @@ uv run hwgraph graph --auto-traces runs:bios-v2:BMC.Server
 
 | Rule | Effect |
 |---|---|
-| where | the `results.json` and the `hwbench-<serial>-<timestamp>.tar.xz` archives of the directory and of its subdirectories |
+| where | the `results.json` and the `.tar.xz` archives holding a `results.json`, whatever their name, of the directory and of its subdirectories |
 | an archive next to its output directory | the same run: only the archive is used |
 | a file that is not a trace of hwbench | ignored: `auto-traces: ignoring <file>: not a trace of hwbench` |
 | the context | the exact text given to hwbench; it runs from the first to the last `:`, so it can hold a `:`; quote the value when it holds a space: `--auto-traces "runs:bios tuning:BMC.Server"` |
-| an empty context: `<directory>::<power_metric>` | every context of the directory is rendered, one after the other, each in its own output directory; the traces without context are not rendered |
+| an empty context: `<directory>::<power_metric>` | every context of the directory is rendered, one after the other, each in its own output directory, then the traces without context, together in `<outdir>/no_context/` |
 | the name of each trace | its [server](#logical_name), as with an empty `logical_name` |
-| a server found several times in the context | stops hwgraph: `<serial> is found <n> times with the context '<context>': <files>` |
+| a server found several times in the context | stops hwgraph: `<serial> is found <n> times with the context '<context>': <files>`, or `<serial> is found <n> times without context: <files>` |
 | no trace in the context | stops hwgraph: `no trace with the context '<context>' in <directory>, contexts found: <contexts>` |
-| two contexts giving the same output directory | stops hwgraph: `the contexts '<context>', '<context>' are all rendered in the directory <name>` |
+| two contexts giving the same output directory | stops hwgraph: `the contexts '<context>', '<context>' are all rendered in the directory <name>`; a context like `no context` collides with the traces without context |
 | the output directory | `<outdir>/<context>/`, `<outdir>` being the directory of the traces when `--outdir` is not given; the context is written in ASCII: accents removed, `_` replacing the spaces and the other characters, so `bios tuning` renders in `runs/bios_tuning/` |
 
 The renderings of several contexts can then share the same `--outdir`.
@@ -306,9 +352,11 @@ Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12 / Positi
 The graph of four servers of the rack `A12`, and the executive summary describing one of them:
 
 ```
-Sum of servers power consumption during full_cpu_load_0 benchmark
+Distribution of the power consumption during full_cpu_load_0 benchmark
 Location: Country FR / Datacenter PA99 / Datahall 2 / Room 1 / Rack A12
 ```
+
+In the graphs of several servers, the narrowest place of the line, here `Rack A12`, is drawn in bold.
 
 ```
 server-1 (ref):
@@ -350,6 +398,7 @@ with, only when they are the same for all of them. hwgraph prints them on the co
 | `--traces` | one or several [traces](#trace-files) | mandatory, unless `--auto-traces` is given |
 | `--auto-traces` | `<directory>:<context>:<power_metric>` | [the traces of a context](#context-of-the-runs), found in a directory, instead of `--traces` |
 | `--outdir` | a directory | where the [output tree](#output-tree) is written, created when it does not exist; mandatory with `--traces`, the directory of the traces by default with `--auto-traces`, which renders in [a subdirectory named after the context](#context-of-the-runs) |
+| `--keep-cache` | flag | keeps the traces converted for the rendering in `<outdir>/cache/`, about the size of the traces, so that the next renderings in the same directory read them without converting them again; deleted after a complete rendering otherwise: a rendering stopping keeps it, for the next one to start faster |
 | `--no-env` | flag | does not render the [environment graphs](hwgraph-environment.md) |
 | `--no-scaling` | flag | does not render the [scaling graphs](hwgraph-scaling.md) |
 | `--no-versus` | flag | does not render the [max versus graphs](hwgraph-versus.md#max-versus) and the [comparison reports](hwgraph-versus.md#traces-comparison-reports) |
@@ -362,7 +411,8 @@ with, only when they are the same for all of them. hwgraph prints them on the co
 | `--events` | `<event_name>:<start_time>:<duration>` | [marks periods on the time graphs](#events) |
 | `--same-chassis` | flag | all the traces are servers of the same chassis: [chassis graphs](hwgraph-environment.md#per-chassis) |
 | `--same-group` | flag | all the traces are a group of servers: [group graphs](hwgraph-environment.md#per-group) |
-| `--auto-group` | flag | the group graphs of each place of the location shared by several traces: [groups of the location](hwgraph-environment.md#groups-of-the-location); not with `--same-group` |
+| `--auto-group` | flag | the group graphs of each place of the location shared by several traces: [groups of the location](hwgraph-environment.md#groups-of-the-location), and the [rack view](hwgraph-environment.md#rack-view) of each rack; not with `--same-group` |
+| `--ashrae` | ASHRAE classes separated by commas, at most one per family, like `A1,W32,S30` | the classes the rack view colors the inlet, the exhaust and the supplies of the CDUs against, over the ones of the traces: [colors of the rack view](hwgraph-environment.md#colors); an unknown class, or two of a family, stop hwgraph: `--ashrae: 'A1', 'A2' are classes of the same family, one per family` |
 | `--ignore-missing-datapoint` | `zero`, `last`, default not set | [replaces the missing data points](#missing-data-points) instead of stopping |
 | `--jobs`, `-j` | integer, default half the CPUs of the host | the number of worker processes rendering the graphs; with 1, the graphs are rendered one after the other |
 | `--verbose` | flag | prints more information, like the metrics without samples that are skipped, the traces of a context, a line per trace for the stats, the environment graphs and the benchmarks summaries, and the servers of each group of `--auto-group` |
@@ -415,6 +465,8 @@ Everything is written under `--outdir`, or under `<outdir>/<context>/` with [`--
 <outdir>/
 ├── cmdline                       the command line of this rendering
 ├── auto_traces.txt               with --auto-traces: the traces used
+├── cache/                        with --keep-cache, or after a rendering stopping: the traces converted, reused by the next renderings in this directory
+├── rendering.log                 what the graphs printed, by job then by graph, when they printed anything
 ├── environment/
 │   ├── by_host/
 │   │   └── <logical_name>/
@@ -423,7 +475,9 @@ Everything is written under `--outdir`, or under `<outdir>/<context>/` with [`--
 │   │       └── <benchmark>/<metric>/…
 │   └── by_chassis/chassis/       with --same-chassis, or all the traces of a same chassis
 ├── by_group/                     with --same-group
-│   └── <place>/…/<place>/        with --auto-group: one subdirectory per place of the location
+│   └── <place>/…/<place>/        with --auto-group: one subdirectory per place of the location,
+│                                 with the rack_* graphs of a rack, and the racks_elevation_*
+│                                 graph of a place holding several racks
 ├── scaling/                      performance of a job along its scaling steps
 │   ├── perf/ perf_watt/ watts/ cpu_clock/ cpu_ipc/ cpu_core_power/
 │   └── summary/
@@ -446,7 +500,8 @@ The images of these pages are rendered from a [reference dataset](example/README
 
 # Missing data points
 The monitoring may miss a sample, for instance when a sensor did not answer in time.
-When a metric has fewer samples than the benchmark, hwgraph stops:
+When a metric has fewer samples than the benchmark, the graphs of that benchmark stop, with an
+error in `rendering.log`:
 
 ```
 Fatal: <trace>/<benchmark>: <metric> is missing the 4th data point. Use --ignore-missing-datapoint to ignore this case. Generated graphs will be partially incorrect.
@@ -454,7 +509,7 @@ Fatal: <trace>/<benchmark>: <metric> is missing the 4th data point. Use --ignore
 
 | Value | Effect |
 |---|---|
-| not set (default) | stops at the first missing data point |
+| not set (default) | stops the graphs of the benchmark at the first missing data point |
 | `zero` | replaces the missing data point by 0 |
 | `last` | replaces it by the last known value |
 
@@ -490,9 +545,20 @@ Fatal: <trace>/<benchmark>: <metric> is missing the 4th data point. Use --ignore
   resolves `--auto-traces` into one `AutoTraces` per context; `render_traces()` renders each with
   `render_trace_set()`, in the subdirectory of `--outdir` named by `output_directory_name()`.
 - **Graphs**: `graph/graph.py`. `Graph` wraps a matplotlib figure and its legend;
-  `generic_graph()` and `yerr_graph()` draw the time graphs, `numa_*` the NUMA ones.
+  `generic_graph()` and `yerr_graph()` draw the time graphs, `numa_*` the NUMA ones; the curves over
+  time are drawn by `plot_windows()`, their `warm_up()` faded, and labeled by
+  `window_statistics_in_label()`.
 - **Environment**: `graph/chassis.py` (`graph_chassis()`) and `graph/group.py`
   (`graph_group_env()`); the per-host graphs are `graph_*()` in `hwgraph.py`.
+- **Rack view**: `graph/rack.py`. `rack_positions()` tells whether a group of `--auto-group` is
+  a rack, `load_rack()` reads the metrics of `RACK_METRICS` and the CDUs of `rack_cdus()` once per
+  benchmark, `place_nodes()` lays the servers out in the height of their chassis, and
+  `graph_rack()` renders the profiles of `graph_rack_panels()` and the elevations of
+  `graph_rack_elevation()`, and `graph_racks()` the elevation of the racks of a place,
+  `graph_racks_elevation()`, each rack loaded by `load_racks()`; the heights come from `heights()` of `hwbench/environment/dmi.py`.
+  `cell_scale()` gives the colors of a cell, `inlet_colormap()` and `exhaust_colormap()` for the
+  air of a server of an ASHRAE class, and `circuit_style()` the ones of a circuit of a CDU, from
+  the `LIMITS` of `hwbench/environment/ashrae.py`.
 - **Performance**: `graph/scaling.py` (`performance_scaling_graph()` and the `render_*()`
   functions of the distributions) and `graph/versus.py` (`max_versus_graph()`,
   `write_scaling_comparison()`, `write_scaling_step_comparisons()`,
