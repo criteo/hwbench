@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import pathlib
 import pickle
 from concurrent.futures import ProcessPoolExecutor
 from types import SimpleNamespace
@@ -450,3 +451,29 @@ def test_aggregate_cpu_clock_of_the_pinned_cores():
     low, high = np.percentile(pooled, 5), np.percentile(pooled, 95)
     assert clock_err == [(pytest.approx(max(drawn.mean() - low, 0)), pytest.approx(max(high - drawn.mean(), 0)))]
     assert clock[0] - clock_err[0][0] > 1000.0
+
+
+def avx_trace(path, skipped: bool) -> Trace:
+    """A trace of the reference dataset with an AVX-512 job, before its other job, skipped as on a CPU without it."""
+    result = json.loads(pathlib.Path("documentation/example/traces/cdu_comparison.json").read_text())
+    avx = result["bench"]["cpu_17"] | {
+        "job_name": "avx",
+        "engine_module": "vnni",
+        "engine_module_parameter": "avx_vpaddb512",
+    }
+    if skipped:
+        # As hwbench writes a skipped job: neither performance nor monitoring
+        avx = {key: value for key, value in avx.items() if key != "monitoring"}
+        avx |= {"bogo ops/s": 0, "effective_runtime": 0, "skipped": True}
+    result["bench"]["avx_0"] = avx
+    path.write_text(json.dumps(result))
+    return Trace(str(path), path.stem, "BMC.Server")
+
+
+def test_first_bench_not_skipped(tmp_path):
+    """The monitoring of a trace is checked on its first job run, not on a job skipped before it."""
+    trace = avx_trace(tmp_path / "skipped.json", skipped=True)
+    trace.validate()
+    assert trace.first_bench().get_bench_name() == "cpu_17"
+    assert trace.bench("avx_0").skipped()
+    assert trace.bench("avx_0").get_monitoring() == {}

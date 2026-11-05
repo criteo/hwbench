@@ -70,6 +70,10 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                         aggregated_perfs_watt[perf][bench.workers()] = [0] * len(traces_name)
                         aggregated_watt[perf][bench.workers()] = [0] * len(traces_name)
                         aggregated_cpu_clock[perf][bench.workers()] = [0] * len(traces_name)
+                    if bench.skipped():
+                        # Neither performance nor monitoring: the zeros of the trace stay
+                        max_workers[perf][index] = -1
+                        continue
                     bench.add_perf(
                         perf,
                         aggregated_perfs[perf][bench.workers()],
@@ -82,8 +86,6 @@ def max_versus_graph(args, output_dir, job: str, traces_name: list) -> int:
                         index=index,
                     )
 
-                    if bench.skipped():
-                        max_workers[perf][index] = -1
                     temp_max_perf = aggregated_perfs[perf][bench.workers()][index]
                     if temp_max_perf > max_perf[perf][index]:
                         max_perf[perf][index] = temp_max_perf
