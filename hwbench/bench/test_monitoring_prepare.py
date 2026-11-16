@@ -45,6 +45,30 @@ def test_bmc_initialize_without_metrics():
         initialized(SilentBMC)
 
 
+class BootingBMC(ConnectedBMC):
+    """A BMC listing its chassis only from its second answer, giving its thermal sensors with them."""
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.chassis_answers = 0
+
+    def get_redfish_url(self, url, log_failure=True):
+        if url != "/redfish/v1/Chassis":
+            return {}
+        self.chassis_answers += 1
+        return {"Members": [{"@odata.id": "/redfish/v1/Chassis/1"}]} if self.chassis_answers > 1 else {}
+
+    def read_thermals(self, thermals):
+        return super().read_thermals(thermals) if self._get_chassis() else thermals
+
+
+def test_bmc_detected_again_on_each_attempt():
+    """A BMC answering no chassis to an attempt is detected again by the next one."""
+    bmc = BootingBMC(None, MockVendor(None, None))
+    until_ready(bmc, [0], time.monotonic() + 60, Event())
+    assert bmc.chassis_answers == 2
+
+
 class Device(MonitoringDevice):
     """A device answering the attempts listed in <answers>: None when ready, the exception it raises otherwise."""
 
