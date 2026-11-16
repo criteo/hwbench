@@ -21,7 +21,8 @@ class Vendor(ABC):
         self.pdus: list[PDU] = []
         self.cdus: list[CDU] = []
         self.monitoring_config_filename = monitoring_config_filename
-        self.monitoring_config_file: configparser.ConfigParser
+        # Empty without environment file: the settings of the monitoring take their default values
+        self.monitoring_config_file = configparser.ConfigParser(allow_no_value=True, interpolation=None)
 
     @abstractmethod
     def detect(self) -> bool:
