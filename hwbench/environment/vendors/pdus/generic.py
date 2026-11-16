@@ -42,8 +42,11 @@ class Generic(PDU):
             outlet = self.get_power_outlet(url)
             if self.timeouts > timeouts_before:
                 raise DeviceNotReady(f"{self.get_url()}{url} did not answer in time")
-            if not outlet or "ErrorDescription" in outlet:
+            if self.is_missing(url) or "ErrorDescription" in outlet:
                 raise DeviceError(f"Cannot get outlet from url {self.get_url()}{url}, please check its name: {outlet}")
+            if not outlet:
+                # An error, or nothing, but not a missing outlet: a PDU starting may answer a later attempt
+                raise DeviceNotReady(f"{self.get_url()}{url} gave no outlet")
             if outlet.get("PowerWatts", {}).get("Reading") is None:
                 raise DeviceError(
                     f"Outlet for {self.get_url()} does not expose power metrics: {outlet}\noutlet={self.outlet}, outletgroup={self.outletgroup}"

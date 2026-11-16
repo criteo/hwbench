@@ -168,7 +168,8 @@ def test_redfish_url_must_be_https():
 
 
 def pdu_answering(answers: dict) -> Generic:
-    """A PDU on outlets 1 and 2, answering <answers> by url; an absent url does not answer in time."""
+    """A PDU on outlets 1 and 2, answering <answers> by url, a body or a (status, body); an absent url does not
+    answer in time."""
     pdu = Generic(MockVendor(None, None), "PDU_outlet")
     pdu.outlet = "1,2"
     root = "/redfish/v1/PowerEquipment/RackPDUs/1/"
@@ -177,7 +178,8 @@ def pdu_answering(answers: dict) -> Generic:
         if url not in answers:
             # What python-redfish-library gives a single attempt not answered
             return None
-        return type("Answer", (), {"dict": answers[url]})
+        status, body = answers[url] if isinstance(answers[url], tuple) else (200, answers[url])
+        return type("Answer", (), {"status": status, "dict": body})
 
     pdu.redfish_obj = type("Client", (), {"get": staticmethod(get)})
     answers.setdefault(root, {})
@@ -207,9 +209,17 @@ def test_pdu_not_answering_skips_the_reading():
             "https://pdu/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/2 did not answer in time",
         ),
         (
-            {f"{OUTLETS}1": OUTLET, f"{OUTLETS}2": {}},
+            {f"{OUTLETS}1": OUTLET, f"{OUTLETS}2": (404, {"error": {"code": "Base.1.8.ResourceMissingAtURI"}})},
             DeviceError,
             "Cannot get outlet from url https://pdu/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/2, please check its name: {}",
+        ),
+        (
+            {
+                f"{OUTLETS}1": OUTLET,
+                f"{OUTLETS}2": (503, {"error": {"code": "Base.1.8.ServiceTemporarilyUnavailable"}}),
+            },
+            DeviceNotReady,
+            "https://pdu/redfish/v1/PowerEquipment/RackPDUs/1/Outlets/2 gave no outlet",
         ),
         (
             {f"{OUTLETS}1": OUTLET, f"{OUTLETS}2": {"Id": "2"}},
@@ -217,11 +227,11 @@ def test_pdu_not_answering_skips_the_reading():
             "Outlet for https://pdu does not expose power metrics: {'Id': '2'}",
         ),
     ],
-    ids=["timeout", "unknown outlet", "no power"],
+    ids=["timeout", "unknown outlet", "starting", "no power"],
 )
 def test_pdu_outlets_checked_at_startup(answers, kind, error):
-    """The configuration of the outlets is checked when the PDU is detected: an outlet not answering in time
-    may answer a later attempt, a wrong outlet never will."""
+    """The configuration of the outlets is checked when the PDU is detected: an outlet not answering in time, or
+    answering an error while the PDU starts, may answer a later attempt, a wrong outlet never will."""
     pdu = pdu_answering(answers)
     with patch.object(Generic, "get_url", return_value="https://pdu"), pytest.raises(DeviceError) as raised:
         pdu.detect()
