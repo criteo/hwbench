@@ -199,6 +199,8 @@ class RedfishDevice(MonitoringDevice):
         self.timeouts = 0
         # The urls whose last request was not answered in time
         self.unanswered_urls: set[str] = set()
+        # The urls whose last request was answered they do not exist (HTTP 404)
+        self.missing_urls: set[str] = set()
 
     def __del__(self):
         if self.logged:
@@ -210,6 +212,12 @@ class RedfishDevice(MonitoringDevice):
     def did_not_answer(self, url: str) -> bool:
         """Return True if the last request of <url>, cached or not, was not answered in time."""
         return url in self.unanswered_urls
+
+    def is_missing(self, url: str) -> bool:
+        """Return True if the last request of <url>, cached or not, was answered it does not exist.
+
+        Unlike an error of a device starting, like a 503, a later attempt will get the same answer."""
+        return url in self.missing_urls
 
     def connect_redfish(self, username: str, password: str, device_url: str):
         try:
@@ -274,6 +282,10 @@ class RedfishDevice(MonitoringDevice):
             response = self.redfish_obj.get(url, None, max_retry=0)
             if response is None:
                 raise redfish.rest.v1.RetriesExhaustedError()
+            if getattr(response, "status", None) == 404:
+                self.missing_urls.add(url)
+            else:
+                self.missing_urls.discard(url)
             content = response.dict
             self.unanswered_urls.discard(url)
             # Let's ignore errors and return empty objects
