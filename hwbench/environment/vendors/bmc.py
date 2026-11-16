@@ -130,8 +130,21 @@ class BMC(RedfishDevice, External):
     def get_retry_delays(self) -> list[int]:
         return retry_delays(self.vendor.monitoring_config_file, "BMC", self.get_section())
 
+    def _forget_detection(self):
+        """Forget what was detected of the BMC, cached for the whole run.
+
+        A BMC still booting may answer an empty collection, or nothing: the next attempt of
+        initialize() detects it again rather than failing on what the previous one cached.
+        """
+        for name in dir(type(self)):
+            clear = getattr(getattr(type(self), name, None), "cache_clear", None)
+            if callable(clear):
+                clear()
+        self.expand_works.clear()
+
     def initialize(self, contexts: MonitoringContexts) -> None:
         """Connect the BMC, when it is not yet, detect it and read it once."""
+        self._forget_detection()
         if not self.logged:
             self.connect_redfish()
         self.detect()
