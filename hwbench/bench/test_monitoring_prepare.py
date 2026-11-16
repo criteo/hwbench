@@ -10,6 +10,7 @@ import pytest
 
 from hwbench.bench.monitoring import Monitoring, until_ready
 from hwbench.bench.monitoring_structs import MonitoringContexts, MonitoringData
+from hwbench.environment.vendors.generic import GenericVendor
 from hwbench.environment.vendors.mock import MockedBMC, MockVendor
 from hwbench.environment.vendors.monitoring_device import DeviceError, DeviceNotReady, MonitoringDevice
 from hwbench.utils import helpers as h
@@ -186,6 +187,17 @@ def test_prepare():
     flaky = Device("PDU rack", [0], DeviceNotReady("timeout"), None)
     prepare("[monitoring]\n", Device("BMC", [0], None), flaky)
     assert flaky.calls == 2
+
+
+def test_prepare_without_environment_file():
+    """Without environment file, the BMC of an unknown vendor, mocked, starts with the default settings."""
+    vendor = GenericVendor(None, None, None)
+    vendor.prepare()
+    monitor = Monitoring.__new__(Monitoring)
+    monitor.metrics = MonitoringData()
+    monitor.vendor = vendor
+    monitor.devices = lambda: [vendor.get_bmc()]
+    monitor.prepare()
 
 
 def test_prepare_stops_on_a_device_misconfigured(caplog):
