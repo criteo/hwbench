@@ -13,6 +13,7 @@ from .block_devices import Block_Devices
 from .cpu import CPU
 from .dmi import DmidecodeRaw, DmiSys
 from .lspci import Lspci, LspciBin
+from .network import dump_network
 from .nvme import Nvme
 from .vendors.detect import first_matching_vendor
 from .vendors.vendor import Vendor
@@ -24,7 +25,7 @@ def check_requirements() -> list[Exception]:
     does not yet properly support detecting all required binaries.
     """
     problems: list[Exception] = []
-    for binary in ["lspci", "ipmitool", "dmidecode", "nvme", "smartctl", "sdparm"]:
+    for binary in ["lspci", "ipmitool", "dmidecode", "nvme", "smartctl", "sdparm", "ip", "ethtool"]:
         if not helpers.is_binary_available(binary):
             problems.append(MissingBinary(binary))
     return problems
@@ -73,6 +74,7 @@ class Hardware(BaseHardware):
         if list_gpus():
             AllSMI(out_dir).run()
         External_Simple(self.out_dir, ["ipmitool", "sdr"], "ipmitool-sdr")
+        dump_network(out_dir)
 
     def dump(self) -> dict[str, str | int | None | dict]:
         dump = {
