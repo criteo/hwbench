@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import configparser
+import json
+import logging
 import os
+import time
 from abc import ABC, abstractmethod
+from collections.abc import Callable
+from threading import Event
 
 from hwbench.utils import helpers as h
 
 from .bmc import BMC
 from .cdu import CDU
 from .cdus import init as init_cdu
-from .monitoring_device import section_value
+from .monitoring_device import DeviceError, init_timeout, redact_secrets, retry_until_ready, section_value
 from .pdu import PDU
 
 
@@ -21,7 +26,10 @@ class Vendor(ABC):
         self.pdus: list[PDU] = []
         self.cdus: list[CDU] = []
         self.monitoring_config_filename = monitoring_config_filename
-        self.monitoring_config_file: configparser.ConfigParser
+        # Empty without environment file: the settings of the monitoring take their default values
+        self.monitoring_config_file = configparser.ConfigParser(allow_no_value=True, interpolation=None)
+        # Why save_redfish_config() could not connect to the BMC, not to wait for it again
+        self.redfish_config_error: DeviceError | None = None
 
     @abstractmethod
     def detect(self) -> bool:
@@ -77,6 +85,44 @@ class Vendor(ABC):
             return self.bmc
         else:
             h.fatal("No bmc is configured")
+
+    def save_redfish_config(self, filename: str, read: Callable[[BMC], dict]):
+        """Save in filename of the out dir, as json, what read() returns from the BMC, its secrets redacted.
+
+        It runs before the monitoring connects to the BMC: the session opened
+        here is closed once saved, not to leave one behind on the BMC.
+        """
+        bmc = self.bmc
+        # No BMC in the environment file, nothing to read from
+        if not bmc or not bmc.bmc_section:
+            return
+        connected = bmc.logged
+        if not connected:
+            # A BMC not answering is not waited for again by the next configuration to save
+            if self.redfish_config_error is None:
+                # A BMC busy refuses connections for a few seconds: tried again like the monitoring does
+                deadline = time.monotonic() + init_timeout(self.monitoring_config_file)
+                try:
+                    retry_until_ready("BMC", bmc.connect_redfish, bmc.get_retry_delays(), deadline, Event())
+                except DeviceError as error:
+                    self.redfish_config_error = error
+            if self.redfish_config_error:
+                # The monitoring tries again a BMC not ready, and stops hwbench on a BMC misconfigured
+                logging.error(f"BMC: {self.redfish_config_error}, {filename} is not saved")
+                return
+        try:
+            self.out_dir.joinpath(filename).write_text(json.dumps(redact_secrets(read(bmc)), indent=2))
+        finally:
+            if not connected:
+                bmc.disconnect_redfish()
+
+    def save_redfish_bios_config(self):
+        """Save the BIOS configuration, read through Redfish, in bios-config.json."""
+        self.save_redfish_config("bios-config.json", BMC.get_bios_config)
+
+    def save_redfish_bmc_config(self):
+        """Save the BMC configuration, read through Redfish, in bmc-config.json."""
+        self.save_redfish_config("bmc-config.json", BMC.get_bmc_config)
 
     def get_pdus(self) -> list[PDU]:
         """Return a list of PDUs object"""

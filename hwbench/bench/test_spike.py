@@ -1,3 +1,5 @@
+from hwbench.engines import spike
+
 from . import test_benchmarks_common as tbc
 
 
@@ -38,3 +40,8 @@ class TestSpike(tbc.TestCommon):
 
         self.should_be_fatal(self.benches.benchs[0].validate_parameters)
         self.should_be_fatal(self.benches.benchs[1].validate_parameters)
+
+    def test_spike_version(self):
+        """The release of stress-ng, the binary spike runs."""
+        stdout = b"stress-ng, version 0.17.06 (gcc 13.2, x86_64 Linux 6.8.0)\n"
+        assert spike.Engine().parse_version(stdout, b"") == "0.17.06"

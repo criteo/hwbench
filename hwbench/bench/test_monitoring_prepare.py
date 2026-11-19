@@ -10,6 +10,7 @@ import pytest
 
 from hwbench.bench.monitoring import Monitoring, until_ready
 from hwbench.bench.monitoring_structs import MonitoringContexts, MonitoringData
+from hwbench.environment.vendors.generic import GenericVendor
 from hwbench.environment.vendors.mock import MockedBMC, MockVendor
 from hwbench.environment.vendors.monitoring_device import DeviceError, DeviceNotReady, MonitoringDevice
 from hwbench.utils import helpers as h
@@ -43,6 +44,30 @@ def test_bmc_initialize_without_metrics():
     """A BMC giving no metric may give them to a later attempt."""
     with pytest.raises(DeviceNotReady, match="Cannot detect Thermal metrics"):
         initialized(SilentBMC)
+
+
+class BootingBMC(ConnectedBMC):
+    """A BMC listing its chassis only from its second answer, giving its thermal sensors with them."""
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.chassis_answers = 0
+
+    def get_redfish_url(self, url, log_failure=True):
+        if url != "/redfish/v1/Chassis":
+            return {}
+        self.chassis_answers += 1
+        return {"Members": [{"@odata.id": "/redfish/v1/Chassis/1"}]} if self.chassis_answers > 1 else {}
+
+    def read_thermals(self, thermals):
+        return super().read_thermals(thermals) if self._get_chassis() else thermals
+
+
+def test_bmc_detected_again_on_each_attempt():
+    """A BMC answering no chassis to an attempt is detected again by the next one."""
+    bmc = BootingBMC(None, MockVendor(None, None))
+    until_ready(bmc, [0], time.monotonic() + 60, Event())
+    assert bmc.chassis_answers == 2
 
 
 class Device(MonitoringDevice):
@@ -162,6 +187,17 @@ def test_prepare():
     flaky = Device("PDU rack", [0], DeviceNotReady("timeout"), None)
     prepare("[monitoring]\n", Device("BMC", [0], None), flaky)
     assert flaky.calls == 2
+
+
+def test_prepare_without_environment_file():
+    """Without environment file, the BMC of an unknown vendor, mocked, starts with the default settings."""
+    vendor = GenericVendor(None, None, None)
+    vendor.prepare()
+    monitor = Monitoring.__new__(Monitoring)
+    monitor.metrics = MonitoringData()
+    monitor.vendor = vendor
+    monitor.devices = lambda: [vendor.get_bmc()]
+    monitor.prepare()
 
 
 def test_prepare_stops_on_a_device_misconfigured(caplog):

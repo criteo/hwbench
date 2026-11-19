@@ -4,7 +4,7 @@ import pathlib
 from redfish_dump import Anonymizer, anonymize, dump_fixtures, format_fixture
 
 from hwbench.bench.monitoring_structs import MonitoringContexts
-from hwbench.environment import test_bmc_gpu
+from hwbench.environment import test_bmc_gpu, test_vendors
 from hwbench.environment.vendors.bmc import BMC
 
 MANAGERS = {
@@ -57,6 +57,53 @@ def test_dump_extra_urls():
         fixtures = dump_fixtures(bmc, list(extra))
     tree = fixtures["redfish_tree"]
     assert all(tree[url] == answer for url, answer in extra.items())
+
+
+def test_dump_bios_and_bmc_config():
+    """The BIOS and BMC configurations hwbench saves are recorded too."""
+    avenue_city = test_vendors.vendors_tree("Intel/AvenueCity")
+    _, _, fixtures = served_bmc(avenue_city)
+    configurations = {url for url in avenue_city if url.endswith("/Bios") or url.startswith("/redfish/v1/Managers")}
+    assert "/redfish/v1/Managers/bmc/NetworkProtocol" in configurations
+    assert configurations <= set(fixtures["redfish_tree"])
+
+
+TELEMETRY = "/redfish/v1/TelemetryService"
+SERVICES_TREE = {
+    "/redfish/v1": {
+        "TelemetryService": {"@odata.id": TELEMETRY},
+        "LicenseService": {"@odata.id": "/redfish/v1/LicenseService"},
+    },
+    TELEMETRY: {
+        "MetricReportDefinitions": {"@odata.id": f"{TELEMETRY}/MetricReportDefinitions"},
+        "MetricDefinitions": {"@odata.id": f"{TELEMETRY}/MetricDefinitions"},
+    },
+    f"{TELEMETRY}/MetricReportDefinitions": {
+        "Members": [{"@odata.id": f"{TELEMETRY}/MetricReportDefinitions/PowerMetrics"}]
+    },
+    f"{TELEMETRY}/MetricReportDefinitions/PowerMetrics": {"MetricReportDefinitionType": "Periodic"},
+    f"{TELEMETRY}/MetricDefinitions": {"Members": [{"@odata.id": f"{TELEMETRY}/MetricDefinitions/SystemInputPower"}]},
+    "/redfish/v1/LicenseService": {"Licenses": {"@odata.id": "/redfish/v1/LicenseService/Licenses"}},
+    "/redfish/v1/LicenseService/Licenses": {"Members": [{"@odata.id": "/redfish/v1/LicenseService/Licenses/1"}]},
+    "/redfish/v1/LicenseService/Licenses/1": {"EntitlementId": "ABCD1234EFGH", "Name": "iDRAC9 Datacenter License"},
+}
+
+
+def test_dump_services():
+    """The TelemetryService and the LicenseService the service root links to are recorded with their
+    collections, the members of the MetricDefinitions being only listed."""
+    _, _, fixtures = served_bmc(MANAGERS | SERVICES_TREE)
+    tree = fixtures["redfish_tree"]
+    assert set(SERVICES_TREE) <= set(tree)
+    assert f"{TELEMETRY}/MetricDefinitions/SystemInputPower" not in tree
+    anonymized, _ = anonymize(fixtures)
+    assert anonymized["redfish_tree"]["/redfish/v1/LicenseService/Licenses/1"]["EntitlementId"] == "SERIAL1"
+
+
+def test_dump_without_services():
+    """A BMC whose service root links no TelemetryService, like an iLO 6, gets only its service root read."""
+    _, _, fixtures = served_bmc(MANAGERS | {"/redfish/v1": {"Managers": {"@odata.id": "/redfish/v1/Managers/"}}})
+    assert not [url for url in fixtures["redfish_tree"] if "Telemetry" in url or "License" in url]
 
 
 def test_dump_stops_recording():
@@ -116,6 +163,101 @@ def test_anonymize():
         "Name": "sys",
     }
     assert not [value for value in anonymizer.placeholders.values() if value in repr(tree)]
+
+
+def test_uuids_under_any_key():
+    """An UUID is replaced whatever its key and its case, like the SMBIOS UUID a Dell repeats in its BIOS."""
+    tree = {
+        "/redfish/v1/Systems/System.Embedded.1": {
+            "UUID": "4c4c4544-0041-4210-8043-b1c04f123456",
+            "Oem": {"Dell": {"DellSystem": {"smbiosGUID": "44454c4c-4100-1042-8043-b1c04f123456"}}},
+            "TrustedModules": [{"UUID": "00000000-0000-0000-0000-000000000000"}],
+        },
+        "/redfish/v1/Systems/System.Embedded.1/Bios": {
+            "Attributes": {"NvmeofHostId": "4C4C4544-0041-4210-8043-B1C04F123456"},
+        },
+    }
+    anonymized, anonymizer = anonymize({"redfish_tree": tree})
+    out = anonymized["redfish_tree"]
+
+    system = out["/redfish/v1/Systems/System.Embedded.1"]
+    assert system["UUID"] == "00000000-0000-0000-0000-000000000001"
+    assert system["Oem"]["Dell"]["DellSystem"]["smbiosGUID"] == "00000000-0000-0000-0000-000000000002"
+    # The null UUID identifies nothing
+    assert system["TrustedModules"] == [{"UUID": "00000000-0000-0000-0000-000000000000"}]
+    bios = out["/redfish/v1/Systems/System.Embedded.1/Bios"]
+    assert bios["Attributes"]["NvmeofHostId"] == "00000000-0000-0000-0000-000000000001"
+    assert "4c4c4544" not in repr(out).lower()
+
+
+def test_other_serial_numbers():
+    """The Dell express service code and the PPIN of a processor identify the machine like its serial number."""
+    tree = {
+        "/redfish/v1/Systems/System.Embedded.1": {
+            "Oem": {"Dell": {"DellSystem": {"ChassisServiceTag": "AB12CD3", "ExpressServiceCode": "22715473671"}}},
+        },
+        "/redfish/v1/Systems/System.Embedded.1/Processors?$expand=.": {
+            "Members": [{"ProcessorId": {"ProtectedIdentificationNumber": "0123456789ABCDEF"}}],
+        },
+    }
+    anonymized, _ = anonymize({"redfish_tree": tree})
+    out = anonymized["redfish_tree"]
+
+    dell = out["/redfish/v1/Systems/System.Embedded.1"]["Oem"]["Dell"]["DellSystem"]
+    assert dell == {"ChassisServiceTag": "SERIAL1", "ExpressServiceCode": "SERIAL2"}
+    (processor,) = out["/redfish/v1/Systems/System.Embedded.1/Processors?$expand=."]["Members"]
+    assert processor["ProcessorId"]["ProtectedIdentificationNumber"] == "SERIAL3"
+
+
+def test_ip_addresses_in_urls():
+    """The IP address of an url is replaced, not a public host name."""
+    tree = {
+        "/redfish/v1/Managers/iDRAC.Embedded.1": {
+            "Oem": {"Dell": {"DelliDRACCard": {"URLString": "https://10.1.2.3:443"}}},
+            "Links": {"Self": "http://[2001:db8:1::5]/redfish/v1"},
+            "Description": "See https://redfish.dmtf.org/schemas/v1/Manager.json",
+        },
+    }
+    anonymized, _ = anonymize({"redfish_tree": tree})
+    manager = anonymized["redfish_tree"]["/redfish/v1/Managers/iDRAC.Embedded.1"]
+    assert manager["Oem"]["Dell"]["DelliDRACCard"]["URLString"] == "https://192.0.2.1:443"
+    assert manager["Links"]["Self"] == "http://[2001:db8::1]/redfish/v1"
+    assert manager["Description"] == "See https://redfish.dmtf.org/schemas/v1/Manager.json"
+
+
+def test_secrets_are_redacted():
+    tree = {"/redfish/v1/Managers/1/Attributes": {"Attributes": {"Users.2.SHA256Password": "0123ABCD"}}}
+    anonymized, _ = anonymize({"redfish_tree": tree})
+    attributes = anonymized["redfish_tree"]["/redfish/v1/Managers/1/Attributes"]["Attributes"]
+    assert attributes == {"Users.2.SHA256Password": "<redacted>"}
+
+
+def test_flags_and_default_accounts_are_neutral():
+    """A flag or a default account under an identifying key is not replaced everywhere."""
+    attributes = {
+        "Autodiscovery.1.EnableIPChangeAnnounceFrommDNS": "Enabled",
+        "IPv4.1.DHCPEnable": "Enabled",
+        "Users.2.UserName": "Administrator",
+        "Users.2.IpmiLanPrivilege": "Administrator",
+        "DelegatedAuth.1.ServiceEnabled": "Disabled",
+    }
+    anonymized, _ = anonymize({"redfish_tree": {"/redfish/v1/Managers/1/Attributes": {"Attributes": attributes}}})
+    assert anonymized["redfish_tree"]["/redfish/v1/Managers/1/Attributes"]["Attributes"] == attributes
+
+
+def test_engine_id_and_certificate_names():
+    """The SNMP engine ID and the common names of the certificates of an iDRAC identify it."""
+    attributes = {
+        "SNMP.1.EngineID": "0x80001f8804414231324344",
+        "SecurityCertificate.1.IssuerCommonName": "0AB123-0123-4CDE-567F",
+        "SecurityCertificate.1.IssuerOrganization": "Wistron",
+    }
+    anonymized, _ = anonymize({"redfish_tree": {"/redfish/v1/Managers/1/Attributes": {"Attributes": attributes}}})
+    assert anonymized["redfish_tree"]["/redfish/v1/Managers/1/Attributes"]["Attributes"] == {
+        "SNMP.1.EngineID": "SERIAL1",
+        "SecurityCertificate.1.IssuerCommonName": "SERIAL2",
+        "SecurityCertificate.1.IssuerOrganization": "Wistron",
+    }
 
 
 def test_short_values_are_only_replaced_in_place():

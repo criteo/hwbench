@@ -251,18 +251,23 @@ class Benchmarks:
             if not benchmark.get_enginemodule().fully_skipped_job(benchmark.get_parameters()):
                 benchmark.get_enginemodule().warmup(benchmark.get_parameters())
 
-        # Run every benchmark of the list
-        for benchmark in self.get_benchmarks():
-            bench_name = benchmark.get_parameters().get_name()
-            # This benchmark requires to be synced on a time based
-            if benchmark.get_parameters().get_sync_start() == "time":
-                time_to_sync_secs = h.time_to_next_sync()
-                print(f"hwbench: [{bench_name}]: sync_start=time requested, waiting {time_to_sync_secs} seconds")
-                time.sleep(time_to_sync_secs)
-                print(f"hwbench: [{bench_name}]: started at {datetime.datetime.utcnow()}")
+        try:
+            # Run every benchmark of the list
+            for benchmark in self.get_benchmarks():
+                bench_name = benchmark.get_parameters().get_name()
+                # This benchmark requires to be synced on a time based
+                if benchmark.get_parameters().get_sync_start() == "time":
+                    time_to_sync_secs = h.time_to_next_sync()
+                    print(f"hwbench: [{bench_name}]: sync_start=time requested, waiting {time_to_sync_secs} seconds")
+                    time.sleep(time_to_sync_secs)
+                    print(f"hwbench: [{bench_name}]: started at {datetime.datetime.utcnow()}")
 
-            # Save each benchmark result
-            results[benchmark.get_parameters().get_name_with_position()] = benchmark.run()
+                # Save each benchmark result
+                results[benchmark.get_parameters().get_name_with_position()] = benchmark.run()
+        finally:
+            # The TelemetryService report of the monitoring is not needed anymore, even if a benchmark failed
+            if self.monitoring:
+                self.get_hardware().vendor.get_bmc().stop_telemetry()
         return results
 
     def dump(self):

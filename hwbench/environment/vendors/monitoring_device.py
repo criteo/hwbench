@@ -4,7 +4,11 @@ import dataclasses
 import json
 import logging
 import math
-from collections.abc import Coroutine
+import random
+import re
+import time
+from collections.abc import Callable, Coroutine
+from threading import Event
 from typing import Any
 
 import cachetools.func
@@ -24,6 +28,32 @@ class DeviceNotReady(DeviceError):
 
 # The kinds of the values of the environment file, as the errors name them
 VALUE_KINDS: dict[Any, str] = {int: "an integer", float: "a number"}
+
+# The keys holding a secret, like the password hashes, the IPMI or SNMPv3 keys and the SNMP
+# communities of the Dell iDRAC users. A key is matched on its last dotted component, as the
+# Dell attributes are named like "Users.2.SHA256Password".
+SECRET_KEYS = re.compile(r"(password|salt|key|passphrase|secret|community|communityname|token)$", re.IGNORECASE)
+# A flag telling whether a secret is used, like StrongPassword in a Dell BIOS, is not one
+NOT_SECRETS = {"enabled", "disabled", "true", "false", "yes", "no"}
+REDACTED = "<redacted>"
+
+
+def redact_secrets(obj: Any, key: str | None = None) -> Any:
+    """Return obj, read from a Redfish device, with the value of every secret replaced by REDACTED.
+
+    An empty secret is kept, to tell whether one is set."""
+    if isinstance(obj, dict):
+        return {k: redact_secrets(v, k) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [redact_secrets(v, key) for v in obj]
+    if (
+        key is not None
+        and SECRET_KEYS.search(key.rsplit(".", 1)[-1])
+        and obj not in (None, "")
+        and str(obj).lower() not in NOT_SECRETS
+    ):
+        return REDACTED
+    return obj
 
 
 def section_value(config, device: str, section: str | None, key: str, fallback: Any = None, convert: Any = None) -> Any:
@@ -65,6 +95,9 @@ MONITORING_SECTION = "monitoring"
 # The longest wait for the devices to answer when the monitoring starts, and the delays between two attempts, in seconds
 DEFAULT_INIT_TIMEOUT = 120.0
 DEFAULT_RETRY_DELAY = "5-30"
+# The attempts of the connection to a Redfish device, the login included: a BMC busy may not accept the
+# first one, while a request of the monitoring makes a single attempt, see RedfishDevice.get_redfish_url()
+CONNECTION_ATTEMPTS = 3
 
 
 def init_timeout(config) -> float:
@@ -94,6 +127,39 @@ def retry_delays(config, device: str, section: str | None) -> list[int]:
     if not delays or not all(isinstance(delay, int) for delay in delays):
         h.fatal(f"{where}: retry_delay must be a number of seconds, or a range of them like 5-30, got {value!r}")
     return delays
+
+
+def retry_until_ready(label: str, attempt: Callable[[], Any], delays: list[int], deadline: float, stop: Event) -> None:
+    """Call <attempt> until it raises no DeviceNotReady, the attempts reported as <label>.
+
+    A device not ready is tried again after one of the <delays> ending before the <deadline> of
+    time.monotonic(), drawn at random, as long as the <stop> is not set; the last DeviceNotReady is raised
+    then, when no delay ends before the deadline, and at once without <delays>. A DeviceError is raised
+    at once."""
+    started = time.monotonic()
+    attempts = 0
+    while True:
+        attempts += 1
+        try:
+            attempt()
+            if attempts > 1:
+                print(f"{label}: ready after {attempts} attempts in {time.monotonic() - started:.0f}s")
+            return
+        except DeviceNotReady as error:
+            if not delays:
+                raise
+            # Drawn among the delays ending before the deadline: the servers sharing a device keep
+            # spreading their attempts until the end
+            remaining = deadline - time.monotonic()
+            fitting = [delay for delay in delays if delay <= remaining]
+            if not fitting:
+                raise DeviceNotReady(
+                    f"{error}, still after {attempts} attempts in {time.monotonic() - started:.0f}s"
+                ) from None
+            delay = random.choice(fitting)
+            logging.warning(f"{label}: attempt {attempts} failed, trying again in {delay}s: {error}")
+            if stop.wait(delay):
+                raise DeviceNotReady(f"{error}, attempts stopped as another device failed") from None
 
 
 class MonitoringDevice:
@@ -199,17 +265,31 @@ class RedfishDevice(MonitoringDevice):
         self.timeouts = 0
         # The urls whose last request was not answered in time
         self.unanswered_urls: set[str] = set()
+        # The urls whose last request was answered they do not exist (HTTP 404)
+        self.missing_urls: set[str] = set()
 
     def __del__(self):
+        self.disconnect_redfish()
+
+    def disconnect_redfish(self):
+        """Close the Redfish session, if any."""
         if self.logged:
             try:
                 self.redfish_obj.logout()
             except redfish.rest.v1.RetriesExhaustedError:
                 logging.warning("Cannot logout from redfish monitoring device, ignoring.")
+            self.redfish_obj = None
+            self.logged = False
 
     def did_not_answer(self, url: str) -> bool:
         """Return True if the last request of <url>, cached or not, was not answered in time."""
         return url in self.unanswered_urls
+
+    def is_missing(self, url: str) -> bool:
+        """Return True if the last request of <url>, cached or not, was answered it does not exist.
+
+        Unlike an error of a device starting, like a 503, a later attempt will get the same answer."""
+        return url in self.missing_urls
 
     def connect_redfish(self, username: str, password: str, device_url: str):
         try:
@@ -235,17 +315,20 @@ class RedfishDevice(MonitoringDevice):
                 default_prefix="/redfish/v1",
                 timeout=10,
                 # Retried 10 times by default, a request not answered took 2 minutes to give up, delaying
-                # the monitoring loop as much: get_redfish_url() makes a single attempt per request. Not 0
-                # here: python-redfish-library 3.3.4 compares the attempts made with the max_retry of the
-                # client, raising RetriesExhaustedError on every request answered, the login included
-                max_retry=1,
+                # the monitoring loop as much: get_redfish_url() makes a single attempt per request.
+                # python-redfish-library 3.3.4 compares the attempts made with the max_retry of the
+                # client: a request answered at an attempt after max_retry raises RetriesExhaustedError,
+                # with 0 every request, so the connection and the login have max_retry useful attempts
+                max_retry=CONNECTION_ATTEMPTS,
             )
             self.redfish_obj.login(auth=auth_method)
             self.logged = True
         except json.decoder.JSONDecodeError:
             raise DeviceNotReady(f"JSONDecodeError on {device_url}")
-        except redfish.rest.v1.RetriesExhaustedError:
-            raise DeviceNotReady(f"RetriesExhaustedError on {device_url}")
+        except redfish.rest.v1.RetriesExhaustedError as error:
+            # The error of the first attempt failed, like ConnectTimeout: RetriesExhaustedError tells nothing
+            cause = f" ({type(error.__cause__).__name__})" if error.__cause__ else ""
+            raise DeviceNotReady(f"RetriesExhaustedError on {device_url}{cause}")
         except redfish.rest.v1.BadRequestError:
             raise DeviceError(f"BadRequestError on {device_url}")
         except redfish.rest.v1.InvalidCredentialsError:
@@ -274,6 +357,10 @@ class RedfishDevice(MonitoringDevice):
             response = self.redfish_obj.get(url, None, max_retry=0)
             if response is None:
                 raise redfish.rest.v1.RetriesExhaustedError()
+            if getattr(response, "status", None) == 404:
+                self.missing_urls.add(url)
+            else:
+                self.missing_urls.discard(url)
             content = response.dict
             self.unanswered_urls.discard(url)
             # Let's ignore errors and return empty objects
