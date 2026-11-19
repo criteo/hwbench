@@ -8,8 +8,10 @@ from unittest import mock
 
 import pytest
 import redfish  # type: ignore
+import requests  # type: ignore[import-untyped]
 
 from hwbench.environment.vendors.monitoring_device import (
+    CONNECTION_ATTEMPTS,
     REDACTED,
     DeviceError,
     DeviceNotReady,
@@ -79,10 +81,22 @@ def test_get_redfish_url_timeout(caplog):
     assert "Redfish https://bmc/redfish/v1/Chassis/1/Power did not answer in time" in caplog.text
 
 
+def exhausted_by(cause: Exception) -> redfish.rest.v1.RetriesExhaustedError:
+    """The RetriesExhaustedError python-redfish-library raises from the error of the last attempt."""
+    error = redfish.rest.v1.RetriesExhaustedError()
+    error.__cause__ = cause
+    return error
+
+
 @pytest.mark.parametrize(
     ("error", "kind", "message"),
     [
         (redfish.rest.v1.RetriesExhaustedError(), DeviceNotReady, "RetriesExhaustedError on https://bmc"),
+        (
+            exhausted_by(requests.exceptions.ConnectTimeout("timed out")),
+            DeviceNotReady,
+            "RetriesExhaustedError on https://bmc (ConnectTimeout)",
+        ),
         (
             redfish.rest.v1.ServerDownOrUnreachableError("down"),
             DeviceNotReady,
@@ -91,7 +105,7 @@ def test_get_redfish_url_timeout(caplog):
         (redfish.rest.v1.InvalidCredentialsError(), DeviceError, "Invalid credentials for https://bmc"),
         (redfish.rest.v1.BadRequestError(), DeviceError, "BadRequestError on https://bmc"),
     ],
-    ids=["timeout", "unreachable", "credentials", "bad request"],
+    ids=["timeout", "timeout with its cause", "unreachable", "credentials", "bad request"],
 )
 def test_connect_redfish_failure(error, kind, message):
     """A device not answering may answer a later attempt; wrong credentials never will, and retrying them
@@ -157,6 +171,27 @@ def test_connect_redfish_answered(redfish_service):
     # Logged out while the service answers
     device.redfish_obj.logout()
     device.logged = False
+
+
+def test_connect_redfish_busy(redfish_service):
+    """A BMC busy, not accepting the first connections, is connected by a later attempt: with a max_retry
+    of 1, python-redfish-library raised RetriesExhaustedError on a second attempt answered."""
+    request = requests.Session.request
+    refused = []
+
+    def busy(session, *args, **kwargs):
+        if len(refused) < CONNECTION_ATTEMPTS - 1:
+            refused.append(args)
+            raise requests.exceptions.ConnectTimeout("timed out")
+        return request(session, *args, **kwargs)
+
+    device = RedfishDevice(None)
+    with mock.patch.object(requests.Session, "request", busy), mock.patch("redfish.rest.v1.time.sleep"):
+        device._connect_redfish("admin", "admin", "https://bmc", redfish.AuthMethod.SESSION)
+        assert device.logged
+        device.redfish_obj.logout()
+    device.logged = False
+    assert len(refused) == CONNECTION_ATTEMPTS - 1
 
 
 def test_get_redfish_url_single_attempt():
