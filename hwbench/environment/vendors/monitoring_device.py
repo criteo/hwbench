@@ -95,6 +95,9 @@ MONITORING_SECTION = "monitoring"
 # The longest wait for the devices to answer when the monitoring starts, and the delays between two attempts, in seconds
 DEFAULT_INIT_TIMEOUT = 120.0
 DEFAULT_RETRY_DELAY = "5-30"
+# The attempts of the connection to a Redfish device, the login included: a BMC busy may not accept the
+# first one, while a request of the monitoring makes a single attempt, see RedfishDevice.get_redfish_url()
+CONNECTION_ATTEMPTS = 3
 
 
 def init_timeout(config) -> float:
@@ -312,17 +315,20 @@ class RedfishDevice(MonitoringDevice):
                 default_prefix="/redfish/v1",
                 timeout=10,
                 # Retried 10 times by default, a request not answered took 2 minutes to give up, delaying
-                # the monitoring loop as much: get_redfish_url() makes a single attempt per request. Not 0
-                # here: python-redfish-library 3.3.4 compares the attempts made with the max_retry of the
-                # client, raising RetriesExhaustedError on every request answered, the login included
-                max_retry=1,
+                # the monitoring loop as much: get_redfish_url() makes a single attempt per request.
+                # python-redfish-library 3.3.4 compares the attempts made with the max_retry of the
+                # client: a request answered at an attempt after max_retry raises RetriesExhaustedError,
+                # with 0 every request, so the connection and the login have max_retry useful attempts
+                max_retry=CONNECTION_ATTEMPTS,
             )
             self.redfish_obj.login(auth=auth_method)
             self.logged = True
         except json.decoder.JSONDecodeError:
             raise DeviceNotReady(f"JSONDecodeError on {device_url}")
-        except redfish.rest.v1.RetriesExhaustedError:
-            raise DeviceNotReady(f"RetriesExhaustedError on {device_url}")
+        except redfish.rest.v1.RetriesExhaustedError as error:
+            # The error of the first attempt failed, like ConnectTimeout: RetriesExhaustedError tells nothing
+            cause = f" ({type(error.__cause__).__name__})" if error.__cause__ else ""
+            raise DeviceNotReady(f"RetriesExhaustedError on {device_url}{cause}")
         except redfish.rest.v1.BadRequestError:
             raise DeviceError(f"BadRequestError on {device_url}")
         except redfish.rest.v1.InvalidCredentialsError:
