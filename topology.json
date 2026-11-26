@@ -1,17 +1,28 @@
 {
-  "version": 1,
+  "version": 2,
   "levels": ["Country", "Datacenter", "Datahall", "Room", "Rack", "Position"],
+  "labels": {
+    "db-01": {"cpu": "liquid", "memory": "liquid"}
+  },
   "topology": {
     "FR": {
       "PA99": {
+        "@ashrae": ["A1", "W40", "S40"],
         "2": {
           "1": {
+            "@ashrae": ["A2"],
             "A12": {
               "22": ["EXAMPLE0001"],
               "23": ["EXAMPLE0002"]
             },
             "A13": {
-              "10": ["NODE0001", "NODE0002", "NODE0003", "NODE0004"]
+              "@ashrae": ["H1", "S35"],
+              "10": [
+                {"serial": "NODE0001", "label": "db-01"},
+                {"serial": "NODE0002", "label": "db-02"},
+                "NODE0003",
+                "NODE0004"
+              ]
             }
           }
         },

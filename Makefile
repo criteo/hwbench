@@ -23,7 +23,7 @@ check:
 	uv tool run ruff@$(RUFF_VERSION) format --diff $(SOURCES)
 	uv tool run ruff@$(RUFF_VERSION) check $(SOURCES)
 	uv run mypy $(SOURCES)
-	uv run pytest $(SOURCES)
+	uv run pytest -n auto $(SOURCES)
 
 check_ci:
 	@uv lock --check || echo "Your lock file should change because you probably added a dependency or bump the minimal Python version, but this is not allowed in the CI. Please run `uv lock`"
@@ -31,7 +31,7 @@ check_ci:
 	uv tool run ruff@$(RUFF_VERSION) format --diff $(SOURCES)
 	uv tool run ruff@$(RUFF_VERSION) check --output-format=github $(SOURCES)
 	uv run mypy $(SOURCES)
-	uv run pytest $(SOURCES)
+	uv run pytest -n auto $(SOURCES)
 
 bundle:
 	uv build

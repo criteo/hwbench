@@ -1,5 +1,10 @@
-import numpy as np
+from types import SimpleNamespace
 
+import numpy as np
+import pytest
+
+from graph.auto_group import liquid_cooled
+from graph.common import datapoint
 from graph.group import named_servers, round_step, statistics_labels
 
 
@@ -71,3 +76,68 @@ def test_statistics_ignore_the_gaps():
     from graph.graph import statistics_in_label
 
     assert statistics_in_label("CDU", np.array([20.0, np.nan, 22.0])) == "CDU [20.0; 21.0; 1.0; 22.0]"
+
+
+def test_warm_up():
+    """Only the first windows below the 5th percentile are the warm up: a later dip is not part of it."""
+    from graph.graph import window_statistics_in_label
+    from graph.windows import warm_up, without_warm_up
+
+    serie = np.array([100.0, 300.0] + [1000.0] * 20 + [500.0] + [1000.0] * 5)
+    assert list(np.flatnonzero(warm_up(serie))) == [0, 1]
+    assert np.isnan(without_warm_up(serie)[:2]).all()
+    assert without_warm_up(serie)[22] == 500.0
+    # The first gaps are skipped, a gap after the first window ends the warm up
+    assert list(np.flatnonzero(warm_up(np.concatenate(([np.nan], serie))))) == [1, 2]
+    assert list(np.flatnonzero(warm_up(np.concatenate(([100.0, np.nan], serie[1:]))))) == [0]
+    # Too few windows to tell: no warm up, the legend gives their lowest and highest
+    assert not warm_up(np.array([1.0, 9.0])).any()
+    assert window_statistics_in_label("CPU", np.array([1.0, 9.0])) == "CPU [1.0; 5.0; 4.0; 9.0]"
+    # The percentiles of all the windows, the mean and stddev of the ones after the warm up
+    drawn = serie[2:]
+    assert window_statistics_in_label("BMC", serie) == (
+        f"BMC [{np.percentile(serie, 5):.1f}; {drawn.mean():.1f}; {drawn.std():.1f}; {np.percentile(serie, 95):.1f}]"
+    )
+
+
+@pytest.mark.parametrize(
+    ("option", "value", "warned"),
+    [("", 0, True), ("zero", 0, False), ("last", 42.0, False)],
+)
+def test_missing_datapoint(capsys, option, value, warned):
+    """A missing sample of a server is replaced as --ignore-missing-datapoint says: the group and chassis
+    graphs counted 0 watts whatever the option."""
+    args = SimpleNamespace(ignore_missing_datapoint=option)
+    assert datapoint(args, [40.0, 42.0], 1, "srv01/job") == 42.0
+    assert datapoint(args, [40.0, 42.0], 2, "srv01/job") == value
+    assert ("Warning: srv01/job: Missing sample 2, considering 0 watts." in capsys.readouterr().out) == warned
+
+
+def power_bench(power: dict) -> SimpleNamespace:
+    """A benchmark whose PowerConsumption metrics are <power>, by component then metric."""
+    return SimpleNamespace(get_monitoring_metric=lambda metric_type: power)
+
+
+def test_liquid_cooled():
+    """The power of the components cooled by a liquid: the CPU package, the memory from turbostat or else
+    the BMC, all the GPUs; the components on air, or a trace without cooling, have none."""
+    power = {"CPU": {"package": "package", "Core_0": "core"}, "BMC": {"Server": "server", "Memory": "memory"}}
+    power["GPU"] = {"GPU_0": "gpu0", "GPU_1": "gpu1"}
+    everything = {"cpu": "liquid", "memory": "liquid", "gpu": "liquid"}
+    assert liquid_cooled(power_bench(power), everything) == (
+        {"CPU.package": ["package"], "BMC.Memory": ["memory"], "GPU": ["gpu0", "gpu1"]},
+        [],
+    )
+    power["CPU"]["Ram"] = "ram"
+    assert liquid_cooled(power_bench(power), {"memory": "liquid"})[0] == {"CPU.Ram": ["ram"]}
+    assert liquid_cooled(power_bench(power), {"cpu": "air", "memory": "air", "gpu": "air"}) == ({}, [])
+    assert liquid_cooled(power_bench(power), {}) == ({}, [])
+
+
+def test_liquid_cooled_missing():
+    """A component cooled by a liquid whose power the benchmark does not measure."""
+    bench = power_bench({"BMC": {"Server": "server"}})
+    assert liquid_cooled(bench, {"cpu": "liquid", "memory": "liquid", "gpu": "liquid"}) == (
+        {},
+        ["CPU/package", "CPU/Ram or BMC/Memory", "GPU"],
+    )

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import html
+import pathlib
 from itertools import cycle
 
 import matplotlib
@@ -10,8 +12,9 @@ from matplotlib.lines import Line2D
 from matplotlib.pylab import Axes
 from matplotlib.ticker import AutoMinorLocator, FuncFormatter, MaxNLocator, MultipleLocator
 
-from graph.common import context_header, fatal
+from graph.common import context_header, datapoint, fatal
 from graph.trace import Bench, gpu_description
+from graph.windows import RANGE_PERCENTILES, high_window, in_range, low_window, warm_up, without_warm_up
 from hwbench.bench.engine import Resource
 from hwbench.bench.monitoring_structs import CORE_FAMILY, MonitoringContextKeys, MonitorMetric
 from hwbench.utils.helpers import cpu_list_to_range
@@ -26,6 +29,13 @@ def init_matplotlib(args):
     except ValueError:
         fatal(f"Cannot load matplotlib backend engine {args.engine}")
     matplotlib.rcParams["font.family"] = "monospace"
+    # The bold words of a title, see bold(), in the font of the rest of it
+    matplotlib.rcParams["mathtext.fontset"] = "custom"
+    matplotlib.rcParams["mathtext.bf"] = "monospace:bold"
+    matplotlib.rcParams["mathtext.rm"] = "monospace"
+    # A custom fontset loads all the fonts of the mathtext: the calligraphic one, cursive by default, is
+    # missing on most servers, warning about it in each graph
+    matplotlib.rcParams["mathtext.cal"] = "monospace"
 
 
 GRAPH_TYPES = ["perf", "perf_watt", "watts", "cpu_clock"]
@@ -76,6 +86,18 @@ def zero_margin(axis, end: float) -> float:
 MAX_LEGEND_ITEMS = 36
 
 
+# The legend of the curves, with their statistics: by statistics_in_label(), and of the curves over
+# time by window_statistics_in_label()
+STATISTICS_LEGEND = "component [min; mean; stddev; max]\n"
+WINDOW_STATISTICS_LEGEND = "component [p5; mean; stddev; p95]\n"
+# The note under the graphs whose error bars go from the 5th percentile of the windows of the cores to
+# their 95th, see Bench.add_perf()
+RANGE_BARS_NOTE = (
+    f"Error bars: the windows of the cores from their {RANGE_PERCENTILES[0]}th percentile to their "
+    f"{RANGE_PERCENTILES[1]}th; the mean leaves out the warm up of each core"
+)
+
+
 class Graph:
     def __init__(
         self,
@@ -88,7 +110,7 @@ class Graph:
         square=False,
         show_source_file=None,
         title_note=None,
-        legend_title="component [min; mean; stddev; max]\n",
+        legend_title=STATISTICS_LEGEND,
     ) -> None:
         self.ax2: Axes | None = None
         self.args = args
@@ -106,7 +128,17 @@ class Graph:
         output_dir.mkdir(parents=True, exist_ok=True)
         self.set_filename(filename)
         self.needs_legend = True  # Does this graph need a legend to be rendered ?
+        self.rotate_xticks = True  # Vertical xticks, for the large number of cores
+        self.min_dpi = 0  # The lowest dpi keeping the graph readable, whatever --dpi
         self.legend_title = legend_title
+        # The text shown when the mouse is over an artist of a graph in SVG, by the id given to the artist
+        self.tooltips: dict[str, str] = {}
+
+    def tooltip(self, artist, text: str) -> None:
+        """Show <text> when the mouse is over <artist>, in a graph rendered in SVG opened by a browser."""
+        gid = f"tooltip-{len(self.tooltips)}"
+        artist.set_gid(gid)
+        self.tooltips[gid] = text
 
     def set_filename(self, filename: str):
         self.filename = filename
@@ -347,7 +379,8 @@ class Graph:
         self.trace_events()
 
         # Having vertical xticks makes it scalable for large number of cores
-        self.ax.tick_params(axis="x", labelrotation=90)
+        if self.rotate_xticks:
+            self.ax.tick_params(axis="x", labelrotation=90)
 
         # Plot the legend if necessary
         # (Some graphs, like BarGraphs, do not need legend)
@@ -364,16 +397,32 @@ class Graph:
                 if handles2:
                     legends.append(self.ax2.legend(loc="upper left", bbox_to_anchor=(1.05, 1), title=self.legend_title))
 
+        path = pathlib.Path(f"{self.output_dir}/{self.filename}.{file_format}")
+        tooltips = file_format == "svg" and self.tooltips
         self.fig.savefig(
-            f"{self.output_dir}/{self.filename}.{file_format}",
+            path,
             format=file_format,
-            dpi=self.args.dpi,
+            dpi=max(self.args.dpi, self.min_dpi),
             bbox_inches="tight",
             pad_inches=1,
             bbox_extra_artists=legends,
+            # The SVG of cairo, the default engine, writes no id of the artists to give a title to
+            **({"backend": "svg"} if tooltips else {}),
         )
+        if tooltips:
+            add_svg_tooltips(path, self.tooltips)
         self.fig.clear()
         plt.close(self.fig)
+
+
+def add_svg_tooltips(path: pathlib.Path, tooltips: dict[str, str]) -> None:
+    """Add the <tooltips> to the groups of an SVG file the artists of their id are written in: a browser
+    shows the title of a group when the mouse is over it. matplotlib writes the gid of an artist as the id
+    of its group, but no title."""
+    content = path.read_text()
+    for gid, text in tooltips.items():
+        content = content.replace(f'<g id="{gid}">', f'<g id="{gid}">\n   <title>{html.escape(text)}</title>', 1)
+    path.write_text(content)
 
 
 def fp(value: float, max_value_length=0) -> str:
@@ -385,9 +434,13 @@ def fp(value: float, max_value_length=0) -> str:
     return result
 
 
-def draw_lines(ax, x_serie, y_series) -> None:
+def draw_lines(ax, x_serie, y_series, alpha=None) -> None:
     """Draw curves without label as a single LineCollection: visually identical to one plot() per
-    curve, but much cheaper for hundreds of them."""
+    curve, but much cheaper for hundreds of them. Their warm up is faded, as by plot_windows()."""
+    if alpha is None:
+        # The whole curves faded below, then without their warm up above, same colors in the same order
+        draw_lines(ax, x_serie, y_series, WARM_UP_ALPHA)
+        y_series = [without_warm_up(y_serie) for y_serie in y_series]
     segments = [np.column_stack([x_serie, y_serie]) for y_serie in y_series]
     # Reproduce the per-line color cycling matplotlib's plot() would apply.
     cycle_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
@@ -398,6 +451,7 @@ def draw_lines(ax, x_serie, y_series) -> None:
             colors=colors,
             linewidths=plt.rcParams["lines.linewidth"],
             capstyle=plt.rcParams["lines.solid_capstyle"],
+            alpha=alpha,
         )
     )
     # add_collection updates the data limits but, unlike plot(), does not
@@ -420,6 +474,42 @@ def statistics_in_label(label: str, serie: np.ndarray, max_title_length=0, max_v
     serie = np.asarray(serie, dtype=float)
     serie = serie[np.isfinite(serie)] if np.isfinite(serie).any() else serie
     return f"{label:{max_title_length}} [{fp(np.min(serie), max_value_length)}; {fp(np.mean(serie), max_value_length)}; {fp(np.std(serie), max_value_length)}; {fp(np.max(serie), max_value_length)}]"
+
+
+# The opacity of the warm up of a curve over time, see plot_windows()
+WARM_UP_ALPHA = 0.25
+
+
+def plot_windows(axis, x_serie, y_serie, *args, **kwargs):
+    """Plot a curve over time, its warm up faded, see warm_up(): its other windows as plot() would draw
+    them, above the whole curve drawn faded."""
+    y_serie = np.asarray(y_serie, dtype=float)
+    drawn = without_warm_up(y_serie)
+    line = axis.plot(x_serie, drawn, *args, **kwargs)[0]
+    if not np.array_equal(drawn, y_serie, equal_nan=True):
+        # Without label, the legend naming the curve once, and below it
+        faded = {key: value for key, value in kwargs.items() if key != "label"}
+        faded |= {"color": line.get_color(), "alpha": WARM_UP_ALPHA, "zorder": line.get_zorder() - 0.1}
+        axis.plot(x_serie, y_serie, *args, **faded)
+    return line
+
+
+def window_statistics_in_label(label: str, serie: np.ndarray, max_title_length=0, max_value_length=0) -> str:
+    """Return 'label + [p5, mean, stddev, p95]' of a curve over time: the percentiles of its windows, the
+    mean and stddev of the ones drawn without its warm up, see warm_up(); its lowest and highest windows
+    in place of the percentiles when they are too few to tell."""
+    if not max_title_length:
+        max_title_length = len(label)
+    windows = np.asarray(serie, dtype=float)
+    drawn = windows[np.isfinite(windows) & ~warm_up(windows)]
+    if not len(drawn):
+        low = mean = stddev = high = np.nan
+    elif np.array_equal(in_range(windows), np.isfinite(windows)):
+        low, mean, stddev, high = np.min(drawn), np.mean(drawn), np.std(drawn), np.max(drawn)
+    else:
+        low, mean, stddev, high = low_window(windows), np.mean(drawn), np.std(drawn), high_window(windows)
+    values = "; ".join(fp(value, max_value_length) for value in (low, mean, stddev, high))
+    return f"{label:{max_title_length}} [{values}]"
 
 
 def numa_core_blocks(cpus, width: int = 3) -> str:
@@ -947,7 +1037,7 @@ def component_distribution_graph(
         # sample -- all-smi registers those for the metrics a GPU does not
         # support -- but a caller-supplied list has not been through it, and
         # averaging an empty serie would inject a NaN into the distribution.
-        components = [component for component in components if component.get_mean()]
+        components = [component for component in components if len(component.get_mean())]
     if not components:
         return 0
     unit = components[0].get_unit() or bench.get_metric_unit(component_type)
@@ -1007,6 +1097,17 @@ def component_distribution_graph(
     return 1
 
 
+def host_datapoint(args, serie, sample: int, what: str) -> float:
+    """The value of <serie> at <sample>, a missing one replaced as --ignore-missing-datapoint says; without
+    the option, the graphs of a host stop at a missing sample instead of counting zero."""
+    if sample >= len(serie) and not args.ignore_missing_datapoint:
+        fatal(
+            f"{what} is missing the {sample + 1}th data point. Use --ignore-missing-datapoint to ignore this case. "
+            "Generated graphs will be partially incorrect."
+        )
+    return datapoint(args, serie, sample, what)
+
+
 def generic_graph(
     args,
     output_dir,
@@ -1054,6 +1155,7 @@ def generic_graph(
         outfile,
         show_source_file=trace,
         title_note=title_note,
+        legend_title=WINDOW_STATISTICS_LEGEND,
     )
 
     if second_axis:
@@ -1072,6 +1174,7 @@ def generic_graph(
     time_serie = []
     data_serie = {}  # type: dict[str, list]
     data2_serie = {}  # type: dict[str, list]
+    name = f"{trace.get_name()}/{bench.get_bench_name()}"
     for sample in range(0, samples_count):
         time = sample * bench.get_time_interval()
         time_serie.append(time)
@@ -1079,26 +1182,9 @@ def generic_graph(
         for component in components:
             if component.get_full_name() not in data_serie:
                 data_serie[component.get_full_name()] = []
-            # If we are missing some datapoints ....
-            if len(component.get_mean()) <= sample:
-                # If the user didn't explicitly agreed to be replaced by 0, let's be fatal
-                if not args.ignore_missing_datapoint:
-                    fatal(
-                        f"{trace.get_name()}/{bench.get_bench_name()}: {component.get_full_name()} is missing the {sample + 1}th data point.\
- Use --ignore-missing-datapoint to ignore this case. Generated graphs will be partially incorrect."
-                    )
-                else:
-                    # User is fine with a missing data to be replaced.
-                    # Let's do that so we can render things properly.
-
-                    # Let's pick the last known value
-                    if args.ignore_missing_datapoint == "last":
-                        data_serie[component.get_full_name()].append(component.get_mean()[-1])
-                    else:
-                        # Replace it by a zero
-                        data_serie[component.get_full_name()].append(0)
-            else:
-                data_serie[component.get_full_name()].append(component.get_mean()[sample])
+            data_serie[component.get_full_name()].append(
+                host_datapoint(args, component.get_mean(), sample, f"{name}: {component.get_full_name()}")
+            )
 
         if second_axis:
             for entry in bench.get_monitoring_metric(second_axis).values():
@@ -1115,31 +1201,24 @@ def generic_graph(
                         continue
                     if sensor not in data2_serie:
                         data2_serie[sensor] = []
-                    if len(measure.get_mean()) <= sample:
-                        # If the user didn't explicitly agreed to be replaced by 0, let's be fatal
-                        if not args.ignore_missing_datapoint:
-                            fatal(
-                                f"{trace.get_name()}/{bench.get_bench_name()}: second axis of {sensor}: {measure.get_full_name()} is missing the {sample + 1}th data point.\
-         Use --ignore-missing-datapoint to ignore this case. Generated graphs will be partially incorrect."
-                            )
-                        else:
-                            # User is fine with a missing data to be replaced.
-                            # Let's do that so we can render things properly.
-                            if args.ignore_missing_datapoint == "last":
-                                # Let's pick the last known value
-                                data2_serie[sensor].append(measure.get_mean()[-1])
-                            else:
-                                # Replace it by a zero
-                                data2_serie[sensor].append(0)
-                    else:  # the actual data
-                        data2_serie[sensor].append(measure.get_mean()[sample])
+                    data2_serie[sensor].append(
+                        host_datapoint(
+                            args,
+                            measure.get_mean(),
+                            sample,
+                            f"{name}: second axis of {sensor}: {measure.get_full_name()}",
+                        )
+                    )
             # If we are plotting the power consumption, having the PSUs would be useful to compare with.
             if second_axis == MonitoringContextKeys.PowerConsumption:
                 psus = bench.get_psu_power()
                 if psus:
                     if MonitoringContextKeys.PowerSupplies not in data2_serie:
                         data2_serie[MonitoringContextKeys.PowerSupplies] = []
-                    data2_serie[MonitoringContextKeys.PowerSupplies].append(psus[sample])
+                    # The PSUs can miss samples too, like the other sensors
+                    data2_serie[MonitoringContextKeys.PowerSupplies].append(
+                        host_datapoint(args, psus, sample, f"{name}: {MonitoringContextKeys.PowerSupplies}")
+                    )
 
     order = np.argsort(time_serie)
     x_serie = np.array(time_serie)[order]
@@ -1153,11 +1232,18 @@ def generic_graph(
         )
         for index, data2_item in enumerate(data2_serie):
             y2_serie = np.array(data2_serie[data2_item])[order]
-            y2_label = statistics_in_label(str(data2_item), y2_serie, max_title_length, max_value_length)
+            y2_label = window_statistics_in_label(str(data2_item), y2_serie, max_title_length, max_value_length)
             # Beyond the 10 colors of the cycle, the curves change of marker, see curve_style()
             color, marker = curve_style(index)
-            graph.get_ax2().plot(
-                x_serie, y2_serie, "", label=y2_label, color=color, marker=marker, markersize=MARKER_SIZE
+            plot_windows(
+                graph.get_ax2(),
+                x_serie,
+                y2_serie,
+                "",
+                label=y2_label,
+                color=color,
+                marker=marker,
+                markersize=MARKER_SIZE,
             )
 
     # If we have more than MAX_LEGEND_ITEMS items to draw, labels will not fit and makes the
@@ -1171,10 +1257,11 @@ def generic_graph(
         )
         for index, component in enumerate(components):
             y_serie = np.array(data_serie[component.get_full_name()])[order]
-            y_label = statistics_in_label(component.get_full_name(), y_serie, max_title_length, max_value_length)
+            y_label = window_statistics_in_label(component.get_full_name(), y_serie, max_title_length, max_value_length)
             # The lines of the first axis have no marker, until the colors of the cycle are all used
             color, marker = curve_style(index)
-            graph.get_ax().plot(
+            plot_windows(
+                graph.get_ax(),
                 x_serie,
                 y_serie,
                 "",
@@ -1222,7 +1309,7 @@ def redfish_timeouts(bench: Bench) -> dict[str, list[int]]:
         except KeyError:
             continue
         # A trace made before the timeouts were saved, or without any PDU, has no such metric
-        if metric and metric.get_samples():
+        if metric and len(metric.get_samples()):
             totals[source] = window_totals(metric)
     return totals
 
@@ -1291,14 +1378,15 @@ def yerr_graph(
     data_serie: dict[str, list] = {}
     data_serie[MEAN] = []
     data_serie[ERROR] = []
+    name = f"{trace.get_name()}/{bench.get_bench_name()}: {component.get_full_name()}"
     for sample in range(0, samples_count):
         time = sample * bench.get_time_interval()
         time_serie.append(time)
-        mean_value = component.get_mean()[sample]
+        mean_value = host_datapoint(args, component.get_mean(), sample, name)
         data_serie[ERROR].append(
             (
-                mean_value - component.get_min()[sample],
-                component.get_max()[sample] - mean_value,
+                mean_value - host_datapoint(args, component.get_min(), sample, name),
+                host_datapoint(args, component.get_max(), sample, name) - mean_value,
             )
         )
         data_serie[MEAN].append(mean_value)
@@ -1320,16 +1408,31 @@ def yerr_graph(
         output_dir.joinpath(f"{trace.get_name()}/{bench.get_bench_name()}/{component_type!s}"),
         component.get_name(),
         show_source_file=trace,
+        legend_title=WINDOW_STATISTICS_LEGEND,
     )
 
+    # The whole curve faded, with the errors of its warm up, below the windows without its warm up and
+    # their errors
+    warming = warm_up(y_serie)
+    graph.get_ax().plot(x_serie, y_serie, "-b", alpha=WARM_UP_ALPHA)
+    if warming.any():
+        graph.get_ax().errorbar(
+            x_serie[warming],
+            y_serie[warming],
+            yerr=yerror_serie[:, warming],
+            fmt="none",
+            ecolor="r",
+            capsize=4,
+            alpha=WARM_UP_ALPHA,
+        )
     graph.get_ax().errorbar(
         x_serie,
-        y_serie,
+        without_warm_up(y_serie),
         yerr=yerror_serie,
         fmt="-b",
         ecolor="r",
         capsize=4,
-        label=statistics_in_label(
+        label=window_statistics_in_label(
             component.get_name(), y_serie, len(component.get_full_name()), get_max_value_string_length(y_serie)
         ),
     )

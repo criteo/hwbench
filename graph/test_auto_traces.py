@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import json
 import pathlib
+import tarfile
 
 import pytest
 
 from graph.auto_traces import (
     AutoTraces,
     find_auto_traces,
-    find_trace_files,
     list_contexts,
     parse_auto_traces,
     print_contexts,
+    read_trace_files,
 )
 from graph.trace import context_line
 from hwbench.utils.archive import create_output_archive
@@ -59,14 +60,29 @@ def test_parse_auto_traces():
 
 def test_archive_replaces_its_output_directory(runs):
     """An archive and the output directory it compresses next to it are the same run."""
-    files = [str(path.relative_to(runs)) for path in find_trace_files(runs)]
+    files = [str(path.relative_to(runs)) for path, _ in read_trace_files(runs, jobs=2)]
     assert files == [
         "hwbench-SRV01-20261022120000.tar.xz",
         "hwbench-out-3/results.json",
-        "misc/results.json",
         "old/hwbench-out-4/results.json",
         "other/hwbench-out-2/results.json",
     ]
+
+
+def test_renamed_archive(runs, capsys):
+    """An archive renamed by the tool collecting it is found, a .tar.xz without results.json or unreadable is not."""
+    collected = runs / "collected" / "SRV01"
+    collected.mkdir(parents=True)
+    (runs / "hwbench-SRV01-20261022120000.tar.xz").rename(collected / "20261022T120000Z-SRV01.tar.xz")
+    (runs / "logs.txt").write_text("not a trace")
+    with tarfile.open(runs / "logs.tar.xz", "w:xz") as logs:
+        logs.add(runs / "logs.txt", arcname="logs/logs.txt")
+    (runs / "broken.tar.xz").write_text("not an archive")
+    files = [str(path.relative_to(runs)) for path, _ in read_trace_files(runs, jobs=2)]
+    assert "collected/SRV01/20261022T120000Z-SRV01.tar.xz" in files
+    assert "logs.tar.xz" not in files
+    assert "broken.tar.xz" not in files
+    assert f"auto-traces: ignoring {runs / 'broken.tar.xz'}: not a readable archive" in capsys.readouterr().out
 
 
 def test_list_contexts(runs, capsys):
@@ -110,15 +126,28 @@ def test_output_directory_name():
 
 
 def test_auto_traces_every_context(runs, reference, capsys):
-    """Without context, every context is rendered; the traces without context are not."""
+    """Without context, every context is rendered, then the traces without context together."""
     autos = find_auto_traces(f"{runs}::CPU.package")
     assert [(auto.context, [trace.get_name() for trace in auto.traces]) for auto in autos] == [
         ("bios-v1", ["SRV01"]),
         ("bios-v2", ["SRV01", "SRV02"]),
+        (None, ["SRV03"]),
     ]
-    assert "1 trace(s) without context" in capsys.readouterr().out
+    assert [auto.output_directory_name() for auto in autos] == ["bios-v1", "bios-v2", "no_context"]
+    assert autos[2].description()[0] == f"Traces without context found in {runs}:"
+    assert context_line(autos[2].traces) is None
+
+    # A context named like the directory of the traces without context would render over them
+    run(runs / "hwbench-out-8", reference, "SRV01", "no context")
+    with pytest.raises(SystemExit):
+        find_auto_traces(f"{runs}::CPU.package")
+    assert (
+        "the contexts 'no context', the traces without context are all rendered in the directory no_context"
+        in capsys.readouterr().err
+    )
 
     # Two contexts giving the same subdirectory would render over each other
+    (runs / "hwbench-out-8" / "results.json").unlink()
     run(runs / "hwbench-out-6", reference, "SRV01", "bios v2")
     run(runs / "hwbench-out-7", reference, "SRV01", "bios:v2")
     with pytest.raises(SystemExit):
@@ -149,3 +178,13 @@ def test_context_line(runs):
     first.logical_name, second.logical_name = "before", "after"
     assert context_line([first, second]) == "Contexts: before: bios-v1, after: bios-v2"
     assert context_line(contexts[None]) is None
+
+
+def test_header_without_benchmarks(runs):
+    """The workers send the header of the traces, without their benchmarks, read again when rendered."""
+    headers = dict(read_trace_files(runs, jobs=2))
+    header = headers[runs / "hwbench-SRV01-20261022120000.tar.xz"]
+    assert "bench" not in header
+    assert header["hardware"]["dmi"]["serial"] == "SRV01"
+    [trace] = [trace for trace in list_contexts(runs, jobs=2)["bios-v1"]]
+    assert trace.bench_list()
