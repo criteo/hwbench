@@ -79,3 +79,16 @@ class TestCores(tbc.TestCommon):
         explicit_none = self.get_bench_parameters(offset + 5)
         assert explicit_none.get_pinned_cpu() == [0, 2, 4]
         assert cpu_list_to_range(explicit_none.get_pinned_cpu()) == "0, 2, 4"
+
+
+class TestCoresAdjacentThreads(tbc.TestCommon):
+    """The threads of a physical core are numbered next to each other: core N holds cpus 2N and 2N+1."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.load_mocked_hardware(cpucores="./hwbench/tests/parsing/cpu_cores/wsl")
+
+    def test_cores(self):
+        """core<x> is the x-th physical core, as each-core lists them, not the core of the logical cpu x."""
+        self.load_benches("./hwbench/config/core_types.conf")
+        assert self.get_jobs_config().get_selected_cpus("single_core_range") == list(range(8))

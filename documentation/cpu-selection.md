@@ -780,7 +780,8 @@ a list of lists when it holds several. Everything described in
 [Groups](#groups-the-rule-that-changes-everything) follows from that single behaviour.
 
 **Topology.** The resource keywords are resolved through the `CPU` object:
-`get_peer_siblings()` for `core<x>` — hence both SMT threads —
+`get_cores_by_socket()` for `core<x>`, the x-th physical core in the order of `each-core`
+— hence both SMT threads, however the kernel numbers them —
 `get_logical_cores_in_numa_domain()` for `numa<x>` and `get_cores_in_quadrant()` for
 `quadrant<x>`. A resource that does not exist on the target machine is fatal.
 
