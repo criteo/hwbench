@@ -180,6 +180,18 @@ class TestHelpers_Each(tbc.TestCommon):
                 "Invalid range '1-2-3' in '1-2-3'",
             )
 
+    def test_selected_cpus_not_cpus(self):
+        """A word or an empty item is refused, instead of becoming a benchmark pinned on it."""
+        with tempfile.TemporaryDirectory() as tmp_path:
+            for selected_cpus, message in [
+                ("foo", "keyword selected_cpus: Unhandled string 'foo' in selected cpus"),
+                ("0-1 foo,2", "keyword selected_cpus: Unhandled string 'foo' in selected cpus"),
+                ("0-1,", "Empty item in '0-1,'"),
+                ("0-1  2-3", "Empty item in '0-1  2-3'"),
+                ("numa0,", "Empty item in '0,'"),
+            ]:
+                self.assert_validated_first(tmp_path, "", f"selected_cpus={selected_cpus}", message)
+
 
 class TestHelpers_EachSingleNumaDomain(tbc.TestCommon):
     def __init__(self, *args, **kwargs):

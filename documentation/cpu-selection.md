@@ -385,6 +385,8 @@ it; a misspelled scaling stops the run with
 | `plus_²`, `plus_½` | the increment must be written with the digits `0-9` |
 | `selected_cpus=0-3 7-4` | a reversed range, `7-4`, selects nothing: refused with `Reversed range '7-4' in '0-3 7-4': write the smaller value first, 4-7` |
 | `selected_cpus=1-2-3`, `stressor_range=1-8-2` | not a range, a range is `<first>-<last>`: refused with `Invalid range '1-2-3' in '1-2-3': a range is <first>-<last>` |
+| `selected_cpus=0-1,`, `selected_cpus=0-1  2-3` | an empty item, after the last `,` or between the two spaces, selects nothing: refused with `Empty item in '0-1,': two separators follow each other, or one starts or ends the value` |
+| `selected_cpus=foo` | neither a cpu list nor a keyword: refused with `Job <name>: keyword selected_cpus: Unhandled string 'foo' in selected cpus` |
 | `selected_cpus=simple`, `selected_cpus=numa-simple` | removed helpers: refused with the selection to write instead, see [Removed helpers](configuration.md#removed-helpers) |
 
 The keywords of a job can be written in any order: `selected_cpus` is always checked before
@@ -826,6 +828,6 @@ order; `hwbench/bench/test_cpumap.py` checks the exact output on the mocked 8534
 
 **Validation.** `validate_selected_cpus()` in `hwbench/config/config_syntax.py` works by
 subtraction: it removes the helpers and the resource keywords it knows from the string,
-parses what is left as a range, and reports whatever remains as an unhandled value. A
+and reports whatever remains that is not a cpu list as an unhandled value. A
 keyword added to `get_selected_cpus()` must therefore be added to the validator as well,
 or it will be rejected at startup.

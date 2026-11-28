@@ -145,6 +145,8 @@ def parse_range(input: str) -> list[Any]:
         current_group: list[Any] = []
         # Let's remove the [] if any
         for item in group.split(","):
+            if not item:
+                fatal(f"Empty item in '{input}': two separators follow each other, or one starts or ends the value")
             # syntax: <x>-<y>
             if "-" in item:
                 ranges = item.split("-")
