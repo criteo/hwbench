@@ -170,15 +170,12 @@ class Config:
             return core_list
 
         def get_physical_cores(core):
-            """Return the cores list for a particular physical core"""
-            if int(core) > self.hardware.get_cpu().get_physical_cores_count():
+            """Return the cores list for a particular physical core, numbered as each-core lists them"""
+            cores_by_socket = self.hardware.get_cpu().get_cores_by_socket()
+            physical_cores = [cores for socket_cores in cores_by_socket.values() for cores in socket_cores]
+            if int(core) >= len(physical_cores):
                 h.fatal(f"CPU: Physical core {core} does not exists")
-
-            core_list = self.hardware.get_cpu().get_peer_siblings(int(core))
-
-            if not core_list:
-                h.fatal(f"Unable to find siblings for cpu core {core}")
-            return core_list
+            return physical_cores[int(core)]
 
         sc = self.get_directive(section_name, "selected_cpus")
 
