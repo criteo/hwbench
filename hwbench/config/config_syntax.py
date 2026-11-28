@@ -94,16 +94,15 @@ def validate_selected_cpus(config, section_name, value) -> str:
                     return f"{removed} was removed, use {replacement}"
             # Helpers are removed first, before parsing the resources their names contain
             for helper in [*config_helpers.HELPERS, "all"]:
-                value = value.replace(helper, "", 1)
+                value = value.replace(helper, "")
             resources = re.findall(r"(quadrant|numa|core)([0-9-,]+)", value)
             if resources:
                 for resource in resources:
                     value = value.replace(f"{resource[0]}{resource[1]}", "", 1)
-            range = config.parse_range(value)
-            if range:
-                value = value.lower().replace(value, "", 1)
-            if len(value):
-                return f"Unhandled string '{value}' in selected cpus"
+            # What remains is cpu lists, parsed by get_selected_cpus(), or none alone
+            unhandled = " ".join(re.findall(r"[^0-9,\- ]+", value))
+            if unhandled and value != "none":
+                return f"Unhandled string '{unhandled}' in selected cpus"
     else:
         return f"Unhandled {value} in selected cpus"
     return ""
